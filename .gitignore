@@ -1,0 +1,39 @@
+# .NET
+src/backend/Host/bin/
+src/backend/Host/obj/
+src/backend/**/*.user
+src/backend/**/*.suo
+src/backend/.vs/
+
+# Node
+src/frontend/node_modules/
+src/frontend/.next/
+src/frontend/.out/
+src/frontend/build/
+src/frontend/dist/
+src/frontend/*.log
+src/frontend/.env*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Secrets (NEVER commit!)
+.env
+*.env
+appsettings.Development.json
+appsettings.Local.json
+appsettings.Production.json
+
+# Logs
+*.log
+logs/
+
+# Test results
+TestResults/
+coverage/
+*.trx

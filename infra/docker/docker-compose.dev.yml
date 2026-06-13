@@ -1,0 +1,80 @@
+version: '3.9'
+
+services:
+  # PostgreSQL - Main OLTP database
+  postgres:
+    image: postgres:16-alpine
+    container_name: erp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp_user
+      POSTGRES_PASSWORD: erp_password
+      POSTGRES_DB: erp_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp_user -d erp_system"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # MartenDB - Event Store (uses separate Postgres database)
+  # In MVP, we share the same Postgres instance with different schema
+  # In production, this can be split
+
+  # Redis - Caching and message queue
+  redis:
+    image: redis:7-alpine
+    container_name: erp-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend API
+  api:
+    build:
+      context: ../../src/backend
+      dockerfile: Dockerfile
+    container_name: erp-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: "Host=postgres;Database=erp_system;Username=erp_user;Password=erp_password"
+      ConnectionStrings__Redis: "redis:6379"
+      Marten__ConnectionString: "Host=postgres;Database=erp_events;Username=erp_user;Password=erp_password"
+    ports:
+      - "5000:5000"
+      - "5001:5001"
+
+  # Frontend (Next.js dev server)
+  frontend:
+    image: node:20-alpine
+    container_name: erp-frontend
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../../src/frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:
+  redis_data:
