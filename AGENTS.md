@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 0 — Foundation + Identity (يونيو 2026)
+> محدّث: Phase 1 — Finance Core (يونيو 2026)
 
 ---
 
@@ -145,9 +145,9 @@ test(auth): add JwtTokenService tests
 
 | Phase | المحتوى | الحالة |
 |-------|---------|--------|
-| Phase 0 | Foundation + Identity | ✅ جارٍ (هذا الـ PR) |
-| Phase 1 | Finance Core (CoA, Journal, GL) | 📋 قادم |
-| Phase 2 | Projects + Inventory | 📋 |
+| Phase 0 | Foundation + Identity | ✅ مكتمل (PR #1) |
+| Phase 1 | Finance Core (CoA, Journal, GL, Rules Engine) | ✅ جارٍ (هذا الـ PR) |
+| Phase 2 | Projects + Inventory | 📋 قادم |
 | Phase 3 | Polish + Deploy | 📋 |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
