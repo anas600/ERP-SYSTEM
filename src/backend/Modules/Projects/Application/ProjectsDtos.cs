@@ -1,5 +1,6 @@
 using System;
 using ERPSystem.Modules.Projects.Entities;
+using TaskStatus = ERPSystem.Modules.Projects.Entities.TaskStatus;
 
 namespace ERPSystem.Modules.Projects.Application;
 
