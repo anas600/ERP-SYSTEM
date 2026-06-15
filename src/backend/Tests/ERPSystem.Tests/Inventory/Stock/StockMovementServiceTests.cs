@@ -3,6 +3,8 @@ using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
 using ERPSystem.Modules.Notifications.Application.Services;
+using ERPSystem.Shared.Events;
+using ERPSystem.Shared.Events.Application.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -23,7 +25,7 @@ public class StockMovementServiceTests
 
         public Fixture()
         {
-            Svc = new StockMovementService(Movements, Levels, Items, Reservations, Notifications, NullLogger<StockMovementService>.Instance);
+            Svc = new StockMovementService(Movements, Levels, Items, Reservations, Notifications, new FakeEventBus(), NullLogger<StockMovementService>.Instance);
         }
 
         public Item AddItem(string sku = "TEST", decimal reorder = 0, decimal reorderQty = 0)
@@ -367,4 +369,16 @@ internal class FakeNotificationService : INotificationService
         Task.FromResult<IReadOnlyList<ERPSystem.Modules.Notifications.Entities.Notification>>(Created);
     public Task<int> CountUnreadAsync(Guid tenantId, Guid userId, CancellationToken ct) => Task.FromResult(Created.Count(n => !n.IsRead));
     public Task MarkReadAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct) { return Task.CompletedTask; }
+}
+
+internal class FakeEventBus : IEventBus
+{
+    public List<StockReceivedEvent> Received { get; } = new();
+    public List<StockIssuedEvent> Issued { get; } = new();
+    public Task PublishAsync<T>(T @event, CancellationToken ct = default) where T : IIntegrationEvent
+    {
+        if (@event is StockReceivedEvent r) Received.Add(r);
+        else if (@event is StockIssuedEvent i) Issued.Add(i);
+        return Task.CompletedTask;
+    }
 }

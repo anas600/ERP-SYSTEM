@@ -18,6 +18,10 @@ using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Infrastructure;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
+using ERPSystem.Modules.Finance.Application.EventHandlers;
+using ERPSystem.Shared.Events;
+using ERPSystem.Shared.Events.Application.Services;
+using ERPSystem.Shared.Events.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
 using ERPSystem.Shared.MultiTenancy;
@@ -71,6 +75,8 @@ builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 builder.Services.AddScoped<IStockLevelRepository, StockLevelRepository>();
 builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
 // ============ Multi-tenancy ============
 builder.Services.AddScoped<ITenantContext, TenantContext>();
@@ -95,6 +101,9 @@ builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IStockLevelService, StockLevelService>();
 builder.Services.AddScoped<IStockReservationService, StockReservationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddSingleton<IEventBus, EventBus>();
+builder.Services.AddScoped<IIntegrationEventHandler<StockReceivedEvent>, StockReceivedEventHandler>();
+builder.Services.AddScoped<IIntegrationEventHandler<StockIssuedEvent>, StockIssuedEventHandler>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>();
@@ -113,6 +122,7 @@ builder.Services.AddFluentMigratorCore()
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
+builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)

@@ -3,74 +3,31 @@ using System;
 namespace ERPSystem.Shared.Events;
 
 /// <summary>
-/// Integration event contracts for cross-module communication
+/// Base contract for integration events published via IEventBus.
+/// - EventId: idempotency key (consumer dedupes via processed_events)
+/// - TenantId: routes event to the right tenant's data
+/// - OccurredAt: for ordering / audit
 /// </summary>
 public interface IIntegrationEvent
 {
+    Guid EventId { get; }
     Guid TenantId { get; }
     DateTime OccurredAt { get; }
 }
 
-/// <summary>
-/// Published by Inventory when stock is received
-/// Consumed by Finance to create Journal Entry (DR Inventory Asset, CR A/P)
-/// </summary>
+/// <summary>Stock received (purchase, adjustment +, return) — Finance should Dr Inventory / Cr A/P</summary>
 public record StockReceivedEvent(
-    Guid TenantId,
-    Guid StockMovementId,
-    Guid ItemId,
-    Guid WarehouseId,
-    decimal Quantity,
-    decimal UnitCost,
-    string PurchaseOrderRef
-) : IIntegrationEvent
-{
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-}
+    Guid EventId, Guid TenantId, Guid StockMovementId,
+    Guid ItemId, Guid WarehouseId, decimal Quantity, decimal UnitCost,
+    string? PurchaseOrderRef, DateTime OccurredAt) : IIntegrationEvent;
 
-/// <summary>
-/// Published by Inventory when stock is issued (consumed or sold)
-/// Consumed by Finance to post cost of goods
-/// </summary>
+/// <summary>Stock issued (sale, project, issue) — Finance should Dr COGS / Cr Inventory</summary>
 public record StockIssuedEvent(
-    Guid TenantId,
-    Guid StockMovementId,
-    Guid ItemId,
-    Guid WarehouseId,
-    decimal Quantity,
-    string ReferenceType,
-    Guid? ReferenceId,
-    DateTime IssuedAt
-) : IIntegrationEvent
-{
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-}
+    Guid EventId, Guid TenantId, Guid StockMovementId,
+    Guid ItemId, Guid WarehouseId, decimal Quantity,
+    string? ReferenceType, Guid? ReferenceId, DateTime OccurredAt) : IIntegrationEvent;
 
-/// <summary>
-/// Published by Finance when a Journal Entry is posted
-/// Consumed by other modules to update balances
-/// </summary>
+/// <summary>Journal entry posted — for future cross-module notifications (PR #8 Reports)</summary>
 public record JournalEntryPostedEvent(
-    Guid TenantId,
-    Guid JournalEntryId,
-    string Reference,
-    DateTime PostedAt
-) : IIntegrationEvent
-{
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-}
-
-/// <summary>
-/// Published by Projects when materials are requested
-/// Consumed by Inventory to reserve stock
-/// </summary>
-public record ProjectMaterialRequestedEvent(
-    Guid TenantId,
-    Guid ProjectId,
-    Guid ItemId,
-    decimal Quantity,
-    DateTime NeededBy
-) : IIntegrationEvent
-{
-    public DateTime OccurredAt { get; init; } = DateTime.UtcNow;
-}
+    Guid EventId, Guid TenantId, Guid JournalEntryId,
+    string Reference, DateTime OccurredAt) : IIntegrationEvent;
