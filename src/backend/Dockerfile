@@ -1,15 +1,19 @@
 # ERP-SYSTEM Backend Dockerfile
-# Multi-stage build: SDK للمرحلة الأولى، Runtime للمرحلة الثانية
+# Multi-stage build: SDK → Runtime
+# Modular Monolith: Host csproj يستخدم ../Modules و ../Shared
 
 FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
-# استعادة الـ dependencies (cache layer عند تغيير الـ csproj فقط)
+# استعادة الـ dependencies أولاً (cache layer)
+# ننسخ كل الـ csproj حتى لو تغيرت، restore يعتمد على csproj فقط
 COPY Host/ERP-SYSTEM.csproj Host/
+COPY Modules/ Modules/
+COPY Shared/ Shared/
 RUN dotnet restore Host/ERP-SYSTEM.csproj
 
-# نسخ باقي الكود وبناء
-COPY Host/ Host/
+# بناء + publish
+COPY . .
 RUN dotnet publish Host/ERP-SYSTEM.csproj \
     -c Release \
     -o /app/publish \
@@ -19,7 +23,7 @@ RUN dotnet publish Host/ERP-SYSTEM.csproj \
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
 WORKDIR /app
 
-# إنشاء مستخدم non-root لتشغيل التطبيق
+# إنشاء مستخدم non-root
 RUN groupadd --system --gid 1001 erp && \
     useradd --system --uid 1001 --gid erp --shell /sbin/nologin erpsvc
 
