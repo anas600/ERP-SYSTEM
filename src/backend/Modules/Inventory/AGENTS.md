@@ -1,6 +1,6 @@
 # 📦 src/backend/Modules/Inventory/AGENTS.md
 
-> Inventory Module — ✅ Phase 2.2 (مكتمل)
+> Inventory Module — ✅ Phase 2.2 + 2.3 (Core + Stock Movements + Notifications)
 
 ## شو فيه
 
@@ -8,85 +8,116 @@
 Inventory/
 ├── Entities/
 │   ├── Item.cs              # Item + ItemType + CostingMethod
-│   ├── Warehouse.cs         # Warehouse (multi-company)
-│   ├── UnitOfMeasure.cs     # UoM
-│   └── ItemCategory.cs      # Category (hierarchy)
+│   ├── Warehouse.cs
+│   ├── UnitOfMeasure.cs
+│   ├── ItemCategory.cs
+│   ├── StockMovement.cs     # Aggregate Root (Draft → Posted → Reversed)
+│   ├── StockLevel.cs        # CQRS Read Model (denormalized)
+│   └── StockReservation.cs  # holds for projects/orders
 ├── Application/
-│   ├── InventoryDtos.cs     # كل DTOs
+│   ├── InventoryDtos.cs            # Items, Warehouses, UoM, Category
+│   ├── StockMovementDtos.cs        # Receive, Issue, Transfer, Adjust, Reservations
 │   ├── Validators.cs
+│   ├── StockMovementValidators.cs
 │   └── Services/
-│       ├── InventoryServices.cs       # 4 services (Item, Warehouse, UoM, Category)
-│       └── InventoryBootstrapper.cs   # seeds UoMs + Categories on tenant create
+│       ├── InventoryServices.cs             # Item, Warehouse, UoM, Category
+│       ├── StockMovementService.cs          # CQRS-lite: PostAsync updates stock_levels
+│       ├── SupportingStockServices.cs       # Level, Reservation
+│       └── InventoryBootstrapper.cs         # seeds on tenant create
 └── Infrastructure/
     ├── IRepositories.cs
     ├── ItemRepository.cs
     ├── WarehouseRepository.cs
     ├── UnitOfMeasureRepository.cs
-    └── ItemCategoryRepository.cs
+    ├── ItemCategoryRepository.cs
+    ├── IRepositories2.cs
+    ├── StockMovementRepository.cs
+    ├── StockLevelRepository.cs          # UPSERT + optimistic version
+    └── StockReservationRepository.cs
+
+../Notifications/   (new module)
+├── Entities/Notification.cs
+├── Infrastructure/NotificationRepository.cs
+└── Application/Services/NotificationService.cs
 ```
 
-## Domain Model
+## CQRS-lite Pattern (Phase 2.3)
 
-### Item
-- **SKU** unique per tenant
-- **ItemType**: RawMaterial, FinishedGood, Consumable, Service
-- **CostingMethod** (default Average): FIFO, LIFO, Average, Standard
-  - Average = moving weighted average (يُحدّث في PR #6 Stock Movements)
-- **AverageCost + StandardCost**: الأول يُحدّث تلقائياً، الثاني manual
-- **3 account FKs**: Inventory (1300), COGS (5100), Sales (4100)
-  - **تستخدم في PR #6/7** لإنشاء Journal Entry عند stock movement
-- **ReorderLevel + ReorderQuantity** (0 = disabled) — يُستخدم في PR #6 لإنشاء LowStock notifications
+### Write Side (StockMovement)
+1. **Insert as Draft** (`CreateReceive/Issue/Transfer/Adjust`)
+2. **PostAsync** (single transaction):
+   - Status: Draft → Posted
+   - ApplyToStockLevel (UPSERT with weighted moving average)
+   - For Transfer: 2 levels (source -, dest +)
+   - **LowStock check**: if `item.ReorderLevel > 0 AND level.QuantityAvailable < ReorderLevel` → create Notification
 
-### Warehouse
-- Multi-company (company_id)
-- Manager (optional user FK)
-- Soft delete via IsActive
+### Moving Weighted Average (Receive)
+```
+newAvg = (oldQty * oldAvg + qty * unitCost) / newQty
+```
 
-### UnitOfMeasure
-- 6 seeded: pcs, kg, m, m², m³, liter
-- Code: alphanum + ²³ (e.g., "m2" with symbol "m²")
+### Reverse
+- Creates opposite Posted movement with `ReversedByMovementId` link
+- Marks original as Reversed (audit trail preserved)
 
-### ItemCategory
-- Self-referencing hierarchy (parent_id)
-- 5 seeded: RM, FG, CON, SVC, OFF (all root-level, ready for sub-categories)
+### Read Side (StockLevel)
+- Denormalized on Post (synchronous, single-transaction)
+- Future: async projection via MartenDB
 
-## Default Seed
-يُستدعى من `CompanyService.OnTenantCreatedAsync`:
-- 6 UoMs (pcs, kg, m, m², m³, liter)
-- 5 Categories (RM, FG, CON, SVC, OFF)
-- Idempotent (checks if 'pcs' / 'RM' already exist)
+## Stock Movement Types
+| Type | Direction | Effect on stock |
+|------|-----------|-----------------|
+| Receive | + | OnHand += qty, AvgCost weighted |
+| Issue | - | OnHand -= qty |
+| Transfer | - (out) + (in) | 2 levels updated atomically |
+| Adjust | +/- | Manual correction |
+| Return | + | Customer return |
 
-## Endpoints (12)
+## Notifications (In-App)
+- جدول `notifications` (لا email، لا push)
+- Types: `"LowStock"` (الوحيد حالياً)
+- Endpoints: `GET /api/inventory/notifications` و `/unread` و `POST .../mark-read`
 
-| Method | Path | الغرض |
-|--------|------|-------|
-| GET/POST/PUT/DELETE | /api/inventory/items | CRUD |
-| GET/POST/PUT/DELETE | /api/inventory/warehouses | CRUD |
-| GET/POST | /api/inventory/uom | List + Create (Read-mostly) |
-| GET/POST/PUT | /api/inventory/categories | CRUD + hierarchy children |
+## Endpoints (15)
+
+| Method | Path | الـ Function |
+|--------|------|-------------|
+| GET/POST `/receive`/`/issue`/`/transfer`/`/adjust` | /api/inventory/movements | CRUD + draft |
+| GET `/{id}` | | detail |
+| POST `/{id}/post` | | Draft → Posted (CQRS) |
+| POST `/{id}/reverse` | | عكس |
+| GET | /api/inventory/levels/items/{itemId} | per-item |
+| GET | /api/inventory/levels/warehouses/{warehouseId} | per-warehouse |
+| GET | /api/inventory/levels/low-stock | low stock (joins items) |
+| GET/POST/DELETE | /api/inventory/reservations | holds |
+| GET | /api/inventory/notifications | user notifications |
+| GET | /api/inventory/notifications/unread | unread with count |
+| POST `/{id}/mark-read` | | mark as read |
 
 ## لما تشتغل هنا
 
-- إضافة cost method: عدّل `CostingMethod` enum + default behavior في `ItemService.CreateAsync`
-- إضافة UoM default: عدّل `DefaultInventorySeed.DefaultUoMs` (الـ bootstrap تلقائي)
-- ربط Item بـ Project: في PR #2.3 Stock Movements — `StockMovement.ProjectId` و `Material Requested` flow
+- إضافة event لـ Posting: في `PostAsync` أضف handler يستدعي `INotificationService.CreateAsync`
+- إضافة event integration: في PR #7 (Event Bus) — يستدعي Finance PostingRulesService
+- تخصيص threshold: غيّر `item.ReorderLevel` و `item.ReorderQuantity` (PR #8 Reports للـ analytics)
 
 ## بعد التعديل
 
-- شغّل `dotnet test` (16 tests جديد)
-- إذا غيّرت الـ seed: تأكد من `InventoryBootstrapper` idempotent
-- إذا أضفت field للـ Item: migration جديدة + entity + DTO + repo
+- شغّل `dotnet test` (13 tests جديد + 71 سابق = 84/84)
+- إذا أضفت type جديد: عدّل `StockMovementType` enum + `ApplyToStockLevel` logic
+- إذا غيّرت الـ low stock trigger: عدّل `StockMovementService.PostAsync` + tests
 
 ## تكامل مع الموديولات الأخرى
 
-- **Finance** (Phase 1): Item → accounts (1300/5100/4100) — يُستخدم في Journal Entry على stock receipt/issue
-- **Projects** (Phase 2.1): StockMovement.ProjectId — ربط المخزون بمشروع
-- **Notifications** (Phase 2.3 PR #6): Reorder alerts عبر جدول `notifications`
+- **Finance** (Phase 1): PR #7 — StockMovement.PostAsync سيُنشئ Journal Entry
+  (Inventory +/COGS - for Issue) عبر PostingRules
+- **Projects** (Phase 2.1): `StockMovement.ProjectId` — ربط المخزون بمشروع
+- **Reports** (Phase 2.5): Stock Valuation، Low Stock Reports، Movement History
 
 ## مرتبطة بـ
 
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../Identity/AGENTS.md`](../Identity/AGENTS.md)
-- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — account FKs
-- [`../Companies/AGENTS.md`](../Companies/AGENTS.md) — multi-company + tenant bootstrap
-- [`../Projects/AGENTS.md`](../Projects/AGENTS.md) — project context
+- [`../Finance/AGENTS.md`](../Finance/AGENTS.md)
+- [`../Companies/AGENTS.md`](../Companies/AGENTS.md)
+- [`../Projects/AGENTS.md`](../Projects/AGENTS.md)
+- [`../Notifications/AGENTS.md`](../Notifications/AGENTS.md)
