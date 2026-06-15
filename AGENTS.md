@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 1 — Finance Core (يونيو 2026)
+> محدّث: Phase 2.5 — Reports (يونيو 2026)
 
 ---
 
@@ -53,8 +53,9 @@
 | [`src/backend/Host/AGENTS.md`](src/backend/Host/AGENTS.md) | نقطة الدخول + Controllers + Swagger |
 | [`src/backend/Modules/Identity/AGENTS.md`](src/backend/Modules/Identity/AGENTS.md) | Identity Module (Users, Roles, Tenants) |
 | [`src/backend/Modules/Finance/AGENTS.md`](src/backend/Modules/Finance/AGENTS.md) | Finance Module (Phase 1) |
-| [`src/backend/Modules/Projects/AGENTS.md`](src/backend/Modules/Projects/AGENTS.md) | Projects Module (Phase 2) |
-| [`src/backend/Modules/Inventory/AGENTS.md`](src/backend/Modules/Inventory/AGENTS.md) | Inventory Module (Phase 2) |
+| [`src/backend/Modules/Projects/AGENTS.md`](src/backend/Modules/Projects/AGENTS.md) | Projects Module (Phase 2.1) |
+| [`src/backend/Modules/Inventory/AGENTS.md`](src/backend/Modules/Inventory/AGENTS.md) | Inventory Module (Phase 2.2-2.3) |
+| [`src/backend/Modules/Reports/AGENTS.md`](src/backend/Modules/Reports/AGENTS.md) | Reports Module (Phase 2.5) |
 | [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (Tenant, Migrations, Events) |
 | [`src/backend/Tests/AGENTS.md`](src/backend/Tests/AGENTS.md) | xUnit test projects |
 | [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend |
@@ -99,7 +100,7 @@
 ### Branch Strategy
 
 - `main` — فرع الإنتاج، كل push يخضع لـ PR + review
-- `develop` — فرع التطوير النشط (مستقبلي)
+- `develop` — فرع التطوير النشط (Integration branch) — كل الـ features تندمج فيه أولاً، ثم PR من `develop` → `main`
 - `feature/<phase>-<scope>` — لكل feature
 - `fix/<issue>` — لإصلاحات بسيطة
 - `chore/<task>` — للصيانة (تحديث deps، توثيق)
@@ -146,9 +147,14 @@ test(auth): add JwtTokenService tests
 | Phase | المحتوى | الحالة |
 |-------|---------|--------|
 | Phase 0 | Foundation + Identity | ✅ مكتمل (PR #1) |
-| Phase 1 | Finance Core (CoA, Journal, GL, Rules Engine) | ✅ جارٍ (هذا الـ PR) |
-| Phase 2 | Projects + Inventory | 📋 قادم |
-| Phase 3 | Polish + Deploy | 📋 |
+| Phase 1 | Finance Core (CoA, Journal, GL, Rules Engine) | ✅ مكتمل (PR #2) |
+| Phase 1.5 | Multi-Company Foundation (Companies, CostCenters) | ✅ مكتمل (PR #3) |
+| Phase 2.1 | Projects Module (Project, Task, Resource, Budget) | ✅ مكتمل (PR #4) |
+| Phase 2.2-2.3 | Inventory Core + Stock Movements | ✅ مكتمل (PR #5, #6) |
+| Phase 2.4 | Event Bus + Integration (Outbox pattern) | ✅ مكتمل (PR #7) |
+| Phase 2.5 | Reports + Polish (12 endpoints + 2 events) | ✅ مكتمل (PR #8) |
+| Phase 2.5+ | Reports tests + AGENTS.md | 📋 قادم (PR #9) |
+| Phase 3 | Polish + VPS Deploy | 📋 |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
