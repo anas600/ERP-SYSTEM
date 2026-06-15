@@ -1,50 +1,122 @@
-# GitHub Actions CI/CD
 name: CI
 
 on:
   push:
     branches: [ main, develop ]
+    tags: [ 'v*' ]
   pull_request:
     branches: [ main, develop ]
 
+# نمنع تشغيل pipelines قديمة على نفس الـ PR عند push جديد
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20'
+
 jobs:
-  backend-build:
-    name: Backend Build & Test
+  # ===================================================================
+  # Backend: restore → build → test → publish artifact
+  # ===================================================================
+  backend:
+    name: Backend (.NET ${{ env.DOTNET_VERSION }})
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_pw
+          POSTGRES_DB: erp_test_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d erp_test_system"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
+      ConnectionStrings__Redis: "localhost:6379"
+      Marten__ConnectionString: "Host=localhost;Port=5432;Database=erp_test_events;Username=erp_test;Password=erp_test_pw"
+      JwtSettings__Secret: "CI_TEST_SECRET_REPLACE_NEVER_USE_IN_PROD_32CHARS_xxxxxxxxxxxx"
+      Database__AutoMigrate: "true"
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup .NET
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: ${{ env.DOTNET_VERSION }}
 
-      - name: Restore dependencies
-        run: dotnet restore
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore
+        run: dotnet restore Host/ERP-SYSTEM.csproj
+
+      - name: Restore (Tests)
+        run: dotnet restore Tests/ERPSystem.Tests/ERPSystem.Tests.csproj
 
       - name: Build
-        run: dotnet build --no-restore --configuration Release
+        run: dotnet build Host/ERP-SYSTEM.csproj --no-restore --configuration Release
 
-      - name: Test
-        run: dotnet test --no-build --configuration Release --verbosity normal
-        # Will be enabled in Phase 3
+      - name: Build (Tests)
+        run: dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj --no-restore --configuration Release
 
-  frontend-build:
-    name: Frontend Build & Lint
+      - name: Run tests with coverage
+        run: |
+          dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
+            --no-build --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-backend
+          path: '**/TestResults/**/*.trx'
+
+  # ===================================================================
+  # Frontend: install → type-check → lint → build
+  # ===================================================================
+  frontend:
+    name: Frontend (Node ${{ env.NODE_VERSION }})
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: src/frontend
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Setup Node
+      - name: Setup Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
@@ -57,3 +129,26 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  # ===================================================================
+  # Docker: validate compose syntax + build api image
+  # ===================================================================
+  docker:
+    name: Docker Build (api)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build API image
+        uses: docker/build-push-action@v6
+        with:
+          context: src/backend
+          file: src/backend/Dockerfile
+          push: false
+          tags: erp-system/api:ci-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

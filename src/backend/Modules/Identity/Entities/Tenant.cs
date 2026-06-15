@@ -3,8 +3,8 @@ using System;
 namespace ERPSystem.Modules.Identity.Entities;
 
 /// <summary>
-/// Tenant entity - represents an isolated organization in multi-tenant system
-/// Phase 0: Foundation
+/// Tenant entity - represents an isolated organization in a multi-tenant system
+/// Phase 0: Foundation + Identity Module
 /// </summary>
 public class Tenant
 {

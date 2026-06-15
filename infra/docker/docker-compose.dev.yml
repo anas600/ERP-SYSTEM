@@ -1,7 +1,7 @@
 version: '3.9'
 
 services:
-  # PostgreSQL - Main OLTP database
+  # PostgreSQL - قاعدة OLTP الرئيسية
   postgres:
     image: postgres:16-alpine
     container_name: erp-postgres
@@ -9,7 +9,8 @@ services:
     environment:
       POSTGRES_USER: erp_user
       POSTGRES_PASSWORD: erp_password
-      POSTGRES_DB: erp_system
+      # إنشاء قاعدتي البيانات: OLTP + EventStore
+      POSTGRES_MULTIPLE_DATABASES: "erp_system:erp_events"
     ports:
       - "5432:5432"
     volumes:
@@ -21,11 +22,7 @@ services:
       timeout: 5s
       retries: 5
 
-  # MartenDB - Event Store (uses separate Postgres database)
-  # In MVP, we share the same Postgres instance with different schema
-  # In production, this can be split
-
-  # Redis - Caching and message queue
+  # Redis - Cache و Session Storage
   redis:
     image: redis:7-alpine
     container_name: erp-redis
@@ -54,12 +51,21 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__Postgres: "Host=postgres;Database=erp_system;Username=erp_user;Password=erp_password"
+      ASPNETCORE_URLS: "http://+:5000"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=erp_system;Username=erp_user;Password=erp_password;Include Error Detail=true"
       ConnectionStrings__Redis: "redis:6379"
-      Marten__ConnectionString: "Host=postgres;Database=erp_events;Username=erp_user;Password=erp_password"
+      Marten__ConnectionString: "Host=postgres;Port=5432;Database=erp_events;Username=erp_user;Password=erp_password;Include Error Detail=true"
+      # ⚠️ يُستبدل في الإنتاج عبر secrets (لا تُحفظ في git)
+      JwtSettings__Secret: "DEV_ONLY_REPLACE_IN_PRODUCTION_WITH_64_CHAR_RANDOM_SECRET_xxxxxxxx"
+      Database__AutoMigrate: "true"
     ports:
       - "5000:5000"
-      - "5001:5001"
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # Frontend (Next.js dev server)
   frontend:
@@ -69,6 +75,7 @@ services:
     working_dir: /app
     volumes:
       - ../../src/frontend:/app
+      - frontend_node_modules:/app/node_modules
     ports:
       - "3000:3000"
     command: sh -c "npm install && npm run dev"
@@ -78,3 +85,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  frontend_node_modules:

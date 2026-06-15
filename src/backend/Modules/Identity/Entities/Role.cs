@@ -5,7 +5,7 @@ namespace ERPSystem.Modules.Identity.Entities;
 
 /// <summary>
 /// Role entity - represents a role that can be assigned to users
-/// Phase 0: Foundation
+/// Phase 0: Foundation + Identity Module
 /// </summary>
 public class Role
 {
@@ -16,9 +16,13 @@ public class Role
     public DateTime CreatedAt { get; set; }
 
     // Navigation
+    public Tenant? Tenant { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }
 
+/// <summary>
+/// Join table for User-Role many-to-many relationship
+/// </summary>
 public class UserRole
 {
     public Guid UserId { get; set; }
