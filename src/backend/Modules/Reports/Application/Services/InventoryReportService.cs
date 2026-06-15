@@ -81,8 +81,7 @@ public sealed class InventoryReportService : IInventoryReportService
             ItemId = r.ItemId, ItemSku = r.ItemSku, ItemName = r.ItemName,
             WarehouseId = r.WarehouseId, WarehouseName = r.WarehouseName,
             QuantityOnHand = r.QuantityOnHand, QuantityReserved = r.QuantityReserved,
-            ReorderLevel = r.ReorderLevel, ReorderQuantity = r.ReorderQuantity,
-            Status = r.QuantityOnHand == 0 ? "Critical" : (r.QuantityOnHand < r.ReorderLevel / 2 ? "Warning" : "Low")
+            ReorderLevel = r.ReorderLevel, ReorderQuantity = r.ReorderQuantity
         }).ToList();
     }
 
@@ -105,14 +104,7 @@ public sealed class InventoryReportService : IInventoryReportService
         {
             ItemId = r.ItemId, Sku = r.Sku, Name = r.Name, WarehouseId = r.WarehouseId,
             QuantityOnHand = r.QuantityOnHand, LastMovementAt = r.LastMovementAt,
-            DaysInStock = r.DaysInStock,
-            AgeBucket = r.DaysInStock switch
-            {
-                <= 30 => "0-30",
-                <= 60 => "31-60",
-                <= 90 => "61-90",
-                _ => "90+"
-            }
+            DaysInStock = r.DaysInStock
         }).ToList();
     }
 

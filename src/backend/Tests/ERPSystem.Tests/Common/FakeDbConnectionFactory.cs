@@ -68,6 +68,7 @@ internal sealed class FakeDbConnection : DbConnection
 internal sealed class FakeDbCommand : DbCommand
 {
     private readonly DataSet _ds;
+    private readonly FakeDbParameterCollection _parameters = new();
     public FakeDbCommand(DataSet ds) => _ds = ds;
     public override string CommandText { get; set; } = string.Empty;
     public override int CommandTimeout { get; set; } = 30;
@@ -75,15 +76,53 @@ internal sealed class FakeDbCommand : DbCommand
     public override bool DesignTimeVisible { get; set; }
     public override UpdateRowSource UpdatedRowSource { get; set; }
     protected override DbConnection? DbConnection { get; set; }
-    protected override DbParameterCollection DbParameterCollection => throw new NotSupportedException();
+    protected override DbParameterCollection DbParameterCollection => _parameters;
     protected override DbTransaction? DbTransaction { get; set; }
     public override void Cancel() { }
     public override void Prepare() { }
-    protected override DbParameter CreateDbParameter() => throw new NotSupportedException();
+    protected override DbParameter CreateDbParameter() => new FakeDbParameter();
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
         new FakeDbDataReader(_ds, CommandText);
     public override int ExecuteNonQuery() => 0;
     public override object? ExecuteScalar() => null;
+}
+
+internal sealed class FakeDbParameter : DbParameter
+{
+    public override string ParameterName { get; set; } = string.Empty;
+    public override object? Value { get; set; }
+    public override DbType DbType { get; set; }
+    public override ParameterDirection Direction { get; set; } = ParameterDirection.Input;
+    public override bool IsNullable { get; set; }
+    public override int Size { get; set; }
+    public override string SourceColumn { get; set; } = string.Empty;
+    public override bool SourceColumnNullMapping { get; set; }
+    public override DataRowVersion SourceVersion { get; set; } = DataRowVersion.Current;
+    public override void ResetDbType() { }
+}
+
+internal sealed class FakeDbParameterCollection : DbParameterCollection
+{
+    private readonly List<DbParameter> _params = new();
+    public override int Add(object value) { _params.Add((DbParameter)value); return _params.Count - 1; }
+    public override void AddRange(Array values) { foreach (var v in values) _params.Add((DbParameter)v); }
+    public override void Clear() => _params.Clear();
+    public override bool Contains(object value) => _params.Contains((DbParameter)value);
+    public override int IndexOf(object value) => _params.IndexOf((DbParameter)value);
+    public override void Insert(int index, object value) => _params.Insert(index, (DbParameter)value);
+    public override void Remove(object value) => _params.Remove((DbParameter)value);
+    public override void RemoveAt(int index) => _params.RemoveAt(index);
+    public override void RemoveAt(string parameterName) { var i = IndexOf(parameterName); if (i >= 0) _params.RemoveAt(i); }
+    protected override DbParameter GetParameter(int index) => _params[index];
+    protected override DbParameter GetParameter(string parameterName) => _params[IndexOf(parameterName)];
+    protected override void SetParameter(int index, DbParameter value) => _params[index] = value;
+    protected override void SetParameter(string parameterName, DbParameter value) => _params[IndexOf(parameterName)] = value;
+    public override int Count => _params.Count;
+    public override object SyncRoot => _params;
+    public override int IndexOf(string parameterName) => _params.FindIndex(p => p.ParameterName == parameterName);
+    public override bool Contains(string parameterName) => IndexOf(parameterName) >= 0;
+    public override void CopyTo(Array array, int index) { for (int i = index; i < array.Length && i - index < _params.Count; i++) array.SetValue(_params[i - index], i); }
+    public override System.Collections.IEnumerator GetEnumerator() => _params.GetEnumerator();
 }
 
 internal sealed class FakeDbDataReader : DbDataReader
