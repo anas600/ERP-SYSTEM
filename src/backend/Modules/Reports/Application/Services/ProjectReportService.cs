@@ -40,7 +40,7 @@ public sealed class ProjectReportService : IProjectReportService
         // joined to journal_entries (status=Posted, date range, tenant)
         // joined to accounts (code in 4xxx=revenue, 5xxx=expense)
         // joined to project via cost_center_id on journal_line == project.cost_center_id
-        const string sql = @"
+        var sql = @"
             SELECT a.code AS AccountCode, a.type AS AccountType,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit

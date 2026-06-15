@@ -60,7 +60,7 @@ public sealed class InventoryReportService : IInventoryReportService
     public async Task<List<LowStockItem>> GetLowStockAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT i.id AS ItemId, i.sku AS ItemSku, i.name AS ItemName,
                    sl.warehouse_id AS WarehouseId, w.name AS WarehouseName,
                    sl.quantity_on_hand AS QuantityOnHand, sl.quantity_reserved AS QuantityReserved,
@@ -89,7 +89,7 @@ public sealed class InventoryReportService : IInventoryReportService
     public async Task<List<StockAging>> GetStockAgingAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT i.id AS ItemId, i.sku AS Sku, i.name AS Name,
                    sl.warehouse_id AS WarehouseId, sl.quantity_on_hand AS QuantityOnHand,
                    sl.last_movement_at AS LastMovementAt,
