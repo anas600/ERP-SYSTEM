@@ -108,6 +108,20 @@ public sealed class OutboxProcessorHostedService : BackgroundService
                 var h2 = sp.GetService<IIntegrationEventHandler<StockIssuedEvent>>();
                 if (h2 != null) await h2.HandleAsync(issued, ct);
                 break;
+            case nameof(StockTransferredEvent):
+                var transferred = JsonSerializer.Deserialize<StockTransferredEvent>(evt.Payload,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (transferred == null) throw new InvalidOperationException("Failed to deserialize StockTransferredEvent");
+                var ht = sp.GetService<IIntegrationEventHandler<StockTransferredEvent>>();
+                if (ht != null) await ht.HandleAsync(transferred, ct);
+                break;
+            case nameof(StockAdjustedEvent):
+                var adjusted = JsonSerializer.Deserialize<StockAdjustedEvent>(evt.Payload,
+                    new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                if (adjusted == null) throw new InvalidOperationException("Failed to deserialize StockAdjustedEvent");
+                var ha = sp.GetService<IIntegrationEventHandler<StockAdjustedEvent>>();
+                if (ha != null) await ha.HandleAsync(adjusted, ct);
+                break;
             case nameof(JournalEntryPostedEvent):
                 var journaled = JsonSerializer.Deserialize<JournalEntryPostedEvent>(evt.Payload,
                     new JsonSerializerOptions { PropertyNameCaseInsensitive = true });

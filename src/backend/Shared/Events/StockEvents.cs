@@ -31,3 +31,15 @@ public record StockIssuedEvent(
 public record JournalEntryPostedEvent(
     Guid EventId, Guid TenantId, Guid JournalEntryId,
     string Reference, DateTime OccurredAt) : IIntegrationEvent;
+
+/// <summary>Stock transferred between two warehouses (inter-warehouse, no P&L effect) — for audit / multi-warehouse analytics</summary>
+public record StockTransferredEvent(
+    Guid EventId, Guid TenantId, Guid StockMovementId,
+    Guid ItemId, Guid FromWarehouseId, Guid ToWarehouseId,
+    decimal Quantity, decimal UnitCost, DateTime OccurredAt) : IIntegrationEvent;
+
+/// <summary>Stock adjusted (manual correction) — for variance analytics</summary>
+public record StockAdjustedEvent(
+    Guid EventId, Guid TenantId, Guid StockMovementId,
+    Guid ItemId, Guid WarehouseId, decimal QuantityDelta,
+    decimal UnitCost, string? Reason, DateTime OccurredAt) : IIntegrationEvent;
