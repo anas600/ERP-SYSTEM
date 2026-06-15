@@ -164,7 +164,10 @@ internal class FakeAccountRepository : IAccountRepository
     public Task InsertAsync(Account account, CancellationToken ct) { _accounts.Add(account); return Task.CompletedTask; }
     public Task UpdateAsync(Account account, CancellationToken ct) { var existing = _accounts.FindIndex(a => a.Id == account.Id); if (existing >= 0) _accounts[existing] = account; return Task.CompletedTask; }
     public Task<int> CountPostingsAsync(Guid accountId, CancellationToken ct) => Task.FromResult(0);
-    public Task EnsureDefaultCoAAsync(Guid tenantId, CancellationToken ct) => Task.CompletedTask;
+    public Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct) => Task.CompletedTask;
+    public Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct) => Task.CompletedTask;
+    public Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => a.TenantId == tenantId && (companyId == null || a.CompanyId == companyId)).ToList());
 }
 
 internal class FakeJournalEntryRepository : IJournalEntryRepository
