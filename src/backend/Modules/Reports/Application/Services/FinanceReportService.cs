@@ -21,7 +21,7 @@ public sealed class FinanceReportService : IFinanceReportService
     public async Task<TrialBalanceReport> GetTrialBalanceAsync(Guid tenantId, Guid? companyId, DateTime asOfDate, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName, a.type AS AccountType,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
@@ -55,7 +55,7 @@ public sealed class FinanceReportService : IFinanceReportService
     public async Task<IncomeStatement> GetIncomeStatementAsync(Guid tenantId, Guid? companyId, DateTime from, DateTime to, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT a.type AS AccountType, a.code AS AccountCode,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
