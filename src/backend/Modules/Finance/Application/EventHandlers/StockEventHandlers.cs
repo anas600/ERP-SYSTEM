@@ -87,3 +87,36 @@ public sealed class StockIssuedEventHandler : IIntegrationEventHandler<StockIssu
         _logger.LogInformation("StockIssued {EventId}: applied {Count} rule(s), amount={Amount}", @event.EventId, count, amount);
     }
 }
+
+/// <summary>
+/// Transfer بين مخازن — لا P&L effect (لا posting rule).
+/// الحين: فقط logging للأغراض الـ audit.
+/// مستقبلياً: يمكن tracking inter-warehouse costing variance.
+/// </summary>
+public sealed class StockTransferredEventHandler : IIntegrationEventHandler<StockTransferredEvent>
+{
+    private readonly ILogger<StockTransferredEventHandler> _logger;
+    public StockTransferredEventHandler(ILogger<StockTransferredEventHandler> logger) { _logger = logger; }
+    public Task HandleAsync(StockTransferredEvent @event, CancellationToken ct)
+    {
+        _logger.LogInformation("StockTransferred: {Item} × {Qty} from {FromWh} → {ToWh}",
+            @event.ItemId, @event.Quantity, @event.FromWarehouseId, @event.ToWarehouseId);
+        return Task.CompletedTask;
+    }
+}
+
+/// <summary>
+/// Adjust (manual correction) — لا posting rule افتراضي.
+/// في Phase #8 يمكن إضافة PostingRule "StockAdjusted" لكن MVP يكتفى بـ logging.
+/// </summary>
+public sealed class StockAdjustedEventHandler : IIntegrationEventHandler<StockAdjustedEvent>
+{
+    private readonly ILogger<StockAdjustedEventHandler> _logger;
+    public StockAdjustedEventHandler(ILogger<StockAdjustedEventHandler> logger) { _logger = logger; }
+    public Task HandleAsync(StockAdjustedEvent @event, CancellationToken ct)
+    {
+        _logger.LogInformation("StockAdjusted: {Item} {Delta} in {Wh} (reason: {Reason})",
+            @event.ItemId, @event.QuantityDelta, @event.WarehouseId, @event.Reason ?? "—");
+        return Task.CompletedTask;
+    }
+}
