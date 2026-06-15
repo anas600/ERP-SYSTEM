@@ -9,6 +9,7 @@ public interface IOutboxRepository
     Task<IReadOnlyList<OutboxEvent>> FetchUnprocessedAsync(int batchSize, CancellationToken ct);
     Task MarkProcessedAsync(Guid id, DateTime processedAt, CancellationToken ct);
     Task MarkFailedAsync(Guid id, int retryCount, string error, CancellationToken ct);
+    Task ResetForRetryAsync(Guid id, CancellationToken ct);
     Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct);
     Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct);
@@ -57,6 +58,14 @@ public sealed class OutboxRepository : IOutboxRepository
         await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE outbox_events SET retry_count = @Retry, last_error = @Error WHERE id = @Id",
             new { Id = id, Retry = retryCount, Error = error.Length > 4000 ? error.Substring(0, 4000) : error }, cancellationToken: ct));
+    }
+
+    public async Task ResetForRetryAsync(Guid id, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            "UPDATE outbox_events SET retry_count = 0, last_error = NULL, processed_at = NULL WHERE id = @Id",
+            new { Id = id }, cancellationToken: ct));
     }
 
     public async Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct)
