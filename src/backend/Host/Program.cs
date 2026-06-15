@@ -1,9 +1,13 @@
 // ERP-SYSTEM Backend Entry Point
 // Phase 0: Foundation + Identity Module
+// Phase 1: Finance Core (Chart of Accounts, Journal Entries, Ledger, Rules Engine)
 
 using System.Text;
 using System.Text.Json.Serialization;
 using ERPSystem.Host.Swagger;
+using ERPSystem.Modules.Finance.Application;
+using ERPSystem.Modules.Finance.Application.Services;
+using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Modules.Identity.Application.Auth;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
@@ -44,14 +48,24 @@ builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
+builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
 
 // ============ Multi-tenancy ============
 builder.Services.AddScoped<ITenantContext, TenantContext>();
 
-// ============ Application Services ============
+// ============ Application Services (Identity) ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
+
+// ============ Application Services (Finance) ============
+builder.Services.AddScoped<IChartOfAccountsService, ChartOfAccountsService>();
+builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
+builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
+builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateAccountRequestValidator>();
 
 // ============ Redis (اختياري) ============
 var redisConn = builder.Configuration.GetConnectionString("Redis");
@@ -102,7 +116,7 @@ builder.Services.AddSwaggerGen(c =>
     {
         Title = "ERP-SYSTEM API",
         Version = "v1",
-        Description = "API الخاصة بنظام ERP-SYSTEM (Phase 0: Identity)"
+        Description = "API الخاصة بنظام ERP-SYSTEM — Phase 0: Identity, Phase 1: Finance"
     });
     c.EnableAnnotations();
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
