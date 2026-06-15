@@ -2,6 +2,7 @@ using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Modules.Identity.Application.Auth;
+using ERPSystem.Modules.Inventory.Application.Services;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Companies.Application.Services;
@@ -26,7 +27,8 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
     private readonly ICompanyRepository _companies;
     private readonly IAccountRepository _accounts;
     private readonly ILogger<CompanyService> _logger;
-    public CompanyService(ICompanyRepository c, IAccountRepository a, ILogger<CompanyService> l) { _companies = c; _accounts = a; _logger = l; }
+    private readonly IInventoryBootstrapper _inventoryBootstrap;
+    public CompanyService(ICompanyRepository c, IAccountRepository a, IInventoryBootstrapper ib, ILogger<CompanyService> l) { _companies = c; _accounts = a; _inventoryBootstrap = ib; _logger = l; }
 
     public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct)
     {
@@ -35,6 +37,12 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
         existing = await _companies.GetByCodeAsync(tenantId, "000", ct);
         if (existing != null) return existing.Id;
         var r = await CreateHoldingAsync(tenantId, "000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, ct);
+        if (r.Succeeded)
+        {
+            // Phase 2.2: seed UoMs and Categories for new tenant
+            try { await _inventoryBootstrap.EnsureDefaultUoMsAndCategoriesAsync(tenantId, ct); }
+            catch (Exception ex) { _logger.LogWarning(ex, "فشل زرع UoMs/Categories للمستأجر {TenantId}", tenantId); }
+        }
         return r.Succeeded ? r.Value!.Id : Guid.Empty;
     }
 
