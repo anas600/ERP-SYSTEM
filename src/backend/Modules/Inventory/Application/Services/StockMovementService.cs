@@ -2,6 +2,8 @@ using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
 using ERPSystem.Modules.Notifications.Application.Services;
+using ERPSystem.Shared.Events;
+using ERPSystem.Shared.Events.Application.Services;
 using Microsoft.Extensions.Logging;
 using TaskStatus = ERPSystem.Modules.Inventory.Entities.StockMovementStatus;
 
@@ -41,6 +43,7 @@ public sealed class StockMovementService : IStockMovementService
     private readonly IItemRepository _items;
     private readonly IStockReservationRepository _reservations;
     private readonly INotificationService _notifications;
+    private readonly IEventBus _eventBus;
     private readonly ILogger<StockMovementService> _logger;
 
     public StockMovementService(
@@ -49,10 +52,11 @@ public sealed class StockMovementService : IStockMovementService
         IItemRepository items,
         IStockReservationRepository reservations,
         INotificationService notifications,
+        IEventBus eventBus,
         ILogger<StockMovementService> logger)
     {
         _movements = movements; _levels = levels; _items = items; _reservations = reservations;
-        _notifications = notifications; _logger = logger;
+        _notifications = notifications; _eventBus = eventBus; _logger = logger;
     }
 
     public async Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid tenantId, Guid userId, ReceiveStockRequest req, CancellationToken ct)
@@ -189,6 +193,27 @@ public sealed class StockMovementService : IStockMovementService
                     $"{item.Name} وصل إلى {level.QuantityAvailable} (الحد الأدنى: {item.ReorderLevel})",
                     "Item", item.Id);
             }
+        }
+
+        // ⭐ Publish integration event (Outbox pattern) — Finance consumes async
+        if (movement.Type == StockMovementType.Receive)
+        {
+            var receiveEvt = new StockReceivedEvent(
+                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
+                Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
+                PurchaseOrderRef: movement.SourceId?.ToString(), OccurredAt: DateTime.UtcNow);
+            await _eventBus.PublishAsync(receiveEvt, ct);
+        }
+        else if (movement.Type == StockMovementType.Issue)
+        {
+            var issueEvt = new StockIssuedEvent(
+                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
+                Quantity: Math.Abs(movement.Quantity),
+                ReferenceType: movement.SourceType, ReferenceId: movement.SourceId,
+                OccurredAt: DateTime.UtcNow);
+            await _eventBus.PublishAsync(issueEvt, ct);
         }
 
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
