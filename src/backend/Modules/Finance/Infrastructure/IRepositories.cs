@@ -8,10 +8,12 @@ public interface IAccountRepository
     Task<Account?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
     Task<IReadOnlyList<Account>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct);
+    Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct);
     Task InsertAsync(Account account, CancellationToken ct);
     Task UpdateAsync(Account account, CancellationToken ct);
-    Task<int> CountPostingsAsync(Guid accountId, CancellationToken ct); // هل عليه حركات؟
-    Task EnsureDefaultCoAAsync(Guid tenantId, CancellationToken ct);
+    Task<int> CountPostingsAsync(Guid accountId, CancellationToken ct);
+    Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct);
+    Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct);
 }
 
 public interface IJournalEntryRepository
