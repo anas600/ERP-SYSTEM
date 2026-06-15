@@ -16,6 +16,8 @@ using ERPSystem.Modules.Projects.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Infrastructure;
+using ERPSystem.Modules.Notifications.Application.Services;
+using ERPSystem.Modules.Notifications.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
 using ERPSystem.Shared.MultiTenancy;
@@ -65,6 +67,10 @@ builder.Services.AddScoped<IItemRepository, ItemRepository>();
 builder.Services.AddScoped<IWarehouseRepository, WarehouseRepository>();
 builder.Services.AddScoped<IUnitOfMeasureRepository, UnitOfMeasureRepository>();
 builder.Services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
+builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
+builder.Services.AddScoped<IStockLevelRepository, StockLevelRepository>();
+builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
+builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 
 // ============ Multi-tenancy ============
 builder.Services.AddScoped<ITenantContext, TenantContext>();
@@ -85,9 +91,14 @@ builder.Services.AddScoped<IWarehouseService, WarehouseService>();
 builder.Services.AddScoped<IUnitOfMeasureService, UnitOfMeasureService>();
 builder.Services.AddScoped<IItemCategoryService, ItemCategoryService>();
 builder.Services.AddScoped<IInventoryBootstrapper, InventoryBootstrapper>();
+builder.Services.AddScoped<IStockMovementService, StockMovementService>();
+builder.Services.AddScoped<IStockLevelService, StockLevelService>();
+builder.Services.AddScoped<IStockReservationService, StockReservationService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<ReceiveStockRequestValidator>();
 
 // ============ Redis ============
 var redisConn = builder.Configuration.GetConnectionString("Redis");
