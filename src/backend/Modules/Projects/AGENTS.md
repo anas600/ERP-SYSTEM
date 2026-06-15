@@ -1,46 +1,93 @@
 # 📊 src/backend/Modules/Projects/AGENTS.md
 
-> Projects Module — 📋 Phase 2.
+> Projects Module — ✅ Phase 2.1 (مكتمل)
 
-## شو فيه (مخطط)
-
-- **Project** — مشروع (اسم، عميل، ميزانية، تاريخ بدء/انتهاء)
-- **Task** — مهمة داخل مشروع (تعيين، حالة، تقدير vs فعلي)
-- **Resource** — موارد (موظفون / معدات)
-- **Project Budget** — ميزانية مرتبطة بـ Finance module
-- **Time tracking** — اختياري للمرحلة الأولى
-
-## Planned Structure (Phase 2)
+## شو فيه
 
 ```
 Projects/
 ├── Entities/
-│   ├── Project.cs
-│   ├── Task.cs
-│   ├── Resource.cs
-│   └── ProjectBudget.cs
+│   ├── Project.cs          # Project + ProjectStatus
+│   ├── ProjectTask.cs      # ProjectTask + TaskStatus
+│   ├── Resource.cs         # Resource + ResourceType
+│   ├── ProjectBudget.cs    # SpentAmount/CommittedAmount/AvailableAmount
+│   └── ResourceAssignment.cs # HourlyRate snapshot + computed EstimatedCost
 ├── Application/
-│   ├── Projects/
-│   ├── Tasks/
-│   └── Resources/
+│   ├── ProjectsDtos.cs     # كل الـ DTOs
+│   ├── Validators.cs       # FluentValidation
+│   └── Services/
+│       ├── ProjectService.cs           # CRUD + status workflow + auto-bootstrap
+│       └── SupportingServices.cs        # Task, Resource, Budget, Assignment
 └── Infrastructure/
-    └── Repositories
+    ├── IRepositories.cs
+    ├── ProjectRepository.cs
+    ├── TaskRepository.cs
+    ├── ResourceRepository.cs
+    ├── ProjectBudgetRepository.cs      # + RecalculateSpentAsync (SQL agg)
+    └── ResourceAssignmentRepository.cs
 ```
 
-## Event Integration (مستقبلي)
+## Domain Model
 
-- `ProjectMaterialRequested` → Inventory يحجز الكمية
-- `ResourceAssigned` → Finance يحتسب التكلفة
-- يُنشر عبر `Shared/Events/`
+### Project Lifecycle
+```
+Planning → Active → OnHold → Completed
+    ↓        ↓      ↓
+  Cancelled ← Cancelled
+```
 
-## Conventions
+Forward-only (لا يمكن الرجوع من Completed). Transition invalid → 400 BadRequest.
 
-- يتبع نفس أنماط Identity + Finance
-- `TenantId` على كل entity
-- Task تتبع Project (FK) — Cascade delete
+### ProjectBudget ↔ CostCenter (1:1)
+- عند إنشاء Project → CostCenter تلقائياً (type=Project, code=CC-{projectCode})
+- ProjectBudget يحمل `cost_center_id` + `account_id` (اختياري)
+- **SpentAmount**: يحسب من `journal_lines` (WHERE cost_center_id=... AND je.status=Posted)
+  - عبر `RecalculateSpentAsync` — aggregation SQL (debit - credit)
+- **AvailableAmount** = BudgetAmount - SpentAmount - CommittedAmount
+
+### ResourceAssignment
+- يلتقط `HourlyRate` snapshot وقت التعيين (حتى لو تغير Resource.HourlyRate لاحقاً)
+- `EstimatedHours` = (To - From).TotalHours
+- `EstimatedCost` = EstimatedHours × HourlyRate
+
+## Endpoints (16)
+
+| Method | Path | الغرض |
+|--------|------|-------|
+| GET    | /api/projects | قائمة + filter بـ companyId/status |
+| GET    | /api/projects/{id} | تفاصيل |
+| POST   | /api/projects | إنشاء (auto CostCenter + Budget) |
+| PUT    | /api/projects/{id} | تحديث |
+| POST   | /api/projects/{id}/status | تغيير الحالة (workflow validation) |
+| DELETE | /api/projects/{id} | soft-delete |
+| GET    | /api/projects/{id}/tasks | قائمة المهام |
+| GET    | /api/projects/{id}/budget | ميزانية |
+| POST   | /api/projects/{id}/budget/recalculate | إعادة حساب Spent |
+| GET    | /api/projects/{id}/assignments | تعيينات الموارد |
+| POST   | /api/projects/{id}/assignments | تعيين مورد |
+| DELETE | /api/projects/{id}/assignments/{aid} | إزالة |
+| GET/POST/PUT/DELETE | /api/tasks, /api/resources | CRUD |
+
+## لما تشتغل هنا
+
+- إضافة status جديد: عدّل `ProjectStatus` + `ProjectService.ChangeStatusAsync` (الـ validTransitions dict)
+- إضافة field: migration جديدة + entity + DTO + service + repo
+- حساب Spent: يستدعى `IBudgetService.RecalculateSpentAsync` (الآن يدوي — في Phase 2.4 يُستدعى تلقائياً على PostAsync لـ journal entry)
+
+## بعد التعديل
+
+- شغّل `dotnet test` (20 tests جديد في Phase 2.1)
+- إذا غيّرت workflow status: حدّث `ProjectService.ChangeStatusAsync` + tests
+
+## تكامل مع الموديولات الأخرى
+
+- **Finance** (Phase 1): `CostCenter` يُنشأ تلقائياً. `ProjectBudget.SpentAmount` يحسب من `journal_lines` المُرحّلة.
+- **Inventory** (Phase 2.2-2.3): `StockMovement.ProjectId` و `ProjectMaterialRequested` event (مستقبلي)
+- **Reporting** (Phase 2.5): P&L per Project عبر JOIN على CostCenter
 
 ## مرتبطة بـ
 
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../Identity/AGENTS.md`](../Identity/AGENTS.md)
-- [`../Inventory/AGENTS.md`](../Inventory/AGENTS.md) — التكامل المستقبلي
+- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — cost_center integration
+- [`../Companies/AGENTS.md`](../Companies/AGENTS.md) — CostCenter + Company link
