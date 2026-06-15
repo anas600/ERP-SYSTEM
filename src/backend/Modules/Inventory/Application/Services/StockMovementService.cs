@@ -215,6 +215,25 @@ public sealed class StockMovementService : IStockMovementService
                 OccurredAt: DateTime.UtcNow);
             await _eventBus.PublishAsync(issueEvt, ct);
         }
+        else if (movement.Type == StockMovementType.Transfer && movement.DestinationWarehouseId.HasValue)
+        {
+            var transferEvt = new StockTransferredEvent(
+                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                ItemId: movement.ItemId, FromWarehouseId: movement.WarehouseId,
+                ToWarehouseId: movement.DestinationWarehouseId.Value,
+                Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
+                OccurredAt: DateTime.UtcNow);
+            await _eventBus.PublishAsync(transferEvt, ct);
+        }
+        else if (movement.Type == StockMovementType.Adjust)
+        {
+            var adjEvt = new StockAdjustedEvent(
+                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
+                QuantityDelta: movement.Quantity, UnitCost: movement.UnitCost,
+                Reason: movement.Notes, OccurredAt: DateTime.UtcNow);
+            await _eventBus.PublishAsync(adjEvt, ct);
+        }
 
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
