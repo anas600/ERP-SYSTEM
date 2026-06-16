@@ -44,7 +44,7 @@ public class AddInventoryMovements : Migration
         Create.Index("ix_stock_movements_tenant_item_warehouse").OnTable("stock_movements")
             .OnColumn("tenant_id").Ascending().OnColumn("item_id").Ascending().OnColumn("warehouse_id").Ascending();
         Create.Index("ix_stock_movements_tenant_reference").OnTable("stock_movements")
-            .OnColumn("tenant_id").Ascending().OnColumn("reference_type").Ascending().OnColumn("source_id").Ascending();
+            .OnColumn("tenant_id").Ascending().OnColumn("source_type").Ascending().OnColumn("source_id").Ascending();
         Create.Index("ix_stock_movements_tenant_company").OnTable("stock_movements")
             .OnColumn("tenant_id").Ascending().OnColumn("company_id").Ascending();
         Create.ForeignKey("fk_stock_movements_company").FromTable("stock_movements").ForeignColumn("company_id")
