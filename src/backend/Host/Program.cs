@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
+using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Identity.Application.Auth;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Modules.Projects.Application;
@@ -20,6 +21,7 @@ using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
 using ERPSystem.Modules.Finance.Application.EventHandlers;
+using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Shared.Events;
 using ERPSystem.Shared.Events.Application.Services;
 using ERPSystem.Shared.Events.Infrastructure;
@@ -77,6 +79,10 @@ builder.Services.AddScoped<IStockLevelRepository, StockLevelRepository>();
 builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+builder.Services.AddScoped<IAccountRepository, AccountRepository>();
+builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
+builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
+builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
 // ============ Multi-tenancy ============
@@ -84,10 +90,15 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
-builder.Services.AddSingleton<CompanyService>();
-builder.Services.AddSingleton<ITenantBootstrap>(sp => sp.GetRequiredService<CompanyService>());
-builder.Services.AddSingleton<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<CompanyService>();
+builder.Services.AddScoped<ITenantBootstrap>(sp => sp.GetRequiredService<CompanyService>());
+builder.Services.AddScoped<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
 builder.Services.AddScoped<ICostCenterService, CostCenterService>();
+builder.Services.AddScoped<IChartOfAccountsService, ChartOfAccountsService>();
+builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
+builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
+builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
@@ -105,7 +116,7 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
 builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
 builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
-builder.Services.AddSingleton<IEventBus, EventBus>();
+builder.Services.AddScoped<IEventBus, EventBus>();
 builder.Services.AddScoped<IIntegrationEventHandler<StockReceivedEvent>, StockReceivedEventHandler>();
 builder.Services.AddScoped<IIntegrationEventHandler<StockIssuedEvent>, StockIssuedEventHandler>();
 builder.Services.AddScoped<IIntegrationEventHandler<StockTransferredEvent>, StockTransferredEventHandler>();
@@ -147,6 +158,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+// ============ CORS ============
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.SetIsOriginAllowed(_ => true)
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // ============ MVC + Swagger ============
 builder.Services.AddControllers().AddJsonOptions(o => o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddEndpointsApiExplorer();
@@ -176,6 +199,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseSerilogRequestLogging();
+app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
