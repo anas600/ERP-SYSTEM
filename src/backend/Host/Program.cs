@@ -17,6 +17,9 @@ using ERPSystem.Modules.Projects.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Infrastructure;
+using ERPSystem.Modules.Procurement.Application;
+using ERPSystem.Modules.Procurement.Application.Services;
+using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -78,6 +81,11 @@ builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 builder.Services.AddScoped<IStockLevelRepository, StockLevelRepository>();
 builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
 builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
+builder.Services.AddScoped<IVendorRepository, VendorRepository>();
+builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
+builder.Services.AddScoped<IGoodsReceiptRepository, GoodsReceiptRepository>();
+builder.Services.AddScoped<IVendorBillRepository, VendorBillRepository>();
+builder.Services.AddScoped<IDocumentSequenceRepository, DocumentSequenceRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
@@ -113,6 +121,10 @@ builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IStockLevelService, StockLevelService>();
 builder.Services.AddScoped<IStockReservationService, StockReservationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IVendorService, VendorService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+builder.Services.AddScoped<IVendorBillService, VendorBillService>();
 builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
 builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
 builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
@@ -125,6 +137,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>()
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<ReceiveStockRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateVendorRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePurchaseOrderRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateGoodsReceiptRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateVendorBillRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
