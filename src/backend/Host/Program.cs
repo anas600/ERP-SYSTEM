@@ -127,9 +127,22 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>
 builder.Services.AddValidatorsFromAssemblyContaining<ReceiveStockRequestValidator>();
 
 // ============ Redis ============
+// Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
+// (HealthController يطلبه اختيارياً: `IConnectionMultiplexer?`).
+// لو connection string موجود لكن Redis مش شغّال، نستخدم `AbortOnConnectFail=false`
+// عشان الـ multiplexer يستمر في إعادة المحاولة بدل رمي exception عند أول request.
 var redisConn = builder.Configuration.GetConnectionString("Redis");
 if (!string.IsNullOrWhiteSpace(redisConn))
-    builder.Services.AddSingleton<IConnectionMultiplexer>(_ => ConnectionMultiplexer.Connect(redisConn));
+{
+    builder.Services.AddSingleton<IConnectionMultiplexer>(_ =>
+    {
+        var configOptions = ConfigurationOptions.Parse(redisConn);
+        configOptions.AbortOnConnectFail = false;  // لا تفشل عند أول connect — استمر في إعادة المحاولة
+        configOptions.ConnectRetry = 3;
+        configOptions.ConnectTimeout = 2000;       // timeout قصير (2s) عشان ما نطوّل startup
+        return ConnectionMultiplexer.Connect(configOptions);
+    });
+}
 
 // ============ FluentMigrator ============
 builder.Services.AddFluentMigratorCore()

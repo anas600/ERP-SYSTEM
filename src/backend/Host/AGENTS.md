@@ -17,6 +17,7 @@
 - **Endpoint route**: دائماً `api/<module>/<resource>` — مثال: `api/auth/login`
 - **Response shape**: إما typed DTO أو `ProblemDetails` للأخطاء
 - **Authorize**: استخدم `[Authorize]` على الـ controller أو action، استخدم `[AllowAnonymous]` فقط على `register/login/refresh`
+- **Validators**: عند إنشاء `IValidator<TRequest>` جديد، **تأكد أن** اسم الـ class هو `XRequestValidator` (مثلاً `UpdateProjectRequestValidator`) — لأن `AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>()` يكتشف فقط الـ validators الموجودة في الـ Host assembly. **أي Request DTO يُمرر للـ controller يجب أن يكون له validator مقابل** (وإلا DI يفشل بـ 500).
 
 ## لما تشتغل هنا
 
@@ -31,7 +32,17 @@
 
 - تأكد أن `dotnet build` نظيف
 - Swagger UI يعرض الـ endpoints الجديدة
-- Health endpoints (`/health`, `/health/ready`) تشتغل
+- Health endpoints (`/health`, `/health/live`, `/health/ready`) ترجع 200
+
+## Health Endpoints (الفعلية)
+
+| Endpoint | الـ Route | الـ Method | الغرض |
+|----------|---------|----------|-------|
+| `MapGet("/health")` | `Program.cs` | GET | Liveness (بدون controller) |
+| `HealthController.Live` | `/health/live` | GET | Liveness (في HealthController) |
+| `HealthController.Ready` | `/health/ready` | GET | Readiness (يفحص Postgres؛ Redis اختياري) |
+
+**Redis** مسجّل في DI فقط لو `ConnectionStrings:Redis` غير فارغ. مع `AbortOnConnectFail = false`، النظام يستمر في العمل حتى لو Redis معطّل (لـ dev). في الإنتاج، يجب تشغيل Redis واعتماده كـ dependency.
 
 ## مرتبطة بـ
 

@@ -7,12 +7,12 @@ import { authApi } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
+  // ملاحظة: لا نطلب "subdomain" — الـ backend يحسبه تلقائياً من TenantName عبر Slugify
   const [form, setForm] = useState({
     email: '',
     password: '',
     fullName: '',
     tenantName: '',
-    subdomain: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -88,17 +88,9 @@ export default function RegisterPage() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2"
               required
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Subdomain (للدخول بـ tenant)</label>
-            <input
-              type="text"
-              value={form.subdomain}
-              onChange={onChange('subdomain')}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2"
-              required
-              pattern="[a-z0-9-]+"
-            />
+            <p className="text-xs text-gray-500 mt-1">
+              سيُولَّد subdomain شركتك تلقائياً من اسمها (مثال: &quot;شركة الأمل&quot; → subdomain: <code>shrkt-lamal</code>)
+            </p>
           </div>
           <button
             type="submit"

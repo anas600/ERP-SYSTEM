@@ -38,19 +38,22 @@ api.interceptors.response.use(
 );
 
 // ============ Types ============
+// ملاحظة: الـ contracts تطابق AuthDtos.cs في الـ backend (C#).
+//   - Register: TenantName يُنشئ tenant جديد + Subdomain يُحسب عبر Slugify
+//   - Login:    TenantId (Guid) اختياري للبحث داخل tenant محدد
 
 export interface RegisterRequest {
   email: string;
   password: string;
   fullName: string;
   tenantName: string;
-  subdomain: string;
+  baseCurrency?: string;     // optional, default "LYD"
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
-  tenantSubdomain?: string;
+  tenantId?: string;         // optional (Guid) — إن لم يُرسل، بحث شامل
 }
 
 export interface AuthResponse {

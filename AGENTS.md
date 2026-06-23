@@ -1,13 +1,13 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 2.5 — Reports (يونيو 2026)
+> محدّث: Phase 2.5 — Reports + Frontend (يونيو 2026)
 
 ---
 
 ## 📌 نظرة عامة
 
-نظام ERP متعدد المستأجرين (Multi-tenant Modular Monolith) للمرحلة الأولى (MVP). يتكون من 3 وحدات أعمال (Finance + Projects + Inventory) فوق أساس Identity + Multi-tenancy + Event Store.
+نظام ERP متعدد المستأجرين (Multi-tenant Modular Monolith) للمرحلة الأولى (MVP). يتكون من **7 وحدات أعمال** (Identity + Companies + Finance + Projects + Inventory + Reports + Notifications) فوق أساس Multi-tenancy + Event Store + Outbox.
 
 | الخاصية | القيمة |
 |---------|--------|
@@ -15,29 +15,30 @@
 | المدة المتوقعة | 8-10 أسابيع |
 | المالك | anas600 (https://github.com/anas600) |
 | الترخيص | Private — جميع الحقوق محفوظة |
-| الحالة | Phase 0 (Foundation + Identity) |
+| الحالة | Phase 2.5+ مكتمل (PR #1 → #8)، Phase 3 قادم |
 
 ---
 
 ## 🛠️ Tech Stack المعتمد
 
-| الطبقة | التقنية | الإصدار |
-|--------|---------|---------|
-| Runtime | .NET | 9.0 |
-| Language (Backend) | C# | 12+ |
-| Database (OLTP) | PostgreSQL | 16 |
-| Migrations | FluentMigrator | 5.0 |
-| ORM | Dapper | 2.1+ |
-| Event Store | MartenDB | 7.34+ |
-| Cache/Queue | Redis | 7 |
-| Auth | JWT Bearer + BCrypt | — |
-| Frontend | Next.js | 14.2 |
-| Frontend Language | TypeScript | 5.5+ |
-| UI Components | shadcn/ui + Tailwind | — |
-| API Docs | Swashbuckle | 6.6+ |
-| Testing | xUnit + FluentAssertions | — |
-| Container | Docker Compose | 3.9 |
-| CI | GitHub Actions | — |
+| الطبقة | التقنية | الإصدار | ملاحظات |
+|--------|---------|---------|---------|
+| Runtime | .NET | 9.0 | `net9.0` target (يعمل على SDK 9.x و 10.x) |
+| Language (Backend) | C# | 12+ | Nullable Reference Types مفعّلة |
+| Database (OLTP) | **PostgreSQL** | **15** | ✅ مُختبَر محلياً (15.18). 16+ مقبول |
+| Database (Events) | PostgreSQL | 15 | نفس الـ instance، schema منفصل `mt_events` |
+| Migrations | FluentMigrator | 5.0 | 7 migrations: identity → finance → projects → inventory → outbox |
+| ORM | Dapper | 2.1+ | لا EF Core (القرار في PLAN.md) |
+| Event Store | MartenDB | 7.34+ | حزمة مُثبّتة (Phase 3+)؛ حالياً Outbox pattern في Postgres |
+| Cache/Queue | Redis | 7 | **اختياري** في dev؛ الكود يتفحص `ConnectionStrings:Redis` |
+| Auth | JWT Bearer + BCrypt | — | Access 60min، Refresh 14 يوم، Token rotation، Reuse detection |
+| Frontend | Next.js | 14.2 | App Router، RTL |
+| Frontend Language | TypeScript | 5.5+ | Strict mode |
+| UI Components | **Tailwind CSS** | 3.4 | ⚠️ shadcn/ui مذكور تاريخياً لكن **غير مُطبَّق** (لا يوجد `components/ui/`) |
+| API Docs | Swashbuckle | 6.6+ | Swagger UI على `/swagger` |
+| Testing | xUnit + FluentAssertions | — | 15 اختبار في `src/backend/Tests/` |
+| Container | Docker Compose | 3.9 | `infra/docker/docker-compose.dev.yml` |
+| CI | GitHub Actions | — | `.github/workflows/ci.yml` |
 
 ---
 
@@ -84,7 +85,8 @@
 - **Components**: Functional components فقط، مع hooks
 - **Types**: TypeScript types، تجنب `any`
 - **Comments**: بالعربي، الـ identifiers بالإنجليزي
-- **Styling**: Tailwind utility classes + shadcn/ui components
+- **Styling**: Tailwind CSS utility classes فقط (لا shadcn حتى الآن)
+- **Auth client**: `lib/api.ts` يحوي Axios instance + JWT interceptors + localStorage
 
 ### SQL / Migrations
 
@@ -153,10 +155,29 @@ test(auth): add JwtTokenService tests
 | Phase 2.2-2.3 | Inventory Core + Stock Movements | ✅ مكتمل (PR #5, #6) |
 | Phase 2.4 | Event Bus + Integration (Outbox pattern) | ✅ مكتمل (PR #7) |
 | Phase 2.5 | Reports + Polish (12 endpoints + 2 events) | ✅ مكتمل (PR #8) |
-| Phase 2.5+ | Reports tests + AGENTS.md | 📋 قادم (PR #9) |
-| Phase 3 | Polish + VPS Deploy | 📋 |
+| **Phase 2.5+** | **Frontend integration (Next.js 8 pages) + Auth + Tailwind UI** | ✅ مكتمل |
+| Phase 3 | Polish + VPS Deploy + shadcn/ui (اختياري) | 📋 قادم |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
+
+---
+
+## 📝 Changelog (آخر التحديثات)
+
+### 2026-06-17 — توثيق vs كود: تسوية الحقائق
+
+**التغييرات المطبّقة في AGENTS.md files بناءً على الكود الفعلي:**
+
+| الملف | التغيير |
+|------|--------|
+| `AGENTS.md` (root) | PostgreSQL 16 → **15**؛ shadcn/ui → Tailwind CSS (مع تنبيه)؛ إضافة Phase 2.5+ |
+| `src/frontend/AGENTS.md` | إزالة shadcn من Tech Stack؛ تحديث Auth contracts (إزالة subdomain)؛ إضافة lib/api.ts في الهيكل |
+| `src/backend/Modules/Identity/AGENTS.md` | إضافة `BaseCurrency` للـ Register؛ توثيق Slugify (subdomain يُحسب تلقائياً)؛ إضافة `HoldingCompanyId` |
+| `infra/docker/AGENTS.md` | إضافة قسم init-scripts (ينشئ DBs من `POSTGRES_MULTIPLE_DATABASES`) |
+| `infra/docker/docker-compose.dev.yml` | `postgres:16-alpine` → `postgres:15-alpine` (تطابق AGENTS) |
+| `src/frontend/lib/api.ts` | ✅ **إصلاح bug:** إزالة `subdomain` من `RegisterRequest`؛ استبداله بـ `BaseCurrency` |
+| `src/frontend/app/register/page.tsx` | ✅ **إصلاح bug:** إزالة حقل subdomain من الـ form (كان يتم تجاهله من قبل الـ backend) |
+| `docs/CHANGELOG.md` | جديد — سجل التغييرات |
 
 ---
 

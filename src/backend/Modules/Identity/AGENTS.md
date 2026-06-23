@@ -32,7 +32,7 @@ Identity/
 
 ### Tenant
 - معرّف منفصل لكل مستأجر (شركة / مؤسسة)
-- `subdomain` فريد للتمييز
+- `subdomain` فريد للتمييز — **يُحسب تلقائياً من TenantName عبر `Slugify()` عند إنشاء tenant جديد** (لا يُرسل من الـ client)
 - `IsActive` للـ soft-disable
 - `SubscriptionExpiresAt` للـ SaaS billing لاحقاً
 
@@ -62,23 +62,45 @@ Identity/
 
 ```
 POST /api/auth/register
-Body: { tenantId?, tenantName?, email, password, fullName }
+Body: {
+  tenantId?: Guid,        // لربط بـ tenant موجود
+  tenantName?: string,    // لإنشاء tenant جديد (يُحسب Subdomain من هذا الحقل)
+  email: string,
+  password: string,       // ≥8 chars, [A-Z], [a-z], [0-9]
+  fullName: string,
+  baseCurrency?: string   // default "LYD"
+}
 ```
 
+- **Validation:** يجب أن يكون `TenantId != Guid.Empty` أو `TenantName` غير فارغ
 - إذا `tenantId` موجود: ربط بـ tenant موجود
-- إذا `tenantName` موجود: إنشاء tenant جديد + Admin role للمستخدم الجديد
+- إذا `tenantName` موجود: إنشاء tenant جديد (Subdomain = Slugify(TenantName)) + Admin role للمستخدم الجديد
 - `EnsureDefaultRolesAsync(tenantId)` يضمن وجود الأدوار الأربعة
+- `BaseCurrency` يُمرر لـ `ITenantBootstrap.OnTenantCreatedAsync` (لإنشاء الـ holding company بنفس العملة)
 
 ### 2. Login
 
 ```
 POST /api/auth/login
-Body: { email, password, tenantId? }
+Body: { email: string, password: string, tenantId?: Guid }
 ```
 
 - إذا `tenantId` موجود: بحث داخله
 - وإلا: بحث شامل (لـ super-admin فقط)
 - BCrypt.Verify + LastLogin update
+
+### AuthResponse (مشترك بين register و login)
+
+```csharp
+{
+  AccessToken: string,
+  RefreshToken: string,
+  AccessTokenExpiresAt: DateTime,
+  RefreshTokenExpiresAt: DateTime,
+  User: UserInfo,
+  HoldingCompanyId: Guid  // للـ multi-company bootstrap
+}
+```
 
 ### 3. Refresh
 
