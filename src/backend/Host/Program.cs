@@ -20,6 +20,9 @@ using ERPSystem.Modules.Inventory.Infrastructure;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Modules.HR.Application;
+using ERPSystem.Modules.HR.Application.Services;
+using ERPSystem.Modules.HR.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -86,6 +89,11 @@ builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
 builder.Services.AddScoped<IGoodsReceiptRepository, GoodsReceiptRepository>();
 builder.Services.AddScoped<IVendorBillRepository, VendorBillRepository>();
 builder.Services.AddScoped<IDocumentSequenceRepository, DocumentSequenceRepository>();
+builder.Services.AddScoped<IDepartmentRepository, DepartmentRepository>();
+builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
+builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
+builder.Services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
+builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
@@ -125,6 +133,10 @@ builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
 builder.Services.AddScoped<IVendorBillService, VendorBillService>();
+builder.Services.AddScoped<IDepartmentService, DepartmentService>();
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
 builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
 builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
@@ -141,6 +153,10 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateVendorRequestValidato
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePurchaseOrderRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateGoodsReceiptRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateVendorBillRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateDepartmentRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateEmployeeRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CheckInOutRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateLeaveRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
