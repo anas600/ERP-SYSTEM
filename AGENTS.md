@@ -60,6 +60,8 @@
 | [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (Tenant, Migrations, Events) |
 | [`src/backend/Tests/AGENTS.md`](src/backend/Tests/AGENTS.md) | xUnit test projects |
 | [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend |
+| [`src/backend/Modules/Procurement/AGENTS.md`](src/backend/Modules/Procurement/AGENTS.md) | Procurement Module (Phase 3) |
+| [`src/backend/Modules/HR/AGENTS.md`](src/backend/Modules/HR/AGENTS.md) | HR Core Module (Phase 3.5) |
 | [`infra/AGENTS.md`](infra/AGENTS.md) | Docker + CI/CD |
 | [`infra/docker/AGENTS.md`](infra/docker/AGENTS.md) | docker-compose + init-scripts |
 | [`infra/.github/AGENTS.md`](infra/.github/AGENTS.md) | GitHub Actions workflows |
@@ -156,13 +158,32 @@ test(auth): add JwtTokenService tests
 | Phase 2.4 | Event Bus + Integration (Outbox pattern) | ✅ مكتمل (PR #7) |
 | Phase 2.5 | Reports + Polish (12 endpoints + 2 events) | ✅ مكتمل (PR #8) |
 | **Phase 2.5+** | **Frontend integration (Next.js 8 pages) + Auth + Tailwind UI** | ✅ مكتمل |
-| Phase 3 | Polish + VPS Deploy + shadcn/ui (اختياري) | 📋 قادم |
+| **Phase 3** | **Procurement Core (Vendor + PO + GR + Bill) + AppShell + 8 UI components** | ✅ مكتمل |
+| **Phase 3.5** | **HR Core (Department + Employee + Attendance + Leave)** | ✅ مكتمل |
+| Phase 4 | HR + Payroll (calculation engine, payslips, EOS) | 📋 قادم |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-06-24 — Phase 3: Procurement + HR + Frontend Foundation
+
+**التغييرات المطبّقة:**
+
+| المنطقة | التغيير |
+|---------|---------|
+| **Backend (جديد)** | Procurement Module (4 entities + 5 repos + 4 services + 11 endpoints + 7 جداول + 1 migration) + HR Core Module (4 entities + repos + services + controller + 4 جداول + 1 migration) |
+| **Frontend (جديد)** | AppShell layout (sidebar + topbar + breadcrumb) + 8 UI components (Button, Input, Select, Table, Badge, Card, Modal, PageHeader) + 12 صفحة (Procurement: vendors/POs/GRs/Bills list+form، HR: employees/attendance/leaves list+form) |
+| **API Contracts** | `procurementApi.*` و `hrApi.*` في `lib/api.ts` بنفس النمط (axios + JWT) |
+| **Migrations** | `20260623_120000_CreateProcurementTables.cs` + `20260623_130000_CreateHRTables.cs` |
+| **AGENTS.md جديدة** | `src/backend/Modules/HR/AGENTS.md` (Procurement كان موجود) — فهرسة كاملة في الـ root |
+| **Phase Status** | Phase 3 + Phase 3.5 → ✅ مكتمل، Phase 4 → 📋 قادم |
+| **توثيق** | `docs/research/` (Daftra, ERPNext, Odoo, gap-analysis) + `docs/RELEASE-REPORT-PHASE3.html` (23KB) |
+| **E2E Test** | 12/12 PASS — 100% — مسجّل في `docs/E2E-TEST-RESULT.json` |
+
+**قاعدة جديدة للـ workflow:** كل المهام الكبيرة (modules جديدة + frontend + research) لا بد من تحديث الـ AGENTS.md files المعنية + إضافة entry في `docs/CHANGELOG.md` + commit منفصل.
 
 ### 2026-06-17 — توثيق vs كود: تسوية الحقائق
 

@@ -42,6 +42,19 @@
 | `HealthController.Live` | `/health/live` | GET | Liveness (في HealthController) |
 | `HealthController.Ready` | `/health/ready` | GET | Readiness (يفحص Postgres؛ Redis اختياري) |
 
+## Controllers المسجّلة (Phase 3+)
+
+- `AuthController` — Identity
+- `AccountsController`, `JournalEntriesController`, `LedgerController`, `PostingRulesController` — Finance
+- `CompaniesController`, `CostCentersController` — Companies
+- `ProjectsController`, `TasksController`, `ResourcesController` — Projects
+- `ItemsController`, `ItemCategoriesController`, `WarehousesController`, `UnitOfMeasuresController`, `StockMovementsController`, `StockLevelsController`, `StockReservationsController` — Inventory
+- `NotificationsController` — Notifications
+- `EventsController` — EventBus
+- `ReportsController` — Reports
+- **`ProcurementController`** 🆕 Phase 3 — 11 endpoints (vendors, POs, GRs, bills)
+- **`HrController`** 🆕 Phase 3.5 — 6+ endpoints (departments, employees, attendance, leaves)
+
 **Redis** مسجّل في DI فقط لو `ConnectionStrings:Redis` غير فارغ. مع `AbortOnConnectFail = false`، النظام يستمر في العمل حتى لو Redis معطّل (لـ dev). في الإنتاج، يجب تشغيل Redis واعتماده كـ dependency.
 
 ## مرتبطة بـ
