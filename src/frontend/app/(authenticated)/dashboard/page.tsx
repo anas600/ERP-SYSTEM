@@ -1,0 +1,301 @@
+'use client';
+
+// صفحة لوحة التحكم (Dashboard) — محسّنة بـ KPI tiles + Quick Actions + Recent Activity
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import {
+  Truck,
+  FileText,
+  UserCog,
+  Boxes,
+  Plus,
+  Users,
+  PackageCheck,
+  Receipt,
+  Activity,
+  Wallet,
+  Briefcase,
+} from 'lucide-react';
+import { Card, Badge } from '@/components/ui';
+import { useAuth } from '@/lib/useAuth';
+import {
+  authApi,
+  financeApi,
+  inventoryApi,
+  projectsApi,
+  Account,
+  Item,
+  Project,
+} from '@/lib/api';
+
+interface RecentItem {
+  id: string;
+  title: string;
+  subtitle: string;
+  badge: string;
+  date: string;
+  href: string;
+}
+
+export default function DashboardPage() {
+  const { user } = useAuth();
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [items, setItems] = useState<Item[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
+  const [vendorsCount, setVendorsCount] = useState(0);
+  const [openPoCount, setOpenPoCount] = useState(0);
+  const [employeesCount, setEmployeesCount] = useState(0);
+  const [lowStockCount, setLowStockCount] = useState(0);
+  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    setLoading(true);
+    try {
+      const [accRes, invRes, projRes, venRes, poRes, empRes] = await Promise.allSettled([
+        financeApi.listAccounts(),
+        inventoryApi.listItems(),
+        projectsApi.listProjects(),
+        // Procurement endpoints may not exist yet — failures are handled gracefully
+        fetch('/api/procurement/vendors', {
+          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+        fetch('/api/procurement/pos', {
+          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+        fetch('/api/hr/employees', {
+          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
+        })
+          .then((r) => (r.ok ? r.json() : []))
+          .catch(() => []),
+      ]);
+
+      if (accRes.status === 'fulfilled') setAccounts(accRes.value);
+      if (invRes.status === 'fulfilled') {
+        setItems(invRes.value);
+        setLowStockCount(
+          invRes.value.filter((i) => (i.averageCost ?? 0) >= 0 && i.reorderLevel > 0).length
+        );
+      }
+      if (projRes.status === 'fulfilled') setProjects(projRes.value);
+
+      if (venRes.status === 'fulfilled' && Array.isArray(venRes.value)) {
+        setVendorsCount(venRes.value.length);
+      }
+      if (poRes.status === 'fulfilled' && Array.isArray(poRes.value)) {
+        // افتراض: status = "Draft" | "Pending" | "Approved" | "Sent" | "Received" | "Cancelled"
+        const open = poRes.value.filter(
+          (p: { status: string }) => !['Received', 'Cancelled'].includes(p.status)
+        );
+        setOpenPoCount(open.length);
+        // آخر 5 POs كـ recent activity
+        const recentPOs: RecentItem[] = poRes.value
+          .slice(-5)
+          .reverse()
+          .map((p: { id: string; poNumber: string; vendorName: string; status: string; createdAt: string }) => ({
+            id: p.id,
+            title: p.poNumber,
+            subtitle: p.vendorName,
+            badge: p.status,
+            date: p.createdAt,
+            href: '/procurement/purchase-orders',
+          }));
+        setRecent((prev) => [...recentPOs, ...prev].slice(0, 5));
+      }
+      if (empRes.status === 'fulfilled' && Array.isArray(empRes.value)) {
+        setEmployeesCount(empRes.value.length);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div>
+      {/* Header ترحيبي */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-800">
+          مرحباً، {user?.fullName?.split(' ')[0] || 'مستخدم'} 👋
+        </h1>
+        <p className="text-sm text-gray-500 mt-1">نظرة عامة على نشاط الشركة</p>
+      </div>
+
+      {/* KPI Tiles */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <Link href="/procurement/vendors" className="block">
+          <Card accent="blue" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">إجمالي الموردين</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{vendorsCount}</p>
+                <p className="text-xs text-gray-400 mt-1">مورّد مُسجَّل</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-blue-50 flex items-center justify-center">
+                <Truck className="h-6 w-6 text-blue-600" />
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/procurement/purchase-orders" className="block">
+          <Card accent="yellow" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">أوامر شراء مفتوحة</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{openPoCount}</p>
+                <p className="text-xs text-gray-400 mt-1">قيد التنفيذ</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-yellow-50 flex items-center justify-center">
+                <FileText className="h-6 w-6 text-yellow-600" />
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Link href="/hr/employees" className="block">
+          <Card accent="green" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-gray-500">موظفين نشطين</p>
+                <p className="text-3xl font-bold text-gray-800 mt-1">{employeesCount}</p>
+                <p className="text-xs text-gray-400 mt-1">في الشركة</p>
+              </div>
+              <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center">
+                <UserCog className="h-6 w-6 text-green-600" />
+              </div>
+            </div>
+          </Card>
+        </Link>
+
+        <Card accent="red">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500">أصناف منخفضة المخزون</p>
+              <p className="text-3xl font-bold text-gray-800 mt-1">{lowStockCount}</p>
+              <p className="text-xs text-gray-400 mt-1">تحت حد الطلب</p>
+            </div>
+            <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center">
+              <Boxes className="h-6 w-6 text-red-600" />
+            </div>
+          </div>
+        </Card>
+      </div>
+
+      {/* Quick Actions + Recent Activity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        <Card title="إجراءات سريعة" description="إنشاء سريع" className="lg:col-span-1">
+          <div className="grid grid-cols-2 gap-2">
+            <Link
+              href="/procurement/purchase-orders/new"
+              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <Plus className="h-5 w-5 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">أمر شراء</span>
+            </Link>
+            <Link
+              href="/procurement/vendors/new"
+              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <Truck className="h-5 w-5 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">مورّد</span>
+            </Link>
+            <Link
+              href="/hr/employees/new"
+              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <UserCog className="h-5 w-5 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">موظف</span>
+            </Link>
+            <Link
+              href="/procurement/goods-receipts/new"
+              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+            >
+              <PackageCheck className="h-5 w-5 text-blue-600" />
+              <span className="text-xs font-semibold text-gray-700">استلام</span>
+            </Link>
+          </div>
+        </Card>
+
+        <Card title="آخر النشاطات" description="آخر 5 أوامر شراء" className="lg:col-span-2">
+          {loading ? (
+            <div className="py-8 text-center text-sm text-gray-500">جاري التحميل...</div>
+          ) : recent.length === 0 ? (
+            <div className="py-8 text-center text-sm text-gray-500">
+              <Activity className="h-8 w-8 mx-auto mb-2 text-gray-300" />
+              لا توجد نشاطات بعد
+            </div>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {recent.map((r) => (
+                <li key={r.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{r.title}</p>
+                    <p className="text-xs text-gray-500 truncate">{r.subtitle}</p>
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <Badge variant="info">{r.badge}</Badge>
+                    <span className="text-[10px] text-gray-400">
+                      {new Date(r.date).toLocaleDateString('ar-EG')}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Card>
+      </div>
+
+      {/* Stats للوحدات الموجودة */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Link href="/finance/accounts" className="block">
+          <Card accent="purple" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
+                <Wallet className="h-5 w-5 text-purple-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">الحسابات المحاسبية</p>
+                <p className="text-2xl font-bold text-gray-800">{accounts.length}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+        <Link href="/inventory/items" className="block">
+          <Card accent="green" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
+                <Boxes className="h-5 w-5 text-green-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">الأصناف</p>
+                <p className="text-2xl font-bold text-gray-800">{items.length}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+        <Link href="/projects" className="block">
+          <Card accent="blue" className="hover:shadow-md transition-shadow">
+            <div className="flex items-center gap-3">
+              <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
+                <Briefcase className="h-5 w-5 text-blue-600" />
+              </div>
+              <div>
+                <p className="text-sm text-gray-500">المشاريع</p>
+                <p className="text-2xl font-bold text-gray-800">{projects.length}</p>
+              </div>
+            </div>
+          </Card>
+        </Link>
+      </div>
+    </div>
+  );
+}
