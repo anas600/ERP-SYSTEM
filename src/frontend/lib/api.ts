@@ -401,6 +401,104 @@ export interface LeaveRequest {
   createdAt: string;
 }
 
+// ============ Payroll ============
+// الـ DTOs تطابق Contracts في `src/backend/Modules/Payroll/Application/Dtos.cs`
+// الـ state machine: Draft=1, Processing=2, Posted=3, Cancelled=4
+
+export const PAYROLL_RUN_STATUSES: Record<number, string> = {
+  1: 'مسودة',
+  2: 'قيد المعالجة',
+  3: 'مُرحَّل',
+  4: 'ملغي',
+};
+
+export const PAYROLL_RUN_STATUS_VARIANTS: Record<number, 'neutral' | 'warning' | 'info' | 'success' | 'danger'> = {
+  1: 'neutral',
+  2: 'warning',
+  3: 'success',
+  4: 'danger',
+};
+
+// PayrollItem status: Draft=1, Processed=2, Posted=3, Cancelled=4
+export const PAYROLL_ITEM_STATUSES: Record<number, string> = {
+  1: 'مسودة',
+  2: 'مُعالَج',
+  3: 'مُرحَّل',
+  4: 'ملغي',
+};
+
+// SalaryComponentType: Earning=1, Deduction=2
+export const COMPONENT_TYPES: Record<number, 'earning' | 'deduction'> = {
+  1: 'earning',
+  2: 'deduction',
+};
+
+export const COMPONENT_TYPE_LABELS: Record<number, string> = {
+  1: 'مستحق',
+  2: 'مستقطع',
+};
+
+export interface PayrollRun {
+  id: string;
+  tenantId: string;
+  periodStart: string;
+  periodEnd: string;
+  status: number;
+  totalGross: number;
+  totalNet: number;
+  processedAt?: string;
+  postedAt?: string;
+  notes?: string;
+  createdAt: string;
+  itemsCount?: number;
+}
+
+export interface PayslipComponent {
+  id: string;
+  componentType: number;
+  name: string;
+  amount: number;
+  sortOrder: number;
+}
+
+export interface PayrollItem {
+  id: string;
+  tenantId: string;
+  payrollRunId: string;
+  employeeId: string;
+  employeeNumber?: string;
+  employeeName?: string;
+  baseSalary: number;
+  grossSalary: number;
+  taxAmount: number;
+  socialInsuranceEmployee: number;
+  netSalary: number;
+  status: number;
+  paymentDays: number;
+  notes?: string;
+  components: PayslipComponent[];
+}
+
+export interface Payslip extends PayrollItem {}
+
+export interface EosResponse {
+  employeeId: string;
+  employeeNumber?: string;
+  employeeName?: string;
+  hireDate: string;
+  terminationDate: string;
+  yearsOfService: number;
+  monthlySalary: number;
+  eosAmount: number;
+  formula: string;
+}
+
+export interface CreatePayrollRunRequest {
+  periodStart: string;
+  periodEnd: string;
+  notes?: string;
+}
+
 // ============ Error extraction helper ============
 // للحصول على رسالة خطأ أنيقة من Axios errors
 export interface ApiError {
@@ -583,5 +681,52 @@ export const hrApi = {
   rejectLeave: async (id: string): Promise<LeaveRequest> => {
     const r = await api.put<LeaveRequest>(`/api/hr/leaves/${id}/reject`);
     return r.data;
+  },
+
+  // ----- Payroll (Phase 4) -----
+  // endpoints: /api/hr/payroll/{runs|runs/{id}|runs/{id}/{process|post|items}|eos/{empId}}
+  payroll: {
+    // قائمة دورات الرواتب للـ tenant (مع filter اختياري على الحالة).
+    listPayrollRuns: async (params?: { status?: number }): Promise<PayrollRun[]> => {
+      const r = await api.get<PayrollRun[]>('/api/hr/payroll/runs', { params });
+      return r.data;
+    },
+    // تفاصيل دورة رواتب واحدة (Run header).
+    getPayrollRun: async (id: string): Promise<PayrollRun> => {
+      const r = await api.get<PayrollRun>(`/api/hr/payroll/runs/${id}`);
+      return r.data;
+    },
+    // إنشاء دورة رواتب جديدة (Draft).
+    createPayrollRun: async (data: CreatePayrollRunRequest): Promise<PayrollRun> => {
+      const r = await api.post<PayrollRun>('/api/hr/payroll/runs', data);
+      return r.data;
+    },
+    // معالجة الدورة: يحسب payslip لكل موظف نشط.
+    processPayrollRun: async (id: string): Promise<PayrollRun> => {
+      const r = await api.post<PayrollRun>(`/api/hr/payroll/runs/${id}/process`);
+      return r.data;
+    },
+    // ترحيل الدورة: ينشئ JournalEntry ويحدّث الحالة إلى Posted.
+    postPayrollRun: async (id: string): Promise<PayrollRun> => {
+      const r = await api.post<PayrollRun>(`/api/hr/payroll/runs/${id}/post`);
+      return r.data;
+    },
+    // قائمة payslips الدورة.
+    getPayrollRunItems: async (runId: string): Promise<PayrollItem[]> => {
+      const r = await api.get<PayrollItem[]>(`/api/hr/payroll/runs/${runId}/items`);
+      return r.data;
+    },
+    // تفاصيل payslip موظف واحد ضمن الدورة.
+    getPayslip: async (runId: string, employeeId: string): Promise<Payslip> => {
+      const r = await api.get<Payslip>(`/api/hr/payroll/runs/${runId}/items/${employeeId}/payslip`);
+      return r.data;
+    },
+    // حساب مستحقات نهاية الخدمة (EOS) لموظف.
+    getEos: async (employeeId: string, terminationDate?: string): Promise<EosResponse> => {
+      const r = await api.get<EosResponse>(`/api/hr/payroll/eos/${employeeId}`, {
+        params: terminationDate ? { terminationDate } : undefined,
+      });
+      return r.data;
+    },
   },
 };
