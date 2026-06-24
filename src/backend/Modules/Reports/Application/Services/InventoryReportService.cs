@@ -60,7 +60,7 @@ public sealed class InventoryReportService : IInventoryReportService
     public async Task<List<LowStockItem>> GetLowStockAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT i.id AS ItemId, i.sku AS ItemSku, i.name AS ItemName,
                    sl.warehouse_id AS WarehouseId, w.name AS WarehouseName,
                    sl.quantity_on_hand AS QuantityOnHand, sl.quantity_reserved AS QuantityReserved,
@@ -81,15 +81,14 @@ public sealed class InventoryReportService : IInventoryReportService
             ItemId = r.ItemId, ItemSku = r.ItemSku, ItemName = r.ItemName,
             WarehouseId = r.WarehouseId, WarehouseName = r.WarehouseName,
             QuantityOnHand = r.QuantityOnHand, QuantityReserved = r.QuantityReserved,
-            ReorderLevel = r.ReorderLevel, ReorderQuantity = r.ReorderQuantity,
-            Status = r.QuantityOnHand == 0 ? "Critical" : (r.QuantityOnHand < r.ReorderLevel / 2 ? "Warning" : "Low")
+            ReorderLevel = r.ReorderLevel, ReorderQuantity = r.ReorderQuantity
         }).ToList();
     }
 
     public async Task<List<StockAging>> GetStockAgingAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"
+        var sql = @"
             SELECT i.id AS ItemId, i.sku AS Sku, i.name AS Name,
                    sl.warehouse_id AS WarehouseId, sl.quantity_on_hand AS QuantityOnHand,
                    sl.last_movement_at AS LastMovementAt,
@@ -105,14 +104,7 @@ public sealed class InventoryReportService : IInventoryReportService
         {
             ItemId = r.ItemId, Sku = r.Sku, Name = r.Name, WarehouseId = r.WarehouseId,
             QuantityOnHand = r.QuantityOnHand, LastMovementAt = r.LastMovementAt,
-            DaysInStock = r.DaysInStock,
-            AgeBucket = r.DaysInStock switch
-            {
-                <= 30 => "0-30",
-                <= 60 => "31-60",
-                <= 90 => "61-90",
-                _ => "90+"
-            }
+            DaysInStock = r.DaysInStock
         }).ToList();
     }
 

@@ -87,11 +87,13 @@ public sealed class LowStockItem
     public string WarehouseName { get; set; } = string.Empty;
     public decimal QuantityOnHand { get; set; }
     public decimal QuantityReserved { get; set; }
-    public decimal QuantityAvailable { get; set; }
+    public decimal QuantityAvailable => QuantityOnHand - QuantityReserved;
     public decimal ReorderLevel { get; set; }
     public decimal ReorderQuantity { get; set; }
     public decimal Shortfall => ReorderLevel - QuantityAvailable;
-    public string Status { get; set; } = string.Empty;   // "Critical" / "Warning" / "OK"
+    public string Status => QuantityOnHand == 0
+        ? "Critical"
+        : (QuantityOnHand < ReorderLevel / 2 ? "Warning" : "Low");
 }
 
 public sealed class StockAging
@@ -103,7 +105,14 @@ public sealed class StockAging
     public decimal QuantityOnHand { get; set; }
     public DateTime? LastMovementAt { get; set; }
     public int? DaysInStock { get; set; }
-    public string AgeBucket { get; set; } = string.Empty;  // "0-30", "31-60", "61-90", "90+"
+    public string AgeBucket => DaysInStock switch
+    {
+        null => string.Empty,
+        int d when d <= 30 => "0-30",
+        int d when d <= 60 => "31-60",
+        int d when d <= 90 => "61-90",
+        _ => "90+"
+    };
 }
 
 // ===== Finance Reports =====

@@ -8,10 +8,15 @@
 backend/
 ├── Host/                  # نقطة الدخول: Program.cs, Controllers, Swagger
 ├── Modules/               # Modular Monolith — كل module مستقل
-│   ├── Identity/          # ✅ Phase 0
-│   ├── Finance/           # 📋 Phase 1
-│   ├── Projects/          # 📋 Phase 2
-│   └── Inventory/         # 📋 Phase 2
+│   ├── Identity/          # ✅ Phase 0 (مكتمل)
+│   ├── Finance/           # ✅ Phase 1 (مكتمل)
+│   ├── Companies/         # ✅ Phase 1.5 (مكتمل)
+│   ├── Projects/          # ✅ Phase 2.1 (مكتمل)
+│   ├── Inventory/         # ✅ Phase 2.2-2.3 (مكتمل)
+│   ├── Reports/           # ✅ Phase 2.5 (مكتمل)
+│   ├── Notifications/     # ✅ Phase 2.4 (مكتمل)
+│   ├── Procurement/       # ✅ Phase 3 (مكتمل — Vendor + PO + GR + Bill)
+│   └── HR/                # ✅ Phase 3.5 (مكتمل — Department + Employee + Attendance + Leave)
 ├── Shared/                # كود مشترك بين الموديولات
 │   ├── Infrastructure/    # DbConnectionFactory
 │   ├── MultiTenancy/      # TenantContext + Middleware
@@ -79,5 +84,13 @@ backend/
 - [`../AGENTS.md`](../AGENTS.md)
 - [`Host/AGENTS.md`](Host/AGENTS.md)
 - [`Modules/Identity/AGENTS.md`](Modules/Identity/AGENTS.md)
+- [`Modules/Finance/AGENTS.md`](Modules/Finance/AGENTS.md)
+- [`Modules/Companies/AGENTS.md`](Modules/Companies/AGENTS.md)
+- [`Modules/Projects/AGENTS.md`](Modules/Projects/AGENTS.md)
+- [`Modules/Inventory/AGENTS.md`](Modules/Inventory/AGENTS.md)
+- [`Modules/Reports/AGENTS.md`](Modules/Reports/AGENTS.md)
+- [`Modules/Notifications/AGENTS.md`](Modules/Notifications/AGENTS.md)
+- [`Modules/Procurement/AGENTS.md`](Modules/Procurement/AGENTS.md) 🆕 Phase 3
+- [`Modules/HR/AGENTS.md`](Modules/HR/AGENTS.md) 🆕 Phase 3.5
 - [`Shared/AGENTS.md`](Shared/AGENTS.md)
 - [`Tests/AGENTS.md`](Tests/AGENTS.md)

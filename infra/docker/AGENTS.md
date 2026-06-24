@@ -15,10 +15,12 @@ docker/
 
 | Service | Image | Port | الغرض |
 |---------|-------|------|--------|
-| `postgres` | postgres:16-alpine | 5432 | OLTP + EventStore (قاعدتين) |
-| `redis` | redis:7-alpine | 6379 | Cache + Session |
+| `postgres` | **postgres:15-alpine** | 5432 | OLTP + EventStore (قاعدتين) |
+| `redis` | redis:7-alpine | 6379 | Cache + Session (اختياري في dev) |
 | `api` | (build from Dockerfile) | 5000 | الـ Backend API |
 | `frontend` | node:20-alpine | 3000 | Next.js dev server |
+
+> **ملاحظة:** AGENTS السابقة ذكرت `postgres:16-alpine`، لكن PLAN.md v2.0 والـ root AGENTS.md يعتمدان **PostgreSQL 15** (متوفر أكثر، API مستقر). تم توحيد الإصدار إلى 15 هنا و في `docker-compose.dev.yml`.
 
 ## Conventions
 
@@ -31,8 +33,9 @@ docker/
 ## init-scripts/
 
 - تُشغّل مرة واحدة عند إنشاء الـ volume لأول مرة
-- `01-create-multiple-databases.sh`: ينشئ قواعد `erp_system` و `erp_events`
-- يجب أن تكون `chmod +x`
+- `01-create-multiple-databases.sh`: يقرأ المتغير `POSTGRES_MULTIPLE_DATABASES` (مثلاً `"erp_system:erp_events"`) وينشئ كل قاعدة + يمنح الصلاحيات لـ `POSTGRES_USER`
+- في `docker-compose.dev.yml`: `POSTGRES_MULTIPLE_DATABASES: "erp_system:erp_events"`
+- **مهم:** إذا غيّرت الـ databases، يجب حذف الـ volume (`docker volume rm <project>_postgres_data`) لإعادة التهيئة
 
 ## لما تشتغل هنا
 

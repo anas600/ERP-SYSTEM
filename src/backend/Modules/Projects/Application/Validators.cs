@@ -18,6 +18,19 @@ public sealed class CreateProjectRequestValidator : AbstractValidator<CreateProj
     }
 }
 
+public sealed class UpdateProjectRequestValidator : AbstractValidator<UpdateProjectRequest>
+{
+    public UpdateProjectRequestValidator()
+    {
+        RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
+        RuleFor(x => x.Budget).GreaterThanOrEqualTo(0).WithMessage("الميزانية لا تقل عن صفر.");
+        RuleFor(x => x.StartDate).NotEqual(default(DateTime));
+        RuleFor(x => x)
+            .Must(x => x.EndDate == null || x.EndDate >= x.StartDate)
+            .WithMessage("تاريخ النهاية يجب أن يكون بعد أو يساوي تاريخ البداية.");
+    }
+}
+
 public sealed class CreateTaskRequestValidator : AbstractValidator<CreateTaskRequest>
 {
     public CreateTaskRequestValidator()

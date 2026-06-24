@@ -1,9 +1,11 @@
 # 🏢 ERP-SYSTEM
 
-نظام ERP متكامل (MVP) يتكون من 3 وحدات أساسية: **المالية (Finance)** + **المشاريع (Projects)** + **المخزون (Inventory)**.
+نظام ERP متكامل (MVP) يتكون من **7 وحدات**: Identity + Companies + Finance + Projects + Inventory + Reports + Notifications.
 
-> **الحالة الحالية:** Phase 0 — Foundation + Identity Module
+> **الحالة الحالية:** Phase 2.5+ — Frontend integration مكتمل (8 صفحات + Auth)
 > نشتغل على Multi-tenant Modular Monolith قابل للتحويل إلى Microservices لاحقاً.
+
+> **Setup محلي بدون Docker:** راجع [`docs/SETUP-LOCAL.md`](docs/SETUP-LOCAL.md) (دليل مُبسَّط للتشغيل على Windows/macOS/Linux بدون `docker compose`).
 
 ---
 

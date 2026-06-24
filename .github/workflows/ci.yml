@@ -21,7 +21,7 @@ jobs:
   # Backend: restore → build → test → publish artifact
   # ===================================================================
   backend:
-    name: Backend (.NET ${{ env.DOTNET_VERSION }})
+    name: Backend (.NET 9.0)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -102,7 +102,7 @@ jobs:
   # Frontend: install → type-check → lint → build
   # ===================================================================
   frontend:
-    name: Frontend (Node ${{ env.NODE_VERSION }})
+    name: Frontend (Node 20)
     runs-on: ubuntu-latest
     defaults:
       run:

@@ -1,0 +1,516 @@
+version: 1
+plan:
+  name: 'ERP-SYSTEM — إكمال Phase 3+ مع البحث التنافسي'
+  max_concurrency: 4
+  max_consecutive_failures: 2
+  max_cycles: 8
+  auto_reject_retries: 1
+  verifier_config:
+    default_verifiers: [verifier]
+    audit_sample_rate: 0.0
+tasks:
+  # ===== Phase A: بحث تنافسي (3 موازية) =====
+  - id: 'research-daftra'
+    title: 'بحث شامل عن نظام دفترة (Daftra)'
+    prompt: |
+      أنت باحث أعمال/منتجات. مهمتك: بحث على الإنترنت عن نظام "دفترة" (Daftra) — نظام ERP عربي سحابي.
+
+      المطلوب: ملف `docs/research/daftra-features.md` يحوي:
+
+      1. **نظرة عامة** (3-5 أسطر): ما هو دفترة، الفئة المستهدفة، نموذج التسعير التقريبي، السوق الجغرافي.
+
+      2. **قائمة كاملة بالموديولات والميزات** (Bullet points تفصيلية):
+         - المحاسبة (Chart of Accounts, Journal Entries, VAT, Multi-currency, Cost Centers)
+         - المبيعات (Invoices, Quotes, Customers, Recurring)
+         - المشتريات (Purchase Orders, Vendor Bills, GRN)
+         - المخزون (Items, Warehouses, Stock Movements, Reorder, Barcode)
+         - نقاط البيع (POS)
+         - الموظفين/HR (Employees, Attendance, Leave, Payroll, EOS)
+         - التصنيع (BOM, Work Orders, Production)
+         - المشاريع (Projects, Tasks, Timesheets, Profitability)
+         - CRM (Leads, Opportunities, Pipelines)
+         - التقارير (Financial Reports, Custom Reports, Dashboards)
+         - الأصول الثابتة
+         - البنوك والمصاريف
+         - الفواتير الإلكترونية (ZATCA, ETA)
+         - التكاملات (API, Webhooks, Zapier, Mobile App)
+
+      3. **أفضل 15 ميزة فريدة في دفترة** ليست موجودة عادة في ERPs الأجنبية (من ناحية الـ Arabic-first / MENA-specific):
+         - دعم الفاتورة الإلكترونية (ZATCA/ETA)
+         - دعم ضريبة القيمة المضافة وفق القوانين المحلية
+         - دعم العمل في وضع Offline
+         - واجهة عربية RTL كاملة
+         - أي ميزة MENA-specific أخرى
+
+      4. **التسعير** (نماذج Subscription/Per-user/Modules): لا تحزر، إن لم تجد "غير متاح".
+
+      5. **روابط المصادر** (في نهاية الملف): روابط رسمية + 3-5 روابط لمراجعات.
+
+      **استخدم** `web_search` و `webfetch` للبحث. اكتب بالعربية، الـ code identifiers بالإنجليزي. الحد الأدنى: 500 سطر محتوى مفيد.
+
+      **Stop condition:** ملف `docs/research/daftra-features.md` مكتمل + commit على develop.
+    assigned_to: 'general'
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. افتح `docs/research/daftra-features.md` وتأكد حجمه > 5KB.
+      2. تأكد يحوي الأقسام الخمسة: نظرة عامة، قائمة الموديولات، ميزات MENA، التسعير، المصادر.
+      3. تأكد على الأقل 10 موديولات مذكورة و15 ميزة MENA.
+      4. تأكد الروابط صحيحة (http/https).
+      5. اعمل `git log --oneline -3` وتأكد من commit.
+      أعطي verdict: PASS أو FAIL مع السبب.
+    max_retries: 2
+
+  - id: 'research-erpnext'
+    title: 'بحث شامل عن ERPNext'
+    prompt: |
+      أنت باحث أعمال/منتجات. مهمتك: بحث على الإنترنت عن نظام ERPNext — ERP مفتوح المصدر مبني على Frappe Framework.
+
+      المطلوب: ملف `docs/research/erpnext-features.md` يحوي:
+
+      1. **نظرة عامة** (3-5 أسطر): ما هو ERPNext، الترخيص، نموذج النشر (cloud/self-hosted)، المجتمع.
+
+      2. **قائمة كاملة بالموديولات** (نفس التصنيف المستخدم في ملف دفترة للمقارنة العادلة):
+         - Accounting, Sales, Purchase, Stock, Manufacturing, HR, Payroll, Projects, CRM, Assets, POS, Quality, Website, eCommerce, HelpDesk, Healthcare, Education, Agriculture, Non-Profit
+
+      3. **أفضل 15 ميزة تقنية فريدة في ERPNext**:
+         - Custom Fields و Doctypes (لا-code customization)
+         - Workflow Engine
+         - Print Formatter (قوالب طباعة ديناميكية)
+         - Scheduled Job System
+         - Realtime updates عبر WebSocket
+         - Role-Based Permissions على مستوى الـ Field
+         - Multi-company + Multi-currency
+         - Audit Trail كامل
+         - Data Import Tool
+         - Report Builder (Query/Script reports)
+         - أي ميزة أخرى
+
+      4. **هيكل قاعدة البيانات / الـ Architecture** (نقاط مختصرة): Frappe Framework, MariaDB/Postgres, Redis, Node.js for realtime.
+
+      5. **API capabilities**: REST API، Webhooks، Frappe Client.
+
+      6. **روابط المصادر** (5+ روابط).
+
+      **استخدم** `web_search` و `webfetch`. اكتب بالعربية، code identifiers بالإنجليزي. الحد الأدنى: 500 سطر.
+
+      **Stop condition:** ملف `docs/research/erpnext-features.md` مكتمل + commit على develop.
+    assigned_to: 'general'
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. افتح `docs/research/erpnext-features.md` وتأكد حجمه > 5KB.
+      2. تأكد يحوي الأقسام الستة: نظرة عامة، الموديولات، ميزات تقنية، Architecture، API، المصادر.
+      3. تأكد 15+ ميزة تقنية، 12+ موديول.
+      4. اعمل `git log --oneline -3` وتأكد من commit.
+      أعطي verdict: PASS أو FAIL مع السبب.
+    max_retries: 2
+
+  - id: 'research-odoo-brief'
+    title: 'مرجع موجز: Odoo (لمقارنة الـ Best Practices)'
+    prompt: |
+      أنت باحث. مهمتك: ملف **موجز** (ليس مفصّل مثل دفترة/ERPNext) يقارن Odoo كمرجع industry-standard.
+
+      المطلوب: ملف `docs/research/odoo-reference.md` يحوي:
+
+      1. **لماذا Odoo كمرجع** (سطرين): أكبر open-source ERP تجاري، يحدد معايير الصناعة.
+
+      2. **أهم 10 أنماط معمارية** تبنّاها Odoo ونستطيع تبنّيها:
+         - Modular Apps
+         - Inheriting & Extending (لا تعديل الـ core)
+         - Cron Jobs و Scheduled Actions
+         - Wizards للعمليات المعقدة
+         - Server Actions
+         - Email Templates
+         - QWeb للطباعة/التقارير
+         - Chatter (نشاط/محادثات على الـ records)
+         - Multi-Company بـ Allowed Companies
+         - Record Rules للـ multi-tenancy
+
+      3. **3 أنماط UX/UI**:
+         - Form/Tree/Kanban/Calendar views
+         - Filters/Group By/Search
+         - Dashboard بـ KPI tiles
+
+      4. **روابط** (3 روابط رسمية).
+
+      **استخدم** `web_search`. اكتب بالعربية. الحد: 200-300 سطر (موجز، مفصّل كان في الملفين السابقين).
+
+      **Stop condition:** ملف `docs/research/odoo-reference.md` + commit.
+    assigned_to: 'general'
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. الملف موجود وحجمه بين 3-10KB (موجز).
+      2. يحوي 10 أنماط معمارية + 3 UX + روابط.
+      3. Commit على develop.
+      أعطي verdict: PASS أو FAIL.
+    max_retries: 1
+
+  # ===== Phase B: Gap Analysis (depends on research) =====
+  - id: 'gap-analysis'
+    title: 'تحليل الفجوات و Phase 3 Scope (Procurement + HR Core)'
+    prompt: |
+      أنت كبير مهندسين برمجيات. قرأت ملفات البحث في `docs/research/` (daftra, erpnext, odoo). قرأت `docs/PLAN.md` و `AGENTS.md` للنظام.
+
+      المطلوب: ملف `docs/research/gap-analysis.md` يحوي:
+
+      1. **ملخص تنفيذي** (10 أسطر): ما الفجوات الجوهرية بين نظامنا والمنافسين؟
+
+      2. **جدول مقارنة تنافسية** (Markdown table) — الصفوف = المميزات، الأعمدة = ERP-SYSTEM | Daftra | ERPNext | Odoo. العمود الأول = "Supported" / "Partial" / "Missing".
+
+      3. **Phase 3 Scope (مقترح) — Procurement Core**:
+         - PurchaseOrder (PO) aggregate: Create, Approve, Send to vendor, Mark as Received
+         - GoodsReceipt (GR): Against PO، ينشئ StockMovement
+         - VendorBill: Against GR، ينشئ JournalEntry (Dr Inventory/Expense, Cr AP)
+         - Vendor entity (basic CRUD)
+         - 4 API endpoints: `POST/GET /api/procurement/pos`, `POST/GET /api/procurement/grs`, `POST/GET /api/procurement/bills`, `GET/POST /api/procurement/vendors`
+         - Schema SQL migrations: 2 migrations (vendors + pos/grs/bills)
+         - Frontend pages: 4 pages (Vendors list, PO list, GR list, Bills list + forms)
+
+      4. **Phase 3.5 Scope (مقترح) — HR Core (MVP)**:
+         - Employee entity + CRUD
+         - Department entity
+         - Attendance (CheckIn/CheckOut) — لا payroll بعد
+         - LeaveRequest (Basic: Create/Approve)
+         - 3 API endpoints: `/api/hr/employees`, `/api/hr/attendance`, `/api/hr/leaves`
+         - 1 migration
+         - Frontend: 3 pages (Employees, Attendance, Leaves)
+
+      5. **خارطة طريق Frontend (UI Polish)**:
+         - قائمة الصفحات الموجودة وحالتها (من PLAN.md) — 8 صفحات
+         - ما يجب إضافته/تحسينه في كل صفحة
+         - إضافة: Dashboard محسّن مع KPIs
+         - إضافة: Layout موحد (sidebar + topbar + breadcrumb)
+
+      6. **ترتيب الأولويات** (Top 10 features) لما يجب تنفيذه الآن.
+
+      7. **خطة التنفيذ على 3 جلسات عمل** (نموذج rough).
+
+      **Stop condition:** ملف `docs/research/gap-analysis.md` + commit.
+    assigned_to: 'general'
+    depends_on: ['research-daftra', 'research-erpnext', 'research-odoo-brief']
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. الملف موجود وحجمه > 8KB.
+      2. يحوي الأقسام السبعة كاملة.
+      3. جدول المقارنة فيه ≥15 صف.
+      4. Phase 3 Scope يحدد 4 endpoints بالضبط + 2 migrations + 4 frontend pages.
+      5. Phase 3.5 يحدد 3 endpoints + 1 migration + 3 frontend pages.
+      6. Commit.
+      PASS/FAIL.
+    max_retries: 2
+
+  # ===== Phase C: Backend Phase 3 (depends on gap analysis) =====
+  - id: 'backend-phase3'
+    title: 'Backend Phase 3: Procurement Module + HR Core'
+    prompt: |
+      أنت كبير مهندسي Backend (.NET 9 + Dapper + PostgreSQL). اقرأ:
+      - `docs/research/gap-analysis.md` (خاصة قسم Phase 3 و Phase 3.5)
+      - `src/backend/AGENTS.md` و `src/backend/Modules/Inventory/AGENTS.md` (اتبع نفس النمط)
+      - `src/backend/Host/AGENTS.md` (Controllers + DI conventions)
+      - `src/backend/Modules/Projects/AGENTS.md` (نمط CQRS)
+
+      المطلوب: **بدون كسر الـ existing**.
+
+      ## A) Procurement Module (Phase 3) — 4 endpoints
+      1. **Migration جديد**: `src/backend/Modules/Procurement/Infrastructure/Migrations/20260623_120000_CreateProcurementTables.cs`
+         - الجداول: `procurement.vendors`, `procurement.purchase_orders`, `procurement.purchase_order_lines`, `procurement.goods_receipts`, `procurement.goods_receipt_lines`, `procurement.vendor_bills`, `procurement.vendor_bill_lines`
+         - كل جدول يحوي `id UUID PK`, `tenant_id UUID NOT NULL`, `created_at`, `updated_at`
+         - Indexes على `tenant_id` + `status` + FKs
+
+      2. **Entities**: في `src/backend/Modules/Procurement/Domain/Entities/`
+         - `Vendor.cs`, `PurchaseOrder.cs` (مع `PurchaseOrderLine`), `GoodsReceipt.cs` (مع `GoodsReceiptLine`), `VendorBill.cs` (مع `VendorBillLine`)
+         - كل entity يحوي `TenantId`
+
+      3. **DTOs + Validators**: في `src/backend/Modules/Procurement/Application/`
+         - `Dtos.cs` (Request + Response DTOs لكل aggregate)
+         - `Validators.cs` (FluentValidation، **مهم**: حدّث `ValidatorsRegistration.cs` إن وُجد)
+         - `Mapping.cs` (Entity ↔ DTO)
+
+      4. **Services + Handlers** (CQRS pattern):
+         - `VendorService.cs` (CRUD)
+         - `PurchaseOrderService.cs` (Create, Get, Approve, Submit)
+         - `GoodsReceiptService.cs` (Create against PO, posts to StockMovement عبر EventBus)
+         - `VendorBillService.cs` (Create against GR, posts JournalEntry عبر EventBus)
+         - **Business Rule:** GR لا يُنشأ إلا لـ PO في status `Approved` أو `Sent`. Bill لا يُنشأ إلا لـ GR في status `Received`.
+
+      5. **Event Integration**:
+         - في `Program.cs` أو module registration: اشترك في Finance event handlers (عند إنشاء Bill، أرسل `BillPosted` event — اختياري، فقط لو بسيط)
+         - الـ StockMovement integration: عند إنشاء GR، أنشئ `StockMovement` rows مباشرة (no event needed in MVP)
+
+      6. **Controllers**: `src/backend/Host/Controllers/ProcurementController.cs`
+         - `[Authorize]` على كل action
+         - `MapGet/Post/Put` patterns كما في `InventoryController.cs`
+         - استعمل `ITenantContext` لفلترة
+
+      7. **DI Registration**: حدّث `Program.cs` لإضافة Procurement module services.
+
+      ## B) HR Core Module (Phase 3.5) — 3 endpoints
+      1. **Migration**: `src/backend/Modules/HR/Infrastructure/Migrations/20260623_130000_CreateHRTables.cs`
+         - الجداول: `hr.employees`, `hr.departments`, `hr.attendance`, `hr.leave_requests`
+      2. **Entities + DTOs + Services + Controllers** بنفس النمط.
+      3. **DI Registration** في `Program.cs`.
+
+      ## Constraints
+      - **لا تغيّر** أي ملف في `Identity`، `Finance`، `Projects`، `Inventory`، `Reports`، `Notifications`، `Shared`، `Host/Program.cs` (عدا إضافة DI للـ modules الجديدة فقط).
+      - **استعمل** نفس الـ patterns (TenantId, Result<T>, FluentValidation, Dapper SQL files).
+      - **تعليقات بالعربي**.
+      - **اختبار Build**: `dotnet build` يجب أن يمر بدون أخطاء (0 errors, 0 new warnings).
+      - **Smoke test ذاتي**: شغّل Backend، اختبر register/login/.../procurement endpoints بـ curl.exe، احفظ output في `docs/SMOKE-TEST-PROCUREMENT.md`.
+
+      ## Output
+      - **Branch**: `feature/phase-3-procurement-hr`
+      - **Commits**: Conventional commits، 5-8 commits (entity layer, dto, services, controllers, hr, smoke)
+      - **PR**: افتح PR إلى `develop` باستخدام `gh pr create`
+      - **Stop condition**: PR مفتوح + Backend يعمل + smoke test ناجح.
+    assigned_to: 'backend-architect'
+    depends_on: ['gap-analysis']
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق بشكل مستقل:
+      1. `git log --oneline feature/phase-3-procurement-hr ^develop` يجب أن يعرض ≥5 commits.
+      2. `dotnet build` في `src/backend/Host/` يجب أن ينجح (0 errors).
+      3. **Backend** يعمل (port 5000) — شغّله محلياً:
+         - `POST /api/auth/register` → 200
+         - `POST /api/auth/login` → JWT
+         - `POST /api/procurement/vendors` → 201
+         - `POST /api/procurement/purchase-orders` → 201
+         - `POST /api/hr/employees` → 201
+         - `GET /api/procurement/vendors` → 200
+      4. افتح `src/backend/Modules/Procurement/` و `src/backend/Modules/HR/` وتأكد:
+         - migrations موجودة
+         - entities تحوي TenantId
+         - validators و DTOs موجودة
+         - controllers فيها `[Authorize]`
+      5. افتح `Program.cs` وتأكد DI modules الجديدة مسجلة.
+      6. **لا توجد تغييرات** في الـ modules الأخرى (git diff develop..feature/phase-3-procurement-hr -- src/backend/Modules/Identity src/backend/Modules/Finance src/backend/Modules/Projects src/backend/Modules/Inventory src/backend/Modules/Reports src/backend/Modules/Notifications src/backend/Shared).
+      7. PR مفتوح (افحص بـ `gh pr list`).
+      PASS/FAIL.
+    max_retries: 3
+
+  # ===== Phase D: Frontend Phase 3 (depends on gap analysis) =====
+  - id: 'frontend-phase3'
+    title: 'Frontend Phase 3: صفحات Procurement + HR + Layout موحد + Dashboard'
+    prompt: |
+      أنت كبير مهندسي Frontend (Next.js 14 + Tailwind + TypeScript + RTL). اقرأ:
+      - `docs/research/gap-analysis.md`
+      - `src/frontend/AGENTS.md`
+      - `src/frontend/lib/api.ts` (current API client)
+      - `src/frontend/app/` (الصفحات الموجودة)
+      - `src/frontend/app/register/page.tsx` و `login/page.tsx` و `dashboard/page.tsx` كنماذج
+
+      المطلوب: **بدون كسر الـ existing**.
+
+      ## A) Layout موحد
+      1. أنشئ `src/frontend/components/layout/AppShell.tsx` يحوي:
+         - Topbar: logo، tenant name، user menu (logout)
+         - Sidebar: navigation links (Dashboard, Vendors, POs, GRs, Bills, Employees, Attendance, Leaves + كل الصفحات الموجودة)
+         - Main content area مع breadcrumb
+         - Mobile responsive (sidebar collapse)
+      2. حدّث `src/frontend/app/(authenticated)/layout.tsx` ليستعمل `AppShell`.
+      3. أنشئ route group `(authenticated)` لوضع كل الصفحات المحمية (login/register يبقوا في الجذر).
+
+      ## B) صفحات Procurement (4)
+      في `src/frontend/app/(authenticated)/procurement/`:
+      - `vendors/page.tsx`: جدول Vendors (TanStack Query) + زر Add
+      - `vendors/new/page.tsx`: form إنشاء
+      - `purchase-orders/page.tsx`: جدول POs مع status badges
+      - `purchase-orders/new/page.tsx`: form إنشاء PO (vendor dropdown، item dropdown من inventory، quantity، price)
+      - `goods-receipts/page.tsx`: جدول GRs
+      - `goods-receipts/new/page.tsx`: form إنشاء GR (يختار PO، يجلب الـ lines تلقائياً)
+      - `bills/page.tsx`: جدول Bills
+      - `bills/new/page.tsx`: form إنشاء Bill (يختار GR)
+
+      ## C) صفحات HR (3)
+      في `src/frontend/app/(authenticated)/hr/`:
+      - `employees/page.tsx` + `employees/new/page.tsx`
+      - `attendance/page.tsx` (CheckIn/CheckOut button + history)
+      - `leaves/page.tsx` + `leaves/new/page.tsx` (Create/Approve)
+
+      ## D) Dashboard محسّن
+      - حدّث `src/frontend/app/(authenticated)/dashboard/page.tsx` لعرض:
+        - KPI tiles: Total Vendors, Open POs, Active Employees, Low Stock Items
+        - Quick actions: New PO, New Employee
+        - Recent activity (آخر 5 GRs + Bills)
+
+      ## E) API Client extension
+      - حدّث `src/frontend/lib/api.ts` لإضافة Procurement + HR types و functions
+      - **IMPORTANT**: اتبع نفس النمط (axios + JWT interceptor + TenantId من localStorage)
+
+      ## F) UI Components
+      - أنشئ `src/frontend/components/ui/` مع: `Button`, `Input`, `Select`, `Table`, `Badge`, `Card`, `Modal` (Tailwind فقط، لا shadcn)
+      - استخدمها في كل الصفحات الجديدة
+
+      ## Constraints
+      - **RTL** مدعوم
+      - **TypeScript strict** بدون `any`
+      - **Tailwind** فقط
+      - **تعليقات بالعربي**
+      - **Build check**: `cd src/frontend && npm run build` يجب أن ينجح
+      - **Smoke test ذاتي**: `npm run dev` ثم افتح في المتصفح، احفظ output في `docs/SMOKE-TEST-FRONTEND.md` (login → dashboard → vendors list → new vendor → list يظهر).
+
+      ## Output
+      - **Branch**: `feature/phase-3-frontend`
+      - **Commits**: 6-10 commits (layout، ui components، vendors، POs، GRs، Bills، HR، dashboard)
+      - **PR**: افتح PR إلى `develop`
+      - **Stop condition**: PR مفتوح + Frontend يبني + smoke test ناجح.
+    assigned_to: 'frontend-engineer'
+    depends_on: ['gap-analysis']
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. `git log --oneline feature/phase-3-frontend ^develop` يعرض ≥6 commits.
+      2. `cd src/frontend && npm run build` ينجح.
+      3. Frontend يعمل (port 3000). اختبر:
+         - GET / → redirect to /login
+         - POST /login بـ anas@demo.local/Demo1234 → redirect to /dashboard
+         - GET /procurement/vendors → 200 (مع JWT)
+         - GET /procurement/purchase-orders → 200
+         - GET /hr/employees → 200
+      4. `src/frontend/components/layout/AppShell.tsx` موجود.
+      5. `src/frontend/components/ui/` فيه ≥6 components.
+      6. ≥7 صفحات جديدة موجودة (vendors, POs, GRs, Bills, employees, attendance, leaves + dashboard محسّن).
+      7. PR مفتوح.
+      8. لا توجد تغييرات في `package.json` dependencies (البناء بنفس الحزم الموجودة).
+      PASS/FAIL.
+    max_retries: 3
+
+  # ===== Phase E: E2E Verification (depends on C+D) =====
+  - id: 'e2e-smoke'
+    title: 'E2E Smoke Test: سيناريو كامل (Register → PO → GR → Bill → HR Employee)'
+    prompt: |
+      أنت مهندس QA. شغّل سيناريو E2E كامل على النظام المحلي:
+
+      1. تأكد Backend (5000) و Frontend (3000) و PostgreSQL (5432) شغّالين.
+
+      2. سجّل شركة جديدة عبر `POST /api/auth/register` (استخدم curl.exe مع JSON file):
+         - email: `e2e-$(date +%s)@test.local`
+         - password: `E2ETest1234`
+         - tenantName: `E2E Test Co`
+         - fullName: `E2E Tester`
+         - baseCurrency: `LYD`
+
+      3. Login → احفظ JWT.
+
+      4. أنشئ Vendor:
+         - `POST /api/procurement/vendors` `{name:"Vendor1",email:"v1@x.com"}`
+         - احفظ vendorId
+
+      5. أنشئ PO:
+         - `POST /api/procurement/purchase-orders` `{vendorId,lines:[{itemId,quantity,unitPrice}]}`
+         - **NOTE**: لو endpoint الـ items غير موجود، أنشئ item أول عبر `/api/inventory/items` (إن وُجد) أو احصل على itemId من DB.
+         - status = `Draft`
+
+      6. Approve PO:
+         - `PUT /api/procurement/purchase-orders/{id}/approve` (إن وُجد) أو `POST` مع action
+         - status = `Approved`
+
+      7. أنشئ GR:
+         - `POST /api/procurement/goods-receipts` `{purchaseOrderId, lines:[{itemId,quantity}]}`
+         - status = `Received`
+         - **تحقق**: StockMovement rows أُنشئت (`SELECT count(*) FROM inventory.stock_movements WHERE tenant_id=...`)
+
+      8. أنشئ Bill:
+         - `POST /api/procurement/bills` `{goodsReceiptId, amount}`
+         - status = `Posted`
+         - **تحقق**: JournalEntry أُنشئ
+
+      9. أنشئ Employee:
+         - `POST /api/hr/employees` `{fullName:"E2E Employee",email:"e@e.com",baseSalary:1000}`
+
+      10. سجّل حضور:
+          - `POST /api/hr/attendance` `{employeeId, type:"CheckIn"}`
+
+      11. Frontend: GET /procurement/purchase-orders بـ JWT → يعرض الـ PO المنشأ
+
+      12. اكتب تقرير مفصّل في `docs/E2E-TEST-REPORT.md`:
+          - كل خطوة + response code + response body (مختصر)
+          - الـ assertions (ما يجب أن يكون)
+          - النتيجة: PASS / FAIL مع السبب
+          - أي bugs اكتُشفت
+
+      **Stop condition:** `docs/E2E-TEST-REPORT.md` مكتمل بـ PASS verdict.
+    assigned_to: 'qa-tester'
+    depends_on: ['backend-phase3', 'frontend-phase3']
+    verified_by: 'verifier'
+    verify_prompt: |
+      تحقق:
+      1. `docs/E2E-TEST-REPORT.md` موجود وحجمه > 3KB.
+      2. يحوي 12 خطوة موثقة.
+      3. Verdict = PASS (أو FAIL مع bugs موثقة).
+      4. الـ bugs الموثقة (إن وُجدت) صحيحة (عند التحقق يدوياً).
+      5. Commit على develop (دمج feature/phase-3-*).
+      PASS/FAIL.
+    max_retries: 2
+
+  # ===== Phase F: Final HTML Report + Telegram (depends on E2E) =====
+  - id: 'final-report'
+    title: 'تقرير HTML نهائي + إرسال على Telegram'
+    prompt: |
+      أنت كاتب تقارير. اقرأ:
+      - `docs/research/daftra-features.md` (ملخص 10 أسطر)
+      - `docs/research/erpnext-features.md` (ملخص 10 أسطر)
+      - `docs/research/odoo-reference.md` (ملخص 5 أسطر)
+      - `docs/research/gap-analysis.md`
+      - `docs/E2E-TEST-REPORT.md` (نتيجة الاختبار)
+      - `docs/CHANGELOG.md` (التغييرات)
+      - `docs/PLAN.md` (الـ status محدّث)
+
+      المطلوب: صفحة HTML واحدة (single file) `docs/RELEASE-REPORT-PHASE3.html` بحجم > 50KB، ذات تصميم احترافي، تحوي:
+
+      **Header:**
+      - عنوان: "ERP-SYSTEM — تقرير Phase 3+ الشامل"
+      - تاريخ: 2026-06-23
+      - Author: Mavis Team
+
+      **Section 1: ملخص تنفيذي** (1 صفحة)
+      - ما تم إنجازه في هذه الجلسة
+      - KPIs رقمية (Prominent): عدد الـ commits الجديدة، عدد الملفات، عدد الـ endpoints الجديدة، عدد الصفحات الجديدة
+
+      **Section 2: البحث التنافسي** (1-2 صفحة)
+      - جدول مقارنة Daftra vs ERPNext vs ERP-SYSTEM (10 ميزات)
+      - أهم 3 ميزات أخذناها من كل نظام
+
+      **Section 3: ما تم تنفيذه** (3 صفحات)
+      - Backend: قائمة الـ modules الجديدة + endpoints + migrations
+      - Frontend: قائمة الصفحات + screenshots (placeholder إذا لا توجد)
+      - Tests: عدد الـ tests الجديدة + نتائج
+
+      **Section 4: E2E Test Results** (1 صفحة)
+      - جدول: Step | Expected | Actual | PASS/FAIL
+      - Bugs discovered + Severity
+
+      **Section 5: Git Stats** (1 صفحة)
+      - Commits الجديدة (آخر 20)
+      - Branches
+      - PRs
+
+      **Section 6: Roadmap التالي** (1 صفحة)
+      - Phase 4 (HR + Payroll)
+      - Phase 5 (Mobile)
+      - Phase 6 (Advanced Reports)
+      - Production checklist
+
+      **التصميم**:
+      - Inline CSS (Tailwind CDN OK)
+      - Charts: استعمل Chart.js CDN (bar + pie)
+      - Responsive
+      - RTL support
+      - Gradient headers
+      - Professional color palette (#1e40af blue, #059669 green, #dc2626 red)
+
+      **Output**:
+      - `docs/RELEASE-REPORT-PHASE3.html`
+      - Commit على develop
+      - أرسل التقرير على Telegram:
+        - **أنشئ session خاص**: `mavis session new general --from mvs_e8a7e6d87376484a8abb0fddb64596da`
+        - **حوّل الـ HTML إلى PDF** باستعمال `mavis mcp call matrix matrix_upload_to_cdn` (أو أي طريقة متاحة) ثم أرسل
+        - **أو**: حوّله إلى base64 وأرسل via `mavis communication send` إلى telegram chat session `mvs_cb3c7297d06b45beaeb1b427a8cf0521` مع caption مفصّل
+
+      **Stop condition**: HTML موجود + أرسل على Telegram + commit.
+    assigned_to: 'general'
+    depends_on: ['e2e-smoke']
+    verify_skip_reason: 'التقرير النهائي visual deliverable — Mavis سيراجعه شخصياً قبل التسليم النهائي، و HTML upload + Telegram send steps معقدة لا تستحق verifier إضافي.'
+    max_retries: 1

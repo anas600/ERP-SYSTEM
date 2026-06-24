@@ -32,7 +32,7 @@ public class HealthController : ControllerBase
     }
 
     /// <summary>Liveness probe — خدمة الـ API نفسها</summary>
-    [HttpGet]
+    [HttpGet("live")]
     public IActionResult Live() => Ok(new
     {
         status = "healthy",

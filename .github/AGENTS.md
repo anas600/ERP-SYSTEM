@@ -1,14 +1,17 @@
-# 🔄 infra/.github/AGENTS.md
+# 🔄 .github/AGENTS.md
 
-> GitHub Actions workflows.
+> GitHub Actions workflows + Repository automation.
 
 ## شو فيه
 
 ```
 .github/
-└── workflows/
-    └── ci.yml     # Backend + Frontend + Docker build
+├── workflows/
+│   └── ci.yml     # Backend + Frontend + Docker build
+└── AGENTS.md      # هذا الملف
 ```
+
+> **ملاحظة:** الـ workflows انتقلت من `infra/.github/workflows/` إلى `.github/workflows/` ليقرأها GitHub Actions بشكل صحيح.
 
 ## Workflows
 
@@ -29,17 +32,8 @@
 - **Test results** تُرفع كـ artifacts
 - **Secrets** من GitHub Secrets (لا تضعها في الـ YAML)
 
-## لما تضيف workflow جديد
+## PR Rules
 
-- حدّد الـ trigger بوضوح
-- استخدم `actions/checkout@v4` و `actions/setup-*` المعتمدة
-- اربطه من `infra/AGENTS.md`
-
-## Secrets المستخدمة (في GitHub Repo Settings)
-
-- (لا شيء حالياً في CI — كل الـ secrets في `appsettings.Development.json` للـ dev)
-- للإنتاج لاحقاً: `JWT_SECRET`, `DB_PASSWORD`, `REDIS_URL`, `DOCKERHUB_TOKEN`
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md)
+- كل push على `main` أو `develop` → CI يـ runs
+- كل PR → CI required check قبل الـ merge
+- الـ branch protection لازم يكون: "Require status checks to pass before merging"
