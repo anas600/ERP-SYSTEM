@@ -6,6 +6,7 @@
 
 using System.Text;
 using System.Text.Json.Serialization;
+using Dapper;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -23,6 +24,10 @@ using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Infrastructure;
+using ERPSystem.Modules.Payroll.Application;
+using ERPSystem.Modules.Payroll.Application.Services;
+using ERPSystem.Modules.Payroll.Domain.Calculators;
+using ERPSystem.Modules.Payroll.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -65,6 +70,13 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
 
 // ============ Infrastructure ============
 builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
+// Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.GoodsReceiptStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.VendorBillStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollRunStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
@@ -94,6 +106,8 @@ builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
 builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepository>();
+builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
+builder.Services.AddScoped<ISalaryStructureRepository, SalaryStructureRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
@@ -137,6 +151,11 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
+builder.Services.AddScoped<IPayrollService, PayrollService>();
+builder.Services.AddScoped<IEosService, EosService>();
+builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
+builder.Services.AddScoped<IEosCalculator, EosCalculator>();
+builder.Services.AddScoped<ISocialInsuranceCalculator, SocialInsuranceCalculator>();
 builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
 builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
 builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
@@ -157,6 +176,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateDepartmentRequestVali
 builder.Services.AddValidatorsFromAssemblyContaining<CreateEmployeeRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CheckInOutRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateLeaveRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePayrollRunRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
@@ -171,7 +191,9 @@ if (!string.IsNullOrWhiteSpace(redisConn))
         var configOptions = ConfigurationOptions.Parse(redisConn);
         configOptions.AbortOnConnectFail = false;  // لا تفشل عند أول connect — استمر في إعادة المحاولة
         configOptions.ConnectRetry = 3;
-        configOptions.ConnectTimeout = 2000;       // timeout قصير (2s) عشان ما نطوّل startup
+        configOptions.ConnectTimeout = 1000;       // timeout قصير (1s) عشان ما نطوّل startup
+        configOptions.SyncTimeout = 500;           // PingAsync / sync ops ترجع بسرعة
+        configOptions.AsyncTimeout = 500;          // async ops ترجع بسرعة
         return ConnectionMultiplexer.Connect(configOptions);
     });
 }

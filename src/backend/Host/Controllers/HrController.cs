@@ -2,6 +2,9 @@ using System.Security.Claims;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Entities;
+using ERPSystem.Modules.Payroll.Application;
+using ERPSystem.Modules.Payroll.Application.Services;
+using ERPSystem.Modules.Payroll.Domain.Entities;
 using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
@@ -23,24 +26,33 @@ public class HrController : ControllerBase
     private readonly ILeaveRequestService _leaves;
     private readonly ITenantContext _tenant;
 
+    // ============ Phase 4: Payroll + EOS ============
+    private readonly IPayrollService _payroll;
+    private readonly IEosService _eos;
+
     private readonly IValidator<CreateDepartmentRequest> _createDeptV;
     private readonly IValidator<UpdateDepartmentRequest> _updateDeptV;
     private readonly IValidator<CreateEmployeeRequest> _createEmpV;
     private readonly IValidator<UpdateEmployeeRequest> _updateEmpV;
     private readonly IValidator<CheckInOutRequest> _checkV;
     private readonly IValidator<CreateLeaveRequestDto> _createLeaveV;
+    private readonly IValidator<CreatePayrollRunRequest> _createPayrollV;
 
     public HrController(
         IDepartmentService depts, IEmployeeService employees, IAttendanceService attendance, ILeaveRequestService leaves,
         ITenantContext tenant,
+        IPayrollService payroll, IEosService eos,
         IValidator<CreateDepartmentRequest> createDeptV, IValidator<UpdateDepartmentRequest> updateDeptV,
         IValidator<CreateEmployeeRequest> createEmpV, IValidator<UpdateEmployeeRequest> updateEmpV,
-        IValidator<CheckInOutRequest> checkV, IValidator<CreateLeaveRequestDto> createLeaveV)
+        IValidator<CheckInOutRequest> checkV, IValidator<CreateLeaveRequestDto> createLeaveV,
+        IValidator<CreatePayrollRunRequest> createPayrollV)
     {
         _depts = depts; _employees = employees; _attendance = attendance; _leaves = leaves; _tenant = tenant;
+        _payroll = payroll; _eos = eos;
         _createDeptV = createDeptV; _updateDeptV = updateDeptV;
         _createEmpV = createEmpV; _updateEmpV = updateEmpV;
         _checkV = checkV; _createLeaveV = createLeaveV;
+        _createPayrollV = createPayrollV;
     }
 
     private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
@@ -211,6 +223,79 @@ public class HrController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
+    // ============== Payroll (Phase 4) ==============
+
+    /// <summary>قائمة دورات الرواتب (مع filter اختياري على الحالة).</summary>
+    [HttpGet("api/hr/payroll/runs")]
+    public async Task<IActionResult> ListPayrollRuns(
+        [FromQuery] PayrollRunStatus? status,
+        [FromQuery] int skip = 0, [FromQuery] int take = 50,
+        CancellationToken ct = default)
+    {
+        var r = await _payroll.ListRunsAsync(TenantId, status, skip, take, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>تفاصيل دورة رواتب واحدة.</summary>
+    [HttpGet("api/hr/payroll/runs/{id:guid}")]
+    public async Task<IActionResult> GetPayrollRun(Guid id, CancellationToken ct)
+    {
+        var r = await _payroll.GetRunAsync(TenantId, id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(PayrollProblem(r));
+    }
+
+    /// <summary>إنشاء دورة رواتب جديدة (Draft).</summary>
+    [HttpPost("api/hr/payroll/runs")]
+    public async Task<IActionResult> CreatePayrollRun([FromBody] CreatePayrollRunRequest req, CancellationToken ct)
+    {
+        var v = await _createPayrollV.ValidateAsync(req, ct);
+        if (!v.IsValid) return BadRequest(ValidationProblem(v));
+        var r = await _payroll.CreateRunAsync(TenantId, UserId, req, ct);
+        return r.Succeeded
+            ? CreatedAtAction(nameof(GetPayrollRunItems), new { id = r.Value!.Id }, r.Value)
+            : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>معالجة الدورة: يحسب payslip لكل موظف نشط ويحدّث الحالة إلى Processing.</summary>
+    [HttpPost("api/hr/payroll/runs/{id:guid}/process")]
+    public async Task<IActionResult> ProcessPayrollRun(Guid id, CancellationToken ct)
+    {
+        var r = await _payroll.ProcessRunAsync(TenantId, UserId, id, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>ترحيل الدورة: ينشئ JournalEntry (Dr Salary / Cr Cash) ويحدّث الحالة إلى Posted.</summary>
+    [HttpPost("api/hr/payroll/runs/{id:guid}/post")]
+    public async Task<IActionResult> PostPayrollRun(Guid id, CancellationToken ct)
+    {
+        var r = await _payroll.PostRunAsync(TenantId, UserId, id, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>قائمة payslips الدورة.</summary>
+    [HttpGet("api/hr/payroll/runs/{id:guid}/items")]
+    public async Task<IActionResult> GetPayrollRunItems(Guid id, CancellationToken ct)
+    {
+        var r = await _payroll.GetItemsAsync(TenantId, id, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>تفاصيل payslip موظف واحد ضمن الدورة.</summary>
+    [HttpGet("api/hr/payroll/runs/{id:guid}/items/{empId:guid}/payslip")]
+    public async Task<IActionResult> GetPayrollPayslip(Guid id, Guid empId, CancellationToken ct)
+    {
+        var r = await _payroll.GetPayslipAsync(TenantId, id, empId, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(PayrollProblem(r));
+    }
+
+    /// <summary>حساب مستحقات نهاية الخدمة (EOS) لموظف.</summary>
+    [HttpGet("api/hr/payroll/eos/{empId:guid}")]
+    public async Task<IActionResult> CalculateEos(Guid empId, [FromQuery] DateTime? terminationDate, CancellationToken ct)
+    {
+        var r = await _eos.CalculateEosAsync(TenantId, empId, terminationDate, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
     // ============== Helpers ==============
 
     private static ValidationProblemDetails ValidationProblem(FluentValidation.Results.ValidationResult v) =>
@@ -219,6 +304,12 @@ public class HrController : ControllerBase
     private static ProblemDetails Problem<T>(HRResult<T> r) => new()
     {
         Title = "HR Error",
+        Status = StatusCodes.Status400BadRequest,
+        Detail = r.Error,
+    };
+    private static ProblemDetails PayrollProblem<T>(PayrollResult<T> r) => new()
+    {
+        Title = "Payroll Error",
         Status = StatusCodes.Status400BadRequest,
         Detail = r.Error,
     };

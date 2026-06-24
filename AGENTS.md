@@ -62,6 +62,7 @@
 | [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend |
 | [`src/backend/Modules/Procurement/AGENTS.md`](src/backend/Modules/Procurement/AGENTS.md) | Procurement Module (Phase 3) |
 | [`src/backend/Modules/HR/AGENTS.md`](src/backend/Modules/HR/AGENTS.md) | HR Core Module (Phase 3.5) |
+| [`src/backend/Modules/Payroll/AGENTS.md`](src/backend/Modules/Payroll/AGENTS.md) | Payroll + EOS Module (Phase 4) |
 | [`infra/AGENTS.md`](infra/AGENTS.md) | Docker + CI/CD |
 | [`infra/docker/AGENTS.md`](infra/docker/AGENTS.md) | docker-compose + init-scripts |
 | [`infra/.github/AGENTS.md`](infra/.github/AGENTS.md) | GitHub Actions workflows |
@@ -108,6 +109,35 @@
 - `feature/<phase>-<scope>` — لكل feature
 - `fix/<issue>` — لإصلاحات بسيطة
 - `chore/<task>` — للصيانة (تحديث deps، توثيق)
+
+### 🤝 توزيع الصلاحيات (Worker vs Owner Contract)
+
+> **مهم:** الـ Workers والـ Owner (Mavis) عندهم صلاحيات مختلفة جداً.
+
+| الفعل | Worker | Owner (Mavis) |
+|------|--------|---------------|
+| Commit + push على `feature/*` | ✅ | ✅ |
+| فتح PR `feature/*` → `develop` | ✅ (في الـ prompt) | ✅ |
+| فتح PR `develop` → `main` | ❌ | ✅ **المالك فقط** |
+| Squash merge إلى `develop` | ❌ | ✅ |
+| Squash merge إلى `main` | ❌ | ✅ |
+| حذف `feature/*` branches | ❌ | ✅ |
+| Push إلى `main` | ❌ | ❌ (لا أحد مباشرة) |
+| تعديل `Program.cs` (modules list) | ❌ | ✅ |
+| تعديل `AGENTS.md` files | ❌ | ✅ |
+
+**Defense in depth (حتى لو worker أخطأ):**
+1. **CI gating**: PR لا يُدمج إلا لو CI passes
+2. **Base branch verification**: workers فقط يفتحون PRs لـ `develop` (ليس `main`)
+3. **Squash merge**: حتى لو دخل commits مشبوهة، squash يضغطها في commit واحد موثّق
+4. **Review**: المالك يراجع قبل merge
+5. **Branch protection** (لو فعّلته على GitHub): main محمي تماماً
+
+**Verified workflow (Phase 4):**
+- Worker يكتب commits + يفتح PR #11 (`feature/phase-4-payroll-schema` → `develop`)
+- CI يفحص
+- المالك يراجع + `gh pr merge --squash --delete-branch`
+- develop HEAD: `1e2f01f feat(payroll): Phase 4.1 - Payroll schema`
 
 ### Commit Convention
 
@@ -160,7 +190,7 @@ test(auth): add JwtTokenService tests
 | **Phase 2.5+** | **Frontend integration (Next.js 8 pages) + Auth + Tailwind UI** | ✅ مكتمل |
 | **Phase 3** | **Procurement Core (Vendor + PO + GR + Bill) + AppShell + 8 UI components** | ✅ مكتمل |
 | **Phase 3.5** | **HR Core (Department + Employee + Attendance + Leave)** | ✅ مكتمل |
-| Phase 4 | HR + Payroll (calculation engine, payslips, EOS) | 📋 قادم |
+| **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
@@ -179,7 +209,7 @@ test(auth): add JwtTokenService tests
 | **API Contracts** | `procurementApi.*` و `hrApi.*` في `lib/api.ts` بنفس النمط (axios + JWT) |
 | **Migrations** | `20260623_120000_CreateProcurementTables.cs` + `20260623_130000_CreateHRTables.cs` |
 | **AGENTS.md جديدة** | `src/backend/Modules/HR/AGENTS.md` (Procurement كان موجود) — فهرسة كاملة في الـ root |
-| **Phase Status** | Phase 3 + Phase 3.5 → ✅ مكتمل، Phase 4 → 📋 قادم |
+| **Phase Status** | Phase 3 + Phase 3.5 + Phase 4 → ✅ مكتمل، Phase 5 → 📋 قادم |
 | **توثيق** | `docs/research/` (Daftra, ERPNext, Odoo, gap-analysis) + `docs/RELEASE-REPORT-PHASE3.html` (23KB) |
 | **E2E Test** | 12/12 PASS — 100% — مسجّل في `docs/E2E-TEST-RESULT.json` |
 

@@ -66,16 +66,20 @@ public class HealthController : ControllerBase
         // Redis (اختياري — قد لا يكون متوفراً في dev)
         if (_redis != null)
         {
+            // Cap at 500ms في dev — Redis اختياري، لا نعطّل الـ readiness بسببه
+            using var redisCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            redisCts.CancelAfter(TimeSpan.FromMilliseconds(500));
             try
             {
                 sw.Restart();
-                var pong = await _redis.GetDatabase().PingAsync();
+                var pingTask = _redis.GetDatabase().PingAsync();
+                var pong = await pingTask.WaitAsync(redisCts.Token);
                 checks["redis"] = new { healthy = pong > TimeSpan.Zero, latencyMs = sw.ElapsedMilliseconds, pingMs = pong.TotalMilliseconds };
             }
             catch (Exception ex)
             {
-                // Redis ليس حرجة للـ readiness في المرحلة الحالية
-                checks["redis"] = new { healthy = false, error = ex.Message, warning = "non-critical in dev" };
+                // Redis ليس حرجة للـ readiness — لا نخسر 5 ثواني
+                checks["redis"] = new { healthy = false, error = ex.Message, warning = "non-critical in dev, capped at 500ms" };
             }
         }
         else
