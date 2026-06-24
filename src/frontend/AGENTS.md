@@ -1,28 +1,62 @@
 # 🎨 src/frontend/AGENTS.md
 
-> Next.js 14 Frontend — Phase 2.5+ (مكتمل).
+> Next.js 14 Frontend — Phase 3 (مكتمل: AppShell + 8 UI components + 20 صفحة).
 
 ## شو فيه (حالياً)
 
 ```
 frontend/
 ├── app/
-│   ├── page.tsx                  # الصفحة الرئيسية
-│   ├── layout.tsx                # Root layout (RTL, dir="rtl")
-│   ├── globals.css               # Tailwind directives + globals
-│   ├── login/page.tsx            # POST /api/auth/login
-│   ├── register/page.tsx         # POST /api/auth/register
-│   ├── dashboard/page.tsx        # Auth-gated landing
-│   ├── finance/accounts/page.tsx # GET/POST /api/finance/accounts
-│   ├── inventory/items/page.tsx  # GET /api/inventory/items
-│   └── projects/page.tsx         # GET /api/projects
+│   ├── page.tsx                                # الصفحة الرئيسية
+│   ├── layout.tsx                              # Root layout (RTL, dir="rtl")
+│   ├── globals.css                             # Tailwind directives + globals
+│   ├── login/page.tsx                          # POST /api/auth/login
+│   ├── register/page.tsx                       # POST /api/auth/register
+│   └── (authenticated)/                        # 🆕 Route group — صفحات محمية بـ AppShell
+│       ├── layout.tsx                          # يستعمل AppShell (sidebar + topbar + breadcrumb)
+│       ├── dashboard/page.tsx                  # KPIs + quick actions
+│       ├── finance/accounts/page.tsx           # GET/POST /api/finance/accounts
+│       ├── inventory/items/page.tsx            # GET /api/inventory/items
+│       ├── projects/page.tsx                   # GET /api/projects
+│       ├── procurement/                        # 🆕 Phase 3
+│       │   ├── vendors/page.tsx + vendors/new/page.tsx
+│       │   ├── purchase-orders/page.tsx + purchase-orders/new/page.tsx
+│       │   ├── goods-receipts/page.tsx + goods-receipts/new/page.tsx
+│       │   └── bills/page.tsx + bills/new/page.tsx
+│       └── hr/                                 # 🆕 Phase 3.5
+│           ├── employees/page.tsx + employees/new/page.tsx
+│           ├── attendance/page.tsx             # CheckIn/CheckOut + history
+│           └── leaves/page.tsx + leaves/new/page.tsx
+├── components/                                 # 🆕 Phase 3
+│   ├── layout/
+│   │   └── AppShell.tsx                        # Sidebar + Topbar + Breadcrumb + User menu
+│   └── ui/                                     # 8 مكونات مكتوبة بـ Tailwind (لا shadcn)
+│       ├── Button.tsx
+│       ├── Input.tsx
+│       ├── Select.tsx
+│       ├── Table.tsx
+│       ├── Badge.tsx
+│       ├── Card.tsx
+│       ├── Modal.tsx
+│       ├── PageHeader.tsx
+│       └── index.ts                            # barrel export
 ├── lib/
-│   └── api.ts                    # Axios instance + JWT interceptors + Auth helpers
+│   ├── api.ts                                  # Axios + JWT interceptors + procurementApi/hrApi
+│   ├── useAuth.ts                              # 🆕 Hook للمصادقة (user + token state)
+│   └── utils.ts                                # 🆕 Helpers (formatCurrency, formatDate, cn, ...)
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
 └── tsconfig.json
 ```
+
+## Phase Status
+
+| Phase | المحتوى | الحالة |
+|-------|---------|--------|
+| Phase 2.5+ | 8 صفحات أولية + Auth | ✅ مكتمل |
+| **Phase 3** | **AppShell + 8 UI components + 12 صفحة جديدة (Procurement + HR)** | **✅ مكتمل** |
+| Phase 4 | HR + Payroll pages + Dashboard v2 | 📋 قادم |
 
 ## Tech Stack (الفعلية في package.json)
 

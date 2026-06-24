@@ -13,9 +13,17 @@ Shared/
 │   ├── ITenantContext.cs              # عقد السياق
 │   ├── TenantContext.cs               # تنفيذ AsyncLocal
 │   └── TenantMiddleware.cs            # يلتقط tenant_id من JWT
-├── Migrations/
-│   ├── 20260614_120000_CreateIdentityTables.cs  # أول migration
-│   └── MigrationRunnerHostedService.cs           # يشغّل الـ migrations
+├── Migrations/                        # FluentMigrator (timestamp-based)
+│   ├── 20260614_120000_CreateIdentityTables.cs
+│   ├── 20260614_180000_CreateFinanceTables.cs
+│   ├── 20260615_020000_AddMultiCompanySupport.cs
+│   ├── 20260615_050000_CreateProjectsTables.cs
+│   ├── 20260615_070000_AddInventoryCore.cs
+│   ├── 20260615_090000_AddInventoryMovements.cs
+│   ├── 20260615_110000_AddOutboxAndProcessedEvents.cs
+│   ├── 20260623_120000_CreateProcurementTables.cs  # 🆕 Phase 3
+│   ├── 20260623_130000_CreateHRTables.cs           # 🆕 Phase 3.5
+│   └── MigrationRunnerHostedService.cs             # يشغّل الـ migrations
 └── Events/
     └── StockEvents.cs                 # Contracts للـ Pub/Sub بين الموديولات
 ```
