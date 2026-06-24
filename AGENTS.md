@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 2.5 — Reports + Frontend (يونيو 2026)
+> محدّث: Phase 4 — Payroll + EOS (يونيو 2026) — كل التغييرات من Phase 3/3.5/4 موثّقة
 
 ---
 
@@ -15,7 +15,7 @@
 | المدة المتوقعة | 8-10 أسابيع |
 | المالك | anas600 (https://github.com/anas600) |
 | الترخيص | Private — جميع الحقوق محفوظة |
-| الحالة | Phase 2.5+ مكتمل (PR #1 → #8)، Phase 3 قادم |
+| الحالة | **Phase 4 مكتمل (PR #1 → #15)**، Phase 5 قادم |
 
 ---
 
@@ -27,7 +27,7 @@
 | Language (Backend) | C# | 12+ | Nullable Reference Types مفعّلة |
 | Database (OLTP) | **PostgreSQL** | **15** | ✅ مُختبَر محلياً (15.18). 16+ مقبول |
 | Database (Events) | PostgreSQL | 15 | نفس الـ instance، schema منفصل `mt_events` |
-| Migrations | FluentMigrator | 5.0 | 7 migrations: identity → finance → projects → inventory → outbox |
+| Migrations | FluentMigrator | 5.0 | **10 migrations**: identity → finance → projects → inventory → outbox → procurement → hr → payroll |
 | ORM | Dapper | 2.1+ | لا EF Core (القرار في PLAN.md) |
 | Event Store | MartenDB | 7.34+ | حزمة مُثبّتة (Phase 3+)؛ حالياً Outbox pattern في Postgres |
 | Cache/Queue | Redis | 7 | **اختياري** في dev؛ الكود يتفحص `ConnectionStrings:Redis` |
@@ -36,7 +36,7 @@
 | Frontend Language | TypeScript | 5.5+ | Strict mode |
 | UI Components | **Tailwind CSS** | 3.4 | ⚠️ shadcn/ui مذكور تاريخياً لكن **غير مُطبَّق** (لا يوجد `components/ui/`) |
 | API Docs | Swashbuckle | 6.6+ | Swagger UI على `/swagger` |
-| Testing | xUnit + FluentAssertions | — | 15 اختبار في `src/backend/Tests/` |
+| Testing | xUnit + FluentAssertions | — | `src/backend/Tests/` — عدد الاختبارات حسب الـ modules |
 | Container | Docker Compose | 3.9 | `infra/docker/docker-compose.dev.yml` |
 | CI | GitHub Actions | — | `.github/workflows/ci.yml` |
 

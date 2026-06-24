@@ -1,6 +1,8 @@
 # 📊 src/backend/Modules/Reports/AGENTS.md
 
 > Reports Module — ✅ Phase 2.5 (مكتمل).
+>
+> محدّث: 2026-06-24 — إضافة Phase 3+ context
 
 ## شو فيه
 
@@ -94,3 +96,6 @@
 - [`../Projects/AGENTS.md`](../Projects/AGENTS.md)
 - [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — IDbConnectionFactory
 - [`../../Tests/AGENTS.md`](../../Tests/AGENTS.md) — test patterns
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (Vendor Spend report — مستقبلي)
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5 (Headcount report)
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4 (Payroll summary, EOS liability)

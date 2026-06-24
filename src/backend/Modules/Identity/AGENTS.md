@@ -1,6 +1,8 @@
 # 🔐 src/backend/Modules/Identity/AGENTS.md
 
-> Identity Module — Phase 0 (✅ مكتمل 90%).
+> Identity Module — Phase 0 (✅ مكتمل).
+>
+> محدّث: 2026-06-24 — إضافة الربط مع Phase 3/4 modules
 
 ## شو فيه
 
@@ -148,3 +150,7 @@ GET /api/auth/me (Bearer required)
 - [`../AGENTS.md`](../AGENTS.md)
 - [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — TenantContext, Migrations
 - [`../../Host/AGENTS.md`](../../Host/AGENTS.md) — AuthController
+- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — Tenant bootstrap (HoldingCompany + CoA)
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4

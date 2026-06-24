@@ -1,6 +1,8 @@
 # 🔔 src/backend/Modules/Notifications/AGENTS.md
 
-> Notifications Module — ✅ Phase 2.3 (in-app notifications)
+> Notifications Module — ✅ Phase 2.3 (in-app notifications).
+>
+> محدّث: 2026-06-24 — إضافة Phase 3+ context
 
 ## شو فيه
 
@@ -39,3 +41,6 @@ Notifications/
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../Inventory/AGENTS.md`](../Inventory/AGENTS.md) — يستدعي LowStock
 - [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — JournalPosted alerts (PR #7)
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (PO Approved, Bill Due)
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5 (Leave Approved, Attendance Alert)
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4 (Payroll Processed, Payslip Ready)

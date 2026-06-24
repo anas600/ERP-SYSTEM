@@ -1,6 +1,8 @@
 # 📦 src/backend/Modules/Inventory/AGENTS.md
 
-> Inventory Module — ✅ Phase 2.2 + 2.3 (Core + Stock Movements + Notifications)
+> Inventory Module — ✅ Phase 2.2 + 2.3 (Core + Stock Movements + Notifications).
+>
+> محدّث: 2026-06-24 — إضافة Phase 3+ context
 
 ## شو فيه
 
@@ -121,3 +123,9 @@ newAvg = (oldQty * oldAvg + qty * unitCost) / newQty
 - [`../Companies/AGENTS.md`](../Companies/AGENTS.md)
 - [`../Projects/AGENTS.md`](../Projects/AGENTS.md)
 - [`../Notifications/AGENTS.md`](../Notifications/AGENTS.md)
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (Goods Receipts → Stock)
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (Goods Receipts)
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4

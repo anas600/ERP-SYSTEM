@@ -1,36 +1,45 @@
 # 🎨 src/frontend/AGENTS.md
 
-> Next.js 14 Frontend — Phase 3 (مكتمل: AppShell + 8 UI components + 20 صفحة).
+> Next.js 14 Frontend — Phase 4 (مكتمل: AppShell + 8 UI components + 24 صفحة عبر Phase 2.5+ / 3 / 3.5 / 4).
+>
+> محدّث: 2026-06-24
 
 ## شو فيه (حالياً)
 
 ```
 frontend/
 ├── app/
-│   ├── page.tsx                                # الصفحة الرئيسية
-│   ├── layout.tsx                              # Root layout (RTL, dir="rtl")
-│   ├── globals.css                             # Tailwind directives + globals
-│   ├── login/page.tsx                          # POST /api/auth/login
-│   ├── register/page.tsx                       # POST /api/auth/register
-│   └── (authenticated)/                        # 🆕 Route group — صفحات محمية بـ AppShell
-│       ├── layout.tsx                          # يستعمل AppShell (sidebar + topbar + breadcrumb)
-│       ├── dashboard/page.tsx                  # KPIs + quick actions
-│       ├── finance/accounts/page.tsx           # GET/POST /api/finance/accounts
-│       ├── inventory/items/page.tsx            # GET /api/inventory/items
-│       ├── projects/page.tsx                   # GET /api/projects
-│       ├── procurement/                        # 🆕 Phase 3
+│   ├── page.tsx                                  # الصفحة الرئيسية
+│   ├── layout.tsx                                # Root layout (RTL, dir="rtl")
+│   ├── globals.css                               # Tailwind directives + globals
+│   ├── login/page.tsx                            # POST /api/auth/login
+│   ├── register/page.tsx                         # POST /api/auth/register
+│   └── (authenticated)/                          # Route group — صفحات محمية بـ AppShell
+│       ├── layout.tsx                            # يستعمل AppShell (sidebar + topbar + breadcrumb)
+│       ├── dashboard/page.tsx                    # KPIs + quick actions
+│       ├── finance/accounts/page.tsx             # GET/POST /api/finance/accounts
+│       ├── inventory/items/page.tsx              # GET /api/inventory/items
+│       ├── projects/page.tsx                     # GET /api/projects
+│       ├── procurement/                          # Phase 3 (Procurement)
 │       │   ├── vendors/page.tsx + vendors/new/page.tsx
 │       │   ├── purchase-orders/page.tsx + purchase-orders/new/page.tsx
 │       │   ├── goods-receipts/page.tsx + goods-receipts/new/page.tsx
 │       │   └── bills/page.tsx + bills/new/page.tsx
-│       └── hr/                                 # 🆕 Phase 3.5
-│           ├── employees/page.tsx + employees/new/page.tsx
-│           ├── attendance/page.tsx             # CheckIn/CheckOut + history
-│           └── leaves/page.tsx + leaves/new/page.tsx
-├── components/                                 # 🆕 Phase 3
+│       ├── hr/                                   # Phase 3.5 (HR Core) + Phase 4 (Payroll)
+│       │   ├── employees/page.tsx + employees/new/page.tsx
+│       │   ├── attendance/page.tsx               # CheckIn/CheckOut + history
+│       │   ├── leaves/page.tsx + leaves/new/page.tsx
+│       │   └── payroll/                          # Phase 4 (Payroll + EOS)
+│       │       ├── page.tsx                      # List of PayrollRuns
+│       │       ├── new/page.tsx                  # Create new PayrollRun
+│       │       └── [id]/
+│       │           ├── page.tsx                  # PayrollRun detail + items
+│       │           └── payslip/[empId]/page.tsx  # Employee payslip view
+├── components/                                   # Phase 3
 │   ├── layout/
-│   │   └── AppShell.tsx                        # Sidebar + Topbar + Breadcrumb + User menu
-│   └── ui/                                     # 8 مكونات مكتوبة بـ Tailwind (لا shadcn)
+│   │   ├── AppShell.tsx                          # Sidebar + Topbar + Breadcrumb + User menu
+│   │   └── Sidebar.tsx                           # Navigation menu (Phase 3 + Phase 4 Payroll entry)
+│   └── ui/                                       # 8 مكونات مكتوبة بـ Tailwind (لا shadcn)
 │       ├── Button.tsx
 │       ├── Input.tsx
 │       ├── Select.tsx
@@ -39,11 +48,11 @@ frontend/
 │       ├── Card.tsx
 │       ├── Modal.tsx
 │       ├── PageHeader.tsx
-│       └── index.ts                            # barrel export
+│       └── index.ts                              # barrel export
 ├── lib/
-│   ├── api.ts                                  # Axios + JWT interceptors + procurementApi/hrApi
-│   ├── useAuth.ts                              # 🆕 Hook للمصادقة (user + token state)
-│   └── utils.ts                                # 🆕 Helpers (formatCurrency, formatDate, cn, ...)
+│   ├── api.ts                                    # Axios + JWT interceptors + 9 API namespaces
+│   ├── useAuth.ts                                # Hook للمصادقة (user + token state)
+│   └── utils.ts                                  # Helpers (formatCurrency, formatDate, cn, ...)
 ├── package.json
 ├── next.config.js
 ├── tailwind.config.js
@@ -54,9 +63,13 @@ frontend/
 
 | Phase | المحتوى | الحالة |
 |-------|---------|--------|
-| Phase 2.5+ | 8 صفحات أولية + Auth | ✅ مكتمل |
-| **Phase 3** | **AppShell + 8 UI components + 12 صفحة جديدة (Procurement + HR)** | **✅ مكتمل** |
-| Phase 4 | HR + Payroll pages + Dashboard v2 | 📋 قادم |
+| Phase 2.5+ | 8 صفحات أولية + Auth + Dashboard | ✅ مكتمل |
+| **Phase 3** | **AppShell + 8 UI components + 8 صفحات Procurement** | **✅ مكتمل** |
+| **Phase 3.5** | **HR Core pages (employees + attendance + leaves)** | **✅ مكتمل** |
+| **Phase 4** | **Payroll pages (list + new + detail + payslip) + hrApi.payroll.*** | **✅ مكتمل** |
+| Phase 5 | Inventory UI v2 + Manufacturing pages | 📋 قادم |
+
+**مجموع الصفحات الحالي: 24 صفحة** (8 Phase 2.5+ + 8 Procurement + 4 HR + 4 Payroll)
 
 ## Tech Stack (الفعلية في package.json)
 
@@ -159,11 +172,67 @@ interface UserInfo {
 3. يخزّن tokens في `localStorage`
 4. `router.push('/dashboard')`
 
+## API Namespaces في `lib/api.ts`
+
+| Namespace | Methods | الـ Module |
+|-----------|---------|-----------|
+| `authApi` | register, login, refresh, logout, me | Identity |
+| `financeApi` | accounts, journal, ledger, postingRules | Finance |
+| `projectsApi` | projects, tasks, resources | Projects |
+| `inventoryApi` | items, categories, warehouses, stock | Inventory |
+| `reportsApi` | various reports | Reports |
+| `companiesApi` | companies, costCenters | Companies |
+| `procurementApi` | vendors, purchaseOrders, goodsReceipts, bills | Procurement (Phase 3) |
+| `hrApi` | departments, employees, attendance, leaves | HR (Phase 3.5) |
+| **`hrApi.payroll`** | **`listRuns, getRun, createRun, processRun, postRun, getItems, getPayslip, getEosPreview`** | **Payroll (Phase 4)** 🆕 |
+
+## Phase 4 — Payroll Pages (NEW)
+
+### 1. `app/(authenticated)/hr/payroll/page.tsx` — List
+- جدول بكل الـ PayrollRuns (period + status + totals)
+- Status badges: Draft (gray) / Processed (blue) / Posted (green) / Voided (red)
+- زر "إنشاء Run جديد" → `/hr/payroll/new`
+- Pagination (50 per page)
+
+### 2. `app/(authenticated)/hr/payroll/new/page.tsx` — Create
+- نموذج: periodStart, periodEnd, notes
+- validation: periodEnd > periodStart
+- عند الإرسال: `hrApi.payroll.createRun({...})` → 201 + redirect للـ detail
+
+### 3. `app/(authenticated)/hr/payroll/[id]/page.tsx` — Detail
+- عرض تفاصيل Run (period, status, totals)
+- جدول الـ PayrollItems (لكل موظف: gross, tax, net)
+- أزرار: Process / Post (حسب الـ status)
+- Modal لتأكيد Process
+
+### 4. `app/(authenticated)/hr/payroll/[id]/payslip/[empId]/page.tsx` — Payslip
+- قسيمة راتب موظف واحد
+- Basic + Allowances + Deductions + Tax + Social Insurance + Net
+- Print-friendly CSS
+
+## Sidebar Navigation (`components/layout/Sidebar.tsx`)
+
+```typescript
+const menuItems = [
+  { href: '/dashboard', label: 'لوحة التحكم', icon: 'Home' },
+  { href: '/finance/accounts', label: 'الحسابات', icon: 'DollarSign' },
+  { href: '/inventory/items', label: 'الأصناف', icon: 'Package' },
+  { href: '/projects', label: 'المشاريع', icon: 'Briefcase' },
+  { href: '/procurement/vendors', label: 'الموردين', icon: 'Truck' },  // Phase 3
+  { href: '/procurement/purchase-orders', label: 'أوامر الشراء', icon: 'ShoppingCart' },  // Phase 3
+  { href: '/hr/employees', label: 'الموظفين', icon: 'Users' },  // Phase 3.5
+  { href: '/hr/attendance', label: 'الحضور', icon: 'CalendarCheck' },  // Phase 3.5
+  { href: '/hr/leaves', label: 'الإجازات', icon: 'Calendar' },  // Phase 3.5
+  { href: '/hr/payroll', label: 'الرواتب', icon: 'Wallet' },  // Phase 4 🆕
+];
+```
+
 ## لما تشتغل هنا
 
 - إضافة صفحة: `app/<route>/page.tsx` (functional component)
-- إضافة API helper: في `lib/api.ts` (grouped: `authApi`, `financeApi`, `inventoryApi`, `projectsApi`)
+- إضافة API helper: في `lib/api.ts` (grouped: `authApi`, `financeApi`, `inventoryApi`, `projectsApi`, `procurementApi`, `hrApi`)
 - Feature جديدة: استخدم `react-hook-form` + `zod` (مُثبَّتان لكن غير مستخدمتين بعد في كل الـ pages)
+- Sidebar entry: حدّث `components/layout/Sidebar.tsx` عند إضافة module جديد
 - لإضافة shadcn فعلاً: `npx shadcn-ui@latest init` ثم `npx shadcn-ui@latest add button` (يتطلب قرار معماري)
 
 ## بعد التعديل
@@ -172,10 +241,15 @@ interface UserInfo {
 - `npm run lint` نظيف
 - `npm run build` ينجح
 - اختبار التسجيل والدخول من المتصفح
+- اختبار الصفحة الجديدة يدوياً (مع auth + role مناسب)
+- حدّث الـ Sidebar إذا كانت صفحة جديدة في route group
 
 ## مرتبطة بـ
 
 - [`../AGENTS.md`](../AGENTS.md) — root
 - [`../backend/AGENTS.md`](../backend/AGENTS.md) — عقود الـ API
 - [`../backend/Modules/Identity/AGENTS.md`](../backend/Modules/Identity/AGENTS.md) — Auth flow
+- [`../backend/Modules/Procurement/AGENTS.md`](../backend/Modules/Procurement/AGENTS.md) — Phase 3
+- [`../backend/Modules/HR/AGENTS.md`](../backend/Modules/HR/AGENTS.md) — Phase 3.5
+- [`../backend/Modules/Payroll/AGENTS.md`](../backend/Modules/Payroll/AGENTS.md) — Phase 4
 - [`../../AGENTS.md`](../../AGENTS.md) — tech stack الكامل

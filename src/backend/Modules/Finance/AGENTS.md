@@ -1,6 +1,8 @@
 # 💰 src/backend/Modules/Finance/AGENTS.md
 
-> Finance Module — ✅ Phase 1 مكتمل (Chart of Accounts + Journal Entries + General Ledger + Rules Engine)
+> Finance Module — ✅ Phase 1 مكتمل (Chart of Accounts + Journal Entries + General Ledger + Rules Engine).
+>
+> محدّث: 2026-06-24 — إضافة Phase 4 (Payroll uses CoA 4200/1210)
 
 ## شو فيه
 

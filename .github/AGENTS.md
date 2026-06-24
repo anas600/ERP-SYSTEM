@@ -1,6 +1,8 @@
 # 🔄 .github/AGENTS.md
 
 > GitHub Actions workflows + Repository automation.
+>
+> محدّث: 2026-06-24 (Phase 4)
 
 ## شو فيه
 
@@ -21,8 +23,12 @@
 - **Concurrency**: يلغي pipelines قديمة على نفس الـ PR
 - **Jobs**:
   1. `backend` — restore → build → test مع Postgres + Redis services
-  2. `frontend` — install → type-check → lint → build
+  2. `frontend` — install → type-check → lint → build (مع `.eslintrc.json` المثبَّت في Phase 3 لتفادي الـ non-interactive prompt)
   3. `docker` — يبني صورة الـ API (بدون push)
+
+> **Phase 4 ملاحظة:** مع Phase 3 (`feature/phase-3-frontend`) و Phase 4، الـ CI يختبر:
+> - backend: 10 migrations (identity → finance → projects → inventory → outbox → procurement → hr → payroll)
+> - frontend: 24 صفحة عبر 4 route groups
 
 ## Conventions
 

@@ -1,6 +1,8 @@
 # 🚌 src/backend/Shared/Events/AGENTS.md
 
-> Event Bus (Outbox Pattern) — ✅ Phase 2.4 (cross-module integration)
+> Event Bus (Outbox Pattern) — ✅ Phase 2.4 (cross-module integration).
+>
+> محدّث: 2026-06-24 — إضافة Phase 3+ context
 
 ## شو فيه
 
@@ -116,3 +118,6 @@ Auto-discovered via DI — just register `AddScoped<IIntegrationEventHandler<TEv
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../../Modules/Finance/AGENTS.md`](../../Modules/Finance/AGENTS.md) — PostingRulesService
 - [`../../Modules/Inventory/AGENTS.md`](../../Modules/Inventory/AGENTS.md) — StockMovementService publishes
+- [`../../Modules/Procurement/AGENTS.md`](../../Modules/Procurement/AGENTS.md) — Phase 3 (POApproved, GoodsReceived)
+- [`../../Modules/HR/AGENTS.md`](../../Modules/HR/AGENTS.md) — Phase 3.5 (LeaveApproved)
+- [`../../Modules/Payroll/AGENTS.md`](../../Modules/Payroll/AGENTS.md) — Phase 4 (PayrollPosted → Finance auto-post)

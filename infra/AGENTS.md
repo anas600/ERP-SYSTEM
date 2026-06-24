@@ -1,18 +1,23 @@
 # 🏗️ infra/AGENTS.md
 
 > البنية التحتية: Docker + CI/CD.
+>
+> محدّث: 2026-06-24 (Phase 4)
 
 ## شو فيه
 
 ```
 infra/
 ├── docker/
-│   ├── docker-compose.dev.yml     # بيئة التطوير
-│   └── init-scripts/              # سكربتات Postgres init
+│   ├── docker-compose.dev.yml     # بيئة التطوير (PostgreSQL 15 + Redis 7)
+│   ├── Dockerfile.api             # 🆕 multi-stage build للـ backend
+│   └── init-scripts/              # سكربتات Postgres init (multi-DB)
 └── .github/
     └── workflows/
-        └── ci.yml                 # GitHub Actions
+        └── ci.yml                 # GitHub Actions (jobs: backend, frontend, docker)
 ```
+
+> **Phase 4 ملاحظة:** Docker Compose يستخدم PostgreSQL 15 (مُختبَر محلياً بـ 15.18). Redis اختياري (الكود يتعامل مع `AbortOnConnectFail=false`). الـ Health checks تعتمد على `/health/live` و `/health/ready`.
 
 ## Conventions
 
