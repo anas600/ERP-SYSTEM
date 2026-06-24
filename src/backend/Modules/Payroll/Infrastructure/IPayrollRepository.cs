@@ -34,6 +34,9 @@ public interface IPayrollRepository
     Task<IReadOnlyList<PayrollItem>> GetItemsByRunAsync(Guid payrollRunId, CancellationToken ct);
     Task AddItemAsync(PayrollItem item, IEnumerable<PayslipComponent> components, CancellationToken ct);
 
+    // ============ PayslipComponent ============
+    Task<IReadOnlyList<PayslipComponent>> GetComponentsByItemAsync(Guid payrollItemId, CancellationToken ct);
+
     // ============ SalaryStructure (passthrough for PayrollService) ============
     Task<SalaryStructure?> GetStructureByCodeAsync(Guid tenantId, string code, CancellationToken ct);
 }
