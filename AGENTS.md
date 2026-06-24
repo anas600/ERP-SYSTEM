@@ -143,6 +143,26 @@
 على `main`:
 - نفس `develop` + لا أحد يدفع مباشرة (force-push ممنوع)
 
+### 📂 Plan Storage Convention (Single Source of Truth)
+
+> **مهم جداً:** كل الـ plans الرسمية تُكتب تلقائياً في `~/.mavis/plans/<plan-id>/` بواسطة `mavis team plan`.
+
+| النوع | المسار | مين يكتب فيه |
+|------|--------|-------------|
+| 🟢 **Plan الرسمي** | `~/.mavis/plans/<plan-id>/` | mavis daemon + المالك |
+| 🔵 **مرجع المشروع** | `<project>/.mavis/plans/` | المالك فقط |
+
+**القاعدة:** كل الملفات الديناميكية (board.md, state.json, outputs/, decisions/, notes/)
+تُكتب فقط في المسار الرسمي. المشروع يحوي فقط مراجع ثابتة.
+
+**مرجع مفصّل:** [`docs/AGENTS.md`](docs/AGENTS.md) أو [`.mavis/AGENTS.md`](.mavis/AGENTS.md)
+
+**للـ sub-agents:** المالك يكتب المسار الرسمي صراحةً في كل prompt task، مثال:
+```
+Reference: see ~/.mavis/plans/plan_b5ae4fc0/board.md for live status
+and ~/.mavis/plans/plan_b5ae4fc0/outputs/<task-id>/deliverable.md for context.
+```
+
 ### Commit Convention
 
 نستخدم Conventional Commits:
