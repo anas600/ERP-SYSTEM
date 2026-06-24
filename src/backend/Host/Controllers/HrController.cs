@@ -4,6 +4,7 @@ using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Entities;
 using ERPSystem.Modules.Payroll.Application;
 using ERPSystem.Modules.Payroll.Application.Services;
+using ERPSystem.Modules.Payroll.Domain.Entities;
 using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
@@ -223,6 +224,25 @@ public class HrController : ControllerBase
     }
 
     // ============== Payroll (Phase 4) ==============
+
+    /// <summary>قائمة دورات الرواتب (مع filter اختياري على الحالة).</summary>
+    [HttpGet("api/hr/payroll/runs")]
+    public async Task<IActionResult> ListPayrollRuns(
+        [FromQuery] PayrollRunStatus? status,
+        [FromQuery] int skip = 0, [FromQuery] int take = 50,
+        CancellationToken ct = default)
+    {
+        var r = await _payroll.ListRunsAsync(TenantId, status, skip, take, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
+    }
+
+    /// <summary>تفاصيل دورة رواتب واحدة.</summary>
+    [HttpGet("api/hr/payroll/runs/{id:guid}")]
+    public async Task<IActionResult> GetPayrollRun(Guid id, CancellationToken ct)
+    {
+        var r = await _payroll.GetRunAsync(TenantId, id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(PayrollProblem(r));
+    }
 
     /// <summary>إنشاء دورة رواتب جديدة (Draft).</summary>
     [HttpPost("api/hr/payroll/runs")]

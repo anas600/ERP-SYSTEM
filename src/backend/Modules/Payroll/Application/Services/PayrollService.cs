@@ -40,6 +40,12 @@ public enum PayrollErrorCode
 /// <summary>عقد خدمة Payroll — إنشاء/معالجة/ترحيل دورة رواتب + استعلام payslips.</summary>
 public interface IPayrollService
 {
+    /// <summary>قائمة دورات الرواتب للـ tenant (مع filter اختياري على الحالة).</summary>
+    Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct);
+
+    /// <summary>تفاصيل دورة رواتب واحدة (Run header فقط، بدون items).</summary>
+    Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid tenantId, Guid runId, CancellationToken ct);
+
     /// <summary>إنشاء دورة رواتب جديدة في حالة Draft.</summary>
     Task<PayrollResult<PayrollRunResponse>> CreateRunAsync(Guid tenantId, Guid userId, CreatePayrollRunRequest req, CancellationToken ct);
 
@@ -94,6 +100,32 @@ public sealed class PayrollService : IPayrollService
         _runs = runs; _structures = structures; _employees = employees;
         _taxCalc = taxCalc; _siCalc = siCalc;
         _journalService = journalService; _accounts = accounts; _logger = logger;
+    }
+
+    // ---------- ListRunsAsync ----------
+
+    public async Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct)
+    {
+        var runs = await _runs.ListRunsAsync(tenantId, status, skip, take, ct);
+        var itemsByRun = new Dictionary<Guid, int>();
+        foreach (var r in runs)
+        {
+            var its = await _runs.GetItemsByRunAsync(r.Id, ct);
+            itemsByRun[r.Id] = its.Count;
+        }
+        var result = runs.Select(r => MapRunToResponse(r, itemsByRun.TryGetValue(r.Id, out var n) ? n : 0)).ToList();
+        return PayrollResult<IReadOnlyList<PayrollRunResponse>>.Ok(result);
+    }
+
+    // ---------- GetRunAsync ----------
+
+    public async Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid tenantId, Guid runId, CancellationToken ct)
+    {
+        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        if (run == null)
+            return PayrollResult<PayrollRunResponse>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
+        var its = await _runs.GetItemsByRunAsync(runId, ct);
+        return PayrollResult<PayrollRunResponse>.Ok(MapRunToResponse(run, its.Count));
     }
 
     // ---------- CreateRunAsync ----------
@@ -325,7 +357,17 @@ public sealed class PayrollService : IPayrollService
         foreach (var i in items)
         {
             var emp = await _employees.GetByIdAsync(i.EmployeeId, ct);
-            result.Add(MapItemToResponse(i, emp));
+            var components = await _runs.GetComponentsByItemAsync(i.Id, ct);
+            var resp = MapItemToResponse(i, emp);
+            resp.Components = components.Select(c => new PayslipComponentResponse
+            {
+                Id = c.Id,
+                ComponentType = c.ComponentType,
+                Name = c.Name,
+                Amount = c.Amount,
+                SortOrder = c.SortOrder
+            }).ToList();
+            result.Add(resp);
         }
         return PayrollResult<IReadOnlyList<PayslipResponse>>.Ok(result);
     }
@@ -344,7 +386,17 @@ public sealed class PayrollService : IPayrollService
             return PayrollResult<PayslipResponse>.Fail("Payslip غير موجود لهذا الموظف.", PayrollErrorCode.NotFound);
 
         var emp = await _employees.GetByIdAsync(employeeId, ct);
-        return PayrollResult<PayslipResponse>.Ok(MapItemToResponse(item, emp));
+        var components = await _runs.GetComponentsByItemAsync(item.Id, ct);
+        var resp = MapItemToResponse(item, emp);
+        resp.Components = components.Select(c => new PayslipComponentResponse
+        {
+            Id = c.Id,
+            ComponentType = c.ComponentType,
+            Name = c.Name,
+            Amount = c.Amount,
+            SortOrder = c.SortOrder
+        }).ToList();
+        return PayrollResult<PayslipResponse>.Ok(resp);
     }
 
     // ============== Helpers ==============

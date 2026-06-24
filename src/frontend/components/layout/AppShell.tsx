@@ -20,6 +20,7 @@ import {
   Boxes,
   Wallet,
   Briefcase,
+  Banknote,
   Menu,
   X,
   LogOut,
@@ -83,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'الموظفين', href: '/hr/employees', icon: UserCog },
       { label: 'الحضور', href: '/hr/attendance', icon: Clock },
       { label: 'الإجازات', href: '/hr/leaves', icon: CalendarOff },
+      { label: 'Payroll', href: '/hr/payroll', icon: Banknote },
     ],
   },
 ];

@@ -240,6 +240,21 @@ public sealed class PayrollRepository : IPayrollRepository
         }
     }
 
+    // =================== PayslipComponent ===================
+
+    public async Task<IReadOnlyList<PayslipComponent>> GetComponentsByItemAsync(Guid payrollItemId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = @"id, tenant_id AS TenantId, payroll_item_id AS PayrollItemId,
+            component_type AS ComponentType, name, amount, sort_order AS SortOrder
+            FROM payslip_components
+            WHERE payroll_item_id = @PayrollItemId
+            ORDER BY sort_order, name";
+        var rows = await conn.QueryAsync<PayslipComponent>(new CommandDefinition(
+            sql, new { PayrollItemId = payrollItemId }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
     // =================== SalaryStructure passthrough ===================
 
     private const string StructureSel = @"id, tenant_id AS TenantId, name, code, currency,
