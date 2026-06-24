@@ -23,6 +23,10 @@ using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Infrastructure;
+using ERPSystem.Modules.Payroll.Application;
+using ERPSystem.Modules.Payroll.Application.Services;
+using ERPSystem.Modules.Payroll.Domain.Calculators;
+using ERPSystem.Modules.Payroll.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -94,6 +98,8 @@ builder.Services.AddScoped<IEmployeeRepository, EmployeeRepository>();
 builder.Services.AddScoped<IAttendanceRepository, AttendanceRepository>();
 builder.Services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
 builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepository>();
+builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
+builder.Services.AddScoped<ISalaryStructureRepository, SalaryStructureRepository>();
 builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
@@ -137,6 +143,11 @@ builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
+builder.Services.AddScoped<IPayrollService, PayrollService>();
+builder.Services.AddScoped<IEosService, EosService>();
+builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
+builder.Services.AddScoped<IEosCalculator, EosCalculator>();
+builder.Services.AddScoped<ISocialInsuranceCalculator, SocialInsuranceCalculator>();
 builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
 builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
 builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
@@ -157,6 +168,7 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateDepartmentRequestVali
 builder.Services.AddValidatorsFromAssemblyContaining<CreateEmployeeRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CheckInOutRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateLeaveRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreatePayrollRunRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
