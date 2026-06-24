@@ -86,7 +86,18 @@ Per PwC + Playroll summaries (2026):
 
 ### E) Integration
 - On PayrollRun.Post: emit `PayrollPostedEvent` → Finance handler creates JournalEntry
-  - Dr Salary Expense (5500) / Cr Cash or Bank (1100)
+  - **Dr Salary Expense (4200)** ← G&A Expenses (في DefaultCoASeed) — generic for admin salaries
+  - **Cr Cash (1210)** ← النقدية — direct cash payment
+- **CoA mapping implementation** (PayrollService.cs):
+  ```csharp
+  // Smart fallback: prefer 4200 (postable in DefaultCoASeed), fallback to 5500
+  var salaryAccount = await _accounts.GetByCodeAsync(tenantId, "4200", ct)
+      ?? await _accounts.GetByCodeAsync(tenantId, "5500", ct);
+  var cashAccount = await _accounts.GetByCodeAsync(tenantId, "1210", ct)
+      ?? await _accounts.GetByCodeAsync(tenantId, "1100", ct);
+  ```
+- **Per-employee posting** (future enhancement): Dr 4112 (Direct Labor) لو employee في operations، Dr 4200 لو في admin. Phase 4.5+ feature.
+- **2110 Salaries Payable** غير موجود حالياً في الـ CoA — سيُضاف Phase 4.5. حالياً ندفع cash مباشرة (Cr 1210).
 
 ---
 
