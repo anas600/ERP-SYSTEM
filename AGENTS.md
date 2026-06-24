@@ -103,11 +103,45 @@
 
 ### Branch Strategy
 
-- `main` — فرع الإنتاج، كل push يخضع لـ PR + review
-- `develop` — فرع التطوير النشط (Integration branch) — كل الـ features تندمج فيه أولاً، ثم PR من `develop` → `main`
-- `feature/<phase>-<scope>` — لكل feature
-- `fix/<issue>` — لإصلاحات بسيطة
-- `chore/<task>` — للصيانة (تحديث deps، توثيق)
+- `main` — فرع الإنتاج، كل push يخضع لـ PR + review + CI pass. **لا يُحذف أبداً**.
+- `develop` — فرع التطوير النشط (Integration branch + Default Branch). كل الـ features تندمج فيه أولاً، ثم PR من `develop` → `main` للـ release. **لا يُحذف أبداً**.
+- `feature/<phase>-<scope>` — لكل feature (مثل `feature/phase-4-payroll`).
+- `fix/<issue>` — لإصلاحات بسيطة.
+- `hotfix/<issue>` — إصلاحات عاجلة على production (مباشرة إلى `main`).
+- `chore/<task>` — للصيانة (تحديث deps، توثيق).
+
+### ⚠️ قاعدة "تنظيف الفروع" (مهمة جداً — تعلّمناها من Phase 3)
+
+**كل feature branch يجب أن يُحذف بعد merge.** السبب:
+- تجنب الـ confusion ("أي branch هذا؟ هل هو مدمج؟")
+- منع العمل على branch قديم بدلاً من الـ integration الجديد
+- الـ git history محفوظ في الـ merge commit، فلا فقدان للمعلومات
+
+**Workflow الكامل:**
+```
+1. أنشئ feature branch من develop:   git checkout -b feature/x develop
+2. اعمل commits + push:             git push origin feature/x
+3. افتح PR: feature/x → develop     gh pr create --base develop --head feature/x
+4. الـ CI يفحص الـ PR
+5. Merge (squash أو merge commit)
+6. ✅ GitHub يحذف الـ feature branch تلقائياً (إن فعّلت auto-delete)
+   أو يدوياً: git push origin --delete feature/x
+   و:        git branch -d feature/x
+```
+
+**لا تنشئ feature branch إلا إذا كنت ستحتاج >1 commit.** للـ single commit، ادفع مباشرة على develop.
+
+### Branch Protection (موصى به على GitHub)
+
+على `develop`:
+- ✅ Require PR before merging
+- ✅ Require 1+ approval (نفسك)
+- ✅ Require status checks: Backend (.NET 9.0), Frontend (Node 20), Docker Build (api)
+- ✅ Dismiss stale approvals on new push
+- ✅ Require linear history (اختياري)
+
+على `main`:
+- نفس `develop` + لا أحد يدفع مباشرة (force-push ممنوع)
 
 ### Commit Convention
 
