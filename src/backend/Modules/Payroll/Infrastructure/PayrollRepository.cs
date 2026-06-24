@@ -197,7 +197,7 @@ public sealed class PayrollRepository : IPayrollRepository
     public async Task<IReadOnlyList<PayrollItem>> GetItemsByRunAsync(Guid payrollRunId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"{ItemSel} FROM payroll_items WHERE payroll_run_id = @PayrollRunId ORDER BY created_at";
+        var sql = $"SELECT {ItemSel} FROM payroll_items WHERE payroll_run_id = @PayrollRunId ORDER BY created_at";
         var rows = await conn.QueryAsync<PayrollItem>(new CommandDefinition(
             sql, new { PayrollRunId = payrollRunId }, cancellationToken: ct));
         return rows.AsList();

@@ -6,6 +6,7 @@
 
 using System.Text;
 using System.Text.Json.Serialization;
+using Dapper;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -69,6 +70,13 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
 
 // ============ Infrastructure ============
 builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
+// Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.GoodsReceiptStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.VendorBillStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollRunStatus>());
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
@@ -183,7 +191,9 @@ if (!string.IsNullOrWhiteSpace(redisConn))
         var configOptions = ConfigurationOptions.Parse(redisConn);
         configOptions.AbortOnConnectFail = false;  // لا تفشل عند أول connect — استمر في إعادة المحاولة
         configOptions.ConnectRetry = 3;
-        configOptions.ConnectTimeout = 2000;       // timeout قصير (2s) عشان ما نطوّل startup
+        configOptions.ConnectTimeout = 1000;       // timeout قصير (1s) عشان ما نطوّل startup
+        configOptions.SyncTimeout = 500;           // PingAsync / sync ops ترجع بسرعة
+        configOptions.AsyncTimeout = 500;          // async ops ترجع بسرعة
         return ConnectionMultiplexer.Connect(configOptions);
     });
 }
