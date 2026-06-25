@@ -4,6 +4,29 @@
 
 ---
 
+## 2026-06-25 — Playwright E2E: 5 Bugs Found & Fixed 🆕
+
+| الملف | التغيير |
+|-------|---------|
+| `src/frontend/app/(authenticated)/dashboard/page.tsx` | 🐛 Fix: raw `fetch('/api/procurement/vendors')` → 404 (wrong origin :3000 vs :5000) — replaced with `procurementApi.listVendors()` + `hrApi.listEmployees()`. Also fix: PO status filter `string`→`number` enum |
+| `src/frontend/app/(authenticated)/hr/payroll/[id]/page.tsx` | 🐛 Fix: 500 error on payroll detail — SSR tried to call API without auth token. Fix: `export const dynamic = 'force-dynamic'` |
+| `src/frontend/components/layout/AppShell.tsx` | 🐛 Fix: hydration mismatch (authApi.getUser() during SSR vs client) — replaced with `useState + useEffect` (client-only) |
+| `src/frontend/app/layout.tsx` | 🐛 Fix: favicon.ico → 404 — added `icons: { icon: '/favicon.svg' }` metadata |
+| `src/frontend/public/favicon.svg` | 🆕 SVG favicon (blue square + 🏢 emoji) |
+| `docs/PLAYWRIGHT-E2E-REPORT.html` | 🆕 Visual HTML report (RTL, dark theme, 25KB): 7 pages tested, 5 bugs documented, API verification evidence |
+
+**Stats:** 7/7 pages PASS ✅ | 5/5 bugs fixed ✅ | npm build ✅ | API: POST /api/hr/payroll/runs → 201 ✅ | GET payroll detail → 200 ✅ (was 500)
+
+---
+
+## 2026-06-24b — Mavis Telegram Architecture Guide 🆕
+
+| الملف | التغيير |
+|-------|---------|
+| `docs/MAVIS-TELEGRAM-GUIDE.html` | 🆕 دليل تقني شامل (HTML, RTL, 25KB): 3 sessions الموجودة عند Anas، Flow من Telegram → Mavis، Route Rules، Session lifecycle، scenarios، الأوامر، توصيات التنظيف |
+
+---
+
 ## 2026-06-24 — Phase 4: Payroll + EOS (Libya Tax + End of Service) 🆕
 
 ### 🎯 الهدف
