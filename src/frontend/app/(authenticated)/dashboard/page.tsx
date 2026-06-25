@@ -24,9 +24,12 @@ import {
   financeApi,
   inventoryApi,
   projectsApi,
+  procurementApi,
+  hrApi,
   Account,
   Item,
   Project,
+  PurchaseOrder,
 } from '@/lib/api';
 
 interface RecentItem {
@@ -61,22 +64,10 @@ export default function DashboardPage() {
         financeApi.listAccounts(),
         inventoryApi.listItems(),
         projectsApi.listProjects(),
-        // Procurement endpoints may not exist yet — failures are handled gracefully
-        fetch('/api/procurement/vendors', {
-          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
-        })
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
-        fetch('/api/procurement/pos', {
-          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
-        })
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
-        fetch('/api/hr/employees', {
-          headers: { Authorization: `Bearer ${authApi.isLoggedIn() ? localStorage.getItem('accessToken') : ''}` },
-        })
-          .then((r) => (r.ok ? r.json() : []))
-          .catch(() => []),
+        // Fixed: use typed procurementApi (goes to localhost:5000, not localhost:3000)
+        procurementApi.listVendors(),
+        procurementApi.listPOs(),
+        hrApi.listEmployees(),
       ]);
 
       if (accRes.status === 'fulfilled') setAccounts(accRes.value);
@@ -89,30 +80,30 @@ export default function DashboardPage() {
       if (projRes.status === 'fulfilled') setProjects(projRes.value);
 
       if (venRes.status === 'fulfilled' && Array.isArray(venRes.value)) {
-        setVendorsCount(venRes.value.length);
+        setVendorsCount(venRes.value.length ?? 0);
       }
       if (poRes.status === 'fulfilled' && Array.isArray(poRes.value)) {
-        // افتراض: status = "Draft" | "Pending" | "Approved" | "Sent" | "Received" | "Cancelled"
+        // PO Status: Draft=1, Pending=2, Approved=3, Sent=4, Received=5, Cancelled=6
         const open = poRes.value.filter(
-          (p: { status: string }) => !['Received', 'Cancelled'].includes(p.status)
+          (p: PurchaseOrder) => p.status !== 5 && p.status !== 6
         );
-        setOpenPoCount(open.length);
+        setOpenPoCount(open.length ?? 0);
         // آخر 5 POs كـ recent activity
         const recentPOs: RecentItem[] = poRes.value
           .slice(-5)
           .reverse()
-          .map((p: { id: string; poNumber: string; vendorName: string; status: string; createdAt: string }) => ({
+          .map((p: PurchaseOrder) => ({
             id: p.id,
             title: p.poNumber,
-            subtitle: p.vendorName,
-            badge: p.status,
+            subtitle: p.vendorName || p.vendorId,
+            badge: String(p.status),  // status is number (enum: 1=Draft, 2=Pending, etc.)
             date: p.createdAt,
             href: '/procurement/purchase-orders',
           }));
         setRecent((prev) => [...recentPOs, ...prev].slice(0, 5));
       }
       if (empRes.status === 'fulfilled' && Array.isArray(empRes.value)) {
-        setEmployeesCount(empRes.value.length);
+        setEmployeesCount(empRes.value.length ?? 0);
       }
     } finally {
       setLoading(false);

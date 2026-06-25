@@ -4,7 +4,7 @@
 // يحوي: Topbar + Sidebar + Main content area
 // Responsive: sidebar يصبح drawer على الشاشات الصغيرة
 
-import { ReactNode, useState } from 'react';
+import { ReactNode, useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -264,9 +264,12 @@ export interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // الـ user info من localStorage (client-side)
-  const user = typeof window !== 'undefined' ? authApi.getUser() : null;
-  const userName = user?.fullName || 'مستخدم';
+  // Fix hydration mismatch: read from localStorage only on client (after mount)
+  const [user, setUser] = useState<{ fullName: string; email: string } | null>(null);
+  useEffect(() => {
+    setUser(authApi.getUser());
+  }, []);
+  const userName = user?.fullName || '';
   const userEmail = user?.email || '';
 
   const onLogout = () => {

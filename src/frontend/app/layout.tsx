@@ -3,6 +3,9 @@ import './globals.css';
 export const metadata = {
   title: 'ERP-SYSTEM',
   description: 'نظام ERP متكامل - Finance + Projects + Inventory',
+  icons: {
+    icon: '/favicon.svg',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
