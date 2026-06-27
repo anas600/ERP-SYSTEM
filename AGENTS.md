@@ -191,12 +191,17 @@ test(auth): add JwtTokenService tests
 | **Phase 3** | **Procurement Core (Vendor + PO + GR + Bill) + AppShell + 8 UI components** | ✅ مكتمل |
 | **Phase 3.5** | **HR Core (Department + Employee + Attendance + Leave)** | ✅ مكتمل |
 | **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
+| **Phase 4.5** | **AlFajr Scenario Seeder (Demo Dataset for Dev/QA) + 2 critical bug fixes in PayrollService & JournalEntryService** | ✅ مكتمل (2026-06-27) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-06-24b — Mavis Telegram Architecture Guide 🆕
+
+- [`docs/MAVIS-TELEGRAM-GUIDE.html`](docs/MAVIS-TELEGRAM-GUIDE.html): 🆕 دليل Mavis + Telegram التقني — معمارية Sessions، Routing، Lifecycle، Scenarios، الأوامر، توصيات التنظيف (25KB)
 
 ### 2026-06-24 — Phase 3: Procurement + HR + Frontend Foundation
 

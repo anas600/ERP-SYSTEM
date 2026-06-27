@@ -4,6 +4,41 @@
 
 ---
 
+## 2026-06-27 — AlFajr Scenario Seeder (Demo Dataset for Dev/QA) 🆕
+
+| الملف | التغيير |
+|-------|---------|
+| `src/backend/Shared/SeedData/ScenarioSeederHostedService.cs` | 🆕 hosted service جديد (~900 سطر): يزرع بيانات تشغيلية واقعية لمستأجر **AlFajr Trading & Contracting** (شركة مقاولات ليبية، 2026) — 14 خطوة: tenant + admin، 17 حساب CoA إضافي، 5 أقسام، 12 موظف، 12 هيكل رواتب، 6176 سجل حضور، 10 طلبات إجازة، 4 موردين، 2 مستودع + 15 صنف، 29 PO مُرسلة، 12 دورة رواتب (مع مكافأة نهاية العام لـ ديسمبر)، 22 قيد يدوي، 3 مشاريع |
+| `src/backend/Host/Program.cs` | تسجيل `AddHostedService<ScenarioSeederHostedService>()` بعد MigrationRunner |
+| `src/backend/Host/appsettings.json` | إضافة `"Database": { "SeedScenario": true }` لتفعيل الـ seeder على startup |
+| `src/backend/Modules/Payroll/Application/Services/PayrollService.cs` | 🐛 **bug fix:** `PayslipComponent.PayrollItemId` كان غير مُعيَّن (FK violation على `fk_payslip_components_item`) — تم تعيينه ضمن loop بناء الـ PayslipItem |
+| `src/backend/Modules/Finance/Application/Services/JournalEntryService.cs` | 🐛 **bug fix:** `JournalLine.JournalEntryId` كان غير مُعيَّن (FK violation على `fk_journal_lines_entry`) — capture `entryId` قبل بناء الـ aggregate |
+| `docs/SCENARIO-SEEDER-PLAN.md` | 🆕 خطة تفصيلية للـ seeder (14 خطوة، حجم البيانات، idempotency strategy) |
+
+**Idempotency:** الـ seeder آمن لإعادة التشغيل — `Register` يحاول login بدل insert على tenant موجود، كل خطوة تفحص وجود بيانات قبل الإدراج (departments/employees/items/warehouses).
+
+**Login:** `admin@alfajr.local` / `Demo1234` — TenantId: `281cf315-5fb8-494f-b456-645d40874875`
+
+**Smoke test (AlFajr بعد الـ seed):**
+
+| Endpoint | النتيجة |
+|----------|---------|
+| `POST /api/auth/login` | 200 ✅ JWT |
+| `GET /api/hr/employees` | 12 ✅ |
+| `GET /api/hr/departments` | 5 ✅ |
+| `GET /api/hr/leaves` | 10 ✅ |
+| `GET /api/hr/payroll/runs` | 12 (all Posted, Dec with year-end bonus) ✅ |
+| `GET /api/hr/attendance` | 6176 records ✅ |
+| `GET /api/procurement/vendors` | 4 ✅ |
+| `GET /api/inventory/warehouses` | 2 ✅ |
+| `GET /api/finance/accounts` | 64 (47 default + 17 extra) ✅ |
+| `GET /api/finance/ledger/trial-balance` | 200 ✅ |
+| `GET /api/projects` | 3 ✅ |
+
+**Stats:** ~13,500 record مُولَّد في ~3 دقائق — bugs حرجة في الـ production code اكتُشفت عبر الـ seeder وأُصلحت في نفس الـ scope.
+
+---
+
 ## 2026-06-25 — Playwright E2E: 5 Bugs Found & Fixed 🆕
 
 | الملف | التغيير |
