@@ -4,7 +4,7 @@
 
 ---
 
-## 2026-06-30b — Procurement Flow Fixes (GR + Bill lines) 🆕
+## 2026-06-30b — Procurement Flow Fixes (GR + Bill lines) + UI Date Locale 🆕
 
 | الملف | التغيير |
 |-------|---------|
@@ -12,6 +12,8 @@
 | `src/backend/Modules/Companies/Infrastructure/CompanyRepository.cs` | تنفيذ `GetHoldingCompanyIdAsync` (single SELECT LIMIT 1) |
 | `src/backend/Modules/Procurement/Application/Services/GoodsReceiptService.cs` | 🐛 **fix:** `ReceiveAsync` كان يمرّر `CompanyId = Guid.Empty` لـ `ReceiveStockRequest` → FK violation على `fk_stock_movements_company`. الآن يجلب holding company للـ tenant ويستخدمها. Fail-fast لو مش موجودة |
 | `src/backend/Modules/Procurement/Infrastructure/VendorBillRepository.cs` | 🐛 **fix:** `InsertLinesAsync` كان يحاول إدراج `vendor_id` (عمود غير موجود). الـ schema الفعلي: id, tenant_id, vendor_bill_id, item_id, ... |
+| `src/frontend/lib/utils.ts` | 🆕 `formatDate`/`formatTime`/`formatDateTime` helpers — `'en-GB'` locale (Gregorian + English digits) |
+| `src/frontend/app/(authenticated)/{9 pages}` | 🔄 استبدال `new Date(x).toLocaleDateString('ar-EG')` بـ `formatDate(x)` في 9 صفحات |
 
 **نتيجة Smoke Test (AlFajr بعد الإصلاحات):**
 
@@ -21,6 +23,8 @@
 | `GET /api/procurement/bills?take=50` (Draft) | 0 | **16** ✅ |
 
 سلسلة الـ procurement الكاملة الآن شغّالة: **PO → GR → Bill** بدون أخطاء.
+
+**UI Dates:** التواريخ كانت تظهر بالهجري والأرقام العربية (مثلاً `16/12/1446`) بسبب `'ar-EG'` locale. الآن دائماً ميلادي بصيغة `DD/MM/YYYY` عبر `en-GB`.
 
 ---
 
