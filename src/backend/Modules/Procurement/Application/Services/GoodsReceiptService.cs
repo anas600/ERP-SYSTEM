@@ -1,6 +1,7 @@
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using Microsoft.Extensions.Logging;
@@ -21,11 +22,13 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
     private readonly IPurchaseOrderRepository _pos;
     private readonly IStockMovementService _stockService;
     private readonly IDocumentSequenceRepository _seq;
+    private readonly ICompanyRepository _companies;
     private readonly ILogger<GoodsReceiptService> _logger;
 
     public GoodsReceiptService(IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
-        IStockMovementService stockService, IDocumentSequenceRepository seq, ILogger<GoodsReceiptService> logger)
-    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _logger = logger; }
+        IStockMovementService stockService, IDocumentSequenceRepository seq,
+        ICompanyRepository companies, ILogger<GoodsReceiptService> logger)
+    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _logger = logger; }
 
     public async Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct)
     {
@@ -110,11 +113,17 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
                 $"لا يمكن تأكيد استلام GR في حالة {gr.Status}.", ProcurementErrorCode.InvalidStatusTransition);
 
         // لكل بند: أنشئ Receive StockMovement ثم Post
+        // الشركة: جلب holding company للمستأجر (مرّة واحدة لكل بند — stock_movements.company_id NOT NULL FK → companies.id)
+        var holdingCompanyId = await _companies.GetHoldingCompanyIdAsync(tenantId, ct);
+        if (holdingCompanyId == null)
+            return ProcurementResult<GoodsReceiptResponse>.Fail(
+                "لا توجد شركة قابضة (holding) للمستأجر — لا يمكن استلام GR.", ProcurementErrorCode.BusinessRuleViolation);
+
         foreach (var line in gr.Lines)
         {
             var receiveReq = new ReceiveStockRequest
             {
-                CompanyId = Guid.Empty, // PO لا يحمل CompanyId في MVP
+                CompanyId = holdingCompanyId.Value,
                 Reference = $"{gr.GrNumber}-{line.LineOrder}",
                 MovementDate = gr.ReceivedDate,
                 ItemId = line.ItemId,

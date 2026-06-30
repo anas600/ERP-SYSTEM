@@ -8,6 +8,7 @@ public interface ICompanyRepository
     Task<Company?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
     Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<Company>> ListSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
+    Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct);
     Task InsertAsync(Company company, CancellationToken ct);
     Task UpdateAsync(Company company, CancellationToken ct);
 }
