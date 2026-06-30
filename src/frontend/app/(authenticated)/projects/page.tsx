@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة المشاريع (Projects) — قائمة
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import { Card, Badge, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { projectsApi, Project, PROJECT_STATUSES } from '@/lib/api';
@@ -71,7 +72,7 @@ export default function ProjectsPage() {
                 <div>
                   <p className="text-gray-500">تاريخ البدء</p>
                   <p className="font-mono text-gray-800">
-                    {new Date(p.startDate).toLocaleDateString('ar-EG')}
+                    {formatDate(p.startDate)}
                   </p>
                 </div>
               </div>
@@ -82,3 +83,5 @@ export default function ProjectsPage() {
     </div>
   );
 }
+
+

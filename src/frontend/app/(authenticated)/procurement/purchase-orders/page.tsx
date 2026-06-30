@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة قائمة أوامر الشراء (Purchase Orders) — جدول مع status badges
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button, Table, Badge, PageHeader } from '@/components/ui';
@@ -76,7 +77,7 @@ export default function PurchaseOrdersPage() {
             header: 'تاريخ الطلب',
             render: (p) => (
               <span className="text-sm text-gray-700">
-                {new Date(p.orderDate).toLocaleDateString('ar-EG')}
+                {formatDate(p.orderDate)}
               </span>
             ),
           },
@@ -86,7 +87,7 @@ export default function PurchaseOrdersPage() {
             render: (p) =>
               p.expectedDate ? (
                 <span className="text-sm text-gray-700">
-                  {new Date(p.expectedDate).toLocaleDateString('ar-EG')}
+                  {formatDate(p.expectedDate)}
                 </span>
               ) : (
                 <span className="text-gray-400 text-xs">—</span>
@@ -133,3 +134,5 @@ export default function PurchaseOrdersPage() {
     </div>
   );
 }
+
+

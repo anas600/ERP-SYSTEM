@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة لوحة التحكم (Dashboard) — محسّنة بـ KPI tiles + Quick Actions + Recent Activity
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import {
   Truck,
@@ -235,7 +236,7 @@ export default function DashboardPage() {
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <Badge variant="info">{r.badge}</Badge>
                     <span className="text-[10px] text-gray-400">
-                      {new Date(r.date).toLocaleDateString('ar-EG')}
+                      {formatDate(r.date)}
                     </span>
                   </div>
                 </li>
@@ -290,3 +291,5 @@ export default function DashboardPage() {
     </div>
   );
 }
+
+
