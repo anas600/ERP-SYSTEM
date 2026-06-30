@@ -98,11 +98,11 @@ public sealed class VendorBillRepository : IVendorBillRepository
         foreach (var l in lines)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO vendor_bill_lines (id, tenant_id, vendor_id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
-                VALUES (@Id, @TenantId, @VendorId, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
+                INSERT INTO vendor_bill_lines (id, tenant_id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
+                VALUES (@Id, @TenantId, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
                 new
                 {
-                    l.Id, TenantId = tenantId, l.VendorId, VendorBillId = billId,
+                    l.Id, TenantId = tenantId, VendorBillId = billId,
                     l.ItemId, l.Quantity, l.UnitPrice, l.TaxRate, l.SubTotal, l.LineOrder
                 }, cancellationToken: ct));
         }

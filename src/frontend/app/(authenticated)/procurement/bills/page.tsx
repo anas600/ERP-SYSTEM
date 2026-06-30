@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 // صفحة قائمة فواتير الموردين (Vendor Bills) — جدول
 
@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button, Table, Badge, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
+import { formatDate } from '@/lib/utils';
 import {
   procurementApi,
   VendorBill,
@@ -95,7 +96,7 @@ export default function BillsPage() {
             header: 'تاريخ الفاتورة',
             render: (b) => (
               <span className="text-sm text-gray-700">
-                {new Date(b.billDate).toLocaleDateString('ar-EG')}
+                {formatDate(b.billDate)}
               </span>
             ),
           },
@@ -104,7 +105,7 @@ export default function BillsPage() {
             header: 'تاريخ الاستحقاق',
             render: (b) =>
               b.dueDate ? (
-                <span className="text-sm text-gray-700">{new Date(b.dueDate).toLocaleDateString('ar-EG')}</span>
+                <span className="text-sm text-gray-700">{formatDate(b.dueDate)}</span>
               ) : (
                 <span className="text-gray-400 text-xs">—</span>
               ),
@@ -146,3 +147,4 @@ export default function BillsPage() {
     </div>
   );
 }
+

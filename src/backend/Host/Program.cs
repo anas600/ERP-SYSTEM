@@ -38,6 +38,7 @@ using ERPSystem.Shared.Events.Application.Services;
 using ERPSystem.Shared.Events.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
+using ERPSystem.Shared.SeedData;
 using ERPSystem.Shared.MultiTenancy;
 using FluentMigrator.Runner;
 using FluentValidation;
@@ -207,6 +208,7 @@ builder.Services.AddFluentMigratorCore()
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
+builder.Services.AddHostedService<ScenarioSeederHostedService>();
 
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
