@@ -4,6 +4,7 @@
 // الحالات: Draft → Processing → Posted | Cancelled
 
 import { useEffect, useState } from 'react';
+import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, Calendar, FileText, PlayCircle, CheckCircle2 } from 'lucide-react';
 import { Button, Table, Badge, PageHeader } from '@/components/ui';
@@ -42,7 +43,7 @@ export default function PayrollListPage() {
     }
   };
 
-  const formatDate = (s: string) => new Date(s).toLocaleDateString('ar-EG');
+  
   const formatMoney = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00';
 
   return (

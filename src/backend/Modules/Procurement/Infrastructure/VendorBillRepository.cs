@@ -16,7 +16,7 @@ public sealed class VendorBillRepository : IVendorBillRepository
         journal_entry_id AS JournalEntryId, posted_at AS PostedAt,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string SelLine = @"id, tenant_id AS TenantId, vendor_id AS VendorId, vendor_bill_id AS VendorBillId,
+    private const string SelLine = @"id, tenant_id AS TenantId, vendor_bill_id AS VendorBillId,
         item_id AS ItemId, quantity, unit_price AS UnitPrice, tax_rate AS TaxRate, sub_total AS SubTotal, line_order AS LineOrder";
 
     public async Task<VendorBill?> GetByIdAsync(Guid id, CancellationToken ct)

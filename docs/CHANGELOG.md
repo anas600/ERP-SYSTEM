@@ -4,6 +4,28 @@
 
 ---
 
+## 2026-06-30 — Phase 4.5: AlFajr Scenario Seeder + 4 FK Bug Fixes + UI Date Locale 🆕
+
+| الملف | التغيير |
+|-------|---------|
+| `src/backend/Shared/SeedData/ScenarioSeederHostedService.cs` | 🆕 hosted service جديد (~900 سطر): يزرع بيانات تشغيلية واقعية لمستأجر **AlFajr Trading & Contracting** (شركة مقاولات ليبية، 2026) — 14 خطوة: tenant + admin، 17 حساب CoA إضافي، 5 أقسام، 12 موظف، 12 هيكل رواتب، 6176 سجل حضور، 10 طلبات إجازة، 4 موردين، 2 مستودع + 15 صنف، 29 PO مُرسلة، 12 دورة رواتب (مع مكافأة نهاية العام لـ ديسمبر)، 22 قيد يدوي، 3 مشاريع |
+| `src/backend/Host/Program.cs` | تسجيل `AddHostedService<ScenarioSeederHostedService>()` بعد MigrationRunner |
+| `src/backend/Host/appsettings.json` | إضافة `"Database": { "SeedScenario": true }` لتفعيل الـ seeder على startup (opt-in) |
+| `src/backend/Modules/Payroll/Application/Services/PayrollService.cs` | 🐛 **bug fix:** `PayslipComponent.PayrollItemId` كان غير مُعيَّن (FK violation على `fk_payslip_components_item`) — تم تعيينه ضمن loop بناء الـ PayrollItem |
+| `src/backend/Modules/Procurement/Infrastructure/VendorBillRepository.cs` | 🐛 **bug fix:** `SelLine` (SELECT) + `InsertLinesAsync` كانا يحاولان استخدام `vendor_id` column غير موجود في `vendor_bill_lines` schema |
+| `src/frontend/lib/utils.ts` | 🆕 `formatDate`/`formatTime`/`formatDateTime` helpers — `'en-GB'` locale (Gregorian + English digits) |
+| `src/frontend/app/(authenticated)/{9 pages}` | 🔄 استبدال `new Date(x).toLocaleDateString('ar-EG')` بـ `formatDate(x)` في 9 صفحات (dashboard, hr/*, procurement/*, projects) |
+
+**Login:** `admin@alfajr.local` / `Demo1234` — TenantId: `281cf315-5fb8-494f-b456-645d40874875`
+
+**Smoke test (AlFajr بعد الـ seed):** كل الـ endpoints ترجع counts الصحيحة (12 emps، 12 payroll Posted، 4 vendors، 22 GR Received + 28 Draft، 16 Bills، 64 accounts، 3 projects).
+
+**UI Dates:** التواريخ كانت تظهر بالهجري والأرقام العربية (مثلاً `16/12/1446`) بسبب `'ar-EG'` locale. الآن دائماً ميلادي بصيغة `DD/MM/YYYY` عبر `en-GB`.
+
+**Stats:** ~13,500 record مُولَّد في ~3 دقائق — bugs حرجة في الـ production code اكتُشفت عبر الـ seeder وأُصلحت في نفس الـ scope.
+
+---
+
 ## 2026-06-24 — Phase 4: Payroll + EOS (Libya Tax + End of Service) 🆕
 
 ### 🎯 الهدف
