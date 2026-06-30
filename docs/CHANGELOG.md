@@ -4,6 +4,26 @@
 
 ---
 
+## 2026-06-30b — Procurement Flow Fixes (GR + Bill lines) 🆕
+
+| الملف | التغيير |
+|-------|---------|
+| `src/backend/Modules/Companies/Infrastructure/IRepositories.cs` | 🆕 `ICompanyRepository.GetHoldingCompanyIdAsync(tenantId)` — يُرجع Guid? من `companies.is_group = true` |
+| `src/backend/Modules/Companies/Infrastructure/CompanyRepository.cs` | تنفيذ `GetHoldingCompanyIdAsync` (single SELECT LIMIT 1) |
+| `src/backend/Modules/Procurement/Application/Services/GoodsReceiptService.cs` | 🐛 **fix:** `ReceiveAsync` كان يمرّر `CompanyId = Guid.Empty` لـ `ReceiveStockRequest` → FK violation على `fk_stock_movements_company`. الآن يجلب holding company للـ tenant ويستخدمها. Fail-fast لو مش موجودة |
+| `src/backend/Modules/Procurement/Infrastructure/VendorBillRepository.cs` | 🐛 **fix:** `InsertLinesAsync` كان يحاول إدراج `vendor_id` (عمود غير موجود). الـ schema الفعلي: id, tenant_id, vendor_bill_id, item_id, ... |
+
+**نتيجة Smoke Test (AlFajr بعد الإصلاحات):**
+
+| Endpoint | قبل | بعد |
+|----------|------|-----|
+| `GET /api/procurement/grs?take=50` (Received) | **0** | **22** ✅ |
+| `GET /api/procurement/bills?take=50` (Draft) | 0 | **16** ✅ |
+
+سلسلة الـ procurement الكاملة الآن شغّالة: **PO → GR → Bill** بدون أخطاء.
+
+---
+
 ## 2026-06-27 — AlFajr Scenario Seeder (Demo Dataset for Dev/QA) 🆕
 
 | الملف | التغيير |
