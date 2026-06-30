@@ -257,10 +257,6 @@ public sealed class PayrollService : IPayrollService
                 Status = PayrollItemStatus.Processed, PaymentDays = 30,
                 CreatedAt = DateTime.UtcNow, CreatedBy = userId, UpdatedAt = DateTime.UtcNow
             };
-
-            // ربط الـ PayslipComponents بالـ PayrollItem (FK fk_payslip_components_item)
-            foreach (var c in components) c.PayrollItemId = item.Id;
-
             await _runs.AddItemAsync(item, components, ct);
 
             totalGross += gross;

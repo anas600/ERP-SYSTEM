@@ -1,8 +1,5 @@
 'use client';
 
-// Prevent SSR — this page requires auth token from localStorage (not available in SSR context)
-export const dynamic = 'force-dynamic';
-
 // صفحة تفاصيل دورة رواتب — header + جدول payslips + actions (Process/Post)
 
 import { useEffect, useState } from 'react';

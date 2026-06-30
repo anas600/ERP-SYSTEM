@@ -14,11 +14,6 @@
 - [`SMOKE-TEST-REPORT.md`](SMOKE-TEST-REPORT.md) — تقرير smoke test للـ Phase 2.5+
 - [`E2E-TEST-RESULT.json`](E2E-TEST-RESULT.json) — 🆕 نتائج E2E للـ Phase 3 (12/12 PASS)
 - [`E2E-TEST-PHASE4/`](E2E-TEST-PHASE4/) — 🆕 نتائج E2E للـ Phase 4 (14/14 PASS)
-- [`PLAYWRIGHT-E2E-REPORT.html`](PLAYWRIGHT-E2E-REPORT.html) — 🆕 تقرير Playwright E2E شامل (2026-06-24): 5 bugs مكتشفة + 5 fixed، 7 pages tested
-- [`E2E-TEST-PHASE4/`](E2E-TEST-PHASE4/) — 🆕 نتائج E2E للـ Phase 4 (14/14 PASS)
-
-### 🧭 Mavis Usage Guides
-- [`MAVIS-TELEGRAM-GUIDE.html`](MAVIS-TELEGRAM-GUIDE.html) — 🆕 دليل Mavis + Telegram التقني: معمارية Sessions، routing، lifecycle، scenarios، الأوامر (2026-06-24)
 
 ### 🔬 Competitive Research (Phase 3)
 - [`research/daftra-features.md`](research/daftra-features.md) — بحث Daftra (60KB)
