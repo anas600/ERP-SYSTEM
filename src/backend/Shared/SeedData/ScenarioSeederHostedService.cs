@@ -724,6 +724,14 @@ public sealed class ScenarioSeederHostedService : IHostedService
     {
         var payrollSvc = services.GetRequiredService<IPayrollService>();
 
+        // Idempotency: لو في 12 دورة رواتب موجودة بالفعل، نتخطى الخطوة (آمن لإعادة التشغيل)
+        var existingRuns = await payrollSvc.ListRunsAsync(tenantId, null, 0, 50, ct);
+        if (existingRuns.Succeeded && existingRuns.Value!.Count >= 12)
+        {
+            _logger.LogInformation("  ⏭ Payroll runs already seeded ({N} runs)", existingRuns.Value.Count);
+            return;
+        }
+
         var months = new (int Month, string Name)[]
         {
             (1, "يناير"), (2, "فبراير"), (3, "مارس"), (4, "أبريل"),
@@ -739,6 +747,18 @@ public sealed class ScenarioSeederHostedService : IHostedService
             var note = month == 12
                 ? $"رواتب شهر {name} 2026 (مع مكافأة نهاية العام)"
                 : $"رواتب شهر {name} 2026";
+
+            // Check if payroll run for this period already exists (extra safety)
+            await using var conn = await OpenConnectionAsync(services, ct);
+            var existingForMonth = await conn.ExecuteScalarAsync<int>(
+                new CommandDefinition(
+                    "SELECT COUNT(*) FROM payroll_runs WHERE tenant_id = @T AND period_start::date = @PS::date",
+                    new { T = tenantId, PS = start }, cancellationToken: ct));
+            if (existingForMonth > 0)
+            {
+                _logger.LogInformation("  ⏭ Payroll for {M}/{Y} already exists, skipping", month, 2026);
+                continue;
+            }
 
             var createR = await payrollSvc.CreateRunAsync(tenantId, adminUserId, new CreatePayrollRunRequest
             {
