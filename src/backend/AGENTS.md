@@ -17,7 +17,9 @@ backend/
 │   ├── Notifications/     # ✅ Phase 2.4 (مكتمل)
 │   ├── Procurement/       # ✅ Phase 3 (مكتمل — Vendor + PO + GR + Bill)
 │   ├── HR/                # ✅ Phase 3.5 (مكتمل — Department + Employee + Attendance + Leave)
-│   └── Payroll/           # ✅ Phase 4 (مكتمل — SalaryStructure + PayrollRun + Libya Tax + EOS)
+│   ├── Payroll/           # ✅ Phase 4 (مكتمل — SalaryStructure + PayrollRun + Libya Tax + EOS)
+│   ├── Payments/          # ✅ Phase 5 Sprint 2 (مُخطط — AP + GL Reports + Aging AP)
+│   └── AccountsReceivable/ # ✅ Phase 5 Sprint 1 (مكتمل — Customer + SalesInvoice + Receipt + Aging)
 ├── Shared/                # كود مشترك بين الموديولات
 │   ├── Infrastructure/    # DbConnectionFactory
 │   ├── MultiTenancy/      # TenantContext + Middleware
@@ -94,5 +96,6 @@ backend/
 - [`Modules/Procurement/AGENTS.md`](Modules/Procurement/AGENTS.md) 🆕 Phase 3
 - [`Modules/HR/AGENTS.md`](Modules/HR/AGENTS.md) 🆕 Phase 3.5
 - [`Modules/Payroll/AGENTS.md`](Modules/Payroll/AGENTS.md) 🆕 Phase 4
+- [`Modules/AccountsReceivable/AGENTS.md`](Modules/AccountsReceivable/AGENTS.md) 🆕 Phase 5 Sprint 1
 - [`Shared/AGENTS.md`](Shared/AGENTS.md)
 - [`Tests/AGENTS.md`](Tests/AGENTS.md)
