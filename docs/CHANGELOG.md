@@ -4,6 +4,69 @@
 
 ---
 
+## 2026-07-01 — Phase 5.A: Finance AP Payments + Finance Reports Rebuild 🆕
+
+### 🎯 الهدف
+إكمال **Phase 5.A Sprint 2** (Finance AP) من خطة ERP-SYSTEM: Payments module موحّد (AP/AR) + 4 تقارير مالية مُعاد بناؤها (GeneralLedger, BalanceSheet, CashFlow, APAging) — كلها في Finance module.
+
+### 📊 ملخص الإنجاز
+- **Backend:** 1 module جديد (Payments) + 4 services جديدة في Finance + 1 controller جديد + 1 migration
+- **Frontend:** 6 pages جديدة (payments list/new, GL, BS, CF, AP aging) + 1 sidebar section
+- **Cleanup:** حذف `FinanceReportService` القديم + 3 endpoints من `ReportsController` (الـ DTOs نُقلت إلى Finance)
+- **Tests:** 7 unit tests جديدة للـ Finance Reports (DTO computations + BalanceSheetService smoke)
+- **Build:** 0 errors, 0 warnings. Tests: 114/119 pass (5 pre-existing skips، 0 regressions)
+
+### 📝 التغييرات التفصيلية
+
+| # | الملف | التغيير |
+|---|------|--------|
+| 1 | `src/backend/Modules/Payments/Entities/Payment.cs` | 🆕 Payment + PaymentAllocation + enums (PaymentStatus, PaymentPartyTypes, PaymentMethods, PaymentRefTypes) |
+| 2 | `src/backend/Modules/Payments/Application/PaymentDtos.cs` | 🆕 CreatePaymentRequest, AllocatePaymentRequest, PaymentResponse, PaymentResult<T>, PaymentErrorCode |
+| 3 | `src/backend/Modules/Payments/Application/Validators.cs` | 🆕 CreatePaymentRequestValidator + AllocatePaymentRequestValidator (FluentValidation) |
+| 4 | `src/backend/Modules/Payments/Application/Services/PaymentService.cs` | 🆕 Create + Post (ينشئ JournalEntry 2-leg) + Allocate (مع validation لـ outstanding) |
+| 5 | `src/backend/Modules/Payments/Infrastructure/PaymentRepository.cs` | 🆕 Dapper repository (snake_case) + multi-tenant filter + SumAllocationsForRefAsync |
+| 6 | `src/backend/Modules/Payments/Infrastructure/PaymentSequenceRepository.cs` | 🆕 PAY-YYYY-NNNN sequence (يُعيد استخدام procurement_document_sequences) |
+| 7 | `src/backend/Modules/Payments/AGENTS.md` | 🆕 Payments module documentation |
+| 8 | `src/backend/Host/Controllers/PaymentsController.cs` | 🆕 4 endpoints (GET list/get, POST create, POST post, POST allocate) |
+| 9 | `src/backend/Shared/Migrations/20260701_130000_CreatePaymentsTables.cs` | 🆕 payments + payment_allocations + 7 indexes + 2 FKs |
+| 10 | `src/backend/Modules/Finance/Application/FinanceReportDtos.cs` | 🆕 GeneralLedger, BalanceSheet, CashFlow, APAging DTOs (Subtotal computed) |
+| 11 | `src/backend/Modules/Finance/Application/Services/GeneralLedgerReportService.cs` | 🆕 Per-account ledger + opening/closing + running balance |
+| 12 | `src/backend/Modules/Finance/Application/Services/BalanceSheetService.cs` | 🆕 Assets/Liabilities/Equity per AccountType (postable only) |
+| 13 | `src/backend/Modules/Finance/Application/Services/CashFlowService.cs` | 🆕 Indirect method: Net Profit + WC changes + Investing + Financing |
+| 14 | `src/backend/Modules/Finance/Application/Services/APAgingService.cs` | 🆕 Per-vendor buckets (0-30/31-60/61-90/91+) — يحسب outstanding من PaymentAllocation |
+| 15 | `src/backend/Host/Controllers/FinanceReportsController.cs` | 🆕 4 endpoints (general-ledger, balance-sheet, cash-flow, aging/ap) |
+| 16 | `src/backend/Host/Controllers/ReportsController.cs` | 🔄 حذف 3 finance endpoints (TB/IS/BS) — الـ dashboard يبقى |
+| 17 | `src/backend/Modules/Reports/Application/ReportDtos.cs` | 🔄 حذف TrialBalanceReport, IncomeStatement, BalanceSheet (نُقلت إلى Finance) |
+| 18 | `src/backend/Modules/Reports/Application/Services/FinanceReportService.cs` | 🗑️ حُذف — منقول إلى Finance module |
+| 19 | `src/backend/Modules/Finance/AGENTS.md` | ➕ "Phase 5.A — FinanceReportsRebuild" section |
+| 20 | `src/backend/Host/Program.cs` | ➕ DI لـ 2 Payment repos + PaymentService + 4 Finance report services + validator |
+| 21 | `src/backend/Tests/ERPSystem.Tests/Reports/FinanceReportServiceTests.cs` | 🔄 تحوّل لاختبار الـ DTOs الجديدة + BalanceSheetService smoke |
+| 22 | `src/frontend/lib/api.ts` | ➕ Payment/Allocation types + paymentsApi + financeReportsApi + 6 method namespaces |
+| 23 | `src/frontend/app/(authenticated)/finance/payments/page.tsx` | 🆕 قائمة المدفوعات + إجمالي Posted + On Account badge |
+| 24 | `src/frontend/app/(authenticated)/finance/payments/new/page.tsx` | 🆕 نموذج إنشاء (Vendor picker + allocations ديناميكية + زرّ "حفظ + ترحيل") |
+| 25 | `src/frontend/app/(authenticated)/finance/general-ledger/page.tsx` | 🆕 Account dropdown + date range + جدول مع running balance |
+| 26 | `src/frontend/app/(authenticated)/finance/balance-sheet/page.tsx` | 🆕 asOfDate picker + 3 أقسام (Assets/Liabilities/Equity) + IsBalanced indicator |
+| 27 | `src/frontend/app/(authenticated)/finance/cash-flow/page.tsx` | 🆕 Date range + 3 cards (Operating/Investing/Financing) + NetChangeInCash |
+| 28 | `src/frontend/app/(authenticated)/finance/aging-ap/page.tsx` | 🆕 asOfDate picker + 4 buckets + per-vendor breakdown |
+| 29 | `src/frontend/components/layout/AppShell.tsx` | ➕ 6 routes في "المالية" group (المدفوعات، دفتر الأستاذ، الميزانية، التدفقات، أعمار AP) |
+| 30 | `AGENTS.md` (root) | ➕ Phase 5.A row → ✅ مكتمل (PR #18) |
+
+### 🔐 Business Rules (الرئيسية)
+
+1. **Payment Create:** يفحص Vendor موجود (Customer path غير مفعّل حالياً — Customer entity لم يُنشأ).
+2. **Allocation Cap:** `sum(allocations) ≤ amount`. الفرق = "On Account" (دفعة مقدمة — لا قيد إضافي).
+3. **Outstanding Check:** لكل VendorBill allocation، يفحص outstanding = totalAmount - sum(allocations applied via Posted payments). يرفض لو amountToApply > outstanding.
+4. **Post:** ينشئ JournalEntry Posted مباشرة (ليس Draft). يربط `journal_entry_id` على الـ Payment.
+5. **Allocate (Post-only):** يُضيف allocation جديد فقط — لا ينشئ قيد إضافي.
+
+### 🐛 Notes for Verifier
+
+- **AP Aging SQL fix:** الـ `vendor_bills.status` في الـ DB نصّ (VARCHAR) في الـ migration لكن EnumStringTypeHandler يكتب int. نُمرّر Status كـ Dapper parameter (`@PostedStatus`) لتجنّب int/varchar ambiguity. هذا أنظف من cast.
+- **Default CoA accounts المستخدمة:** 1210 (النقدية), 1230 (ذمم مدينة), 2210 (دائنون لموردين) — كلها موجودة في DefaultCoASeed.
+- **Customer path:** تم تجهيزه لكن غير مفعّل — عند إضافة Customers entity (Sprint لاحق)، يصبح نشطاً بدون تغييرات على الـ Service (يكفي swap الـ Party validation).
+
+---
+
 ## 2026-06-30 — Phase 4.5: AlFajr Scenario Seeder + 4 FK Bug Fixes + UI Date Locale 🆕
 
 | الملف | التغيير |

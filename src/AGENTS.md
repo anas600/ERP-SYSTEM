@@ -23,6 +23,7 @@
 | Procurement | Phase 3 | ✅ |
 | HR | Phase 3.5 | ✅ |
 | **Payroll + EOS** | **Phase 4** | **✅** |
+| **AccountsReceivable (AR)** | **Phase 5 Sprint 1** | **✅** |
 
 ## Phase Pages (Frontend)
 

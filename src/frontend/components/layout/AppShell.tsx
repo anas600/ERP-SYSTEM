@@ -21,6 +21,10 @@ import {
   Wallet,
   Briefcase,
   Banknote,
+  Hourglass,
+  UserPlus,
+  ShoppingCart,
+  HandCoins,
   Menu,
   X,
   LogOut,
@@ -55,6 +59,10 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'المالية',
     items: [
       { label: 'دليل الحسابات', href: '/finance/accounts', icon: Wallet },
+      { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
+      { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
+      { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },
+      { label: 'أعمار الذمم AR', href: '/finance/aging-ar', icon: Hourglass },
     ],
   },
   {
