@@ -28,6 +28,9 @@ using ERPSystem.Modules.Payroll.Application;
 using ERPSystem.Modules.Payroll.Application.Services;
 using ERPSystem.Modules.Payroll.Domain.Calculators;
 using ERPSystem.Modules.Payroll.Infrastructure;
+using ERPSystem.Modules.AccountsReceivable.Application;
+using ERPSystem.Modules.AccountsReceivable.Application.Services;
+using ERPSystem.Modules.AccountsReceivable.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -113,6 +116,11 @@ builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
 builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
+// AR module (Phase 5 Sprint 1 — Finance AR)
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ISalesInvoiceRepository, SalesInvoiceRepository>();
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddScoped<IArDocumentSequenceRepository, ArDocumentSequenceRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
@@ -153,6 +161,10 @@ builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 builder.Services.AddScoped<IPayrollService, PayrollService>();
+// AR module (Phase 5 Sprint 1 — Finance AR)
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IEosService, EosService>();
 builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
 builder.Services.AddScoped<IEosCalculator, EosCalculator>();
@@ -178,6 +190,9 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateEmployeeRequestValida
 builder.Services.AddValidatorsFromAssemblyContaining<CheckInOutRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateLeaveRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePayrollRunRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCustomerRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateSalesInvoiceRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateReceiptRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer

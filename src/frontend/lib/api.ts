@@ -499,6 +499,232 @@ export interface CreatePayrollRunRequest {
   notes?: string;
 }
 
+// ============ Accounts Receivable (AR) ============
+// الـ DTOs تطابق Contracts في `src/backend/Modules/AccountsReceivable/Application/Dtos.cs`
+
+export interface Customer {
+  id: string;
+  tenantId: string;
+  companyId: string;
+  code: string;
+  name: string;
+  nameEn?: string;
+  taxId?: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  creditLimit?: number;
+  paymentTermsDays: number;
+  isActive: boolean;
+}
+
+export interface SalesInvoiceLine {
+  id: string;
+  lineNumber: number;
+  description: string;
+  itemId?: string;
+  quantity: number;
+  unitPrice: number;
+  taxRate: number;
+  lineTotal: number;
+}
+
+// SalesInvoice status: Draft=1, Sent=2, PartiallyPaid=3, Paid=4, Overdue=5, Cancelled=6
+export const SALES_INVOICE_STATUSES: Record<number, string> = {
+  1: 'مسودة',
+  2: 'مُرسل',
+  3: 'مدفوع جزئياً',
+  4: 'مدفوع',
+  5: 'متأخر',
+  6: 'ملغي',
+};
+
+export const SALES_INVOICE_STATUS_VARIANTS: Record<number, 'neutral' | 'info' | 'warning' | 'success' | 'danger'> = {
+  1: 'neutral',
+  2: 'info',
+  3: 'warning',
+  4: 'success',
+  5: 'danger',
+  6: 'danger',
+};
+
+export interface SalesInvoice {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  customerName?: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate?: string;
+  currencyCode: string;
+  exchangeRate: number;
+  subtotal: number;
+  taxAmount: number;
+  totalAmount: number;
+  paidAmount: number;
+  outstanding: number;
+  status: number;
+  notes?: string;
+  projectId?: string;
+  postedAt?: string;
+  journalEntryId?: string;
+  createdAt: string;
+  lines: SalesInvoiceLine[];
+  allocations: ReceiptAllocation[];
+}
+
+export const PAYMENT_METHODS: Record<string, string> = {
+  Cash: 'نقدي',
+  Bank: 'بنك',
+  Transfer: 'تحويل',
+  Check: 'شيك',
+};
+
+export interface ReceiptAllocation {
+  id: string;
+  salesInvoiceId: string;
+  salesInvoiceNumber?: string;
+  amountApplied: number;
+}
+
+export interface Receipt {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  customerName?: string;
+  receiptNumber: string;
+  receiptDate: string;
+  amount: number;
+  currencyCode: string;
+  paymentMethod?: string;
+  notes?: string;
+  postedAt?: string;
+  journalEntryId?: string;
+  createdAt: string;
+  allocations: ReceiptAllocation[];
+}
+
+export interface ArAgingBucket {
+  bucket0To30: number;
+  bucket31To60: number;
+  bucket61To90: number;
+  bucket91To120: number;
+  bucket120Plus: number;
+  total: number;
+}
+
+export interface ArAgingRow {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  buckets: ArAgingBucket;
+}
+
+export interface ArAgingReport {
+  asOfDate: string;
+  rows: ArAgingRow[];
+  grandTotal: ArAgingBucket;
+}
+
+// ============ AR API ============
+// endpoints: /api/ar/{customers|sales-invoices|receipts|aging}
+
+export const arApi = {
+  // ----- Customers -----
+  listCustomers: async (): Promise<Customer[]> => {
+    const r = await api.get<Customer[]>('/api/ar/customers');
+    return r.data;
+  },
+  getCustomer: async (id: string): Promise<Customer> => {
+    const r = await api.get<Customer>(`/api/ar/customers/${id}`);
+    return r.data;
+  },
+  createCustomer: async (data: Omit<Customer, 'id' | 'tenantId' | 'companyId' | 'isActive'>): Promise<Customer> => {
+    const r = await api.post<Customer>('/api/ar/customers', data);
+    return r.data;
+  },
+  updateCustomer: async (id: string, data: Partial<Omit<Customer, 'id' | 'tenantId' | 'companyId'>>): Promise<Customer> => {
+    const r = await api.put<Customer>(`/api/ar/customers/${id}`, data);
+    return r.data;
+  },
+  deactivateCustomer: async (id: string): Promise<void> => {
+    await api.delete(`/api/ar/customers/${id}`);
+  },
+
+  // ----- Sales Invoices -----
+  listInvoices: async (): Promise<SalesInvoice[]> => {
+    const r = await api.get<SalesInvoice[]>('/api/ar/sales-invoices');
+    return r.data;
+  },
+  getInvoice: async (id: string): Promise<SalesInvoice> => {
+    const r = await api.get<SalesInvoice>(`/api/ar/sales-invoices/${id}`);
+    return r.data;
+  },
+  createInvoice: async (data: {
+    customerId: string;
+    invoiceDate: string;
+    dueDate?: string;
+    currencyCode: string;
+    exchangeRate: number;
+    notes?: string;
+    projectId?: string;
+    lines: { description: string; quantity: number; unitPrice: number; taxRate: number; itemId?: string }[];
+    postImmediately?: boolean;
+  }): Promise<SalesInvoice> => {
+    const r = await api.post<SalesInvoice>('/api/ar/sales-invoices', data);
+    return r.data;
+  },
+  updateInvoice: async (id: string, data: Partial<SalesInvoice>): Promise<SalesInvoice> => {
+    const r = await api.put<SalesInvoice>(`/api/ar/sales-invoices/${id}`, data);
+    return r.data;
+  },
+  postInvoice: async (id: string): Promise<SalesInvoice> => {
+    const r = await api.put<SalesInvoice>(`/api/ar/sales-invoices/${id}/post`);
+    return r.data;
+  },
+  cancelInvoice: async (id: string): Promise<SalesInvoice> => {
+    const r = await api.put<SalesInvoice>(`/api/ar/sales-invoices/${id}/cancel`);
+    return r.data;
+  },
+
+  // ----- Receipts -----
+  listReceipts: async (): Promise<Receipt[]> => {
+    const r = await api.get<Receipt[]>('/api/ar/receipts');
+    return r.data;
+  },
+  getReceipt: async (id: string): Promise<Receipt> => {
+    const r = await api.get<Receipt>(`/api/ar/receipts/${id}`);
+    return r.data;
+  },
+  createReceipt: async (data: {
+    customerId: string;
+    receiptDate: string;
+    amount: number;
+    currencyCode: string;
+    paymentMethod?: string;
+    notes?: string;
+    allocations: { salesInvoiceId: string; amountApplied: number }[];
+    postImmediately?: boolean;
+  }): Promise<Receipt> => {
+    const r = await api.post<Receipt>('/api/ar/receipts', data);
+    return r.data;
+  },
+  postReceipt: async (id: string): Promise<Receipt> => {
+    const r = await api.put<Receipt>(`/api/ar/receipts/${id}/post`);
+    return r.data;
+  },
+  reverseReceipt: async (id: string): Promise<Receipt> => {
+    const r = await api.put<Receipt>(`/api/ar/receipts/${id}/reverse`);
+    return r.data;
+  },
+
+  // ----- Aging Report -----
+  aging: async (asOfDate?: string): Promise<ArAgingReport> => {
+    const r = await api.get<ArAgingReport>('/api/ar/aging', { params: asOfDate ? { asOfDate } : undefined });
+    return r.data;
+  },
+};
+
 // ============ Error extraction helper ============
 // للحصول على رسالة خطأ أنيقة من Axios errors
 export interface ApiError {
