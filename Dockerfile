@@ -85,11 +85,9 @@ RUN cat > /etc/caddy/Caddyfile << 'EOF'
 
     # Forward API requests to .NET backend
     handle /api/* {
-        reverse_proxy localhost:5000 {
+        reverse_proxy 127.0.0.1:5000 {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
             # log backend errors for visibility
             transport http {
                 dial_timeout 5s
@@ -100,11 +98,9 @@ RUN cat > /etc/caddy/Caddyfile << 'EOF'
 
     # Forward all other requests to Next.js
     handle {
-        reverse_proxy localhost:3000 {
+        reverse_proxy 127.0.0.1:3000 {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
             transport http {
                 dial_timeout 5s
                 response_header_timeout 30s
@@ -189,7 +185,7 @@ RUN cat > /etc/supervisor/conf.d/erp.conf << 'EOF'
 [program:api]
 command=dotnet /app/api/ERPSystem.Host.dll
 directory=/app/api
-environment=ASPNETCORE_ENVIRONMENT="Production",ASPNETCORE_URLS="http://0.0.0.0:5000",DOTNET_RUNNING_IN_CONTAINER="true"
+environment=ASPNETCORE_ENVIRONMENT="Production",ASPNETCORE_URLS="http://*:5000",DOTNET_RUNNING_IN_CONTAINER="true"
 autostart=true
 autorestart=true
 startretries=10
