@@ -146,6 +146,11 @@ jobs:
 
       - name: Filter files for HF Space
         run: |
+          echo "=== تحويل Dockerfile.hf إلى Dockerfile أولاً ==="
+          if [ -f "Dockerfile.hf" ]; then
+            mv Dockerfile.hf Dockerfile
+            echo "✅ Dockerfile.hf renamed to Dockerfile"
+          fi
           echo "=== تنظيف الملفات الزائدة قبل الرفع ==="
           # احذف node_modules و build outputs
           rm -rf src/frontend/node_modules
@@ -160,13 +165,14 @@ jobs:
           rm -rf docs
           rm -rf infra
           rm -rf .github
+          rm -rf .mavis
           rm -rf .vs .vscode
           rm -f *.pdf
-          # تحويل Dockerfile.hf إلى Dockerfile (HF يحتاجه بهذا الاسم)
-          if [ -f "Dockerfile.hf" ]; then
-            mv Dockerfile.hf Dockerfile
-            echo "✅ Dockerfile.hf renamed to Dockerfile"
-          fi
+          rm -f "New Text Document.txt"
+          rm -f "restart-backend.ps1"
+          rm -f "star-stop-sys.bas"
+          rm -f "start-dev.ps1"
+          rm -f "stop-dev.ps1"
           echo "=== بعد التنظيف ==="
           du -sh .
           find . -type f | wc -l

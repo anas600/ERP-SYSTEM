@@ -42,6 +42,15 @@ jobs:
           echo "=== قبل التنظيف ==="
           du -sh .
           echo ""
+          echo "=== تحويل Dockerfile.hf إلى Dockerfile أولاً (قبل أي حذف) ==="
+          if [ -f "Dockerfile.hf" ]; then
+            mv Dockerfile.hf Dockerfile
+            echo "✅ Dockerfile.hf renamed to Dockerfile"
+          else
+            echo "⚠️ Dockerfile.hf not found - checking if Dockerfile already exists"
+            ls -la Dockerfile* 2>&1 || true
+          fi
+          echo ""
           echo "=== تنظيف الملفات الزائدة ==="
           rm -rf node_modules
           rm -rf src/frontend/node_modules
@@ -64,11 +73,6 @@ jobs:
           rm -f "star-stop-sys.bas"
           rm -f "start-dev.ps1"
           rm -f "stop-dev.ps1"
-          # تحويل Dockerfile.hf إلى Dockerfile (HF يحتاج اسم Dockerfile بالضبط)
-          if [ -f "Dockerfile.hf" ]; then
-            mv Dockerfile.hf Dockerfile
-            echo "✅ Dockerfile.hf renamed to Dockerfile"
-          fi
           echo ""
           echo "=== بعد التنظيف ==="
           du -sh .
