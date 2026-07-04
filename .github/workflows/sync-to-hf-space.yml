@@ -55,8 +55,15 @@ jobs:
           rm -rf docs
           rm -rf infra
           rm -rf .github
+          rm -rf .mavis
           rm -rf .vs .vscode
+          # حذف ملفات Windows/sandbox غير ضرورية
           rm -f *.pdf
+          rm -f "New Text Document.txt"
+          rm -f "restart-backend.ps1"
+          rm -f "star-stop-sys.bas"
+          rm -f "start-dev.ps1"
+          rm -f "stop-dev.ps1"
           # تحويل Dockerfile.hf إلى Dockerfile (HF يحتاج اسم Dockerfile بالضبط)
           if [ -f "Dockerfile.hf" ]; then
             mv Dockerfile.hf Dockerfile

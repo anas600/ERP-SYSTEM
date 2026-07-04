@@ -1,7 +1,6 @@
 # Hugging Face ignore patterns
-# (HF Spaces uses .gitignore format but with these patterns)
 
-# Build outputs (will be created in Docker)
+# Build outputs
 src/frontend/node_modules/
 src/frontend/.next/
 src/frontend/.out/
@@ -12,8 +11,6 @@ src/backend/Host/bin/
 src/backend/Host/obj/
 src/backend/**/bin/
 src/backend/**/obj/
-src/backend/**/.vs/
-src/backend/**/.vscode/
 
 # Test outputs
 src/backend/Tests/**/bin/
@@ -44,7 +41,7 @@ yarn-error.log*
 .gitignore
 .github/
 
-# Documentation (not needed at runtime)
+# Documentation
 docs/
 *.md
 !README.md
@@ -62,9 +59,17 @@ ci/
 
 # Sandbox-specific
 sandbox/
+.mavis/
 *.pdf
 *.log
 
-# Backend published output (rebuilt in Docker)
+# Helper scripts (Windows-only, not needed on HF Linux)
+New Text Document.txt
+restart-backend.ps1
+star-stop-sys.bas
+start-dev.ps1
+stop-dev.ps1
+
+# Backend published output
 src/backend/publish/
 src/backend/Host/publish/
