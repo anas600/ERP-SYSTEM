@@ -7,7 +7,7 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Full-Stack Multi-Tenant ERP System (Finance + HR + Payroll + Projects + Inventory)
+short_description: Multi-tenant ERP (Finance + HR + Payroll)
 ---
 
 # ERP-SYSTEM
