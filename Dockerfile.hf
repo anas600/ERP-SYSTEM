@@ -105,6 +105,43 @@ RUN cat > /etc/caddy/Caddyfile << 'EOF'
 }
 EOF
 
+# entrypoint.sh: يحوّل المتغيرات البسيطة من HF إلى متغيرات .NET الكاملة
+RUN cat > /app/entrypoint.sh << 'ENTRYEOF'
+#!/bin/bash
+set -e
+
+echo "=== ERP-SYSTEM Starting ==="
+
+# تحويل المتغيرات البسيطة إلى متغيرات .NET الكاملة
+# HF Spaces لا يقبل "__" في أسماء المتغيرات، فنعمل mapping هنا
+export ConnectionStrings__Postgres="${DB_CONNECTION:-}"
+export Marten__ConnectionString="${EVENTS_CONNECTION:-}"
+export JwtSettings__Secret="${JWT_SECRET:-}"
+export JwtSettings__Issuer="${JWT_ISSUER:-ERP-SYSTEM}"
+export JwtSettings__Audience="${JWT_AUDIENCE:-ERP-SYSTEM-Users}"
+export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
+
+# التحقق من المتغيرات المطلوبة
+if [ -z "$ConnectionStrings__Postgres" ]; then
+    echo "ERROR: DB_CONNECTION is not set!"
+    exit 1
+fi
+if [ -z "$JwtSettings__Secret" ]; then
+    echo "ERROR: JWT_SECRET is not set!"
+    exit 1
+fi
+
+echo "✅ Environment variables mapped successfully"
+echo "  - DB: ${ConnectionStrings__Postgres:0:50}..."
+echo "  - Events: ${Marten__ConnectionString:0:50}..."
+echo "  - JWT Issuer: ${JwtSettings__Issuer}"
+echo "  - JWT Audience: ${JwtSettings__Audience}"
+
+# تشغيل supervisord
+exec supervisord -n -c /etc/supervisor/supervisord.conf
+ENTRYEOF
+RUN chmod +x /app/entrypoint.sh
+
 # Supervisor config لإدارة الـ processes
 RUN cat > /etc/supervisor/conf.d/erp.conf << 'EOF'
 [program:api]
@@ -151,5 +188,5 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 
 EXPOSE 7860
 
-# تشغيل supervisor
-CMD ["supervisord", "-n", "-c", "/etc/supervisor/supervisord.conf"]
+# تشغيل entrypoint.sh الذي يحوّل المتغيرات ثم يشغل supervisord
+CMD ["/app/entrypoint.sh"]
