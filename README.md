@@ -53,8 +53,8 @@ The container runs **3 processes** managed by `supervisord`:
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `DB_CONNECTION` | PostgreSQL connection string (full URL) | `Host=ep-xxx.neon.tech;Database=erp_system;Username=erp_user;Password=xxx;SSL Mode=Require` |
-| `DB_EVENTS_CONNECTION` | PostgreSQL events store connection | `Host=ep-xxx.neon.tech;Database=erp_events;Username=erp_user;Password=xxx;SSL Mode=Require` |
+| `DB_CONNECTION` | OLTP database connection string | `postgresql://neondb_owner:PASSWORD@ep-xxx.aws.neon.tech/neondb?sslmode=require` (Neon's default `neondb`) |
+| `EVENTS_CONNECTION` | Optional: Event store (Marten, currently disabled — see DEC-017) | `postgresql://neondb_owner:PASSWORD@ep-xxx.aws.neon.tech/erp_events?sslmode=require` |
 | `JWT_SECRET` | JWT signing secret (min 64 chars) | `your-64-character-secret-here-replace-this` |
 
 ### 📝 How to set:
@@ -75,7 +75,10 @@ The system needs a PostgreSQL 15+ database. **Hugging Face Spaces does not provi
 - **Steps**:
   1. Sign up at https://neon.tech
   2. Create a new project
-  3. Create 2 databases: `erp_system` and `erp_events`
+  3. Create an **Event Store database** (optional — Marten is disabled per DEC-017):
+     - Recommended name: `erp_events` (underscore)
+     - Skip this if you don't plan to enable Marten in Sprint-5+
+  4. Copy the connection string for each (Neon creates a default `neondb` automatically)
   4. Copy the connection string for each
   5. Set as environment variables above
 
