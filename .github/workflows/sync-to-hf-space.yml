@@ -1,0 +1,102 @@
+name: Sync to Hugging Face Space
+
+# شغّل عند push إلى develop أو main
+on:
+  push:
+    branches:
+      - main
+      - develop
+  # يمكن تشغيله يدوياً من Actions tab
+  workflow_dispatch:
+    inputs:
+      target_branch:
+        description: 'Branch to sync to HF Space (main or develop)'
+        required: true
+        default: 'main'
+        type: choice
+        options:
+          - main
+          - develop
+
+# لا تشغّل workflows قديمة على نفس الـ PR
+concurrency:
+  group: sync-hf-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    name: Sync to HF Space
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Filter files for HF Space
+        # نحذف الملفات التي لا يحتاجها HF Space
+        # (HF يبني Docker ولا يحتاج node_modules و .next)
+        run: |
+          echo "=== قبل التنظيف ==="
+          du -sh .
+          echo ""
+          echo "=== تنظيف الملفات الزائدة ==="
+          rm -rf node_modules
+          rm -rf src/frontend/node_modules
+          rm -rf src/frontend/.next
+          rm -rf src/frontend/.out
+          rm -rf src/frontend/build
+          rm -rf src/backend/Host/bin
+          rm -rf src/backend/Host/obj
+          rm -rf src/backend/Tests/bin
+          rm -rf src/backend/Tests/obj
+          rm -rf docs
+          rm -rf infra
+          rm -rf .github
+          rm -rf .vs .vscode
+          rm -f *.pdf
+          rm -f Dockerfile.hf
+          echo ""
+          echo "=== بعد التنظيف ==="
+          du -sh .
+          echo ""
+          echo "=== عدد الملفات ==="
+          find . -type f | wc -l
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+          TARGET_BRANCH: ${{ github.event.inputs.target_branch || github.ref_name }}
+        run: |
+          # تأكد من أن المتغيرات موجودة
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$SPACE_NAME" ]; then
+            echo "ERROR: HF_TOKEN, HF_USERNAME, or SPACE_NAME secrets are not set!"
+            echo "Please add them in Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+
+          # إعداد git user (لـ HF)
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # إضافة HF Space كـ remote
+          git remote add space "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
+
+          # عرض الـ remote URLs
+          echo "=== Remotes ==="
+          git remote -v
+
+          # push إلى HF Space
+          echo ""
+          echo "=== Pushing to HF Space: ${HF_USERNAME}/${SPACE_NAME} (branch: ${TARGET_BRANCH}) ==="
+          git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" "HEAD:${TARGET_BRANCH}" 2>&1
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ Successfully synced to Hugging Face Space"
+          echo "🔗 Check status at: https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"

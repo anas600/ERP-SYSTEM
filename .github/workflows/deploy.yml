@@ -1,0 +1,191 @@
+name: Deploy (Tests → Sync to HF Space)
+
+# شغّل عند push إلى develop أو main
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20'
+
+jobs:
+  # =============================================
+  # Stage 1: Backend tests (unit + integration)
+  # =============================================
+  backend-tests:
+    name: Backend Tests (.NET 9.0)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_pw
+          POSTGRES_DB: erp_test_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d erp_test_system"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            ${{ runner.os }}-
+
+      - name: Restore
+        working-directory: src/backend
+        run: dotnet restore
+
+      - name: Build
+        working-directory: src/backend
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Run tests
+        working-directory: src/backend
+        run: dotnet test --no-build --configuration Release --logger "trx;LogFileName=test-results.trx" --collect:"XPlat Code Coverage"
+        env:
+          ConnectionStrings__Postgres: "Host=localhost;Database=erp_test_system;Username=erp_test;Password=erp_test_pw;SSL Mode=Disable"
+          Marten__ConnectionString: "Host=localhost;Database=erp_test_events;Username=erp_test;Password=erp_test_pw;SSL Mode=Disable"
+          JwtSettings__Secret: "TEST_SECRET_DO_NOT_USE_IN_PRODUCTION_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-results
+          path: src/backend/Tests/**/TestResults/
+
+  # =============================================
+  # Stage 2: Frontend build (verify compiles)
+  # =============================================
+  frontend-build:
+    name: Frontend Build (Next.js 14)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Type check
+        working-directory: src/frontend
+        run: npx tsc --noEmit
+
+      - name: Build
+        working-directory: src/frontend
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:5000'
+
+      - name: Upload .next standalone
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-build
+          path: src/frontend/.next/
+          retention-days: 3
+
+  # =============================================
+  # Stage 3: Sync to HF Space (after both pass)
+  # =============================================
+  sync-to-hf:
+    name: Sync to HF Space
+    needs: [backend-tests, frontend-build]
+    # شغّل فقط على push إلى main أو develop (ليس على PRs)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      - name: Filter files for HF Space
+        run: |
+          echo "=== تنظيف الملفات الزائدة قبل الرفع ==="
+          # احذف node_modules و build outputs
+          rm -rf src/frontend/node_modules
+          rm -rf src/frontend/.next
+          rm -rf src/frontend/.out
+          rm -rf src/frontend/build
+          rm -rf src/backend/Host/bin
+          rm -rf src/backend/Host/obj
+          rm -rf src/backend/Tests/bin
+          rm -rf src/backend/Tests/obj
+          # احذف ملفات التوثيق والـ CI (HF لا يحتاجها)
+          rm -rf docs
+          rm -rf infra
+          rm -rf .github
+          rm -rf .vs .vscode
+          rm -f *.pdf Dockerfile.hf
+          echo "=== بعد التنظيف ==="
+          du -sh .
+          find . -type f | wc -l
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$SPACE_NAME" ]; then
+            echo "ERROR: Required secrets not set"
+            exit 1
+          fi
+
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+          # push إلى HF Space
+          git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" "HEAD:main" 2>&1
+
+      - name: Success summary
+        if: success()
+        run: |
+          echo "✅ All tests passed + Synced to HF Space"
+          echo "🔗 Space: https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
+          echo "⏱️ Build will take 5-10 minutes"
