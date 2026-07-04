@@ -115,22 +115,30 @@ set -e
 
 echo "=== ERP-SYSTEM Starting ==="
 
-# تحويل المتغيرات البسيطة إلى متغيرات .NET الكاملة
-# HF Spaces لا يقبل "__" في أسماء المتغيرات، فنعمل mapping هنا
-export ConnectionStrings__Postgres="${DB_CONNECTION:-}"
-export Marten__ConnectionString="${EVENTS_CONNECTION:-}"
-export JwtSettings__Secret="${JWT_SECRET:-}"
-export JwtSettings__Issuer="${JWT_ISSUER:-ERP-SYSTEM}"
-export JwtSettings__Audience="${JWT_AUDIENCE:-ERP-SYSTEM-Users}"
+# دعم طريقتين لإعداد env vars:
+#   1) Simple names (DB_CONNECTION, EVENTS_CONNECTION, JWT_SECRET) — HF لا يقبل "__"
+#   2) Full .NET names (JwtSettings__Secret, ConnectionStrings__Postgres) — لو HF قبل "__" في Secret
+
+# .NET env vars config: "SectionName__Key" overrides appsettings.json
+# نحترم الـ env vars الموجودة أولاً، ثم fallback إلى الأسماء البسيطة
+export ConnectionStrings__Postgres="${ConnectionStrings__Postgres:-${DB_CONNECTION:-}}"
+export Marten__ConnectionString="${Marten__ConnectionString:-${EVENTS_CONNECTION:-}}"
+export JwtSettings__Secret="${JwtSettings__Secret:-${JWT_SECRET:-}}"
+export JwtSettings__Issuer="${JwtSettings__Issuer:-${JWT_ISSUER:-ERP-SYSTEM}}"
+export JwtSettings__Audience="${JwtSettings__Audience:-${JWT_AUDIENCE:-ERP-SYSTEM-Users}}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 
 # التحقق من المتغيرات المطلوبة
 if [ -z "$ConnectionStrings__Postgres" ]; then
-    echo "ERROR: DB_CONNECTION is not set!"
+    echo "ERROR: DB_CONNECTION (or ConnectionStrings__Postgres) is not set!"
     exit 1
 fi
 if [ -z "$JwtSettings__Secret" ]; then
-    echo "ERROR: JWT_SECRET is not set!"
+    echo "ERROR: JWT_SECRET (or JwtSettings__Secret) is not set!"
+    exit 1
+fi
+if [ -z "$Marten__ConnectionString" ]; then
+    echo "ERROR: EVENTS_CONNECTION (or Marten__ConnectionString) is not set!"
     exit 1
 fi
 
@@ -139,6 +147,7 @@ echo "  - DB: ${ConnectionStrings__Postgres:0:50}..."
 echo "  - Events: ${Marten__ConnectionString:0:50}..."
 echo "  - JWT Issuer: ${JwtSettings__Issuer}"
 echo "  - JWT Audience: ${JwtSettings__Audience}"
+echo "  - JWT Secret length: ${#JwtSettings__Secret}"
 
 # تشغيل supervisord
 exec supervisord -n -c /etc/supervisor/supervisord.conf
