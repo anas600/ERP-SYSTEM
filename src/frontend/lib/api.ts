@@ -3,7 +3,9 @@
 
 import axios, { AxiosInstance } from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://a59fdc3d90a895af-47-253-4-207.serveousercontent.com';
+// في الإنتاج (HF Spaces): نستخدم same-origin (Caddy reverse proxy)
+// في dev: NEXT_PUBLIC_API_URL=http://localhost:5000
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
