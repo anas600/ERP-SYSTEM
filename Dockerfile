@@ -69,6 +69,9 @@ COPY --from=frontend-build /app/.next/standalone /app/web
 COPY --from=frontend-build /app/.next/static /app/web/.next/static
 COPY --from=frontend-build /app/public /app/web/public
 
+# إنشاء مجلدات caddy و supervisord اللازمة (إذا لم تكن موجودة)
+RUN mkdir -p /etc/caddy /var/log/supervisor /etc/supervisor/conf.d
+
 # Caddyfile للـ reverse proxy
 RUN cat > /etc/caddy/Caddyfile << 'EOF'
 {
