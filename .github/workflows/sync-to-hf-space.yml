@@ -42,16 +42,7 @@ jobs:
           echo "=== قبل التنظيف ==="
           du -sh .
           echo ""
-          echo "=== تحويل Dockerfile.hf إلى Dockerfile أولاً (قبل أي حذف) ==="
-          if [ -f "Dockerfile.hf" ]; then
-            mv Dockerfile.hf Dockerfile
-            echo "✅ Dockerfile.hf renamed to Dockerfile"
-          else
-            echo "⚠️ Dockerfile.hf not found - checking if Dockerfile already exists"
-            ls -la Dockerfile* 2>&1 || true
-          fi
-          echo ""
-          echo "=== تنظيف الملفات الزائدة ==="
+          echo "=== تنظيف الملفات الزائدة (node_modules, .next, bin, obj) ==="
           rm -rf node_modules
           rm -rf src/frontend/node_modules
           rm -rf src/frontend/.next
