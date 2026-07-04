@@ -108,10 +108,48 @@ jobs:
           echo "=== Remotes ==="
           git remote -v
 
-          # push إلى HF Space
+          # 1) push إلى HF Space باستخدام git (لـ history)
           echo ""
           echo "=== Pushing to HF Space: ${HF_USERNAME}/${SPACE_NAME} (branch: ${TARGET_BRANCH}) ==="
           git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" "HEAD:${TARGET_BRANCH}" 2>&1
+
+      - name: Clean up old files in HF Space (using HF API)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+        run: |
+          # نستخدم HF API لحذف الملفات القديمة التي لم تعد في local
+          # (git push --force لا يحذف files في remote غير موجودة في local)
+          echo "=== حذف الملفات القديمة من HF Space ==="
+
+          # Files to delete
+          FILES_TO_DELETE=(
+            "Dockerfile.hf"
+            ".mavis"
+            "docs"
+            "infra"
+            "New Text Document.txt"
+            "restart-backend.ps1"
+            "star-stop-sys.bas"
+            "start-dev.ps1"
+            "stop-dev.ps1"
+          )
+
+          for FILE in "${FILES_TO_DELETE[@]}"; do
+            echo "Deleting: $FILE"
+            curl -s -X DELETE \
+              -H "Authorization: Bearer $HF_TOKEN" \
+              "https://huggingface.co/api/spaces/${HF_USERNAME}/${SPACE_NAME}/resolve/main/${FILE}" \
+              || echo "  (not found or error)"
+          done
+
+          echo ""
+          echo "=== التحقق من الملفات المتبقية ==="
+          curl -s \
+            -H "Authorization: Bearer $HF_TOKEN" \
+            "https://huggingface.co/api/spaces/${HF_USERNAME}/${SPACE_NAME}/tree/main" \
+            | head -30
 
       - name: Summary
         if: success()
