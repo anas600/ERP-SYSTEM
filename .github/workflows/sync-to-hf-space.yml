@@ -57,13 +57,20 @@ jobs:
           rm -rf .github
           rm -rf .vs .vscode
           rm -f *.pdf
-          rm -f Dockerfile.hf
+          # تحويل Dockerfile.hf إلى Dockerfile (HF يحتاج اسم Dockerfile بالضبط)
+          if [ -f "Dockerfile.hf" ]; then
+            mv Dockerfile.hf Dockerfile
+            echo "✅ Dockerfile.hf renamed to Dockerfile"
+          fi
           echo ""
           echo "=== بعد التنظيف ==="
           du -sh .
           echo ""
           echo "=== عدد الملفات ==="
           find . -type f | wc -l
+          echo ""
+          echo "=== التحقق من وجود Dockerfile ==="
+          ls -la Dockerfile 2>&1 || echo "❌ Dockerfile مفقود!"
 
       - name: Push to Hugging Face Space
         env:
