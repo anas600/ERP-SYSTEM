@@ -72,6 +72,25 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
     opts.EventStoreConnectionString = builder.Configuration.GetSection("Marten")["ConnectionString"];
 });
 
+// ============================================
+// TODO: Enable Marten in Sprint-5 (DEC-017)
+// ============================================
+// Marten package is installed and configured but NOT yet wired up.
+// Event store using PostgreSQL LISTEN/NOTIFY planned for Sprint-5+.
+//
+// When enabling:
+//   1. Uncomment below
+//   2. Add IDocumentSession to OutboxEventPublisher
+//   3. Create projections for materialized views
+//
+// Why deferred: Event sourcing adds complexity. We need feature flag
+// infrastructure first (Sprint-4) before activating Marten.
+//
+// Reference: DEC-017 (2026-07-05)
+// ============================================
+// builder.Services.AddMarten(opts =>
+//     opts.Connection(builder.Configuration["Marten:ConnectionString"]!));
+
 // ============ Infrastructure ============
 builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة

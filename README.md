@@ -21,8 +21,20 @@ A complete **Multi-Tenant Modular Monolith ERP system** with:
 - 💳 **Payments**: AP/AR Payments, Allocations
 - 🧾 **Accounts Receivable**: Customers, Sales Invoices, Receipts, Aging reports
 - 🛒 **Procurement**: Purchase Orders, Goods Receipts, Vendor Bills
-- 🔄 **Event Sourcing**: Outbox pattern + Postgres LISTEN/NOTIFY
+- 🔄 **Event Sourcing**: Outbox pattern + Postgres LISTEN/NOTIFY (MartenDB event store **planned Sprint-5+**)
 - 🔐 **JWT + Multi-tenancy**: Full isolation per tenant
+
+## 🔜 Roadmap: Event Sourcing (Sprint-5+)
+
+The system is configured to use **MartenDB** for event sourcing but the feature is currently **disabled** (DEC-017).
+
+To enable in Sprint-5+:
+1. Uncomment `AddMarten()` block in `src/backend/Host/Program.cs`
+2. Add `IDocumentSession` to `OutboxEventPublisher`
+3. Create projections for materialized views
+
+Why deferred: Event sourcing adds complexity. Feature flag infrastructure (Sprint-4) needed first.
+Reference: `DEC-017` (2026-07-05)
 
 ## 🏗️ Architecture
 
