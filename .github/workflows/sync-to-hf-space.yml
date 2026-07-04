@@ -88,7 +88,8 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_USERNAME: ${{ secrets.HF_USERNAME }}
           SPACE_NAME: ${{ secrets.SPACE_NAME }}
-          TARGET_BRANCH: ${{ github.event.inputs.target_branch || github.ref_name }}
+          # HF Space يبني من main فقط — نتجاهل input ونستخدم main
+          TARGET_BRANCH: main
         run: |
           # تأكد من أن المتغيرات موجودة
           if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$SPACE_NAME" ]; then
