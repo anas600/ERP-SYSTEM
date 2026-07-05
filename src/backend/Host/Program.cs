@@ -242,7 +242,29 @@ builder.Services.AddFluentMigratorCore()
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
-builder.Services.AddHostedService<ScenarioSeederHostedService>();
+
+// ============ Seeder feature flags (Sprint-4 Day 1, DEC-023/DEC-032) ============
+// Default OFF for AlBurj to prevent DEC-009-style incidents (30K records flooded the DB).
+// Use POST /api/admin/seed/alburj (Sprint-4 Day 2) to trigger manually after a clean DB reset.
+var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", true);
+var seedAlBurj = builder.Configuration.GetValue<bool>("Database:SeedAlBurjScenario", false);
+if (seedAlFajr)
+{
+    builder.Services.AddHostedService<ScenarioSeederHostedService>();
+    Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=true — AlFajr seeder registered (safe default).");
+}
+else
+{
+    Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=false — AlFajr seeder SKIPPED.");
+}
+if (seedAlBurj)
+{
+    Console.Error.WriteLine("[SPRINT-4] WARNING: SeedAlBurjScenario=true — AlBurj seeder would run if registered (30K records; ensure DB is clean). NOT registered automatically (use manual endpoint).");
+}
+else
+{
+    Console.WriteLine("[SPRINT-4] SeedAlBurjScenario=false (SAFE default, DEC-009 prevention).");
+}
 
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
