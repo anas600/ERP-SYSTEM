@@ -189,6 +189,10 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 // ============ Audit (Sprint-4.5 / DEC-056) ============
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 
+// ============ Domain Events (Sprint-4.5 T-010 / DEC-057) ============
+// In-process Pub/Sub — lightweight cross-module integration without outbox overhead.
+builder.Services.AddSingleton<IDomainEventPublisher, DomainEventPublisher>();
+
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
