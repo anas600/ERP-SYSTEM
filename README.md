@@ -108,6 +108,89 @@ You can then:
 
 After registering, you can log in with the email/password you created. The first user becomes the **Admin** of a new tenant.
 
+## 🩺 Health Endpoints (Sprint-4 Day 1)
+
+| Endpoint | Purpose | Auth |
+|----------|---------|------|
+| `GET /api/health/live` | Liveness probe — is the process alive? | No |
+| `GET /api/health/startup` | Startup probe — has the process started? | No |
+| `GET /api/health/startup-deep` | Deep diagnostics — DB, migrations, config | No |
+
+Useful for Kubernetes liveness/readiness probes, uptime monitoring (UptimeRobot, Pingdom), or quick status checks.
+
+Example:
+```bash
+curl -s https://anas-assaket-erp-system.hf.space/api/health/startup-deep | jq
+```
+
+## 🛠️ Admin Endpoints (Sprint-4 Day 2)
+
+Admin-only manual triggers for sensitive operations. Requires JWT with `Admin` role.
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `POST` | `/api/admin/seed/alfajr` | Trigger AlFajr scenario seeder in background (~5K records) |
+| `POST` | `/api/admin/seed/alburj` | Returns 501 Not Implemented (DEC-009 prevention — class deleted) |
+| `GET` | `/api/admin/seed/status/{jobId}` | Poll job status (queued/running/completed/failed) |
+| `GET` | `/api/admin/seed/jobs` | List last 20 jobs (admin audit trail) |
+
+Example:
+```bash
+# 1. Login as Admin to get JWT
+TOKEN=$(curl -s -X POST https://.../api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@alfajr.local","password":"Demo1234"}' | jq -r .accessToken)
+
+# 2. Trigger manual seed
+JOB=$(curl -s -X POST https://.../api/admin/seed/alfajr \
+  -H "Authorization: Bearer $TOKEN" | jq -r .jobId)
+
+# 3. Poll status
+curl -s https://.../api/admin/seed/status/$JOB \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+## 🔍 Observability (Sprint-4 Day 3)
+
+### Structured JSON Logging
+
+- **Development**: human-readable output (`[{HH:mm:ss} {Level}] {Source}: {message}`)
+- **Production**: `CompactJsonFormatter` (one JSON object per line) — ready for Loki/Elasticsearch/CloudWatch
+
+Every log entry is enriched with:
+- `RequestId` (from `X-Request-ID` header, or auto-generated)
+- `TenantId` (from JWT claim, if authenticated)
+- `UserId` (from JWT claim, if authenticated)
+- `Method`, `Path`, `MachineName`, `ThreadId`, `Application`, `Environment`
+
+### Request Tracking
+
+Every request gets:
+- `X-Request-ID` header (generated or echoed from incoming)
+- Logged with method/path/status/elapsed-ms
+- Available via `HttpContext.Items["RequestId"]` for downstream code
+
+### Sentry Integration (Optional)
+
+Enable by setting the `Sentry__Dsn` environment variable in your Space:
+- Disabled by default (no DSN = no-op, no overhead)
+- When enabled: 20% transaction sampling (HF free tier friendly)
+- GDPR-safe defaults (`SendDefaultPii=false`)
+
+## 🌿 Deployment Pipeline (Sprint-4 Day 4)
+
+The repository uses **branch-based environments**:
+
+| Branch | Environment | Auto-deploy |
+|--------|-------------|-------------|
+| `develop` | **Staging** | ✅ Auto-sync to HF Space on every push |
+| `main` | **Production** | ⚠️ Manual deploy via `Actions → Deploy` (or merge from develop) |
+
+Workflows:
+- `.github/workflows/ci.yml` — basic checks
+- `.github/workflows/deploy.yml` — tests + sync (recommended for PRs)
+- `.github/workflows/sync-to-hf-space.yml` — direct sync (manual trigger or push to develop/main)
+
 ## 📊 Tech Stack
 
 - **Backend**: C# / .NET 9, Dapper, FluentMigrator, MartenDB
