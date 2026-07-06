@@ -48,8 +48,24 @@ public sealed class VendorBillRepository : IVendorBillRepository
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", status.Value.ToString()); }
         sql += " ORDER BY created_at DESC OFFSET @Skip LIMIT @Take";
         p.Add("Skip", skip); p.Add("Take", take);
-        var rows = await conn.QueryAsync<VendorBill>(new CommandDefinition(sql, p, cancellationToken: ct));
-        return rows.AsList();
+        var rows = (await conn.QueryAsync<VendorBill>(new CommandDefinition(sql, p, cancellationToken: ct))).AsList();
+
+        // DEC-074: Load lines for each bill (BUG-003 fix — was empty before)
+        // Simple N+1 pattern; can be optimized with a JOIN if needed
+        if (rows.Count > 0)
+        {
+            var billIds = rows.Select(b => b.Id).ToList();
+            var allLines = await conn.QueryAsync<VendorBillLine>(new CommandDefinition(
+                $"SELECT {SelLine} FROM vendor_bill_lines WHERE vendor_bill_id = ANY(@BillIds) ORDER BY line_order",
+                new { BillIds = billIds.ToArray() }, cancellationToken: ct));
+            var linesByBill = allLines.GroupBy(l => l.VendorBillId).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var bill in rows)
+            {
+                bill.Lines = linesByBill.TryGetValue(bill.Id, out var ls) ? ls : new List<VendorBillLine>();
+            }
+        }
+
+        return rows;
     }
 
     public async Task InsertAsync(VendorBill bill, CancellationToken ct)
