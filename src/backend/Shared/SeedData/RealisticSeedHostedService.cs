@@ -3,7 +3,6 @@ using Dapper;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace ERPSystem.Shared.SeedData;
@@ -701,4 +700,3 @@ public sealed class RealisticSeedHostedService : BackgroundService
         }
         catch (OperationCanceledException) { /* expected on shutdown */ }
     }
-}
