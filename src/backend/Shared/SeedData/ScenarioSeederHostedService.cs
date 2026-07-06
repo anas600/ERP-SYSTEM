@@ -1,5 +1,6 @@
 using System.Data;
 using Dapper;
+using ERPSystem.Host.Utilities;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
@@ -342,52 +343,62 @@ public sealed class ScenarioSeederHostedService : IHostedService
     // ============================================================
     private async Task SeedAttendanceAsync(IServiceProvider services, Guid tenantId, List<Guid> empIds, CancellationToken ct)
     {
-        await using var conn = await OpenConnectionAsync(services, ct);
-
-        var existing = await conn.ExecuteScalarAsync<int>(
-            new CommandDefinition("SELECT COUNT(*) FROM attendance WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct));
-        if (existing > 0) { _logger.LogInformation("  ⏭ Attendance already seeded ({N} records)", existing); return; }
-
-        var totalRecords = 0;
-        var workingDaysPerMonth = new[] { 22, 20, 23, 21, 22, 22, 23, 22, 22, 23, 21, 22 };
-
-        for (var empIdx = 0; empIdx < empIds.Count; empIdx++)
-        {
-            var empId = empIds[empIdx];
-            for (var mi = 0; mi < 12; mi++)
+        // SPRINT-4 Day 2 (DEC-042): wrap heavy DB work in RetryPolicy for transient errors
+        // (network blips, deadlocks). Non-transient errors (duplicate keys) won't retry.
+        await RetryPolicy.ExecuteWithRetryAsync(
+            async (attempt, retryCt) =>
             {
-                var month = mi + 1;
-                var workingDays = workingDaysPerMonth[mi];
-                var absentDays = Random.Shared.Next(0, 3);
+                await using var conn = await OpenConnectionAsync(services, retryCt);
 
-                for (var day = 1; day <= DateTime.DaysInMonth(2026, month); day++)
+                var existing = await conn.ExecuteScalarAsync<int>(
+                    new CommandDefinition("SELECT COUNT(*) FROM attendance WHERE tenant_id = @T",
+                        new { T = tenantId }, cancellationToken: retryCt));
+                if (existing > 0) { _logger.LogInformation("  ⏭ Attendance already seeded ({N} records)", existing); return; }
+
+                var totalRecords = 0;
+                var workingDaysPerMonth = new[] { 22, 20, 23, 21, 22, 22, 23, 22, 22, 23, 21, 22 };
+
+                for (var empIdx = 0; empIdx < empIds.Count; empIdx++)
                 {
-                    var date = new DateTime(2026, month, day);
-                    if (date.DayOfWeek == DayOfWeek.Friday || date.DayOfWeek == DayOfWeek.Saturday) continue;
-                    if (Random.Shared.NextDouble() < 0.015 * absentDays) continue;
+                    var empId = empIds[empIdx];
+                    for (var mi = 0; mi < 12; mi++)
+                    {
+                        var month = mi + 1;
+                        var workingDays = workingDaysPerMonth[mi];
+                        var absentDays = Random.Shared.Next(0, 3);
 
-                    var checkIn = date.AddHours(8).AddMinutes(Random.Shared.Next(0, 25));
-                    var checkOut = date.AddHours(16).AddMinutes(Random.Shared.Next(-10, 30));
-                    var now = DateTime.UtcNow;
+                        for (var day = 1; day <= DateTime.DaysInMonth(2026, month); day++)
+                        {
+                            var date = new DateTime(2026, month, day);
+                            if (date.DayOfWeek == DayOfWeek.Friday || date.DayOfWeek == DayOfWeek.Saturday) continue;
+                            if (Random.Shared.NextDouble() < 0.015 * absentDays) continue;
 
-                    await conn.ExecuteAsync(new CommandDefinition(@"
-                        INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
-                        VALUES (gen_random_uuid(), @T, @EID, @TypeIn, @TS, NULL, '127.0.0.1', @Now)",
-                        new { T = tenantId, EID = empId, TypeIn = AttendanceType.CheckIn.ToString(), TS = checkIn, Now = now }, cancellationToken: ct));
+                            var checkIn = date.AddHours(8).AddMinutes(Random.Shared.Next(0, 25));
+                            var checkOut = date.AddHours(16).AddMinutes(Random.Shared.Next(-10, 30));
+                            var now = DateTime.UtcNow;
 
-                    await conn.ExecuteAsync(new CommandDefinition(@"
-                        INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
-                        VALUES (gen_random_uuid(), @T, @EID, @TypeOut, @TS, NULL, '127.0.0.1', @Now)",
-                        new { T = tenantId, EID = empId, TypeOut = AttendanceType.CheckOut.ToString(), TS = checkOut, Now = now }, cancellationToken: ct));
+                            await conn.ExecuteAsync(new CommandDefinition(@"
+                                INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
+                                VALUES (gen_random_uuid(), @T, @EID, @TypeIn, @TS, NULL, '127.0.0.1', @Now)",
+                                new { T = tenantId, EID = empId, TypeIn = AttendanceType.CheckIn.ToString(), TS = checkIn, Now = now }, cancellationToken: retryCt));
 
-                    totalRecords += 2;
+                            await conn.ExecuteAsync(new CommandDefinition(@"
+                                INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
+                                VALUES (gen_random_uuid(), @T, @EID, @TypeOut, @TS, NULL, '127.0.0.1', @Now)",
+                                new { T = tenantId, EID = empId, TypeOut = AttendanceType.CheckOut.ToString(), TS = checkOut, Now = now }, cancellationToken: retryCt));
+
+                            totalRecords += 2;
+                        }
+                    }
+                    if ((empIdx + 1) % 4 == 0)
+                        _logger.LogInformation("  ... attendance: {Done}/{Total} employees", empIdx + 1, empIds.Count);
                 }
-            }
-            if ((empIdx + 1) % 4 == 0)
-                _logger.LogInformation("  ... attendance: {Done}/{Total} employees", empIdx + 1, empIds.Count);
-        }
-        _logger.LogInformation("  ✅ Attendance seeded ({N} records for {Emps} employees)", totalRecords, empIds.Count);
+                _logger.LogInformation("  ✅ Attendance seeded ({N} records for {Emps} employees)", totalRecords, empIds.Count);
+            },
+            _logger,
+            maxRetries: RetryPolicy.DefaultMaxRetries,
+            opName: "SeedAttendance",
+            ct: ct);
     }
 
     // ============================================================
