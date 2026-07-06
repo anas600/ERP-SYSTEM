@@ -53,8 +53,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // DEC-069: Log immediately to prove ExecuteAsync was called
-        _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED";
-        SeedDebugState.ExecuteAsyncCalled = true;");
+        _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED");
+        SeedDebugState.ExecuteAsyncCalled = true;
 
         var seedEnabled = _config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
         SeedDebugState.SeedEnabled = seedEnabled;
@@ -86,8 +86,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 _logger.LogError("[DEC-069] Connectivity check FAILED — aborting seed");
                 return;
             }
-            _logger.LogInformation("[DEC-069] Connectivity OK";
-        SeedDebugState.ConnectivityCheckPassed = true;");
+            _logger.LogInformation("[DEC-069] Connectivity OK");
+        SeedDebugState.ConnectivityCheckPassed = true;
 
             // DEC-069: Get/Create tenant with its own scope (separate from seed steps)
             Guid tenantId;
