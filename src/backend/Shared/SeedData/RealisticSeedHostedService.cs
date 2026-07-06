@@ -193,8 +193,9 @@ public sealed class RealisticSeedHostedService : BackgroundService
         }
     }
 
-    // ... rest stays the same (GetOrCreateTenantAsync, SeedCompaniesAsync, etc.)
-    // For brevity, these methods remain as in the original file
+    private async Task<List<Guid>> GetExistingIdsAsync(
+        IDbConnectionFactory factory, Guid tenantId, string table, CancellationToken ct)
+    {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var sql = $"SELECT id FROM {table} WHERE tenant_id = @T";
         var ids = await conn.QueryAsync<Guid>(new CommandDefinition(sql, new { T = tenantId }, cancellationToken: ct));
@@ -708,3 +709,4 @@ public sealed class RealisticSeedHostedService : BackgroundService
         }
         catch (OperationCanceledException) { /* expected on shutdown */ }
     }
+}
