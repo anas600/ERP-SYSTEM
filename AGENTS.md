@@ -100,6 +100,20 @@
 
 ---
 
+## 🧪 Testing Strategy (DEC-054)
+
+نظام 3 طبقات (Testing Pyramid):
+
+| Type | Location | Speed | Trigger |
+|---|---|---|---|
+| Unit (no DB) | `./scripts/local-verify.sh` | ~30 sec | Before every push |
+| Integration (test DB) | `./scripts/local-integration.sh` (Docker) or CI Fast | ~2 min | On every push (ci-fast.yml) |
+| Smoke (HF Space) | CI Deploy → auto-rollback check | ~10 min | On PR merge to develop (ci-deploy.yml) |
+
+**Local testing إلزامي قبل push.** لا تدفع كود لا يجتاز `./scripts/local-verify.sh`.
+
+---
+
 ## 🌿 Git Workflow
 
 ### Branch Strategy
