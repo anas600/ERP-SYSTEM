@@ -356,17 +356,18 @@ public sealed class RealisticSeedHostedService : BackgroundService
         for (int i = 0; i < companies.Length; i++)
         {
             var id = Guid.NewGuid();
+            // DEC-072: Schema fix — column 'currency' renamed to 'base_currency';
+            // 'created_by'/'updated_by' removed; added 'legal_name' + 'is_group'
             const string sql = @"
-                INSERT INTO companies (id, tenant_id, code, name, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO companies (id, tenant_id, code, name, legal_name, is_group, base_currency, is_active, created_at, updated_at)
+                VALUES (@Id, @T, @Code, @Name, @Name, false, 'LYD', true, @Now, @Now)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
                 Code = companies[i].code,
                 Name = companies[i].name,
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
+                Now = DateTime.UtcNow
             }, cancellationToken: ct));
             companyIds.Add(id);
 
@@ -394,25 +395,26 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var id = Guid.NewGuid();
             var code = $"V-{i:D3}";
             var name = $"Vendor {i} ({sectors[i % sectors.Length]})";
-            var contact = $"{firstNames[i % firstNames.Length]} المبيعات";
             var email = $"vendor{i}@example.ly";
             var phone = $"+21891{i:D7}";
+            var address = $"طرابلس - شارع رقم {i}";
 
+            // DEC-072: Schema fix — removed 'contact_name' + 'balance' + 'created_by' + 'updated_by';
+            // added 'address' + 'tax_number' + 'payment_terms'
             const string sql = @"
-                INSERT INTO vendors (id, tenant_id, code, name, contact_name, email, phone, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Contact, @Email, @Phone, @Balance, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, currency, payment_terms, is_active, created_at, updated_at)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, 'LYD', 'Net30', true, @Now, @Now)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
                 Code = code,
                 Name = name,
-                Contact = contact,
                 Email = email,
                 Phone = phone,
-                Balance = 5000m + (i * 1000m),
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
+                Address = address,
+                Tax = $"TAX-{i:D3}",
+                Now = DateTime.UtcNow
             }, cancellationToken: ct));
             vendorIds.Add(id);
 
@@ -440,21 +442,26 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var id = Guid.NewGuid();
             var code = $"C-{i:D3}";
             var name = i <= 10 ? orgs[i - 1] : $"Customer {i} (Private)";
-            var type = customerTypes[i % customerTypes.Length];
+            var email = $"customer{i}@example.ly";
+            var phone = $"+21892{i:D7}";
+            var address = $"طرابلس - حي رقم {i}";
 
+            // DEC-072: Schema fix — removed 'type' + 'balance' + 'created_by' + 'updated_by';
+            // added 'email' + 'phone' + 'address' + 'tax_number'
             const string sql = @"
-                INSERT INTO customers (id, tenant_id, code, name, type, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Type, @Balance, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, tax_number, currency, is_active, created_at, updated_at)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, 'LYD', true, @Now, @Now)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
                 Code = code,
                 Name = name,
-                Type = type,
-                Balance = 3000m + (i * 750m),
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
+                Email = email,
+                Phone = phone,
+                Address = address,
+                Tax = $"CUST-{i:D3}",
+                Now = DateTime.UtcNow
             }, cancellationToken: ct));
             customerIds.Add(id);
 
@@ -482,6 +489,20 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
         var projectIds = new List<Guid>();
         var rng = new Random(42);
+
+        // DEC-072: Look up real company + cost center IDs (FK targets must exist)
+        var companyId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+        if (companyId == null)
+        {
+            _logger.LogWarning("[DEC-072] No company found for tenant {TenantId} — skipping Projects", tenantId);
+            return projectIds;
+        }
+        var costCenterId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM cost_centers WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+
         for (int i = 0; i < ProjectsCount; i++)
         {
             var id = Guid.NewGuid();
@@ -492,25 +513,37 @@ public sealed class RealisticSeedHostedService : BackgroundService
             if (endDate > ScenarioEnd) endDate = ScenarioEnd.AddDays(-rng.Next(1, 30));
             var budget = 50_000m + (i * 25_000m);
 
-            const string sql = @"
-                INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @CompanyId, @CCId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now, @User, @User)";
-            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            // DEC-072: Schema fix — use real company_id + cost_center_id;
+            // removed 'created_by' + 'updated_by'; added optional cost_center_id
+            string sql = costCenterId == null
+                ? @"INSERT INTO projects (id, tenant_id, company_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at)
+                    VALUES (@Id, @T, @CompanyId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now)"
+                : @"INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at)
+                    VALUES (@Id, @T, @CompanyId, @CCId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now)";
+            if (costCenterId == null)
             {
-                Id = id,
-                T = tenantId,
-                CompanyId = Guid.NewGuid(),
-                CCId = Guid.NewGuid(),
-                Code = code,
-                Name = projectNames[i],
-                Desc = $"مشروع {projectNames[i]} (نشط)",
-                Status = statuses[i],
-                Budget = budget,
-                Start = startDate,
-                End = endDate,
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
-            }, cancellationToken: ct));
+                await conn.ExecuteAsync(new CommandDefinition(sql, new
+                {
+                    Id = id, T = tenantId, CompanyId = companyId.Value,
+                    Code = code, Name = projectNames[i],
+                    Desc = $"مشروع {projectNames[i]} (نشط)",
+                    Status = statuses[i], Budget = budget,
+                    Start = startDate, End = endDate,
+                    Now = DateTime.UtcNow
+                }, cancellationToken: ct));
+            }
+            else
+            {
+                await conn.ExecuteAsync(new CommandDefinition(sql, new
+                {
+                    Id = id, T = tenantId, CompanyId = companyId.Value, CCId = costCenterId.Value,
+                    Code = code, Name = projectNames[i],
+                    Desc = $"مشروع {projectNames[i]} (نشط)",
+                    Status = statuses[i], Budget = budget,
+                    Start = startDate, End = endDate,
+                    Now = DateTime.UtcNow
+                }, cancellationToken: ct));
+            }
             projectIds.Add(id);
 
             if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
