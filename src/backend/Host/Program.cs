@@ -8,6 +8,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using Dapper;
 using ERPSystem.Host.Middleware;
+using ERPSystem.Shared.Audit;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -184,6 +185,9 @@ builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository
 
 // ============ Multi-tenancy ============
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+
+// ============ Audit (Sprint-4.5 / DEC-056) ============
+builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
