@@ -54,7 +54,8 @@ jobs:
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
       ConnectionStrings__Redis: "localhost:6379"
-      Marten__ConnectionString: "Host=localhost;Port=5432;Database=erp_test_events;Username=erp_test;Password=erp_test_pw"
+      # Marten disabled (DEC-017). Re-enable in Sprint-5.
+      # When enabled: Marten__ConnectionString: "Host=localhost;..."
       JwtSettings__Secret: "CI_TEST_SECRET_REPLACE_NEVER_USE_IN_PROD_32CHARS_xxxxxxxxxxxx"
       Database__AutoMigrate: "true"
 

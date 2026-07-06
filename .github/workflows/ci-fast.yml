@@ -29,7 +29,7 @@ jobs:
         working-directory: src/backend
     services:
       postgres:
-        image: postgres:15-alpine
+        image: postgres:16-alpine
         env:
           POSTGRES_USER: erp_test
           POSTGRES_PASSWORD: erp_test_pw
@@ -44,7 +44,8 @@ jobs:
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
       ConnectionStrings__Redis: "localhost:6379"
-      Marten__ConnectionString: "Host=localhost;Port=5432;Database=erp_test_events;Username=erp_test;Password=erp_test_pw"
+      # Marten disabled (DEC-017). Re-enable in Sprint-5.
+      # When enabled: Marten__ConnectionString: "Host=localhost;..."
       JwtSettings__Secret: "CI_FAST_TEST_SECRET_REPLACE_32CHARS_xxxxxxxxxxxxxx"
       Database__AutoMigrate: "true"
 
