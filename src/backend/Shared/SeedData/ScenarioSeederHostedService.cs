@@ -88,6 +88,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         await SeedProcurementFlowAsync(services, tenantId, adminUserId, cancellationToken);
         await SeedPayrollRunsAsync(services, tenantId, adminUserId, cancellationToken);
         await SeedManualJournalEntriesAsync(services, tenantId, adminUserId, cancellationToken);
+        await SeedOpeningBalanceAsync(services, tenantId, adminUserId, cancellationToken);  // DEC-075
         await SeedProjectsAsync(services, tenantId, adminUserId, cancellationToken);
 
         _logger.LogInformation("========================================");
@@ -796,6 +797,73 @@ public sealed class ScenarioSeederHostedService : IHostedService
             if (month % 3 == 0) _logger.LogInformation("  ... payroll: {M}/12 ({Name})", month, name);
         }
         _logger.LogInformation("  ✅ Payroll runs seeded ({N} months — all Posted)", processed);
+    }
+
+    // ============================================================
+    // STEP 12.5: Opening Balance Journal Entry (DEC-075)
+    // Dr Cash 5M / Cr Owner's Capital 5M
+    // Provides proper starting position for Trial Balance
+    // ============================================================
+    private async Task SeedOpeningBalanceAsync(IServiceProvider services, Guid tenantId, Guid adminUserId, CancellationToken ct)
+    {
+        var journalSvc = services.GetRequiredService<ERPSystem.Modules.Finance.Application.Services.IJournalEntryService>();
+
+        await using var conn = await OpenConnectionAsync(services, ct);
+
+        // Idempotency: skip if opening balance already exists
+        var existingOpening = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM journal_entries WHERE tenant_id = @T AND reference = 'OPENING-BALANCE'",
+            new { T = tenantId }, cancellationToken: ct));
+        if (existingOpening > 0)
+        {
+            _logger.LogInformation("  ⏭ Opening balance already exists, skipping");
+            return;
+        }
+
+        // Look up Cash (1210) and Capital (3100) account IDs
+        var accts = await conn.QueryAsync<(string Code, Guid Id)>(new CommandDefinition(
+            "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1210', '3100')",
+            new { T = tenantId }, cancellationToken: ct));
+        Guid? cashId = null, capitalId = null;
+        foreach (var (code, id) in accts)
+        {
+            if (code == "1210") cashId = id;
+            if (code == "3100") capitalId = id;
+        }
+
+        if (cashId == null || capitalId == null)
+        {
+            _logger.LogWarning("  ⚠️ Opening balance skipped — accounts missing (1210={Cash}, 3100={Cap})",
+                cashId, capitalId);
+            return;
+        }
+
+        const decimal openingAmount = 5_000_000m;  // 5M LYD starting capital
+        var draft = await journalSvc.CreateDraftAsync(tenantId, adminUserId, new ERPSystem.Modules.Finance.Application.PostJournalEntryRequest
+        {
+            EntryDate = new DateTime(2024, 1, 1),  // opening of business
+            Description = "Opening Balance — Owner's Capital Investment",
+            Reference = "OPENING-BALANCE",
+            Lines = new List<ERPSystem.Modules.Finance.Application.PostJournalLineRequest>
+            {
+                new() { AccountId = cashId.Value, Debit = openingAmount, Credit = 0m,
+                        Description = "Cash on hand (opening)" },
+                new() { AccountId = capitalId.Value, Debit = 0m, Credit = openingAmount,
+                        Description = "Owner's capital contribution" }
+            }
+        }, ct);
+
+        if (!draft.Succeeded)
+        {
+            _logger.LogWarning("  ⚠️ Opening balance draft failed: {Err}", draft.Error);
+            return;
+        }
+
+        var post = await journalSvc.PostAsync(tenantId, adminUserId, draft.Value!.Id, ct);
+        if (post.Succeeded)
+            _logger.LogInformation("  ✅ Opening balance JE created ({N} LYD)", openingAmount);
+        else
+            _logger.LogWarning("  ⚠️ Opening balance post failed: {Err}", post.Error);
     }
 
     // ============================================================
