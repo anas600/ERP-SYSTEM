@@ -54,6 +54,27 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============ Error tracking (Sentry — optional) ============
+// Sprint-4 Day 3 (DEC-045). Disabled unless Sentry__Dsn env var is set.
+var sentryDsn = builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["Sentry__Dsn"];
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(o =>
+    {
+        o.Dsn = sentryDsn;
+        o.Environment = builder.Environment.EnvironmentName;
+        o.Release = "erp-system@1.0.0";
+        o.TracesSampleRate = 0.2; // 20% of transactions (HF free tier)
+        o.SendDefaultPii = false; // GDPR-safe default
+        o.AttachStacktrace = true;
+    });
+    Console.WriteLine($"[SENTRY] Error tracking enabled (env={builder.Environment.EnvironmentName})");
+}
+else
+{
+    Console.WriteLine("[SENTRY] Error tracking disabled (no Sentry__Dsn env var)");
+}
+
 // ============ Logging ============
 // Sprint-4 Day 3 (DEC-045): structured JSON logging.
 // In Development: human-readable output. In Production: JSON for log aggregation.
