@@ -446,6 +446,16 @@ public sealed class RealisticSeedHostedService : BackgroundService
             "SELECT COUNT(*) FROM customers WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
         if (existing >= CustomersCount) return await GetExistingIdsAsync(factory, tenantId, "customers", ct);
 
+        // DEC-072: Look up real company_id (FK NOT NULL — same fix as Projects)
+        var companyId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+        if (companyId == null)
+        {
+            _logger.LogWarning("[DEC-072] No company found for tenant {TenantId} — skipping Customers", tenantId);
+            return new List<Guid>();
+        }
+
         var customerIds = new List<Guid>();
         for (int i = 1; i <= CustomersCount; i++)
         {
@@ -456,15 +466,15 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var phone = $"+21892{i:D7}";
             var address = $"طرابلس - حي رقم {i}";
 
-            // DEC-072: Schema fix — 'type' dropped; 'tax_number' dropped (not on customers);
-            // 'currency' doesn't exist on customers; 'created_by'/'updated_by' required NOT NULL
+            // DEC-072: Schema fix — 'company_id' FK NOT NULL; 'created_by'/'updated_by' NOT NULL
             const string sql = @"
-                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, true, @Now, @Now, @User, @User)";
+                INSERT INTO customers (id, tenant_id, company_id, code, name, email, phone, address, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @CompanyId, @Code, @Name, @Email, @Phone, @Address, true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
+                CompanyId = companyId.Value,
                 Code = code,
                 Name = name,
                 Email = email,
