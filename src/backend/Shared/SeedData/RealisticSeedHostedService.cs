@@ -21,6 +21,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
     private static readonly DateTime ScenarioStart = new(2024, 7, 1);
     private static readonly DateTime ScenarioEnd = new(2026, 7, 1);
+    private const int TotalMonths = 24;
     private const int CompaniesCount = 5;
     private const int VendorsCount = 15;
     private const int CustomersCount = 20;
@@ -153,9 +154,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
             using var scope = _rootServiceProvider.CreateScope();
             var factory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
             using var conn = await factory.CreateOltpConnectionAsync(ct);
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
-            var result = await cmd.ExecuteScalarAsync(ct);
+            var result = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT 1", cancellationToken: ct));
             _logger.LogInformation("[DEC-069] SELECT 1 → {Result}", result);
             return result != null;
         }
