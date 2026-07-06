@@ -45,6 +45,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
         // DEC-069: Log at construction time so we can see if service was instantiated
         logger.LogInformation("[DEC-069] RealisticSeedHostedService CONSTRUCTED");
+        SeedDebugState.ServiceConstructed = true;
         logger.LogInformation("[DEC-069] Config flag Database:SeedRealisticScenario = {Flag}",
             config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false);
     }
@@ -52,9 +53,12 @@ public sealed class RealisticSeedHostedService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         // DEC-069: Log immediately to prove ExecuteAsync was called
-        _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED");
+        _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED";
+        SeedDebugState.ExecuteAsyncCalled = true;");
 
         var seedEnabled = _config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
+        SeedDebugState.SeedEnabled = seedEnabled;
+        SeedDebugState.StartedAt = DateTime.UtcNow;
         if (!seedEnabled)
         {
             _logger.LogInformation("RealisticSeed: disabled (Database:SeedRealisticScenario = false)");
@@ -82,7 +86,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 _logger.LogError("[DEC-069] Connectivity check FAILED — aborting seed");
                 return;
             }
-            _logger.LogInformation("[DEC-069] Connectivity OK");
+            _logger.LogInformation("[DEC-069] Connectivity OK";
+        SeedDebugState.ConnectivityCheckPassed = true;");
 
             // DEC-069: Get/Create tenant with its own scope (separate from seed steps)
             Guid tenantId;
@@ -105,30 +110,39 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 return;
             }
 
+            SeedDebugState.CurrentStep = "Companies";
             await StepWithScopeAsync("Companies", (factory, ct) =>
                 SeedCompaniesAsync(factory, tenantId, ct), stoppingToken);
 
-            var vendorIds = await StepWithScopeAsync("Vendors", (factory, ct) =>
+            var vendorIds = SeedDebugState.CurrentStep = "Vendors";
+            await StepWithScopeAsync("Vendors", (factory, ct) =>
                 SeedVendorsAsync(factory, tenantId, ct), stoppingToken);
 
-            var customerIds = await StepWithScopeAsync("Customers", (factory, ct) =>
+            var customerIds = SeedDebugState.CurrentStep = "Customers";
+            await StepWithScopeAsync("Customers", (factory, ct) =>
                 SeedCustomersAsync(factory, tenantId, ct), stoppingToken);
 
+            SeedDebugState.CurrentStep = "Projects";
             await StepWithScopeAsync("Projects", (factory, ct) =>
                 SeedProjectsAsync(factory, tenantId, ct), stoppingToken);
 
-            var itemIds = await StepWithScopeAsync("Items", (factory, ct) =>
+            var itemIds = SeedDebugState.CurrentStep = "Items";
+            await StepWithScopeAsync("Items", (factory, ct) =>
                 SeedItemsAsync(factory, tenantId, ct), stoppingToken);
 
+            SeedDebugState.CurrentStep = "GoodsReceipts";
             await StepWithScopeAsync("GoodsReceipts", (factory, ct) =>
                 SeedGoodsReceiptsAsync(factory, tenantId, vendorIds, itemIds, ct), stoppingToken);
 
+            SeedDebugState.CurrentStep = "Bills";
             await StepWithScopeAsync("Bills", (factory, ct) =>
                 SeedBillsAsync(factory, tenantId, vendorIds, itemIds, ct), stoppingToken);
 
+            SeedDebugState.CurrentStep = "SalesInvoices";
             await StepWithScopeAsync("SalesInvoices", (factory, ct) =>
                 SeedSalesInvoicesAsync(factory, tenantId, customerIds, itemIds, ct), stoppingToken);
 
+            SeedDebugState.CurrentStep = "JournalEntries";
             await StepWithScopeAsync("JournalEntries", (factory, ct) =>
                 SeedJournalEntriesAsync(factory, tenantId, ct), stoppingToken);
 
