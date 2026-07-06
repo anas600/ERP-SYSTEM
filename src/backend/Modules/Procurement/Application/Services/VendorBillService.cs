@@ -1,6 +1,10 @@
+using Dapper;
+using ERPSystem.Modules.Finance.Application;
+using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
@@ -19,11 +23,17 @@ public sealed class VendorBillService : IVendorBillService
     private readonly IGoodsReceiptRepository _grs;
     private readonly IPurchaseOrderRepository _pos;
     private readonly IDocumentSequenceRepository _seq;
+    private readonly IJournalEntryService _journalSvc;  // DEC-075: AP posting
+    private readonly IDbConnectionFactory _db;          // DEC-075: account lookup
     private readonly ILogger<VendorBillService> _logger;
 
     public VendorBillService(IVendorBillRepository bills, IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
-        IDocumentSequenceRepository seq, ILogger<VendorBillService> logger)
-    { _bills = bills; _grs = grs; _pos = pos; _seq = seq; _logger = logger; }
+        IDocumentSequenceRepository seq, IJournalEntryService journalSvc, IDbConnectionFactory db,
+        ILogger<VendorBillService> logger)
+    {
+        _bills = bills; _grs = grs; _pos = pos; _seq = seq;
+        _journalSvc = journalSvc; _db = db; _logger = logger;
+    }
 
     public async Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid tenantId, Guid userId, CreateVendorBillRequest req, CancellationToken ct)
     {
@@ -92,9 +102,8 @@ public sealed class VendorBillService : IVendorBillService
     }
 
     /// <summary>
-    /// ترحيل Bill (Draft → Posted).
-    /// MVP: نُحدّث الحالة فقط. إنشاء JournalEntry التفصيلي (Dr Inventory / Cr A/P) قادم في Phase 3.1
-    /// عندما نضيف PostingRule خاص بـ VendorBillPosting event.
+    /// ترحيل Bill (Draft → Posted) — DEC-075: الآن ينشئ JournalEntry تلقائياً.
+    /// Dr Inventory (1240) / Cr Accounts Payable (2210)
     /// </summary>
     public async Task<ProcurementResult<VendorBillResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
     {
@@ -105,12 +114,86 @@ public sealed class VendorBillService : IVendorBillService
             return ProcurementResult<VendorBillResponse>.Fail(
                 $"لا يمكن ترحيل Bill في حالة {b.Status}.", ProcurementErrorCode.InvalidStatusTransition);
 
+        // DEC-075: Idempotency check — skip if already posted with JE
+        if (b.JournalEntryId.HasValue && b.JournalEntryId != Guid.Empty)
+        {
+            _logger.LogInformation("Bill {BillNumber} already has JE {JE}, skipping post", b.BillNumber, b.JournalEntryId);
+            return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
+        }
+
+        // DEC-075: Look up account IDs for Inventory (1240) and AP (2210)
+        Guid? inventoryAcctId = null, apAcctId = null;
+        try
+        {
+            using var conn = await _db.CreateOltpConnectionAsync(ct);
+            var accts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
+                "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1240', '2210')",
+                new { T = tenantId }, cancellationToken: ct));
+            foreach (var (code, acctId) in accts)
+            {
+                if (code == "1240") inventoryAcctId = acctId;
+                if (code == "2210") apAcctId = acctId;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "DEC-075: failed to look up accounts for bill posting");
+        }
+
+        if (inventoryAcctId == null || apAcctId == null)
+        {
+            _logger.LogWarning("DEC-075: missing accounts (1240={Inv}, 2210={AP}); posting bill {N} WITHOUT JE",
+                inventoryAcctId, apAcctId, b.BillNumber);
+            // Fall back to status-only update (legacy behavior)
+            b.Status = VendorBillStatus.Posted;
+            b.PostedAt = DateTime.UtcNow;
+            b.UpdatedAt = DateTime.UtcNow;
+            b.UpdatedBy = userId;
+            await _bills.UpdateAsync(b, ct);
+            return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
+        }
+
+        // DEC-075: Create JournalEntry — Dr Inventory, Cr AP
+        var je = await _journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+        {
+            EntryDate = b.BillDate,
+            Description = $"Vendor Bill {b.BillNumber}",
+            Reference = $"BILL-{b.BillNumber}",
+            Lines = new List<PostJournalLineRequest>
+            {
+                new() { AccountId = inventoryAcctId.Value, Debit = b.TotalAmount, Credit = 0m,
+                        Description = $"Inventory received — Bill {b.BillNumber}" },
+                new() { AccountId = apAcctId.Value, Debit = 0m, Credit = b.TotalAmount,
+                        Description = $"A/P to vendor — Bill {b.BillNumber}" }
+            }
+        }, ct);
+
+        if (!je.Succeeded)
+        {
+            _logger.LogError("DEC-075: JE creation failed for bill {N}: {Err}", b.BillNumber, je.Error);
+            return ProcurementResult<VendorBillResponse>.Fail(
+                $"فشل إنشاء القيد المحاسبي: {je.Error}", ProcurementErrorCode.BusinessRuleViolation);
+        }
+
+        // Post the JE
+        var postJe = await _journalSvc.PostAsync(tenantId, userId, je.Value!.Id, ct);
+        if (!postJe.Succeeded)
+        {
+            _logger.LogError("DEC-075: JE post failed for bill {N}: {Err}", b.BillNumber, postJe.Error);
+            return ProcurementResult<VendorBillResponse>.Fail(
+                $"فشل ترحيل القيد: {postJe.Error}", ProcurementErrorCode.BusinessRuleViolation);
+        }
+
+        // Update bill status + link to JE
         b.Status = VendorBillStatus.Posted;
+        b.JournalEntryId = je.Value!.Id;
         b.PostedAt = DateTime.UtcNow;
         b.UpdatedAt = DateTime.UtcNow;
         b.UpdatedBy = userId;
         await _bills.UpdateAsync(b, ct);
-        _logger.LogInformation("تم ترحيل Bill {BillNumber} بقيمة {Total}", b.BillNumber, b.TotalAmount);
+
+        _logger.LogInformation("DEC-075: Bill {N} posted — Dr Inv={D}, Cr AP={C}, JE={JE}",
+            b.BillNumber, b.TotalAmount, b.TotalAmount, je.Value.Id);
         return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
     }
 
