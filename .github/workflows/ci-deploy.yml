@@ -1,0 +1,203 @@
+name: CI + Deploy
+
+# Consolidated workflow: tests + sync to HF Space.
+# Replaces ci.yml + deploy.yml + sync-to-hf-space.yml (DEC-050).
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20'
+
+jobs:
+  # =============================================
+  # Stage 1a: Backend tests (unit + integration)
+  # =============================================
+  backend-tests:
+    name: Backend Tests (.NET 9.0)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_pw
+          POSTGRES_DB: erp_test_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d erp_test_system"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
+      ConnectionStrings__Redis: "localhost:6379"
+      Marten__ConnectionString: "Host=localhost;Port=5432;Database=erp_test_events;Username=erp_test;Password=erp_test_pw"
+      JwtSettings__Secret: "CI_TEST_SECRET_REPLACE_NEVER_USE_IN_PROD_32CHARS_xxxxxxxxxxxx"
+      Database__AutoMigrate: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET ${{ env.DOTNET_VERSION }}
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      # DEC-050 fix: explicit .csproj path prevents restoring the wrong project.
+      - name: Restore Backend
+        run: dotnet restore Host/ERP-SYSTEM.csproj
+
+      - name: Restore Tests
+        run: dotnet restore Tests/ERPSystem.Tests/ERPSystem.Tests.csproj
+
+      - name: Build Backend
+        run: dotnet build Host/ERP-SYSTEM.csproj --no-restore --configuration Release
+
+      - name: Build Tests
+        run: dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj --no-restore --configuration Release
+
+      - name: Run tests with coverage
+        run: |
+          dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
+            --no-build --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results.trx"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-backend
+          path: '**/TestResults/**/*.trx'
+
+  # =============================================
+  # Stage 1b: Frontend build
+  # =============================================
+  frontend-build:
+    name: Frontend Build (Next.js 14)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:5000'
+
+  # =============================================
+  # Stage 2: Sync to HF Space (only after both pass)
+  # =============================================
+  sync-to-hf:
+    name: Sync to HF Space
+    needs: [backend-tests, frontend-build]
+    # شغّل فقط على push إلى main أو develop (ليس على PRs)
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          lfs: true
+
+      # تنظيف الملفات غير الضرورية قبل الدفع لـ HF
+      - name: Filter files for HF Space
+        run: |
+          if [ -f "Dockerfile.hf" ]; then
+            mv Dockerfile.hf Dockerfile
+            echo "✅ Dockerfile.hf renamed to Dockerfile"
+          fi
+          rm -rf src/frontend/node_modules src/frontend/.next src/frontend/.out src/frontend/build
+          rm -rf src/backend/Host/bin src/backend/Host/obj src/backend/Tests/bin src/backend/Tests/obj
+          rm -rf docs infra .github .mavis .vs .vscode
+          rm -f *.pdf "New Text Document.txt" "restart-backend.ps1" "star-stop-sys.bas" "start-dev.ps1" "stop-dev.ps1"
+
+      - name: Push to Hugging Face Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+        run: |
+          if [ -z "$HF_TOKEN" ] || [ -z "$HF_USERNAME" ] || [ -z "$SPACE_NAME" ]; then
+            echo "ERROR: HF_TOKEN, HF_USERNAME, or SPACE_NAME secrets are not set!"
+            echo "Please add them in Settings → Secrets and variables → Actions"
+            exit 1
+          fi
+
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+          git remote add space "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" 2>/dev/null || true
+          git push --force "https://${HF_USERNAME}:${HF_TOKEN}@huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}" "HEAD:main" 2>&1
+
+      - name: Clean up old files in HF Space (using HF API)
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME }}
+          SPACE_NAME: ${{ secrets.SPACE_NAME }}
+        run: |
+          FILES_TO_DELETE=("Dockerfile.hf" ".mavis" "docs" "infra" "New Text Document.txt" "restart-backend.ps1" "star-stop-sys.bas" "start-dev.ps1" "stop-dev.ps1")
+          for FILE in "${FILES_TO_DELETE[@]}"; do
+            echo "Deleting: $FILE"
+            curl -s -X DELETE \
+              -H "Authorization: Bearer $HF_TOKEN" \
+              "https://huggingface.co/api/spaces/${HF_USERNAME}/${SPACE_NAME}/resolve/main/${FILE}" \
+              || echo "  (not found or error)"
+          done
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ Successfully synced to Hugging Face Space"
+          echo "🔗 Check status at: https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
