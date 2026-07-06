@@ -401,7 +401,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
         for (int i = 1; i <= VendorsCount; i++)
         {
             var id = Guid.NewGuid();
-            var code = $"V-{i:D3}";
+            // DEC-072 v3: Use V-100+ range to avoid conflict with AlFajr's V-001..V-004
+            var code = $"V-{100 + i:D3}";
             var name = $"Vendor {i} ({sectors[i % sectors.Length]})";
             var email = $"vendor{i}@example.ly";
             var phone = $"+21891{i:D7}";
@@ -456,10 +457,10 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var address = $"طرابلس - حي رقم {i}";
 
             // DEC-072: Schema fix — 'type' dropped; 'tax_number' dropped (not on customers);
-            // 'created_by'/'updated_by' required NOT NULL
+            // 'currency' doesn't exist on customers; 'created_by'/'updated_by' required NOT NULL
             const string sql = @"
-                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
