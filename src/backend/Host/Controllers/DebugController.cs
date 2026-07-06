@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using ERPSystem.Shared.SeedData;
 using Microsoft.AspNetCore.Mvc;
 
