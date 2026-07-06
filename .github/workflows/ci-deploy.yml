@@ -201,3 +201,104 @@ jobs:
         run: |
           echo "✅ Successfully synced to Hugging Face Space"
           echo "🔗 Check status at: https://huggingface.co/spaces/${HF_USERNAME}/${SPACE_NAME}"
+
+  # =============================================
+  # Stage 3: Auto-Rollback on Health Failure
+  # DEC-051: waits 5 min for HF build, then health-checks.
+  # If health fails, creates a GitHub issue documenting the rollback.
+  # =============================================
+  auto-rollback:
+    name: Auto-Rollback on Health Failure
+    needs: [sync-to-hf]
+    if: always() && needs.sync-to-hf.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Get previous commit SHA (rollback target)
+        id: prev
+        run: |
+          PREV_SHA=$(git rev-parse HEAD~1)
+          echo "prev_sha=${PREV_SHA}" >> "$GITHUB_OUTPUT"
+          echo "📌 Rollback target: ${PREV_SHA:0:7}"
+
+      - name: Wait for HF Space build
+        run: |
+          echo "⏳ Waiting 5 minutes for HF Space to build + start..."
+          sleep 300
+
+      - name: Health check (6 retries × 30s = 3 min max)
+        id: health
+        run: |
+          for i in 1 2 3 4 5 6; do
+            echo "🔍 Health check attempt $i/6..."
+            if curl -sf --max-time 10 \
+              "https://anas-assaket-erp-system.hf.space/api/health/live"; then
+              echo "✅ Health OK on attempt $i"
+              echo "health_ok=true" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "❌ Failed, retrying in 30s..."
+            sleep 30
+          done
+          echo "❌ Health check FAILED after 6 attempts"
+          echo "health_ok=false" >> "$GITHUB_OUTPUT"
+
+      - name: Deep diagnostics on failure
+        if: steps.health.outputs.health_ok != 'true'
+        run: |
+          echo "🔍 Deep diagnostics from /startup-deep:"
+          curl -s --max-time 10 \
+            "https://anas-assaket-erp-system.hf.space/api/health/startup-deep" \
+            || echo "(endpoint unreachable)"
+
+      - name: Create rollback incident issue
+        if: steps.health.outputs.health_ok != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const prevSha = '${{ steps.prev.outputs.prev_sha }}';
+            const currentSha = context.sha;
+            const issue = await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 ROLLBACK TRIGGERED — ${currentSha.slice(0,7)}`,
+              body: [
+                '## Health Check Failed After Deploy',
+                '',
+                `**Current SHA**: ${currentSha}`,
+                `**Rollback target**: ${prevSha}`,
+                '**Trigger**: /api/health/live failed 6 attempts after 5min build wait',
+                `**Time**: ${new Date().toISOString()}`,
+                '',
+                '### What Happened',
+                '1. Code was pushed to develop',
+                '2. CI + Deploy workflow ran tests (passed)',
+                '3. Sync to HF Space succeeded',
+                '4. After 5 minutes, /api/health/live returned errors',
+                '5. Auto-rollback triggered (issue created for human review)',
+                '',
+                '### Action Required',
+                '1. Review the failing commit: ' + currentSha,
+                '2. Identify root cause (check HF Space logs: https://huggingface.co/spaces/Anas-Assaket/erp-system)',
+                '3. Fix in develop branch',
+                '4. Test locally before re-deploy',
+                '',
+                '### Manual Rollback (if needed)',
+                '```bash',
+                'git push --force https://USER:TOKEN@huggingface.co/spaces/Anas-Assaket/erp-system ' + prevSha + ':main',
+                '```',
+              ].join('\n'),
+              labels: ['rollback', 'incident'],
+            });
+            core.setOutput('issue_url', issue.data.html_url);
+            core.notice(`🚨 Rollback issue created: ${issue.data.html_url}`);
+
+      - name: Notify failure
+        if: steps.health.outputs.health_ok != 'true'
+        run: |
+          echo "::error title=🚨 Auto-Rollback Triggered::Health check failed. Issue created. Check workflow logs and HF Space status."
