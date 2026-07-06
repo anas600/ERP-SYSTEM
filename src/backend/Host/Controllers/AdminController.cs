@@ -1,4 +1,12 @@
 using System.Collections.Concurrent;
+using Dapper;
+using ERPSystem.Modules.Finance.Application;
+using ERPSystem.Modules.Finance.Application.Services;
+using ERPSystem.Modules.Procurement.Application.Services;
+using ERPSystem.Modules.Procurement.Entities;
+using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.Infrastructure;
+using ERPSystem.Shared.MultiTenancy;
 using ERPSystem.Shared.SeedData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -144,4 +152,179 @@ public class AdminController : ControllerBase
         double? DurationSeconds = null,
         string? Error = null
     );
+
+    // ============================================================
+    // DEC-076: Finance Backfill (one-shot, idempotent)
+    // 1. Opening Balance JE (Dr Cash 5M / Cr Capital 5M) — idempotent via reference check
+    // 2. Bill AP Posting — for each bill without journal_entry_id, create + post JE
+    // Returns JSON summary of what was done
+    // ============================================================
+    [HttpPost("finance/backfill")]
+    public async Task<IActionResult> BackfillFinanceAsync(
+        [FromServices] IJournalEntryService journalSvc,
+        [FromServices] IVendorBillRepository billRepo,
+        [FromServices] ITenantContext tenantCtx,
+        [FromServices] IDbConnectionFactory db,
+        CancellationToken ct)
+    {
+        var tenantId = tenantCtx.TenantId ?? throw new UnauthorizedAccessException("Tenant context missing");
+        var userId = Guid.Empty;  // system user for backfill
+        var summary = new
+        {
+            opening_balance_created = false,
+            opening_balance_skipped = false,
+            bills_processed = 0,
+            bills_skipped = 0,
+            bills_with_errors = 0,
+            total_debits_posted = 0m,
+            total_credits_posted = 0m,
+            errors = new List<string>()
+        };
+
+        using var conn = await db.CreateOltpConnectionAsync(ct);
+
+        // 1) Opening Balance JE — idempotent via reference check
+        var existingOpening = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM journal_entries WHERE tenant_id = @T AND reference LIKE 'OPENING-BALANCE%'",
+            new { T = tenantId }, cancellationToken: ct));
+
+        if (existingOpening > 0)
+        {
+            summary = summary with { opening_balance_skipped = true };
+            _logger.LogInformation("DEC-076: Opening balance already exists, skipping");
+        }
+        else
+        {
+            // Look up Cash (1210) and Capital (3100) account IDs
+            var accts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
+                "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1210', '3100')",
+                new { T = tenantId }, cancellationToken: ct));
+            Guid? cashId = null, capitalId = null;
+            foreach (var (code, acctId) in accts)
+            {
+                if (code == "1210") cashId = acctId;
+                if (code == "3100") capitalId = acctId;
+            }
+
+            if (cashId != null && capitalId != null)
+            {
+                const decimal openingAmount = 5_000_000m;
+                var draft = await journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+                {
+                    EntryDate = new DateTime(2024, 1, 1),
+                    Description = "Opening Balance — Owner's Capital Investment",
+                    Reference = "OPENING-BALANCE-DEC-076",
+                    Lines = new List<PostJournalLineRequest>
+                    {
+                        new() { AccountId = cashId.Value, Debit = openingAmount, Credit = 0m,
+                                Description = "Cash on hand (opening)" },
+                        new() { AccountId = capitalId.Value, Debit = 0m, Credit = openingAmount,
+                                Description = "Owner's capital contribution" }
+                    }
+                }, ct);
+
+                if (draft.Succeeded)
+                {
+                    var post = await journalSvc.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+                    if (post.Succeeded)
+                    {
+                        summary = summary with { opening_balance_created = true };
+                        _logger.LogInformation("DEC-076: Opening balance created ({N} LYD)", openingAmount);
+                    }
+                    else
+                    {
+                        ((List<string>)summary.errors).Add($"Opening balance post failed: {post.Error}");
+                    }
+                }
+                else
+                {
+                    ((List<string>)summary.errors).Add($"Opening balance draft failed: {draft.Error}");
+                }
+            }
+            else
+            {
+                ((List<string>)summary.errors).Add($"Opening balance skipped — accounts missing (1210={cashId}, 3100={capitalId})");
+            }
+        }
+
+        // 2) Look up account IDs for Inventory (1240) and AP (2210)
+        var billAccts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
+            "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1240', '2210')",
+            new { T = tenantId }, cancellationToken: ct));
+        Guid? inventoryId = null, apId = null;
+        foreach (var (code, acctId) in billAccts)
+        {
+            if (code == "1240") inventoryId = acctId;
+            if (code == "2210") apId = acctId;
+        }
+
+        if (inventoryId == null || apId == null)
+        {
+            ((List<string>)summary.errors).Add($"Bill AP backfill skipped — accounts missing (1240={inventoryId}, 2210={apId})");
+            return Ok(summary);
+        }
+
+        // 3) Backfill AP JEs for all posted bills without journal_entry_id
+        var bills = await billRepo.ListAsync(tenantId, null, null, null, 0, 200, ct);
+        var billsToProcess = bills.Where(b => b.Status == VendorBillStatus.Posted && (!b.JournalEntryId.HasValue || b.JournalEntryId == Guid.Empty)).ToList();
+
+        foreach (var bill in billsToProcess)
+        {
+            try
+            {
+                var draft = await journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+                {
+                    EntryDate = bill.BillDate,
+                    Description = $"Vendor Bill {bill.BillNumber} (backfilled)",
+                    Reference = $"BILL-{bill.BillNumber}",
+                    Lines = new List<PostJournalLineRequest>
+                    {
+                        new() { AccountId = inventoryId.Value, Debit = bill.TotalAmount, Credit = 0m,
+                                Description = $"Inventory — Bill {bill.BillNumber}" },
+                        new() { AccountId = apId.Value, Debit = 0m, Credit = bill.TotalAmount,
+                                Description = $"A/P — Bill {bill.BillNumber}" }
+                    }
+                }, ct);
+
+                if (!draft.Succeeded)
+                {
+                    ((List<string>)summary.errors).Add($"Bill {bill.BillNumber} draft failed: {draft.Error}");
+                    summary = summary with { bills_with_errors = summary.bills_with_errors + 1 };
+                    continue;
+                }
+
+                var post = await journalSvc.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+                if (!post.Succeeded)
+                {
+                    ((List<string>)summary.errors).Add($"Bill {bill.BillNumber} post failed: {post.Error}");
+                    summary = summary with { bills_with_errors = summary.bills_with_errors + 1 };
+                    continue;
+                }
+
+                // Update bill.JournalEntryId
+                bill.JournalEntryId = draft.Value!.Id;
+                bill.UpdatedAt = DateTime.UtcNow;
+                bill.UpdatedBy = userId;
+                await billRepo.UpdateAsync(bill, ct);
+
+                summary = summary with
+                {
+                    bills_processed = summary.bills_processed + 1,
+                    total_debits_posted = summary.total_debits_posted + bill.TotalAmount,
+                    total_credits_posted = summary.total_credits_posted + bill.TotalAmount
+                };
+                _logger.LogInformation("DEC-076: Bill {N} backfilled — JE={JE}", bill.BillNumber, draft.Value.Id);
+            }
+            catch (Exception ex)
+            {
+                ((List<string>)summary.errors).Add($"Bill {bill.BillNumber}: {ex.Message}");
+                summary = summary with { bills_with_errors = summary.bills_with_errors + 1 };
+            }
+        }
+
+        // 4) Count skipped
+        summary = summary with { bills_skipped = bills.Count - billsToProcess.Count };
+
+        return Ok(summary);
+    }
 }
