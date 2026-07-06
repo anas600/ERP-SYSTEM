@@ -96,6 +96,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 using var tenantScope = _rootServiceProvider.CreateScope();
                 var tenantFactory = tenantScope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
                 tenantId = await GetOrCreateTenantAsync(tenantFactory, stoppingToken);
+                SeedDebugState.TenantId = tenantId;
                 _logger.LogInformation("[DEC-069] TenantId: {TenantId}", tenantId);
             }
             catch (Exception ex)
@@ -114,12 +115,12 @@ public sealed class RealisticSeedHostedService : BackgroundService
             await StepWithScopeAsync("Companies", (factory, ct) =>
                 SeedCompaniesAsync(factory, tenantId, ct), stoppingToken);
 
-            SeedDebugState.CurrentStep = "Vendors";
-            var vendorIds = await StepWithScopeAsync("Vendors", (factory, ct) =>
+            var vendorIds = SeedDebugState.CurrentStep = "Vendors";
+            await StepWithScopeAsync("Vendors", (factory, ct) =>
                 SeedVendorsAsync(factory, tenantId, ct), stoppingToken);
 
-            SeedDebugState.CurrentStep = "Customers";
-            var customerIds = await StepWithScopeAsync("Customers", (factory, ct) =>
+            var customerIds = SeedDebugState.CurrentStep = "Customers";
+            await StepWithScopeAsync("Customers", (factory, ct) =>
                 SeedCustomersAsync(factory, tenantId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "Projects";
@@ -221,23 +222,58 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<Guid> GetOrCreateTenantAsync(IDbConnectionFactory factory, CancellationToken ct)
     {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
-        const string findSql = "SELECT id FROM tenants WHERE subdomain = @sub LIMIT 1";
-        var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
-            findSql, new { sub = "alfajr" }, cancellationToken: ct));
-        if (existing.HasValue)
+
+        // DEC-069: Try multiple subdomain patterns to find existing AlFajr tenant
+        var subdomainPatterns = new[] {
+            "alfajr",                                       // simple
+            "alfajr-holding",                               // if slugified
+            "alfajr-trading---contracting",                 // Slugify of "AlFajr Trading & Contracting"
+            "alfajr-trading-contracting",                   // alternative
+            "alfajr-trading-and-contracting",               // alt
+        };
+
+        foreach (var sub in subdomainPatterns)
         {
-            _logger.LogInformation("[RealisticSeed] Using existing tenant: {TenantId}", existing.Value);
-            return existing.Value;
+            var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                "SELECT id FROM tenants WHERE subdomain = @sub LIMIT 1",
+                new { sub }, cancellationToken: ct));
+            if (existing.HasValue)
+            {
+                _logger.LogInformation("[DEC-069] Using existing tenant (sub={Sub}): {TenantId}", sub, existing.Value);
+                return existing.Value;
+            }
         }
+
+        // Fallback: search by name
+        var byName = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM tenants WHERE name ILIKE @name LIMIT 1",
+            new { name = "%alfajr%" }, cancellationToken: ct));
+        if (byName.HasValue)
+        {
+            _logger.LogInformation("[DEC-069] Using existing tenant (by name): {TenantId}", byName.Value);
+            return byName.Value;
+        }
+
+        // Last resort: any tenant
+        var anyTenant = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1", cancellationToken: ct));
+        if (anyTenant.HasValue)
+        {
+            _logger.LogWarning("[DEC-069] Using FIRST tenant (no AlFajr match): {TenantId}", anyTenant.Value);
+            return anyTenant.Value;
+        }
+
+        // Create new if no tenants exist (shouldn't happen in production)
         var newId = Guid.NewGuid();
         const string insertSql = @"
             INSERT INTO tenants (id, name, subdomain, is_active, created_at)
-            VALUES (@Id, 'AlFajr Holding', 'alfajr', true, @Now)";
+            VALUES (@Id, 'AlFajr Holding', 'alfajr-holding', true, @Now)";
         await conn.ExecuteAsync(new CommandDefinition(insertSql, new
         {
             Id = newId,
             Now = DateTime.UtcNow
         }, cancellationToken: ct));
+        _logger.LogWarning("[DEC-069] Created new tenant: {TenantId}", newId);
         return newId;
     }
 
