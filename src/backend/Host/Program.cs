@@ -7,6 +7,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Dapper;
+using ERPSystem.Host.Middleware;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -340,6 +341,8 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// Sprint-4 Day 3 (DEC-045): request tracking FIRST so all downstream logs have RequestId.
+app.UseRequestTracking();
 app.UseSerilogRequestLogging();
 app.UseCors();
 app.UseHttpsRedirection();
