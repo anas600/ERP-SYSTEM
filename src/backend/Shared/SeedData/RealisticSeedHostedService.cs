@@ -56,6 +56,9 @@ public sealed class RealisticSeedHostedService : BackgroundService
         _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED");
         SeedDebugState.ExecuteAsyncCalled = true;
 
+        // DEC-071: Reset per-step tracking at start of each run
+        SeedDebugState.ResetStepTracking();
+
         var seedEnabled = _config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
         SeedDebugState.SeedEnabled = seedEnabled;
         SeedDebugState.StartedAt = DateTime.UtcNow;
@@ -197,6 +200,13 @@ public sealed class RealisticSeedHostedService : BackgroundService
             sw.Stop();
             _logger.LogInformation("[DEC-069] ✓ {Step} done in {Sec:F1}s ({Count} records)",
                 stepName, sw.Elapsed.TotalSeconds, result.Count);
+
+            // DEC-071: Track per-step record count + duration for visibility
+            SeedDebugState.StepRecordCounts[stepName] = result.Count;
+            SeedDebugState.StepDurationsSeconds[stepName] = sw.Elapsed.TotalSeconds;
+            // Clear any previous error for this step (it succeeded now)
+            SeedDebugState.StepErrors.TryRemove(stepName, out _);
+
             return result;
         }
         catch (Exception ex)
@@ -204,6 +214,13 @@ public sealed class RealisticSeedHostedService : BackgroundService
             sw.Stop();
             _logger.LogError(ex, "[DEC-069] ✗ {Step} failed after {Sec:F1}s — continuing",
                 stepName, sw.Elapsed.TotalSeconds);
+
+            // DEC-071: Track per-step error so we can SEE what's failing
+            SeedDebugState.StepErrors[stepName] = $"{ex.GetType().Name}: {ex.Message}";
+            SeedDebugState.StepRecordCounts[stepName] = 0;
+            SeedDebugState.StepDurationsSeconds[stepName] = sw.Elapsed.TotalSeconds;
+            SeedDebugState.LastError = $"[{stepName}] {ex.GetType().Name}: {ex.Message}";
+
             return new List<Guid>();
         }
     }
