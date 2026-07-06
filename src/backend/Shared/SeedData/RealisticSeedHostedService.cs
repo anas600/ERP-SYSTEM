@@ -83,18 +83,26 @@ public sealed class RealisticSeedHostedService : BackgroundService
             }
             _logger.LogInformation("[DEC-069] Connectivity OK");
 
-            // DEC-069: Per-step scope (more reliable than one big scope)
-            var tenantId = await StepWithScopeAsync(
-                "GetOrCreateTenant",
-                async (factory, ct) => await GetOrCreateTenantAsync(factory, ct),
-                stoppingToken);
+            // DEC-069: Get/Create tenant with its own scope (separate from seed steps)
+            Guid tenantId;
+            try
+            {
+                using var tenantScope = _rootServiceProvider.CreateScope();
+                var tenantFactory = tenantScope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
+                tenantId = await GetOrCreateTenantAsync(tenantFactory, stoppingToken);
+                _logger.LogInformation("[DEC-069] TenantId: {TenantId}", tenantId);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DEC-069] Failed to get/create tenant — aborting seed");
+                return;
+            }
 
             if (tenantId == Guid.Empty)
             {
-                _logger.LogError("[DEC-069] Failed to get/create tenant — aborting seed");
+                _logger.LogError("[DEC-069] Tenant is empty — aborting seed");
                 return;
             }
-            _logger.LogInformation("[DEC-069] TenantId: {TenantId}", tenantId);
 
             await StepWithScopeAsync("Companies", (factory, ct) =>
                 SeedCompaniesAsync(factory, tenantId, ct), stoppingToken);
