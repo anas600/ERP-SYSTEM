@@ -656,9 +656,10 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         await using var conn = await OpenConnectionAsync(services, ct);
 
+        // DEC-073: Select order_date too so GR dates can be spread realistically
         var pos = (await conn.QueryAsync<dynamic>(
             new CommandDefinition(
-                "SELECT id, vendor_id FROM purchase_orders WHERE tenant_id = @T AND status = 'Sent' ORDER BY created_at LIMIT 20",
+                "SELECT id, vendor_id, order_date FROM purchase_orders WHERE tenant_id = @T AND status = 'Sent' ORDER BY created_at LIMIT 20",
                 new { T = tenantId }, cancellationToken: ct))).ToList();
 
         var wh = await conn.QueryFirstOrDefaultAsync<Guid>(
@@ -669,6 +670,13 @@ public sealed class ScenarioSeederHostedService : IHostedService
         foreach (var po in pos)
         {
             var poId = (Guid)po.id;
+            // DEC-073: Use PO order_date as anchor, spread GR date 7-60 days after PO
+            var poDate = po.order_date == null
+                ? DateTime.UtcNow.AddDays(-Random.Shared.Next(60, 365))
+                : (DateTime)po.order_date;
+            var grDate = poDate.AddDays(Random.Shared.Next(7, 60));
+            // Ensure GR date is in the past (not future)
+            if (grDate > DateTime.UtcNow) grDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 7));
 
             var poLines = (await conn.QueryAsync<dynamic>(
                 new CommandDefinition("SELECT item_id, quantity, unit_price FROM purchase_order_lines WHERE purchase_order_id = @POID",
@@ -684,7 +692,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             var gr = await grSvc.CreateAsync(tenantId, adminUserId, new CreateGoodsReceiptRequest
             {
                 PurchaseOrderId = poId,
-                ReceivedDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 30)),
+                ReceivedDate = grDate,  // DEC-073: spread over past, anchored to PO date
                 WarehouseId = wh,
                 Lines = grLines
             }, ct);
@@ -708,7 +716,9 @@ public sealed class ScenarioSeederHostedService : IHostedService
                     ItemId = l.ItemId, Quantity = l.Quantity, UnitPrice = l.UnitCost, TaxRate = 0m
                 }).ToList();
 
-                var billDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 15));
+                // DEC-073: Bill date 1-30 days after GR (realistic vendor billing cycle)
+                var billDate = grDate.AddDays(Random.Shared.Next(1, 30));
+                if (billDate > DateTime.UtcNow) billDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 7));
                 var bill = await billSvc.CreateAsync(tenantId, adminUserId, new CreateVendorBillRequest
                 {
                     GoodsReceiptId = gr.Value!.Id,
@@ -864,10 +874,17 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
             if (journalLines.Count < 2) continue;
 
+            // DEC-073: Spread JEs over past 24 months (2024-2025)
+            // Jan-Jun → 2025 (Jul-Dec 2024 = 6-12 months ago, Jan-Jun 2025 = 13-18 months ago)
+            // Jul-Dec → 2024 (Jul-Dec 2024 = 6-12 months ago)
+            var year = e.Month >= 7 ? 2024 : 2025;
+            var yearSuffix = year % 100;
+
             var r = await journalSvc.CreateDraftAsync(tenantId, adminUserId, new PostJournalEntryRequest
             {
-                EntryDate = new DateTime(2026, e.Month, e.Day),
-                Description = e.Desc, Reference = e.Ref,
+                EntryDate = new DateTime(year, e.Month, e.Day),
+                Description = e.Desc,
+                Reference = e.Ref.Replace("-2026-", $"-20{yearSuffix}-"),  // update reference to match year
                 Lines = journalLines
             }, ct);
 
