@@ -12,6 +12,7 @@ echo ""
 echo "📦 Backend unit tests..."
 cd "$(dirname "$0")/../src/backend"
 dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
+  --configuration Release \
   --filter "Category!=Integration&Category!=Smoke" \
   --logger "console;verbosity=normal" \
   --nologo
