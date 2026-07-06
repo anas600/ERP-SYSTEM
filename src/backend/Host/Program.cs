@@ -290,11 +290,12 @@ builder.Services.AddFluentMigratorCore()
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
-// ============ Seeder feature flags (Sprint-4 Day 1, DEC-023/DEC-032) ============
+// ============ Seeder feature flags (Sprint-4 Day 1, DEC-023/DEC-032 + DEC-064) ============
 // Default OFF for AlBurj to prevent DEC-009-style incidents (30K records flooded the DB).
 // Use POST /api/admin/seed/alburj (Sprint-4 Day 2) to trigger manually after a clean DB reset.
 var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", true);
 var seedAlBurj = builder.Configuration.GetValue<bool>("Database:SeedAlBurjScenario", false);
+var seedRealistic = builder.Configuration.GetValue<bool>("Database:SeedRealisticScenario", false);
 if (seedAlFajr)
 {
     builder.Services.AddHostedService<ScenarioSeederHostedService>();
@@ -303,6 +304,15 @@ if (seedAlFajr)
 else
 {
     Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=false — AlFajr seeder SKIPPED.");
+}
+if (seedRealistic)
+{
+    builder.Services.AddHostedService<RealisticSeedHostedService>();
+    Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=true — RealisticSeed (5 companies, 24 months) registered.");
+}
+else
+{
+    Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=false — RealisticSeed SKIPPED (DEC-064).");
 }
 if (seedAlBurj)
 {
