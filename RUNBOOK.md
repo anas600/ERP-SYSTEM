@@ -3,6 +3,42 @@
 > Emergency procedures for ERP-SYSTEM production issues.
 > Sprint-4 follow-up (DEC-051).
 
+
+## 🧪 Local Development Workflow (DEC-054)
+
+### قبل كل push:
+
+```bash
+# Unit tests + frontend build (~30 sec)
+./scripts/local-verify.sh
+
+# Integration tests with Docker (~2 min)
+./scripts/local-integration.sh
+```
+
+### Push:
+
+```bash
+git push origin <branch>
+# → CI Fast runs (2-3 min, NO deploy)
+```
+
+### Deploy (when needed):
+
+- ✅ **Auto**: PR merge to develop → CI + Deploy workflow
+- ⚠️ **Manual**: GitHub Actions → "CI + Deploy" → Run workflow
+
+### Test Pyramid Summary:
+
+| Tier | Where | When | Time |
+|---|---|---|---|
+| Unit | Local | Before push | 30s |
+| Integration | CI Fast (every push) | Auto | 2-3m |
+| Smoke | CI Deploy (on HF) | Merge to develop | 10-15m |
+
+---
+
+
 ---
 
 ## When Auto-Rollback Triggers

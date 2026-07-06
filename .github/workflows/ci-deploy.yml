@@ -1,12 +1,13 @@
 name: CI + Deploy
 
-# Consolidated workflow: tests + sync to HF Space.
-# Replaces ci.yml + deploy.yml + sync-to-hf-space.yml (DEC-050).
+# DEC-054: Tests + HF Space deploy (on demand only).
+# For fast feedback on every push, see ci-fast.yml (no deploy).
+# Triggers:
+#   - PR merge to develop (auto)
+#   - Manual workflow_dispatch
 on:
   push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main, develop]
+    branches: [develop]
   workflow_dispatch:
 
 concurrency:
