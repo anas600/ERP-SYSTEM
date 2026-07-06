@@ -94,6 +94,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
             // DEC-069: Get/Create tenant with its own scope (separate from seed steps)
             Guid tenantId;
+            Guid adminUserId;  // DEC-072: needed for created_by/updated_by (NOT NULL)
             try
             {
                 using var tenantScope = _rootServiceProvider.CreateScope();
@@ -101,6 +102,13 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 tenantId = await GetOrCreateTenantAsync(tenantFactory, stoppingToken);
                 SeedDebugState.TenantId = tenantId;
                 _logger.LogInformation("[DEC-069] TenantId: {TenantId}", tenantId);
+
+                // DEC-072: Look up the admin user (first user for this tenant)
+                using var userConn = await tenantFactory.CreateOltpConnectionAsync(stoppingToken);
+                adminUserId = await userConn.ExecuteScalarAsync<Guid>(new CommandDefinition(
+                    "SELECT id FROM users WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+                    new { T = tenantId }, cancellationToken: stoppingToken));
+                _logger.LogInformation("[DEC-072] AdminUserId: {AdminUserId}", adminUserId);
             }
             catch (Exception ex)
             {
@@ -120,15 +128,15 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
             SeedDebugState.CurrentStep = "Vendors";
             var vendorIds = await StepWithScopeAsync("Vendors", (factory, ct) =>
-                SeedVendorsAsync(factory, tenantId, ct), stoppingToken);
+                SeedVendorsAsync(factory, tenantId, adminUserId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "Customers";
             var customerIds = await StepWithScopeAsync("Customers", (factory, ct) =>
-                SeedCustomersAsync(factory, tenantId, ct), stoppingToken);
+                SeedCustomersAsync(factory, tenantId, adminUserId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "Projects";
             await StepWithScopeAsync("Projects", (factory, ct) =>
-                SeedProjectsAsync(factory, tenantId, ct), stoppingToken);
+                SeedProjectsAsync(factory, tenantId, adminUserId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "Items";
             var itemIds = await StepWithScopeAsync("Items", (factory, ct) =>
@@ -379,7 +387,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     // ==================== Vendors (15) ====================
 
     private async Task<List<Guid>> SeedVendorsAsync(
-        IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, CancellationToken ct)
     {
         var sectors = new[] { "مواد بناء", "مكاتب", "خدمات", "نقل", "صيانة", "كهرباء", "سباكة", "دهان", "تغذية", "تنظيف" };
         var firstNames = new[] { "عبدالله", "محمد", "سالم", "فاطمة", "ليلى", "أحمد", "سعد", "نورة", "خالد", "منى" };
@@ -399,11 +407,11 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var phone = $"+21891{i:D7}";
             var address = $"طرابلس - شارع رقم {i}";
 
-            // DEC-072: Schema fix — removed 'contact_name' + 'balance' + 'created_by' + 'updated_by';
-            // added 'address' + 'tax_number' + 'payment_terms'
+            // DEC-072: Schema fix — 'contact_name' dropped; 'created_by'/'updated_by'
+            // are NOT NULL so we look up the admin user
             const string sql = @"
-                INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, currency, payment_terms, is_active, created_at, updated_at)
-                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, 'LYD', 'Net30', true, @Now, @Now)";
+                INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, currency, payment_terms, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, 'LYD', 'Net30', true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
@@ -414,7 +422,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 Phone = phone,
                 Address = address,
                 Tax = $"TAX-{i:D3}",
-                Now = DateTime.UtcNow
+                Now = DateTime.UtcNow,
+                User = adminUserId
             }, cancellationToken: ct));
             vendorIds.Add(id);
 
@@ -426,7 +435,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     // ==================== Customers (20) ====================
 
     private async Task<List<Guid>> SeedCustomersAsync(
-        IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, CancellationToken ct)
     {
         var customerTypes = new[] { "Government", "Private", "Mixed" };
         var orgs = new[] { "وزارة الإسكان", "شركة الإنماء", "مؤسسة النفط", "بلدية طرابلس", "هيئة الطرق", "مصرف ليبيا", "شركة البريقة", "مجمع الفاتح", "فندق كورنثيا", "مستشفى طرابلس المركزي" };
@@ -446,11 +455,11 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var phone = $"+21892{i:D7}";
             var address = $"طرابلس - حي رقم {i}";
 
-            // DEC-072: Schema fix — removed 'type' + 'balance' + 'created_by' + 'updated_by';
-            // added 'email' + 'phone' + 'address' + 'tax_number'
+            // DEC-072: Schema fix — 'type' dropped; 'tax_number' dropped (not on customers);
+            // 'created_by'/'updated_by' required NOT NULL
             const string sql = @"
-                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, tax_number, currency, is_active, created_at, updated_at)
-                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, 'LYD', true, @Now, @Now)";
+                INSERT INTO customers (id, tenant_id, code, name, email, phone, address, currency, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, 'LYD', true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
@@ -460,8 +469,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 Email = email,
                 Phone = phone,
                 Address = address,
-                Tax = $"CUST-{i:D3}",
-                Now = DateTime.UtcNow
+                Now = DateTime.UtcNow,
+                User = adminUserId
             }, cancellationToken: ct));
             customerIds.Add(id);
 
@@ -473,7 +482,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     // ==================== Projects (8) ====================
 
     private async Task<List<Guid>> SeedProjectsAsync(
-        IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, CancellationToken ct)
     {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
@@ -514,12 +523,12 @@ public sealed class RealisticSeedHostedService : BackgroundService
             var budget = 50_000m + (i * 25_000m);
 
             // DEC-072: Schema fix — use real company_id + cost_center_id;
-            // removed 'created_by' + 'updated_by'; added optional cost_center_id
+            // 'created_by'/'updated_by' required NOT NULL — use adminUserId
             string sql = costCenterId == null
-                ? @"INSERT INTO projects (id, tenant_id, company_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at)
-                    VALUES (@Id, @T, @CompanyId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now)"
-                : @"INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at)
-                    VALUES (@Id, @T, @CompanyId, @CCId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now)";
+                ? @"INSERT INTO projects (id, tenant_id, company_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at, created_by, updated_by)
+                    VALUES (@Id, @T, @CompanyId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now, @User, @User)"
+                : @"INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at, created_by, updated_by)
+                    VALUES (@Id, @T, @CompanyId, @CCId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now, @User, @User)";
             if (costCenterId == null)
             {
                 await conn.ExecuteAsync(new CommandDefinition(sql, new
@@ -529,7 +538,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                     Desc = $"مشروع {projectNames[i]} (نشط)",
                     Status = statuses[i], Budget = budget,
                     Start = startDate, End = endDate,
-                    Now = DateTime.UtcNow
+                    Now = DateTime.UtcNow,
+                    User = adminUserId
                 }, cancellationToken: ct));
             }
             else
@@ -541,7 +551,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
                     Desc = $"مشروع {projectNames[i]} (نشط)",
                     Status = statuses[i], Budget = budget,
                     Start = startDate, End = endDate,
-                    Now = DateTime.UtcNow
+                    Now = DateTime.UtcNow,
+                    User = adminUserId
                 }, cancellationToken: ct));
             }
             projectIds.Add(id);
