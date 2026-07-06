@@ -5,7 +5,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace ERPSystem.Host.Controllers;
 
 /// <summary>
-/// Debug endpoints — exposes internal state for diagnostics (DEC-069).
+/// Debug endpoints — exposes internal state for diagnostics (DEC-069/DEC-071).
 /// Admin-only.
 /// </summary>
 [ApiController]
@@ -26,20 +26,13 @@ public class DebugController : ControllerBase
                 connectivity_check_passed = SeedDebugState.ConnectivityCheckPassed,
                 tenant_id = SeedDebugState.TenantId,
                 current_step = SeedDebugState.CurrentStep,
-                counts = new
-                {
-                    companies = SeedDebugState.CompaniesInserted,
-                    vendors = SeedDebugState.VendorsInserted,
-                    customers = SeedDebugState.CustomersInserted,
-                    projects = SeedDebugState.ProjectsInserted,
-                    items = SeedDebugState.ItemsInserted,
-                    goods_receipts = SeedDebugState.GoodsReceiptsInserted,
-                    bills = SeedDebugState.BillsInserted,
-                    sales_invoices = SeedDebugState.SalesInvoicesInserted,
-                    journal_entries = SeedDebugState.JournalEntriesInserted
-                },
                 started_at = SeedDebugState.StartedAt,
                 completed_at = SeedDebugState.CompletedAt,
+                // DEC-071: Per-step tracking (the actual SQL errors live here)
+                step_record_counts = SeedDebugState.StepRecordCounts,
+                step_errors = SeedDebugState.StepErrors,
+                step_durations_seconds = SeedDebugState.StepDurationsSeconds,
+                // DEC-069: Legacy single-error field (last failure)
                 last_error = SeedDebugState.LastError
             }
         });
