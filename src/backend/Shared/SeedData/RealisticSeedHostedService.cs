@@ -115,12 +115,12 @@ public sealed class RealisticSeedHostedService : BackgroundService
             await StepWithScopeAsync("Companies", (factory, ct) =>
                 SeedCompaniesAsync(factory, tenantId, ct), stoppingToken);
 
-            var vendorIds = SeedDebugState.CurrentStep = "Vendors";
-            await StepWithScopeAsync("Vendors", (factory, ct) =>
+            SeedDebugState.CurrentStep = "Vendors";
+            var vendorIds = await StepWithScopeAsync("Vendors", (factory, ct) =>
                 SeedVendorsAsync(factory, tenantId, ct), stoppingToken);
 
-            var customerIds = SeedDebugState.CurrentStep = "Customers";
-            await StepWithScopeAsync("Customers", (factory, ct) =>
+            SeedDebugState.CurrentStep = "Customers";
+            var customerIds = await StepWithScopeAsync("Customers", (factory, ct) =>
                 SeedCustomersAsync(factory, tenantId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "Projects";
