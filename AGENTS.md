@@ -293,3 +293,44 @@ This project uses **GitHub Flow + develop branch**:
 - `docs/<description>` (e.g., `docs/update-readme`)
 
 See `.github/BRANCHING.md` for full details.
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project has an analytical team connected via the **Brainstorming Lab** repo.
+
+### Hub
+
+- **Hub repo**: https://github.com/anas600/brainstorming-lab
+- **Session folder**: `portals/02-session-002/`
+
+### How to read from the hub
+
+- **Default**: Work from **local context** — AGENTS.md, RUNBOOK.md, source code, git history.
+- **When to read from hub**: **ONLY when explicitly instructed by the analytical team** (e.g., "read SYSTEM.md §4" or "see decisions/DEC-042").
+- **Read specific files, not all**: Each directive names the file. Don't read SYSTEM.md + ROLE-CLARIFICATION.md + SESSION.md every task — that's a token waste.
+
+### Hub files (read on-demand)
+
+| File | When |
+|---|---|
+| `SYSTEM.md` | Constitution (referenced by section number) |
+| `CROSS-TEAM-COORDINATION.md` | Cross-team protocol (read once, then reference) |
+| `board.md` | Live ERP-SYSTEM progress (read for context) |
+| `tasks.md` | Task tracker (read for your pending tasks) |
+| `decisions/DEC-NNN-*.md` | Specific decision file (when cited) |
+
+### Pattern
+
+1. Receive directive (mention "read X" or "see DEC-NNN")
+2. Read the specific referenced file
+3. Do the work
+4. Push + report back
+5. Wait for review
+
+### Token efficiency
+
+- Reading a specific file: ~50 tokens in the directive
+- Reading the whole hub every task: ~500 tokens (10× waste)
+- Rule: **only read what's referenced**
