@@ -65,3 +65,18 @@ Tests/
 - [`../Host/AGENTS.md`](../Host/AGENTS.md)
 - [`../Modules/Identity/AGENTS.md`](../Modules/Identity/AGENTS.md) — Patterns مستهدفة
 - [`../Modules/Payroll/AGENTS.md`](../Modules/Payroll/AGENTS.md) — Phase 4 (Calculators)
+
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project works with an analytical team via the **Brainstorming Lab**.
+
+- **When to read from hub**: ONLY when explicitly instructed by the analytical team
+- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
+- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+
+See root [`AGENTS.md`](../../../AGENTS.md) for full cross-team protocol.
+
+Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
