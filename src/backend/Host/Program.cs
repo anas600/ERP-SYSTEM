@@ -54,11 +54,28 @@ using StackExchange.Redis;
 var builder = WebApplication.CreateBuilder(args);
 
 // ============ Logging ============
-builder.Host.UseSerilog((ctx, lc) => lc
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}"));
+// Sprint-4 Day 3 (DEC-045): structured JSON logging.
+// In Development: human-readable output. In Production: JSON for log aggregation.
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .Enrich.WithMachineName()
+      .Enrich.WithThreadId()
+      .Enrich.WithProperty("Application", "ERP-SYSTEM")
+      .Enrich.WithProperty("Environment", ctx.HostingEnvironment.EnvironmentName);
+
+    if (ctx.HostingEnvironment.IsDevelopment())
+    {
+        lc.WriteTo.Console(outputTemplate:
+            "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}");
+    }
+    else
+    {
+        // Production: Compact JSON for log shippers (Loki, Elasticsearch, CloudWatch, etc.)
+        lc.WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter());
+    }
+});
 
 // ============ Configuration ============
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
