@@ -3,16 +3,23 @@ using Dapper;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 using Npgsql;
 
 namespace ERPSystem.Shared.SeedData;
 
 /// <summary>
-/// Realistic 2-year seed for a Libyan holding company (Sprint-4.5 / DEC-064 / DEC-067 / DEC-069).
+/// Realistic 2-year seed for a Libyan holding company (Sprint-4.5 / DEC-064 / DEC-067).
 ///
-/// DEC-067: Converted from IHostedService → BackgroundService so it does NOT block startup.
-/// DEC-069: Robust logging + per-step scope + emergency fail-safe + connectivity check.
+/// DEC-067: Converted from IHostedService → BackgroundService so it does NOT
+/// block app startup. The app starts listening on port 7860 immediately,
+/// health checks pass, and seeding runs in the background.
+///
+/// DEC-067 fixes:
+/// - Yields every 50 records (Task.Yield + small Delay) so HTTP requests don't starve
+/// - Reuses single connection per seed step (avoids pool exhaustion)
+/// - 5-second initial delay (let app start + health check pass)
+/// - Progress logging per batch
+/// - All-or-nothing per step: if a step fails, log + continue (don't crash background)
 /// </summary>
 public sealed class RealisticSeedHostedService : BackgroundService
 {
@@ -22,6 +29,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
     private static readonly DateTime ScenarioStart = new(2024, 7, 1);
     private static readonly DateTime ScenarioEnd = new(2026, 7, 1);
+    private const int TotalMonths = 24;
     private const int CompaniesCount = 5;
     private const int VendorsCount = 15;
     private const int CustomersCount = 20;
@@ -30,9 +38,9 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private const int BillsCount = 100;
     private const int SalesInvoicesCount = 50;
     private const int JournalEntriesCount = 200;
-    private const int InitialDelayMs = 5000;
-    private const int YieldEveryRecords = 50;
-    private const int YieldSleepMs = 50;
+    private const int InitialDelayMs = 5000;     // let app start
+    private const int YieldEveryRecords = 50;     // yield after every N inserts
+    private const int YieldSleepMs = 50;          // small delay for HTTP to breathe
 
     public RealisticSeedHostedService(
         IServiceProvider rootServiceProvider,
@@ -43,16 +51,15 @@ public sealed class RealisticSeedHostedService : BackgroundService
         _logger = logger;
         _config = config;
 
-        // DEC-069: Log at construction time so we can see if service was instantiated
-        logger.LogInformation("[DEC-069] RealisticSeedHostedService CONSTRUCTED");
-        logger.LogInformation("[DEC-069] Config flag Database:SeedRealisticScenario = {Flag}",
-            config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false);
+        // DEC-070: Log at construction time so we can prove the service was instantiated
+        var flag = config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
+        logger.LogInformation("[DEC-070] RealisticSeedHostedService CONSTRUCTED (flag={Flag})", flag);
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // DEC-069: Log immediately to prove ExecuteAsync was called
-        _logger.LogInformation("[DEC-069] RealisticSeedHostedService.ExecuteAsync ENTERED");
+        // DEC-070: Log immediately to prove ExecuteAsync was called
+        _logger.LogInformation("[DEC-070] RealisticSeedHostedService.ExecuteAsync ENTERED");
 
         var seedEnabled = _config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
         if (!seedEnabled)
@@ -74,59 +81,43 @@ public sealed class RealisticSeedHostedService : BackgroundService
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            // DEC-069: Connectivity sanity check BEFORE main work
-            _logger.LogInformation("[DEC-069] Connectivity check...");
-            var canConnect = await ConnectivityCheckAsync(stoppingToken);
-            if (!canConnect)
-            {
-                _logger.LogError("[DEC-069] Connectivity check FAILED — aborting seed");
-                return;
-            }
-            _logger.LogInformation("[DEC-069] Connectivity OK");
+            using var scope = _rootServiceProvider.CreateScope();
+            var services = scope.ServiceProvider;
+            var factory = services.GetRequiredService<IDbConnectionFactory>();
 
-            // DEC-069: Per-step scope (more reliable than one big scope)
-            var tenantId = await StepWithScopeAsync(
-                "GetOrCreateTenant",
-                async (factory, ct) => await GetOrCreateTenantAsync(factory, ct),
-                stoppingToken);
-
+            var tenantId = await GetOrCreateTenantAsync(factory, stoppingToken);
             if (tenantId == Guid.Empty)
             {
-                _logger.LogError("[DEC-069] Failed to get/create tenant — aborting seed");
+                _logger.LogError("RealisticSeed: failed to get/create tenant");
                 return;
             }
-            _logger.LogInformation("[DEC-069] TenantId: {TenantId}", tenantId);
 
-            await StepWithScopeAsync("Companies", (factory, ct) =>
-                SeedCompaniesAsync(factory, tenantId, ct), stoppingToken);
-
-            var vendorIds = await StepWithScopeAsync("Vendors", (factory, ct) =>
-                SeedVendorsAsync(factory, tenantId, ct), stoppingToken);
-
-            var customerIds = await StepWithScopeAsync("Customers", (factory, ct) =>
-                SeedCustomersAsync(factory, tenantId, ct), stoppingToken);
-
-            await StepWithScopeAsync("Projects", (factory, ct) =>
-                SeedProjectsAsync(factory, tenantId, ct), stoppingToken);
-
-            var itemIds = await StepWithScopeAsync("Items", (factory, ct) =>
-                SeedItemsAsync(factory, tenantId, ct), stoppingToken);
-
-            await StepWithScopeAsync("GoodsReceipts", (factory, ct) =>
-                SeedGoodsReceiptsAsync(factory, tenantId, vendorIds, itemIds, ct), stoppingToken);
-
-            await StepWithScopeAsync("Bills", (factory, ct) =>
-                SeedBillsAsync(factory, tenantId, vendorIds, itemIds, ct), stoppingToken);
-
-            await StepWithScopeAsync("SalesInvoices", (factory, ct) =>
-                SeedSalesInvoicesAsync(factory, tenantId, customerIds, itemIds, ct), stoppingToken);
-
-            await StepWithScopeAsync("JournalEntries", (factory, ct) =>
-                SeedJournalEntriesAsync(factory, tenantId, ct), stoppingToken);
+            await StepAsync("Companies",        () => SeedCompaniesAsync(factory, tenantId, stoppingToken),        CompaniesCount,       stoppingToken);
+            var vendorIds = await GetExistingIdsAsync(factory, tenantId, "vendors", stoppingToken);
+            if (vendorIds.Count < VendorsCount)
+            {
+                vendorIds = await StepAsync("Vendors",        () => SeedVendorsAsync(factory, tenantId, stoppingToken),         VendorsCount,       stoppingToken);
+            }
+            var customerIds = await GetExistingIdsAsync(factory, tenantId, "customers", stoppingToken);
+            if (customerIds.Count < CustomersCount)
+            {
+                customerIds = await StepAsync("Customers",     () => SeedCustomersAsync(factory, tenantId, stoppingToken),      CustomersCount,      stoppingToken);
+            }
+            await StepAsync("Projects",          () => SeedProjectsAsync(factory, tenantId, stoppingToken),        ProjectsCount,        stoppingToken);
+            var itemIds = await GetExistingIdsAsync(factory, tenantId, "items", stoppingToken);
+            if (itemIds.Count < 10)
+            {
+                itemIds = await StepAsync("Items",        () => SeedItemsAsync(factory, tenantId, stoppingToken),          10,                  stoppingToken);
+            }
+            await StepAsync("GoodsReceipts",     () => SeedGoodsReceiptsAsync(factory, tenantId, vendorIds, itemIds, stoppingToken), GoodsReceiptsCount,  stoppingToken);
+            await StepAsync("Bills",             () => SeedBillsAsync(factory, tenantId, vendorIds, itemIds, stoppingToken),             BillsCount,         stoppingToken);
+            await StepAsync("SalesInvoices",     () => SeedSalesInvoicesAsync(factory, tenantId, customerIds, itemIds, stoppingToken), SalesInvoicesCount, stoppingToken);
+            await StepAsync("JournalEntries",    () => SeedJournalEntriesAsync(factory, tenantId, stoppingToken),          JournalEntriesCount, stoppingToken);
 
             sw.Stop();
             _logger.LogInformation("========================================");
             _logger.LogInformation("RealisticSeed: DONE in {Sec:F1}s", sw.Elapsed.TotalSeconds);
+            _logger.LogInformation("  TenantId: {TenantId}", tenantId);
             _logger.LogInformation("========================================");
         }
         catch (OperationCanceledException)
@@ -135,59 +126,44 @@ public sealed class RealisticSeedHostedService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "[DEC-069] RealisticSeed: top-level failure");
+            _logger.LogError(ex, "RealisticSeed: background task failed");
         }
     }
 
-    private async Task<bool> ConnectivityCheckAsync(CancellationToken ct)
-    {
-        try
-        {
-            using var scope = _rootServiceProvider.CreateScope();
-            var factory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
-            using var conn = await factory.CreateOltpConnectionAsync(ct);
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
-            var result = await cmd.ExecuteScalarAsync(ct);
-            _logger.LogInformation("[DEC-069] SELECT 1 → {Result}", result);
-            return result != null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "[DEC-069] Connectivity check exception");
-            return false;
-        }
-    }
-
-    private async Task<List<Guid>> StepWithScopeAsync(
+    /// <summary>
+    /// Wraps a seed step with: progress log + exception isolation.
+    /// Returns whatever the step returned (or empty list for void steps).
+    /// Yields to the thread pool between steps so HTTP requests can be served.
+    /// </summary>
+    private async Task<List<Guid>> StepAsync(
         string stepName,
-        Func<IDbConnectionFactory, CancellationToken, Task<List<Guid>>> stepFn,
+        Func<Task<List<Guid>>> stepFn,
+        int expectedCount,
         CancellationToken ct)
     {
-        _logger.LogInformation("[DEC-069] → {Step}", stepName);
+        _logger.LogInformation("[RealisticSeed] → {Step} (target: {Count} records)", stepName, expectedCount);
         var sw = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            await Task.Yield();
-            using var scope = _rootServiceProvider.CreateScope();
-            var factory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
-            var result = await stepFn(factory, ct);
+            await Task.Yield(); // let HTTP requests breathe
+            var result = await stepFn();
             sw.Stop();
-            _logger.LogInformation("[DEC-069] ✓ {Step} done in {Sec:F1}s ({Count} records)",
+            _logger.LogInformation("[RealisticSeed] ✓ {Step} done in {Sec:F1}s ({Count} records)",
                 stepName, sw.Elapsed.TotalSeconds, result.Count);
             return result;
         }
         catch (Exception ex)
         {
             sw.Stop();
-            _logger.LogError(ex, "[DEC-069] ✗ {Step} failed after {Sec:F1}s — continuing",
+            _logger.LogError(ex, "[RealisticSeed] ✗ {Step} failed after {Sec:F1}s — continuing",
                 stepName, sw.Elapsed.TotalSeconds);
             return new List<Guid>();
         }
     }
 
-    // ... rest stays the same (GetOrCreateTenantAsync, SeedCompaniesAsync, etc.)
-    // For brevity, these methods remain as in the original file
+    private async Task<List<Guid>> GetExistingIdsAsync(
+        IDbConnectionFactory factory, Guid tenantId, string table, CancellationToken ct)
+    {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var sql = $"SELECT id FROM {table} WHERE tenant_id = @T";
         var ids = await conn.QueryAsync<Guid>(new CommandDefinition(sql, new { T = tenantId }, cancellationToken: ct));
