@@ -2,35 +2,31 @@ using System.Data;
 using Dapper;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using Npgsql;
 
 namespace ERPSystem.Shared.SeedData;
 
 /// <summary>
-/// Realistic 2-year seed for a Libyan holding company (Sprint-4.5 / DEC-064).
+/// Realistic 2-year seed for a Libyan holding company (Sprint-4.5 / DEC-064 / DEC-067).
 ///
-/// Timeline: Jul 2024 → Jul 2026 (24 months)
-/// Companies: 5 subsidiaries
-/// Data: ~370 records distributed over time
+/// DEC-067: Converted from IHostedService → BackgroundService so it does NOT
+/// block app startup. The app starts listening on port 7860 immediately,
+/// health checks pass, and seeding runs in the background.
 ///
-/// Replaces the AlFajr scenario seed (single company) with multi-company
-/// realistic operational data. Bug fixes addressed:
-/// - Date distribution: spread across 24 months (not 1 month)
-/// - Bills with line items
-/// - No future-dated entries
-/// - Customers populated
-/// - Multi-company architecture
-/// - Balanced Journal Entries
-///
-/// DEC-064 — Phase 3 of Post-Sprint-4.5 (realistic 2-year scenario).
+/// DEC-067 fixes:
+/// - Yields every 50 records (Task.Yield + small Delay) so HTTP requests don't starve
+/// - Reuses single connection per seed step (avoids pool exhaustion)
+/// - 5-second initial delay (let app start + health check pass)
+/// - Progress logging per batch
+/// - All-or-nothing per step: if a step fails, log + continue (don't crash background)
 /// </summary>
-public sealed class RealisticSeedHostedService : IHostedService
+public sealed class RealisticSeedHostedService : BackgroundService
 {
     private readonly IServiceProvider _rootServiceProvider;
     private readonly ILogger<RealisticSeedHostedService> _logger;
     private readonly IConfiguration _config;
 
-    // الإعدادات — يمكن تخصيصها عبر appsettings.json
     private static readonly DateTime ScenarioStart = new(2024, 7, 1);
     private static readonly DateTime ScenarioEnd = new(2026, 7, 1);
     private const int TotalMonths = 24;
@@ -42,6 +38,9 @@ public sealed class RealisticSeedHostedService : IHostedService
     private const int BillsCount = 100;
     private const int SalesInvoicesCount = 50;
     private const int JournalEntriesCount = 200;
+    private const int InitialDelayMs = 5000;     // let app start
+    private const int YieldEveryRecords = 50;     // yield after every N inserts
+    private const int YieldSleepMs = 50;          // small delay for HTTP to breathe
 
     public RealisticSeedHostedService(
         IServiceProvider rootServiceProvider,
@@ -53,7 +52,7 @@ public sealed class RealisticSeedHostedService : IHostedService
         _config = config;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         var seedEnabled = _config.GetValue<bool?>("Database:SeedRealisticScenario") ?? false;
         if (!seedEnabled)
@@ -62,55 +61,107 @@ public sealed class RealisticSeedHostedService : IHostedService
             return;
         }
 
-        _logger.LogInformation("========================================");
-        _logger.LogInformation("RealisticSeed: Starting 2-year scenario...");
+        _logger.LogInformation("RealisticSeed: background mode — letting app start first ({Delay}ms)", InitialDelayMs);
+        try
+        {
+            await Task.Delay(InitialDelayMs, stoppingToken);
+        }
+        catch (OperationCanceledException) { return; }
+
+        _logger.LogInformation("RealisticSeed: starting 2-year scenario...");
         _logger.LogInformation("  Period: {Start:yyyy-MM} → {End:yyyy-MM}", ScenarioStart, ScenarioEnd);
-        _logger.LogInformation("========================================");
 
         var sw = System.Diagnostics.Stopwatch.StartNew();
-        var scope = _rootServiceProvider.CreateScope();
-        var services = scope.ServiceProvider;
-        var factory = services.GetRequiredService<IDbConnectionFactory>();
-
-        // 1) Get or create tenant
-        var tenantId = await GetOrCreateTenantAsync(factory, cancellationToken);
-        if (tenantId == Guid.Empty)
+        try
         {
-            _logger.LogError("Failed to get/create tenant for realistic seed");
-            return;
+            using var scope = _rootServiceProvider.CreateScope();
+            var services = scope.ServiceProvider;
+            var factory = services.GetRequiredService<IDbConnectionFactory>();
+
+            var tenantId = await GetOrCreateTenantAsync(factory, stoppingToken);
+            if (tenantId == Guid.Empty)
+            {
+                _logger.LogError("RealisticSeed: failed to get/create tenant");
+                return;
+            }
+
+            await StepAsync("Companies",        () => SeedCompaniesAsync(factory, tenantId, stoppingToken),        CompaniesCount,       stoppingToken);
+            var vendorIds = await GetExistingIdsAsync(factory, tenantId, "vendors", stoppingToken);
+            if (vendorIds.Count < VendorsCount)
+            {
+                vendorIds = await StepAsync("Vendors",        () => SeedVendorsAsync(factory, tenantId, stoppingToken),         VendorsCount,       stoppingToken);
+            }
+            var customerIds = await GetExistingIdsAsync(factory, tenantId, "customers", stoppingToken);
+            if (customerIds.Count < CustomersCount)
+            {
+                customerIds = await StepAsync("Customers",     () => SeedCustomersAsync(factory, tenantId, stoppingToken),      CustomersCount,      stoppingToken);
+            }
+            await StepAsync("Projects",          () => SeedProjectsAsync(factory, tenantId, stoppingToken),        ProjectsCount,        stoppingToken);
+            var itemIds = await GetExistingIdsAsync(factory, tenantId, "items", stoppingToken);
+            if (itemIds.Count < 10)
+            {
+                itemIds = await StepAsync("Items",        () => SeedItemsAsync(factory, tenantId, stoppingToken),          10,                  stoppingToken);
+            }
+            await StepAsync("GoodsReceipts",     () => SeedGoodsReceiptsAsync(factory, tenantId, vendorIds, itemIds, stoppingToken), GoodsReceiptsCount,  stoppingToken);
+            await StepAsync("Bills",             () => SeedBillsAsync(factory, tenantId, vendorIds, itemIds, stoppingToken),             BillsCount,         stoppingToken);
+            await StepAsync("SalesInvoices",     () => SeedSalesInvoicesAsync(factory, tenantId, customerIds, itemIds, stoppingToken), SalesInvoicesCount, stoppingToken);
+            await StepAsync("JournalEntries",    () => SeedJournalEntriesAsync(factory, tenantId, stoppingToken),          JournalEntriesCount, stoppingToken);
+
+            sw.Stop();
+            _logger.LogInformation("========================================");
+            _logger.LogInformation("RealisticSeed: DONE in {Sec:F1}s", sw.Elapsed.TotalSeconds);
+            _logger.LogInformation("  TenantId: {TenantId}", tenantId);
+            _logger.LogInformation("========================================");
         }
-
-        // 2) Generate companies
-        var companyIds = await SeedCompaniesAsync(factory, tenantId, cancellationToken);
-
-        // 3) Vendors + Customers
-        var vendorIds = await SeedVendorsAsync(factory, tenantId, cancellationToken);
-        var customerIds = await SeedCustomersAsync(factory, tenantId, cancellationToken);
-
-        // 4) Projects
-        var projectIds = await SeedProjectsAsync(factory, tenantId, cancellationToken);
-
-        // 5) Items + Warehouses
-        var itemIds = await SeedItemsAsync(factory, tenantId, cancellationToken);
-
-        // 6) Goods Receipts (100) + Bills (100)
-        await SeedGoodsReceiptsAsync(factory, tenantId, vendorIds, itemIds, cancellationToken);
-        await SeedBillsAsync(factory, tenantId, vendorIds, itemIds, cancellationToken);
-
-        // 7) Sales Invoices (50)
-        await SeedSalesInvoicesAsync(factory, tenantId, customerIds, itemIds, cancellationToken);
-
-        // 8) Journal Entries (200+, balanced)
-        await SeedJournalEntriesAsync(factory, tenantId, cancellationToken);
-
-        sw.Stop();
-        _logger.LogInformation("========================================");
-        _logger.LogInformation("RealisticSeed: DONE in {Sec}s", sw.Elapsed.TotalSeconds);
-        _logger.LogInformation("  TenantId: {TenantId}", tenantId);
-        _logger.LogInformation("========================================");
+        catch (OperationCanceledException)
+        {
+            _logger.LogWarning("RealisticSeed: cancelled (app shutting down)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "RealisticSeed: background task failed");
+        }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+    /// <summary>
+    /// Wraps a seed step with: progress log + exception isolation.
+    /// Returns whatever the step returned (or empty list for void steps).
+    /// Yields to the thread pool between steps so HTTP requests can be served.
+    /// </summary>
+    private async Task<List<Guid>> StepAsync(
+        string stepName,
+        Func<Task<List<Guid>>> stepFn,
+        int expectedCount,
+        CancellationToken ct)
+    {
+        _logger.LogInformation("[RealisticSeed] → {Step} (target: {Count} records)", stepName, expectedCount);
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await Task.Yield(); // let HTTP requests breathe
+            var result = await stepFn();
+            sw.Stop();
+            _logger.LogInformation("[RealisticSeed] ✓ {Step} done in {Sec:F1}s ({Count} records)",
+                stepName, sw.Elapsed.TotalSeconds, result.Count);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            sw.Stop();
+            _logger.LogError(ex, "[RealisticSeed] ✗ {Step} failed after {Sec:F1}s — continuing",
+                stepName, sw.Elapsed.TotalSeconds);
+            return new List<Guid>();
+        }
+    }
+
+    private async Task<List<Guid>> GetExistingIdsAsync(
+        IDbConnectionFactory factory, Guid tenantId, string table, CancellationToken ct)
+    {
+        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        var sql = $"SELECT id FROM {table} WHERE tenant_id = @T";
+        var ids = await conn.QueryAsync<Guid>(new CommandDefinition(sql, new { T = tenantId }, cancellationToken: ct));
+        return ids.ToList();
+    }
 
     // ==================== Tenant ====================
 
@@ -122,10 +173,9 @@ public sealed class RealisticSeedHostedService : IHostedService
             findSql, new { sub = "alfajr" }, cancellationToken: ct));
         if (existing.HasValue)
         {
-            _logger.LogInformation("Using existing tenant: {TenantId}", existing.Value);
+            _logger.LogInformation("[RealisticSeed] Using existing tenant: {TenantId}", existing.Value);
             return existing.Value;
         }
-        // Create new tenant (subdomain = alfajr for compatibility)
         var newId = Guid.NewGuid();
         const string insertSql = @"
             INSERT INTO tenants (id, name, subdomain, is_active, created_at)
@@ -143,30 +193,22 @@ public sealed class RealisticSeedHostedService : IHostedService
     private async Task<List<Guid>> SeedCompaniesAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
-        var companies = new[]
+        var companies = new (string code, string name)[]
         {
-            ("ALF", "AlFajr Trading & Contracting", "المقاولات"),
-            ("ALB", "AlBurj Building Materials", "مواد البناء + ورش"),
-            ("ALN", "AlNoor Office Supplies", "المكتبية + اللوازم"),
-            ("ALK", "AlKawn Food Services", "الغذاء"),
-            ("ALKH", "AlNakhla Tourism & Cleaning", "السياحة + النظافة")
+            ("ALF", "AlFajr Trading & Contracting"),
+            ("ALB", "AlBurj Building Materials"),
+            ("ALN", "AlNoor Office Supplies"),
+            ("ALK", "AlKawn Food Services"),
+            ("ALKH", "AlNakhla Tourism & Cleaning")
         };
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
-        var companyIds = new List<Guid>();
-
-        // Skip if already seeded
-        var existingCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+        var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM companies WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existingCount >= CompaniesCount)
-        {
-            _logger.LogInformation("Companies already seeded ({Count} records)", existingCount);
-            var allExisting = await conn.QueryAsync<Guid>(new CommandDefinition(
-                "SELECT id FROM companies WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-            return allExisting.ToList();
-        }
+        if (existing >= CompaniesCount) return await GetExistingIdsAsync(factory, tenantId, "companies", ct);
 
-        foreach (var (code, name, _) in companies)
+        var companyIds = new List<Guid>();
+        for (int i = 0; i < companies.Length; i++)
         {
             var id = Guid.NewGuid();
             const string sql = @"
@@ -176,14 +218,15 @@ public sealed class RealisticSeedHostedService : IHostedService
             {
                 Id = id,
                 T = tenantId,
-                Code = code,
-                Name = name,
+                Code = companies[i].code,
+                Name = companies[i].name,
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             companyIds.Add(id);
+
+            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} companies", companyIds.Count);
         return companyIds;
     }
 
@@ -198,13 +241,7 @@ public sealed class RealisticSeedHostedService : IHostedService
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM vendors WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= VendorsCount)
-        {
-            _logger.LogInformation("Vendors already seeded ({Count})", existing);
-            var allIds = await conn.QueryAsync<Guid>(new CommandDefinition(
-                "SELECT id FROM vendors WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-            return allIds.ToList();
-        }
+        if (existing >= VendorsCount) return await GetExistingIdsAsync(factory, tenantId, "vendors", ct);
 
         var vendorIds = new List<Guid>();
         for (int i = 1; i <= VendorsCount; i++)
@@ -215,7 +252,6 @@ public sealed class RealisticSeedHostedService : IHostedService
             var contact = $"{firstNames[i % firstNames.Length]} المبيعات";
             var email = $"vendor{i}@example.ly";
             var phone = $"+21891{i:D7}";
-            var balance = 5000m + (i * 1000m);
 
             const string sql = @"
                 INSERT INTO vendors (id, tenant_id, code, name, contact_name, email, phone, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
@@ -229,13 +265,14 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Contact = contact,
                 Email = email,
                 Phone = phone,
-                Balance = balance,
+                Balance = 5000m + (i * 1000m),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             vendorIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} vendors", vendorIds.Count);
         return vendorIds;
     }
 
@@ -250,13 +287,7 @@ public sealed class RealisticSeedHostedService : IHostedService
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM customers WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= CustomersCount)
-        {
-            _logger.LogInformation("Customers already seeded ({Count})", existing);
-            var allIds = await conn.QueryAsync<Guid>(new CommandDefinition(
-                "SELECT id FROM customers WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-            return allIds.ToList();
-        }
+        if (existing >= CustomersCount) return await GetExistingIdsAsync(factory, tenantId, "customers", ct);
 
         var customerIds = new List<Guid>();
         for (int i = 1; i <= CustomersCount; i++)
@@ -265,7 +296,6 @@ public sealed class RealisticSeedHostedService : IHostedService
             var code = $"C-{i:D3}";
             var name = i <= 10 ? orgs[i - 1] : $"Customer {i} (Private)";
             var type = customerTypes[i % customerTypes.Length];
-            var balance = 3000m + (i * 750m);
 
             const string sql = @"
                 INSERT INTO customers (id, tenant_id, code, name, type, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
@@ -277,13 +307,14 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Code = code,
                 Name = name,
                 Type = type,
-                Balance = balance,
+                Balance = 3000m + (i * 750m),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             customerIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} customers", customerIds.Count);
         return customerIds;
     }
 
@@ -295,20 +326,13 @@ public sealed class RealisticSeedHostedService : IHostedService
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM projects WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= ProjectsCount)
-        {
-            _logger.LogInformation("Projects already seeded ({Count})", existing);
-            var allIds = await conn.QueryAsync<Guid>(new CommandDefinition(
-                "SELECT id FROM projects WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-            return allIds.ToList();
-        }
+        if (existing >= ProjectsCount) return await GetExistingIdsAsync(factory, tenantId, "projects", ct);
 
-        var statuses = new[] { 0, 0, 1, 1, 2, 2, 3, 3 }; // 0=Planning, 1=Active, 2=Completed, 3=OnHold
+        var statuses = new[] { 0, 0, 1, 1, 2, 2, 3, 3 };
         var projectNames = new[] {
             "مشروع طريق المطار", "تطوير مجمع السكني", "صيانة المدارس",
             "بناء مستشفى الأطفال", "تحديث البنية التحتية للمياه",
-            "مشروع الإسكان الاجتماعي", "مجمع تجاري الشط",
-            "صيانة الطرق السريعة"
+            "مشروع الإسكان الاجتماعي", "مجمع تجاري الشط", "صيانة الطرق السريعة"
         };
 
         var projectIds = new List<Guid>();
@@ -320,10 +344,8 @@ public sealed class RealisticSeedHostedService : IHostedService
             var startOffset = rng.Next(0, TotalMonths - 6);
             var startDate = ScenarioStart.AddMonths(startOffset);
             var endDate = startDate.AddMonths(rng.Next(3, 12));
-            // ضمان عدم تجاوز تاريخ نهاية السيناريو
             if (endDate > ScenarioEnd) endDate = ScenarioEnd.AddDays(-rng.Next(1, 30));
             var budget = 50_000m + (i * 25_000m);
-            var actualCost = budget * 0.7m; // 70% spent
 
             const string sql = @"
                 INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at, created_by, updated_by)
@@ -332,7 +354,7 @@ public sealed class RealisticSeedHostedService : IHostedService
             {
                 Id = id,
                 T = tenantId,
-                CompanyId = Guid.NewGuid(), // placeholder; will be set if needed
+                CompanyId = Guid.NewGuid(),
                 CCId = Guid.NewGuid(),
                 Code = code,
                 Name = projectNames[i],
@@ -345,8 +367,9 @@ public sealed class RealisticSeedHostedService : IHostedService
                 User = Guid.Empty
             }, cancellationToken: ct));
             projectIds.Add(id);
+
+            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} projects", projectIds.Count);
         return projectIds;
     }
 
@@ -358,13 +381,7 @@ public sealed class RealisticSeedHostedService : IHostedService
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM items WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= 10)
-        {
-            _logger.LogInformation("Items already seeded ({Count})", existing);
-            var allIds = await conn.QueryAsync<Guid>(new CommandDefinition(
-                "SELECT id FROM items WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-            return allIds.Take(10).ToList();
-        }
+        if (existing >= 10) return await GetExistingIdsAsync(factory, tenantId, "items", ct);
 
         var itemNames = new[] { "إسمنت", "حديد", "رمل", "حصى", "بلاط", "دهان", "أجهزة مكتبية", "قرطاسية", "معدات نظافة", "مواد غذائية" };
         var itemIds = new List<Guid>();
@@ -387,33 +404,32 @@ public sealed class RealisticSeedHostedService : IHostedService
                 User = Guid.Empty
             }, cancellationToken: ct));
             itemIds.Add(id);
+
+            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} items", itemIds.Count);
         return itemIds;
     }
 
     // ==================== GRs (100) ====================
 
-    private async Task SeedGoodsReceiptsAsync(
+    private async Task<List<Guid>> SeedGoodsReceiptsAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> vendorIds, List<Guid> itemIds, CancellationToken ct)
     {
+        if (vendorIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
+
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM goods_receipts WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= GoodsReceiptsCount)
-        {
-            _logger.LogInformation("Goods Receipts already seeded ({Count})", existing);
-            return;
-        }
+        if (existing >= GoodsReceiptsCount) return new List<Guid>();
 
         var rng = new Random(123);
+        var grIds = new List<Guid>();
         for (int i = 1; i <= GoodsReceiptsCount; i++)
         {
             var id = Guid.NewGuid();
             var monthOffset = rng.Next(0, TotalMonths);
             var day = rng.Next(1, 28);
             var date = ScenarioStart.AddMonths(monthOffset).AddDays(day);
-            // ضمان عدم تجاوز التاريخ الحالي
             if (date > DateTime.UtcNow) date = DateTime.UtcNow.AddDays(-rng.Next(1, 30));
 
             var vendor = vendorIds[rng.Next(vendorIds.Count)];
@@ -431,25 +447,27 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
+            grIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} goods receipts (distributed over {Months} months)", GoodsReceiptsCount, TotalMonths);
+        return grIds;
     }
 
     // ==================== Bills (100, with line items) ====================
 
-    private async Task SeedBillsAsync(
+    private async Task<List<Guid>> SeedBillsAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> vendorIds, List<Guid> itemIds, CancellationToken ct)
     {
+        if (vendorIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
+
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM vendor_bills WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= BillsCount)
-        {
-            _logger.LogInformation("Bills already seeded ({Count})", existing);
-            return;
-        }
+        if (existing >= BillsCount) return new List<Guid>();
 
         var rng = new Random(456);
+        var billIds = new List<Guid>();
         for (int i = 1; i <= BillsCount; i++)
         {
             var id = Guid.NewGuid();
@@ -463,12 +481,10 @@ public sealed class RealisticSeedHostedService : IHostedService
             var qty = 1m + (rng.Next(1, 10) * 1m);
             var unitCost = 50m + (rng.Next(0, 500) * 1m);
             var lineTotal = qty * unitCost;
-            var billTotal = lineTotal; // 1 line per bill for simplicity
 
             const string insertBill = @"
                 INSERT INTO vendor_bills (id, tenant_id, bill_number, vendor_id, status, bill_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @BillNumber, @Vendor, 2, @Date, @Total, 'LYD', @Now, @Now, @User, @User)";
-
             await conn.ExecuteAsync(new CommandDefinition(insertBill, new
             {
                 Id = id,
@@ -476,12 +492,11 @@ public sealed class RealisticSeedHostedService : IHostedService
                 BillNumber = $"B-{i:D5}",
                 Vendor = vendor,
                 Date = date,
-                Total = billTotal,
+                Total = lineTotal,
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
 
-            // Insert line item (1 per bill for simplicity, but ensures bill has lines)
             var lineId = Guid.NewGuid();
             const string insertLine = @"
                 INSERT INTO vendor_bill_lines (id, tenant_id, bill_id, item_id, quantity, unit_cost, line_total, created_at, updated_at, created_by, updated_by)
@@ -498,26 +513,27 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
+            billIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} bills (with 1 line each = {Lines} total lines)",
-            BillsCount, BillsCount);
+        return billIds;
     }
 
     // ==================== Sales Invoices (50) ====================
 
-    private async Task SeedSalesInvoicesAsync(
+    private async Task<List<Guid>> SeedSalesInvoicesAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> customerIds, List<Guid> itemIds, CancellationToken ct)
     {
+        if (customerIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
+
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM sales_invoices WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= SalesInvoicesCount)
-        {
-            _logger.LogInformation("Sales Invoices already seeded ({Count})", existing);
-            return;
-        }
+        if (existing >= SalesInvoicesCount) return new List<Guid>();
 
         var rng = new Random(789);
+        var invIds = new List<Guid>();
         for (int i = 1; i <= SalesInvoicesCount; i++)
         {
             var id = Guid.NewGuid();
@@ -545,7 +561,6 @@ public sealed class RealisticSeedHostedService : IHostedService
                 User = Guid.Empty
             }, cancellationToken: ct));
 
-            // Insert line item
             var lineId = Guid.NewGuid();
             const string insertLine = @"
                 INSERT INTO sales_invoice_lines (id, tenant_id, invoice_id, item_id, quantity, unit_price, line_total, created_at, updated_at, created_by, updated_by)
@@ -562,26 +577,25 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
+            invIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} sales invoices (with line items)", SalesInvoicesCount);
+        return invIds;
     }
 
     // ==================== Journal Entries (200+, balanced) ====================
 
-    private async Task SeedJournalEntriesAsync(
+    private async Task<List<Guid>> SeedJournalEntriesAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM journal_entries WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= JournalEntriesCount)
-        {
-            _logger.LogInformation("Journal Entries already seeded ({Count})", existing);
-            return;
-        }
+        if (existing >= JournalEntriesCount) return new List<Guid>();
 
-        // 200 entries × 2 lines (1 debit + 1 credit) = 400 lines, perfectly balanced
         var rng = new Random(2024);
+        var jeIds = new List<Guid>();
         for (int i = 1; i <= JournalEntriesCount; i++)
         {
             var id = Guid.NewGuid();
@@ -608,29 +622,26 @@ public sealed class RealisticSeedHostedService : IHostedService
                 User = Guid.Empty
             }, cancellationToken: ct));
 
-            // Insert 2 lines (debit + credit) — balanced
-            var debitId = Guid.NewGuid();
-            var creditId = Guid.NewGuid();
             const string insertLine = @"
                 INSERT INTO journal_entry_lines (id, tenant_id, journal_entry_id, account_id, type, amount, description, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @JE, @Account, @Type, @Amount, @Desc, @Now, @Now, @User, @User)";
-            // Debit line
+            // Debit
             await conn.ExecuteAsync(new CommandDefinition(insertLine, new
             {
-                Id = debitId,
+                Id = Guid.NewGuid(),
                 T = tenantId,
                 JE = id,
-                Account = Guid.NewGuid(), // simplified — any account
+                Account = Guid.NewGuid(),
                 Type = "Debit",
                 Amount = amount,
                 Desc = $"Debit for {reference}",
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
-            // Credit line
+            // Credit
             await conn.ExecuteAsync(new CommandDefinition(insertLine, new
             {
-                Id = creditId,
+                Id = Guid.NewGuid(),
                 T = tenantId,
                 JE = id,
                 Account = Guid.NewGuid(),
@@ -640,7 +651,23 @@ public sealed class RealisticSeedHostedService : IHostedService
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
+            jeIds.Add(id);
+
+            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
         }
-        _logger.LogInformation("Seeded {Count} journal entries (balanced, with 2 lines each)", JournalEntriesCount);
+        return jeIds;
+    }
+
+    /// <summary>
+    /// Yields to thread pool + small delay so HTTP requests can be served.
+    /// Prevents the seed from starving the Kestrel listener.
+    /// </summary>
+    private async Task YieldAsync(CancellationToken ct)
+    {
+        try
+        {
+            await Task.Delay(YieldSleepMs, ct);
+        }
+        catch (OperationCanceledException) { /* expected on shutdown */ }
     }
 }
