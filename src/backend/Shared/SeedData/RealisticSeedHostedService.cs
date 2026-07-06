@@ -126,8 +126,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
             await StepWithScopeAsync("Projects", (factory, ct) =>
                 SeedProjectsAsync(factory, tenantId, ct), stoppingToken);
 
-            var itemIds = SeedDebugState.CurrentStep = "Items";
-            await StepWithScopeAsync("Items", (factory, ct) =>
+            SeedDebugState.CurrentStep = "Items";
+            var itemIds = await StepWithScopeAsync("Items", (factory, ct) =>
                 SeedItemsAsync(factory, tenantId, ct), stoppingToken);
 
             SeedDebugState.CurrentStep = "GoodsReceipts";
