@@ -221,60 +221,99 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
     private async Task<Guid> GetOrCreateTenantAsync(IDbConnectionFactory factory, CancellationToken ct)
     {
-        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        // DEC-070: Tenant lookup is now smarter and SAFE.
+        //
+        // Problem (DEC-068/v11): The seed sometimes ran BEFORE any user logged in,
+        // so the tenants table was empty. The fallback "any tenant" query returned
+        // NULL, and the seed then CREATED a new orphan tenant (88eb07e8-...).
+        // All 518 records went there, invisible to the real user tenant (f77dbedd-...).
+        //
+        // Fix:
+        // 1. PRIMARY: Look for tenant with at least one user (real tenant, not orphaned)
+        // 2. SECONDARY: Look for AlFajr by subdomain patterns
+        // 3. TERTIARY: Look for tenant by name (ILIKE)
+        // 4. POLL: If no tenant found, retry every 2s for up to 60s (give user time to log in)
+        // 5. NEVER CREATE: If still no tenant after 60s, return Guid.Empty (seed aborts)
 
-        // DEC-069: Try multiple subdomain patterns to find existing AlFajr tenant
-        var subdomainPatterns = new[] {
-            "alfajr",                                       // simple
-            "alfajr-holding",                               // if slugified
-            "alfajr-trading---contracting",                 // Slugify of "AlFajr Trading & Contracting"
-            "alfajr-trading-contracting",                   // alternative
-            "alfajr-trading-and-contracting",               // alt
-        };
+        const int MaxRetries = 30;          // 30 retries * 2s = 60s
+        const int RetryDelayMs = 2000;
 
-        foreach (var sub in subdomainPatterns)
+        for (int attempt = 1; attempt <= MaxRetries; attempt++)
         {
-            var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
-                "SELECT id FROM tenants WHERE subdomain = @sub LIMIT 1",
-                new { sub }, cancellationToken: ct));
-            if (existing.HasValue)
+            using var conn = await factory.CreateOltpConnectionAsync(ct);
+
+            // 1) PRIMARY: tenant that has at least one user
+            var withUsers = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                @"SELECT t.id FROM tenants t
+                  WHERE EXISTS (SELECT 1 FROM users u WHERE u.tenant_id = t.id)
+                  ORDER BY t.created_at ASC LIMIT 1",
+                cancellationToken: ct));
+            if (withUsers.HasValue)
             {
-                _logger.LogInformation("[DEC-069] Using existing tenant (sub={Sub}): {TenantId}", sub, existing.Value);
-                return existing.Value;
+                if (attempt > 1)
+                {
+                    _logger.LogInformation("[DEC-070] Found tenant with users on attempt {Attempt}: {TenantId}",
+                        attempt, withUsers.Value);
+                }
+                else
+                {
+                    _logger.LogInformation("[DEC-070] Using tenant with users: {TenantId}", withUsers.Value);
+                }
+                return withUsers.Value;
+            }
+
+            // 2) SECONDARY: AlFajr by subdomain patterns (if exists but has no users yet)
+            var subdomainPatterns = new[] {
+                "alfajr", "alfajr-holding",
+                "alfajr-trading---contracting",
+                "alfajr-trading-contracting",
+                "alfajr-trading-and-contracting",
+            };
+            foreach (var sub in subdomainPatterns)
+            {
+                var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                    "SELECT id FROM tenants WHERE subdomain = @sub LIMIT 1",
+                    new { sub }, cancellationToken: ct));
+                if (existing.HasValue)
+                {
+                    _logger.LogInformation("[DEC-070] Using tenant by subdomain '{Sub}': {TenantId}", sub, existing.Value);
+                    return existing.Value;
+                }
+            }
+
+            // 3) TERTIARY: AlFajr by name
+            var byName = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                "SELECT id FROM tenants WHERE name ILIKE @name LIMIT 1",
+                new { name = "%alfajr%" }, cancellationToken: ct));
+            if (byName.HasValue)
+            {
+                _logger.LogInformation("[DEC-070] Using tenant by name: {TenantId}", byName.Value);
+                return byName.Value;
+            }
+
+            if (attempt < MaxRetries)
+            {
+                if (attempt == 1 || attempt % 5 == 0)
+                {
+                    _logger.LogWarning("[DEC-070] No tenant found on attempt {Attempt}/{Max}, waiting {Ms}ms (need a user to log in first)",
+                        attempt, MaxRetries, RetryDelayMs);
+                }
+                try
+                {
+                    await Task.Delay(RetryDelayMs, ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    _logger.LogWarning("[DEC-070] Cancelled while waiting for tenant");
+                    return Guid.Empty;
+                }
             }
         }
 
-        // Fallback: search by name
-        var byName = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
-            "SELECT id FROM tenants WHERE name ILIKE @name LIMIT 1",
-            new { name = "%alfajr%" }, cancellationToken: ct));
-        if (byName.HasValue)
-        {
-            _logger.LogInformation("[DEC-069] Using existing tenant (by name): {TenantId}", byName.Value);
-            return byName.Value;
-        }
-
-        // Last resort: any tenant
-        var anyTenant = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
-            "SELECT id FROM tenants ORDER BY created_at ASC LIMIT 1", cancellationToken: ct));
-        if (anyTenant.HasValue)
-        {
-            _logger.LogWarning("[DEC-069] Using FIRST tenant (no AlFajr match): {TenantId}", anyTenant.Value);
-            return anyTenant.Value;
-        }
-
-        // Create new if no tenants exist (shouldn't happen in production)
-        var newId = Guid.NewGuid();
-        const string insertSql = @"
-            INSERT INTO tenants (id, name, subdomain, is_active, created_at)
-            VALUES (@Id, 'AlFajr Holding', 'alfajr-holding', true, @Now)";
-        await conn.ExecuteAsync(new CommandDefinition(insertSql, new
-        {
-            Id = newId,
-            Now = DateTime.UtcNow
-        }, cancellationToken: ct));
-        _logger.LogWarning("[DEC-069] Created new tenant: {TenantId}", newId);
-        return newId;
+        // 4) NEVER CREATE: After 60s, give up. Seed will abort.
+        _logger.LogError("[DEC-070] No tenant found after {Max} attempts ({Sec}s). Aborting seed. " +
+            "User must log in first to create a tenant.", MaxRetries, MaxRetries * RetryDelayMs / 1000);
+        return Guid.Empty;
     }
 
     // ==================== Companies (5) ====================
