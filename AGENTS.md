@@ -249,3 +249,33 @@ test(auth): add JwtTokenService tests
 ---
 
 **حافظ على هذا الملف محدّثاً** عند إضافة AGENTS.md جديدة أو tech جديد.
+
+---
+
+## 🌿 Branching Strategy (DEC-052)
+
+This project uses **GitHub Flow + develop branch**:
+
+- `main` = production (protected — required reviews + CI check)
+- `develop` = integration (protected — required reviews + CI check)
+- `feature/*`, `fix/*`, `hotfix/*`, `docs/*` = working branches
+
+### Before starting work:
+
+1. Read AGENTS.md (this file)
+2. Check existing branches: `git branch -a`
+3. Create branch from `develop` (or `main` for hotfixes):
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git worktree add ../wt-$(name) -b <branch-name> develop
+   ```
+
+### Branch naming:
+
+- `feature/<epic>-<description>` (e.g., `feature/M1-add-login`)
+- `fix/<issue-number>-<description>` (e.g., `fix/123-alburj-bug`)
+- `hotfix/<description>` (e.g., `hotfix/critical-prod-fix`)
+- `docs/<description>` (e.g., `docs/update-readme`)
+
+See `.github/BRANCHING.md` for full details.
