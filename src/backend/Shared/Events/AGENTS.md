@@ -121,3 +121,18 @@ Auto-discovered via DI — just register `AddScoped<IIntegrationEventHandler<TEv
 - [`../../Modules/Procurement/AGENTS.md`](../../Modules/Procurement/AGENTS.md) — Phase 3 (POApproved, GoodsReceived)
 - [`../../Modules/HR/AGENTS.md`](../../Modules/HR/AGENTS.md) — Phase 3.5 (LeaveApproved)
 - [`../../Modules/Payroll/AGENTS.md`](../../Modules/Payroll/AGENTS.md) — Phase 4 (PayrollPosted → Finance auto-post)
+
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project works with an analytical team via the **Brainstorming Lab**.
+
+- **When to read from hub**: ONLY when explicitly instructed by the analytical team
+- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
+- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+
+See root [`AGENTS.md`](../../../../AGENTS.md) for full cross-team protocol.
+
+Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
