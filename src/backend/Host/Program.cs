@@ -9,6 +9,7 @@ using System.Text.Json.Serialization;
 using Dapper;
 using ERPSystem.Host.Middleware;
 using ERPSystem.Shared.Audit;
+using ERPSystem.Shared.DataTypes;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -288,6 +289,7 @@ builder.Services.AddFluentMigratorCore()
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
+builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079: JSON-driven additive schema migrator (runs after FluentMigrator)
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
 // ============ Seeder feature flags (Sprint-4 Day 1, DEC-023/DEC-032 + DEC-064) ============
