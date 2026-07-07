@@ -13,6 +13,7 @@
     { "name": "phone", "type": "varchar(50)", "nullable": true },
     { "name": "address", "type": "text", "nullable": true },
     { "name": "tax_number", "type": "varchar(50)", "nullable": true },
+    { "name": "website", "type": "varchar(200)", "nullable": true },
     { "name": "currency", "type": "varchar(3)", "nullable": false, "default": "'LYD'" },
     { "name": "payment_terms", "type": "varchar(20)", "nullable": false, "default": "'Net30'" },
     { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
