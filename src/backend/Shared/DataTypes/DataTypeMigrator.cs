@@ -167,14 +167,35 @@ public sealed class DataTypeMigrator
         var sb = new StringBuilder();
         sb.Append($"CREATE TABLE {dt.Table} (");
         var first = true;
+        var pkFields = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        // DEC-083: composite PK support — use DataType.PrimaryKey if defined
+        if (dt.PrimaryKey != null && dt.PrimaryKey.Count > 0)
+        {
+            foreach (var pk in dt.PrimaryKey) pkFields.Add(pk);
+        }
+        else
+        {
+            // Legacy: fields with primary_key=true
+            foreach (var f in dt.Fields)
+            {
+                if (f.PrimaryKey) pkFields.Add(f.Name);
+            }
+        }
+
         foreach (var f in dt.Fields)
         {
             if (!first) sb.Append(", ");
             first = false;
             sb.Append(QuoteIdent(f.Name)).Append(' ').Append(f.Type);
-            if (f.PrimaryKey) sb.Append(" PRIMARY KEY");
-            if (!f.Nullable && !f.PrimaryKey) sb.Append(" NOT NULL");
+            if (pkFields.Contains(f.Name)) sb.Append(" NOT NULL");  // PK columns are implicitly NOT NULL
+            else if (!f.Nullable) sb.Append(" NOT NULL");
             if (!string.IsNullOrEmpty(f.Default)) sb.Append(" DEFAULT ").Append(f.Default);
+        }
+        // Append the primary key constraint (composite or single)
+        if (pkFields.Count > 0)
+        {
+            var pkCols = string.Join(", ", pkFields.Select(QuoteIdent));
+            sb.Append(", PRIMARY KEY (").Append(pkCols).Append(")");
         }
         sb.Append(");");
         await conn.ExecuteAsync(new CommandDefinition(sb.ToString(), cancellationToken: ct));
