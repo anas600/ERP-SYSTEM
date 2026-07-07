@@ -14,6 +14,7 @@ public sealed class CreateVendorRequest
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+    public string? Website { get; set; }  // DEC-081b
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
 }
@@ -40,6 +41,7 @@ public sealed class VendorResponse
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+    public string? Website { get; set; }  // DEC-081b
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
     public bool IsActive { get; set; }

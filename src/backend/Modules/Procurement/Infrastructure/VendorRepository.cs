@@ -11,6 +11,7 @@ public sealed class VendorRepository : IVendorRepository
     public VendorRepository(IDbConnectionFactory db) => _db = db;
 
     private const string Sel = @"id, tenant_id AS TenantId, code, name, email, phone, address, tax_number AS TaxNumber,
+        website,  -- DEC-081b (added via JSON migration DEC-081a)
         currency, payment_terms AS PaymentTerms, is_active AS IsActive,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
@@ -45,10 +46,12 @@ public sealed class VendorRepository : IVendorRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, currency, payment_terms,
-                                 is_active, created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @Code, @Name, @Email, @Phone, @Address, @TaxNumber, @Currency, @PaymentTerms,
-                    @IsActive, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
+            INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, website,
+                                 currency, payment_terms, is_active,
+                                 created_at, created_by, updated_at, updated_by)
+            VALUES (@Id, @TenantId, @Code, @Name, @Email, @Phone, @Address, @TaxNumber, @Website,
+                    @Currency, @PaymentTerms, @IsActive,
+                    @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
             v, cancellationToken: ct));
     }
 
@@ -57,7 +60,8 @@ public sealed class VendorRepository : IVendorRepository
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
             UPDATE vendors SET name = @Name, email = @Email, phone = @Phone, address = @Address,
-                              tax_number = @TaxNumber, currency = @Currency, payment_terms = @PaymentTerms,
+                              tax_number = @TaxNumber, website = @Website,
+                              currency = @Currency, payment_terms = @PaymentTerms,
                               is_active = @IsActive, updated_at = @UpdatedAt, updated_by = @UpdatedBy
             WHERE id = @Id", v, cancellationToken: ct));
     }
