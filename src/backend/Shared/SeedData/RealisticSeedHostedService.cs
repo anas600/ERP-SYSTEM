@@ -18,6 +18,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private readonly IServiceProvider _rootServiceProvider;
     private readonly ILogger<RealisticSeedHostedService> _logger;
     private readonly IConfiguration _config;
+    private readonly JsonSeedLoader _seedLoader = new();  // DEC-087: load seed data from JSON
 
     private static readonly DateTime ScenarioStart = new(2024, 7, 1);
     private static readonly DateTime ScenarioEnd = new(2026, 7, 1);
@@ -89,6 +90,19 @@ public sealed class RealisticSeedHostedService : BackgroundService
                 _logger.LogError("[DEC-069] Connectivity check FAILED — aborting seed");
                 return;
             }
+            _logger.LogInformation("[DEC-069] Connectivity OK");
+        SeedDebugState.ConnectivityCheckPassed = true;
+
+            // DEC-087: Load JSON seed data (for the 5 entities that have JSON files)
+            var seedDataDir = Path.Combine(AppContext.BaseDirectory, "data-types", "seeds");
+            if (!Directory.Exists(seedDataDir))
+            {
+                // Try relative to working directory (HF Spaces uses /app)
+                seedDataDir = Path.Combine(Directory.GetCurrentDirectory(), "data-types", "seeds");
+            }
+            _seedLoader.LoadFromDirectory(seedDataDir);
+            _logger.LogInformation("[DEC-087] Loaded {N} seed files from {Path}",
+                _seedLoader.Files.Count, seedDataDir);
             _logger.LogInformation("[DEC-069] Connectivity OK");
         SeedDebugState.ConnectivityCheckPassed = true;
 
@@ -346,40 +360,44 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedCompaniesAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
-        var companies = new (string code, string name)[]
+        // DEC-087: Read company data from JSON (data-types/seeds/seed_companies.json)
+        // instead of hardcoded C# arrays. The pattern is fully backward-compatible:
+        // existing rows in DB are detected via COUNT check.
+        var seedData = _seedLoader.GetFile("Company");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
         {
-            ("ALF", "AlFajr Trading & Contracting"),
-            ("ALB", "AlBurj Building Materials"),
-            ("ALN", "AlNoor Office Supplies"),
-            ("ALK", "AlKawn Food Services"),
-            ("ALKH", "AlNakhla Tourism & Cleaning")
-        };
+            _logger.LogWarning("[DEC-087] seed_companies.json not found — skipping companies seed");
+            return await GetExistingIdsAsync(factory, tenantId, "companies", ct);
+        }
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM companies WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= CompaniesCount) return await GetExistingIdsAsync(factory, tenantId, "companies", ct);
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "companies", ct);
 
         var companyIds = new List<Guid>();
-        for (int i = 0; i < companies.Length; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            // DEC-072: Schema fix — column 'currency' renamed to 'base_currency';
-            // 'created_by'/'updated_by' removed; added 'legal_name' + 'is_group'
+            // DEC-072: Schema fix — 'base_currency' (not 'currency'); 'legal_name' + 'is_group' columns
             const string sql = @"
                 INSERT INTO companies (id, tenant_id, code, name, legal_name, is_group, base_currency, is_active, created_at, updated_at)
-                VALUES (@Id, @T, @Code, @Name, @Name, false, 'LYD', true, @Now, @Now)";
+                VALUES (@Id, @T, @Code, @Name, @LegalName, @IsGroup, @BaseCurrency, @IsActive, @Now, @Now)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                Code = companies[i].code,
-                Name = companies[i].name,
+                Code = GetStr(rec, "code"),
+                Name = GetStr(rec, "name"),
+                LegalName = GetStrOrNull(rec, "legal_name") ?? GetStr(rec, "name"),
+                IsGroup = GetBool(rec, "is_group", false),
+                BaseCurrency = GetStr(rec, "base_currency", "LYD"),
+                IsActive = GetBool(rec, "is_active", true),
                 Now = DateTime.UtcNow
             }, cancellationToken: ct));
             companyIds.Add(id);
 
-            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (companyIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return companyIds;
     }
@@ -885,5 +903,52 @@ public sealed class RealisticSeedHostedService : BackgroundService
             await Task.Delay(YieldSleepMs, ct);
         }
         catch (OperationCanceledException) { /* expected on shutdown */ }
+    }
+
+    // ==================== JSON helpers (DEC-087) ====================
+
+    private static string GetStr(Dictionary<string, object> rec, string key, string fallback = "")
+    {
+        if (rec.TryGetValue(key, out var v) && v != null) return v.ToString() ?? fallback;
+        return fallback;
+    }
+
+    private static string? GetStrOrNull(Dictionary<string, object> rec, string key)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null) return v.ToString();
+        return null;
+    }
+
+    private static bool GetBool(Dictionary<string, object> rec, string key, bool fallback = false)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is bool b) return b;
+            if (bool.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
+    }
+
+    private static int GetInt(Dictionary<string, object> rec, string key, int fallback = 0)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is long l) return (int)l;
+            if (v is int i) return i;
+            if (int.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
+    }
+
+    private static decimal GetDecimal(Dictionary<string, object> rec, string key, decimal fallback = 0m)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is decimal d) return d;
+            if (v is double dbl) return (decimal)dbl;
+            if (v is long l) return l;
+            if (decimal.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
     }
 }
