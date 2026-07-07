@@ -13,6 +13,8 @@
     { "name": "reference", "type": "varchar(200)", "nullable": true },
     { "name": "status", "type": "integer", "nullable": false, "default": "1" },
     { "name": "created_by_user_id", "type": "uuid", "nullable": false },
+    { "name": "company_id", "type": "uuid", "nullable": true,  -- DEC-082 MultiCompany
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "set_null" } },
     { "name": "posted_at", "type": "timestamptz", "nullable": true },
     { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
     { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
@@ -20,6 +22,7 @@
   "indexes": [
     { "name": "ix_journal_entries_tenant_number", "columns": ["tenant_id", "entry_number"], "unique": true },
     { "name": "ix_journal_entries_tenant_date", "columns": ["tenant_id", "entry_date"] },
-    { "name": "ix_journal_entries_status", "columns": ["tenant_id", "status"] }
+    { "name": "ix_journal_entries_status", "columns": ["tenant_id", "status"] },
+    { "name": "ix_je_company", "columns": ["company_id"] }
   ]
 }
