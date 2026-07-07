@@ -8,6 +8,7 @@ namespace ERPSystem.Shared.DataTypes;
 /// classes for every change.
 ///
 /// DEC-079 PoC: 1 entity (companies) to prove the pattern works.
+/// DEC-083: Added composite primary key support (PrimaryKey list).
 /// </summary>
 public sealed class DataType
 {
@@ -26,6 +27,13 @@ public sealed class DataType
     /// <summary>Owning module (for grouping). E.g. "Companies", "Finance".</summary>
     [JsonPropertyName("module")]
     public string Module { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Composite primary key columns (DEC-083). If non-empty, used as PRIMARY KEY (col1, col2, ...).
+    /// If empty, the migrator falls back to fields with primary_key=true (legacy).
+    /// </summary>
+    [JsonPropertyName("primary_key")]
+    public List<string> PrimaryKey { get; set; } = new();
 
     /// <summary>Columns in this table (ordered).</summary>
     [JsonPropertyName("fields")]
