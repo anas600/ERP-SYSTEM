@@ -22,7 +22,8 @@
     { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
     { "name": "created_by", "type": "uuid", "nullable": false },
     { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
-    { "name": "updated_by", "type": "uuid", "nullable": true }
+    { "name": "updated_by", "type": "uuid", "nullable": true },
+    { "name": "deleted_at", "type": "timestamptz", "nullable": true }
   ],
   "indexes": [
     { "name": "ix_customers_tenant_code", "columns": ["tenant_id", "code"], "unique": true },

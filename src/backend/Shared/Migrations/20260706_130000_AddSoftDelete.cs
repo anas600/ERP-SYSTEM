@@ -28,25 +28,9 @@ public class AddSoftDelete : Migration
 
     public override void Up()
     {
-        foreach (var table in PrimaryTables)
-        {
-            if (Schema.Table(table).Exists() && !Schema.Table(table).Column("deleted_at").Exists())
-            {
-                Alter.Table(table).AddColumn("deleted_at").AsDateTime().Nullable();
-            }
-        }
-
-        // Index on deleted_at for fast "active records only" queries
-        foreach (var table in PrimaryTables)
-        {
-            if (Schema.Table(table).Exists() && Schema.Table(table).Column("deleted_at").Exists())
-            {
-                // Index name: ix_<table>_deleted_at
-                Create.Index($"ix_{table}_deleted_at")
-                    .OnTable(table)
-                    .OnColumn("deleted_at").Ascending();
-            }
-        }
+        // DEC-082: NoOp — schema now defined in JSON: deleted_at columns + ix_*_deleted_at indexes
+        // The DataTypeMigrator (DEC-079) handles all additive schema changes.
+        // This migration is kept so FluentMigrator versioninfo still records it as applied.
     }
 
     public override void Down()
