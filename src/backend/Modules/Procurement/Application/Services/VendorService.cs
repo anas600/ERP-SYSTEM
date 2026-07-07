@@ -45,6 +45,7 @@ public sealed class VendorService : IVendorService
             Id = Guid.NewGuid(), TenantId = tenantId,
             Code = req.Code.Trim(), Name = req.Name.Trim(),
             Email = req.Email, Phone = req.Phone, Address = req.Address, TaxNumber = req.TaxNumber,
+            Website = req.Website,  // DEC-081c: fix website persistence
             Currency = req.Currency.ToUpperInvariant(), PaymentTerms = req.PaymentTerms,
             IsActive = true,
             CreatedAt = now, CreatedBy = userId, UpdatedAt = now, UpdatedBy = userId
@@ -61,6 +62,7 @@ public sealed class VendorService : IVendorService
 
         v.Name = req.Name.Trim();
         v.Email = req.Email; v.Phone = req.Phone; v.Address = req.Address; v.TaxNumber = req.TaxNumber;
+        v.Website = req.Website;  // DEC-081c: fix website persistence
         v.Currency = req.Currency.ToUpperInvariant();
         v.PaymentTerms = req.PaymentTerms;
         v.IsActive = req.IsActive;
@@ -101,6 +103,7 @@ public sealed class VendorService : IVendorService
     {
         Id = v.Id, TenantId = v.TenantId, Code = v.Code, Name = v.Name,
         Email = v.Email, Phone = v.Phone, Address = v.Address, TaxNumber = v.TaxNumber,
+        Website = v.Website,  // DEC-081c
         Currency = v.Currency, PaymentTerms = v.PaymentTerms, IsActive = v.IsActive
     };
 }
