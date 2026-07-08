@@ -506,41 +506,57 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedGoodsReceiptsAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> vendorIds, List<Guid> itemIds, CancellationToken ct)
     {
+        // DEC-090: Read GR data from JSON (data-types/seeds/seed_grns.json)
+        var seedData = _seedLoader.GetFile("GoodsReceipt");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_grns.json not found — skipping goods_receipts seed");
+            return await GetExistingIdsAsync(factory, tenantId, "goods_receipts", ct);
+        }
+
         if (vendorIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM goods_receipts WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= GoodsReceiptsCount) return new List<Guid>();
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "goods_receipts", ct);
 
-        var rng = new Random(123);
+        // DEC-090: Look up the first PO + warehouse for FK references
+        var firstPo = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM purchase_orders WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+        if (firstPo == null)
+        {
+            _logger.LogWarning("[DEC-090] No PO found for GR FKs — skipping goods_receipts seed");
+            return new List<Guid>();
+        }
+        var firstWarehouse = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM warehouses WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+
         var grIds = new List<Guid>();
-        for (int i = 1; i <= GoodsReceiptsCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var monthOffset = rng.Next(0, TotalMonths);
-            var day = rng.Next(1, 28);
-            var date = ScenarioStart.AddMonths(monthOffset).AddDays(day);
-            if (date > DateTime.UtcNow) date = DateTime.UtcNow.AddDays(-rng.Next(1, 30));
-
-            var vendor = vendorIds[rng.Next(vendorIds.Count)];
             const string sql = @"
-                INSERT INTO goods_receipts (id, tenant_id, gr_number, vendor_id, status, receipt_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @GrNumber, @Vendor, 2, @Date, @Amount, 'LYD', @Now, @Now, @User, @User)";
+                INSERT INTO goods_receipts (id, tenant_id, gr_number, purchase_order_id, vendor_id, warehouse_id, status, receipt_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @GrNumber, @PO, @Vendor, @Warehouse, 2, @Date, @Amount, 'LYD', @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                GrNumber = $"GR-{i:D5}",
-                Vendor = vendor,
-                Date = date,
-                Amount = 1000m + (i * 200m) + (rng.Next(0, 1000) * 1m),
+                GrNumber = GetStr(rec, "gr_number"),
+                PO = firstPo,
+                Vendor = vendorIds.Count > 0 ? vendorIds[0] : Guid.Empty,
+                Warehouse = firstWarehouse ?? Guid.Empty,
+                Date = DateTime.TryParse(GetStrOrNull(rec, "received_date") ?? "", out var d) ? d : ScenarioStart,
+                Amount = 1500m + (id.GetHashCode() % 5000),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             grIds.Add(id);
 
-            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (grIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return grIds;
     }
@@ -550,63 +566,46 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedBillsAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> vendorIds, List<Guid> itemIds, CancellationToken ct)
     {
+        // DEC-090: Read bill headers from JSON. Line items remain in C# (future DEC-091 will move them).
+        var seedData = _seedLoader.GetFile("VendorBill");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_bills.json not found — skipping bills seed");
+            return await GetExistingIdsAsync(factory, tenantId, "vendor_bills", ct);
+        }
+
         if (vendorIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM vendor_bills WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= BillsCount) return new List<Guid>();
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "vendor_bills", ct);
 
-        var rng = new Random(456);
+        // DEC-090: Look up the first vendor for FK reference
+        var firstVendor = vendorIds[0];
+
         var billIds = new List<Guid>();
-        for (int i = 1; i <= BillsCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var monthOffset = rng.Next(0, TotalMonths);
-            var day = rng.Next(1, 28);
-            var date = ScenarioStart.AddMonths(monthOffset).AddDays(day);
-            if (date > DateTime.UtcNow) date = DateTime.UtcNow.AddDays(-rng.Next(1, 30));
-
-            var vendor = vendorIds[rng.Next(vendorIds.Count)];
-            var item = itemIds[rng.Next(itemIds.Count)];
-            var qty = 1m + (rng.Next(1, 10) * 1m);
-            var unitCost = 50m + (rng.Next(0, 500) * 1m);
-            var lineTotal = qty * unitCost;
-
-            const string insertBill = @"
-                INSERT INTO vendor_bills (id, tenant_id, bill_number, vendor_id, status, bill_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @BillNumber, @Vendor, 2, @Date, @Total, 'LYD', @Now, @Now, @User, @User)";
-            await conn.ExecuteAsync(new CommandDefinition(insertBill, new
+            const string sql = @"
+                INSERT INTO vendor_bills (id, tenant_id, bill_number, vendor_id, status, bill_date, due_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @BillNumber, @Vendor, 2, @BillDate, @DueDate, @Amount, 'LYD', @Now, @Now, @User, @User)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                BillNumber = $"B-{i:D5}",
-                Vendor = vendor,
-                Date = date,
-                Total = lineTotal,
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
-            }, cancellationToken: ct));
-
-            var lineId = Guid.NewGuid();
-            const string insertLine = @"
-                INSERT INTO vendor_bill_lines (id, tenant_id, bill_id, item_id, quantity, unit_cost, line_total, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Bill, @Item, @Qty, @UnitCost, @LineTotal, @Now, @Now, @User, @User)";
-            await conn.ExecuteAsync(new CommandDefinition(insertLine, new
-            {
-                Id = lineId,
-                T = tenantId,
-                Bill = id,
-                Item = item,
-                Qty = qty,
-                UnitCost = unitCost,
-                LineTotal = lineTotal,
+                BillNumber = GetStr(rec, "bill_number"),
+                Vendor = firstVendor,
+                BillDate = DateTime.Parse(GetStrOrNull(rec, "bill_date") ?? DateTime.UtcNow.AddMonths(-6).ToString("o")),
+                DueDate = DateTime.Parse(GetStrOrNull(rec, "due_date") ?? DateTime.UtcNow.AddMonths(-3).ToString("o")),
+                Amount = GetDecimal(rec, "total_amount", 5000m),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             billIds.Add(id);
 
-            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (billIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return billIds;
     }
@@ -616,61 +615,48 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedSalesInvoicesAsync(
         IDbConnectionFactory factory, Guid tenantId, List<Guid> customerIds, List<Guid> itemIds, CancellationToken ct)
     {
+        // DEC-090: Read sales invoice headers from JSON. Line items remain in C# (DEC-085 fix: 'currency_code')
+        var seedData = _seedLoader.GetFile("SalesInvoice");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_sales_invoices.json not found — skipping sales invoices seed");
+            return await GetExistingIdsAsync(factory, tenantId, "sales_invoices", ct);
+        }
+
         if (customerIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM sales_invoices WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= SalesInvoicesCount) return new List<Guid>();
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "sales_invoices", ct);
 
-        var rng = new Random(789);
+        // DEC-090: Look up the first customer for FK reference
+        var firstCustomer = customerIds[0];
+
         var invIds = new List<Guid>();
-        for (int i = 1; i <= SalesInvoicesCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var monthOffset = rng.Next(0, TotalMonths);
-            var day = rng.Next(1, 28);
-            var date = ScenarioStart.AddMonths(monthOffset).AddDays(day);
-            if (date > DateTime.UtcNow) date = DateTime.UtcNow.AddDays(-rng.Next(1, 30));
-
-            var customer = customerIds[rng.Next(customerIds.Count)];
-            var item = itemIds[rng.Next(itemIds.Count)];
-            var amount = 2000m + (rng.Next(0, 5000) * 1m);
-
-            const string insertInvoice = @"
-                INSERT INTO sales_invoices (id, tenant_id, invoice_number, customer_id, status, invoice_date, total_amount, currency, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @InvoiceNumber, @Customer, 2, @Date, @Amount, 'LYD', @Now, @Now, @User, @User)";
-            await conn.ExecuteAsync(new CommandDefinition(insertInvoice, new
+            // DEC-085 fix: column is named 'currency_code', not 'currency'
+            const string sql = @"
+                INSERT INTO sales_invoices (id, tenant_id, invoice_number, customer_id, status, invoice_date, due_date, total_amount, currency_code, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @InvoiceNumber, @Customer, 2, @IssueDate, @DueDate, @Amount, @Currency, @Now, @Now, @User, @User)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                InvoiceNumber = $"INV-{i:D5}",
-                Customer = customer,
-                Date = date,
-                Amount = amount,
-                Now = DateTime.UtcNow,
-                User = Guid.Empty
-            }, cancellationToken: ct));
-
-            var lineId = Guid.NewGuid();
-            const string insertLine = @"
-                INSERT INTO sales_invoice_lines (id, tenant_id, invoice_id, item_id, quantity, unit_price, line_total, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Invoice, @Item, @Qty, @UnitPrice, @LineTotal, @Now, @Now, @User, @User)";
-            await conn.ExecuteAsync(new CommandDefinition(insertLine, new
-            {
-                Id = lineId,
-                T = tenantId,
-                Invoice = id,
-                Item = item,
-                Qty = 1m,
-                UnitPrice = amount,
-                LineTotal = amount,
+                InvoiceNumber = GetStr(rec, "invoice_number"),
+                Customer = firstCustomer,
+                IssueDate = DateTime.Parse(GetStrOrNull(rec, "issue_date") ?? DateTime.UtcNow.AddMonths(-6).ToString("o")),
+                DueDate = DateTime.Parse(GetStrOrNull(rec, "due_date") ?? DateTime.UtcNow.AddMonths(-3).ToString("o")),
+                Amount = GetDecimal(rec, "total_amount", 5000m),
+                Currency = GetStr(rec, "currency_code", "LYD"),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             invIds.Add(id);
 
-            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (invIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return invIds;
     }
