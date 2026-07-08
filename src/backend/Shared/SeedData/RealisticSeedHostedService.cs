@@ -214,6 +214,219 @@ public sealed class RealisticSeedHostedService : BackgroundService
         return ids.ToList();
     }
 
+    // ==================== Chart of Accounts (DEC-090 Part 2) ====================
+
+    private async Task<List<Guid>> SeedGlsAsync(
+        IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
+    {
+        // DEC-090: Read GL accounts from JSON (data-types/seeds/seed_gls.json)
+        var seedData = _seedLoader.GetFile("Account");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_gls.json not found — skipping GLs seed");
+            return await GetExistingIdsAsync(factory, tenantId, "accounts", ct);
+        }
+
+        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM accounts WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "accounts", ct);
+
+        // Look up parent accounts by code for self-referencing FK
+        var accountIds = new Dictionary<string, Guid>();
+        var glIds = new List<Guid>();
+        foreach (var rec in seedData.Records)
+        {
+            var id = Guid.NewGuid();
+            var code = GetStr(rec, "code");
+            string? parentCode = null;
+            // Parent accounts: 4-digit codes have 2-digit prefix (11, 21, 31, 41, 51, 61, 71)
+            if (code.Length == 4)
+            {
+                var prefix = code.Substring(0, 2);
+                var possibleParent = prefix + "00";
+                if (code != possibleParent) parentCode = possibleParent;
+            }
+
+            Guid? parentId = null;
+            if (parentCode != null)
+            {
+                if (accountIds.TryGetValue(parentCode, out var pid)) parentId = pid;
+            }
+
+            const string sql = @"
+                INSERT INTO accounts (id, tenant_id, code, name, type, normal_balance, is_postable, is_active, created_at, updated_at, parent_account_id)
+                VALUES (@Id, @T, @Code, @Name, @Type, @NormalBalance, @IsPostable, true, @Now, @Now, @ParentId)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                Id = id,
+                T = tenantId,
+                Code = code,
+                Name = GetStr(rec, "name"),
+                Type = GetInt(rec, "type", 1),
+                NormalBalance = GetInt(rec, "normal_balance", 1),
+                IsPostable = GetBool(rec, "is_postable", true),
+                ParentId = parentId,
+                Now = DateTime.UtcNow
+            }, cancellationToken: ct));
+            accountIds[code] = id;
+            glIds.Add(id);
+
+            if (glIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
+        }
+        return glIds;
+    }
+
+    // ==================== Employees (DEC-090 Part 2) ====================
+
+    private async Task<List<Guid>> SeedEmployeesAsync(
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, CancellationToken ct)
+    {
+        // DEC-090: Read employees from JSON (data-types/seeds/seed_employees.json)
+        var seedData = _seedLoader.GetFile("Employee");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_employees.json not found — skipping employees seed");
+            return new List<Guid>();
+        }
+
+        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM employees WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
+        if (existing >= seedData.Records.Count) return new List<Guid>();
+
+        // Look up first department for FK reference
+        var firstDept = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM departments WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+
+        var empIds = new List<Guid>();
+        foreach (var rec in seedData.Records)
+        {
+            var id = Guid.NewGuid();
+            const string sql = @"
+                INSERT INTO employees (id, tenant_id, employee_number, full_name, email, phone, national_id, department_id, job_title, hire_date, base_salary, is_active, created_at, created_by, updated_at, updated_by)
+                VALUES (@Id, @T, @EmpNum, @FullName, @Email, @Phone, @NationalId, @DeptId, @JobTitle, @HireDate, @BaseSalary, true, @Now, @User, @Now, @User)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                Id = id,
+                T = tenantId,
+                EmpNum = GetStr(rec, "employee_number"),
+                FullName = GetStr(rec, "full_name"),
+                Email = GetStrOrNull(rec, "email"),
+                Phone = GetStrOrNull(rec, "phone"),
+                NationalId = GetStrOrNull(rec, "national_id"),
+                DeptId = firstDept,
+                JobTitle = GetStrOrNull(rec, "job_title"),
+                HireDate = DateTime.TryParse(GetStrOrNull(rec, "hire_date") ?? "", out var d) ? d : ScenarioStart,
+                BaseSalary = GetDecimal(rec, "base_salary", 5000m),
+                Now = DateTime.UtcNow,
+                User = adminUserId
+            }, cancellationToken: ct));
+            empIds.Add(id);
+
+            if (empIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
+        }
+        return empIds;
+    }
+
+    // ==================== Cost Centers (DEC-090 Part 2) ====================
+
+    private async Task<List<Guid>> SeedCostCentersAsync(
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, CancellationToken ct)
+    {
+        // DEC-090: Read cost centers from JSON (data-types/seeds/seed_cost_centers.json)
+        var seedData = _seedLoader.GetFile("CostCenter");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_cost_centers.json not found — skipping cost centers seed");
+            return new List<Guid>();
+        }
+
+        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM cost_centers WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
+        if (existing >= seedData.Records.Count) return new List<Guid>();
+
+        // Look up first company for FK reference
+        var firstCompany = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+
+        var ccIds = new List<Guid>();
+        foreach (var rec in seedData.Records)
+        {
+            var id = Guid.NewGuid();
+            const string sql = @"
+                INSERT INTO cost_centers (id, tenant_id, company_id, code, name, type, budget_amount, is_active, created_at, created_by, updated_at, updated_by)
+                VALUES (@Id, @T, @CompanyId, @Code, @Name, @Type, @Budget, true, @Now, @User, @Now, @User)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                Id = id,
+                T = tenantId,
+                CompanyId = firstCompany,
+                Code = GetStr(rec, "code"),
+                Name = GetStr(rec, "name"),
+                Type = GetInt(rec, "type", 0),
+                Budget = GetDecimal(rec, "budget_amount", 0m),
+                Now = DateTime.UtcNow,
+                User = adminUserId
+            }, cancellationToken: ct));
+            ccIds.Add(id);
+
+            if (ccIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
+        }
+        return ccIds;
+    }
+
+    // ==================== Purchase Orders (DEC-090 Part 2) ====================
+
+    private async Task<List<Guid>> SeedPOsAsync(
+        IDbConnectionFactory factory, Guid tenantId, Guid adminUserId, List<Guid> vendorIds, List<Guid> itemIds, CancellationToken ct)
+    {
+        // DEC-090: Read POs from JSON (data-types/seeds/seed_pos.json)
+        var seedData = _seedLoader.GetFile("PurchaseOrder");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-090] seed_pos.json not found — skipping POs seed");
+            return new List<Guid>();
+        }
+
+        if (vendorIds.Count == 0 || itemIds.Count == 0) return new List<Guid>();
+
+        using var conn = await factory.CreateOltpConnectionAsync(ct);
+        var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM purchase_orders WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "purchase_orders", ct);
+
+        var firstVendor = vendorIds[0];
+
+        var poIds = new List<Guid>();
+        foreach (var rec in seedData.Records)
+        {
+            var id = Guid.NewGuid();
+            // DEC-085: 'currency_code' (NOT 'currency')
+            const string sql = @"
+                INSERT INTO purchase_orders (id, tenant_id, po_number, vendor_id, status, order_date, expected_date, currency_code, created_at, created_by, updated_at, updated_by)
+                VALUES (@Id, @T, @PoNum, @Vendor, 2, @OrderDate, @ExpectedDate, 'LYD', @Now, @User, @Now, @User)";
+            await conn.ExecuteAsync(new CommandDefinition(sql, new
+            {
+                Id = id,
+                T = tenantId,
+                PoNum = GetStr(rec, "po_number"),
+                Vendor = firstVendor,
+                OrderDate = DateTime.TryParse(GetStrOrNull(rec, "order_date") ?? "", out var d) ? d : ScenarioStart,
+                ExpectedDate = DateTime.TryParse(GetStrOrNull(rec, "expected_date") ?? "", out var ed) ? ed : ScenarioStart.AddMonths(1),
+                Now = DateTime.UtcNow,
+                User = adminUserId
+            }, cancellationToken: ct));
+            poIds.Add(id);
+
+            if (poIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
+        }
+        return poIds;
+    }
+
     // ==================== Tenant ====================
 
     private async Task<Guid> GetOrCreateTenantAsync(IDbConnectionFactory factory, CancellationToken ct)
