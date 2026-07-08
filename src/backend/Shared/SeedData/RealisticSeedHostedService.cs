@@ -19,6 +19,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private readonly IServiceProvider _rootServiceProvider;
     private readonly ILogger<RealisticSeedHostedService> _logger;
     private readonly IConfiguration _config;
+    private readonly JsonSeedLoader _seedLoader = new();  // DEC-087/088: JSON-driven seed
 
     private static readonly DateTime ScenarioStart = new(2024, 7, 1);
     private static readonly DateTime ScenarioEnd = new(2026, 7, 1);
@@ -30,6 +31,7 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private const int BillsCount = 100;
     private const int SalesInvoicesCount = 50;
     private const int JournalEntriesCount = 200;
+    private const int TotalMonths = 24;  // DEC-088: restored constant (was lost in refactor)
     private const int InitialDelayMs = 5000;
     private const int YieldEveryRecords = 50;
     private const int YieldSleepMs = 50;
@@ -84,11 +86,27 @@ public sealed class RealisticSeedHostedService : BackgroundService
             }
             _logger.LogInformation("[DEC-069] Connectivity OK");
 
+            // DEC-087/088: Load JSON seed data (for the 5 entities that have JSON files)
+            var seedDataDir = Path.Combine(AppContext.BaseDirectory, "data-types", "seeds");
+            if (!Directory.Exists(seedDataDir))
+            {
+                seedDataDir = Path.Combine(Directory.GetCurrentDirectory(), "data-types", "seeds");
+            }
+            _seedLoader.LoadFromDirectory(seedDataDir);
+            _logger.LogInformation("[DEC-088] Loaded {N} seed files from {Path}",
+                _seedLoader.Files.Count, seedDataDir);
+
             // DEC-069: Per-step scope (more reliable than one big scope)
-            var tenantId = await StepWithScopeAsync(
+            // DEC-070: GetOrCreateTenantAsync returns Guid, not List<Guid> — wrap in list for StepWithScopeAsync
+            var tenantIdWrapper = await StepWithScopeAsync(
                 "GetOrCreateTenant",
-                async (factory, ct) => await GetOrCreateTenantAsync(factory, ct),
+                async (factory, ct) =>
+                {
+                    var id = await GetOrCreateTenantAsync(factory, ct);
+                    return id == Guid.Empty ? new List<Guid>() : new List<Guid> { id };
+                },
                 stoppingToken);
+            var tenantId = tenantIdWrapper.FirstOrDefault();
 
             if (tenantId == Guid.Empty)
             {
@@ -146,9 +164,8 @@ public sealed class RealisticSeedHostedService : BackgroundService
             using var scope = _rootServiceProvider.CreateScope();
             var factory = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
             using var conn = await factory.CreateOltpConnectionAsync(ct);
-            using var cmd = conn.CreateCommand();
-            cmd.CommandText = "SELECT 1";
-            var result = await cmd.ExecuteScalarAsync(ct);
+            var result = await conn.ExecuteScalarAsync<int?>(new CommandDefinition(
+                "SELECT 1", cancellationToken: ct));
             _logger.LogInformation("[DEC-069] SELECT 1 → {Result}", result);
             return result != null;
         }
@@ -188,6 +205,9 @@ public sealed class RealisticSeedHostedService : BackgroundService
 
     // ... rest stays the same (GetOrCreateTenantAsync, SeedCompaniesAsync, etc.)
     // For brevity, these methods remain as in the original file
+    private async Task<List<Guid>> GetExistingIdsAsync(
+        IDbConnectionFactory factory, Guid tenantId, string table, CancellationToken ct)
+    {
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var sql = $"SELECT id FROM {table} WHERE tenant_id = @T";
         var ids = await conn.QueryAsync<Guid>(new CommandDefinition(sql, new { T = tenantId }, cancellationToken: ct));
@@ -261,48 +281,50 @@ public sealed class RealisticSeedHostedService : BackgroundService
         return companyIds;
     }
 
-    // ==================== Vendors (15) ====================
+    // ==================== Vendors (25) ====================
 
     private async Task<List<Guid>> SeedVendorsAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
-        var sectors = new[] { "مواد بناء", "مكاتب", "خدمات", "نقل", "صيانة", "كهرباء", "سباكة", "دهان", "تغذية", "تنظيف" };
-        var firstNames = new[] { "عبدالله", "محمد", "سالم", "فاطمة", "ليلى", "أحمد", "سعد", "نورة", "خالد", "منى" };
+        // DEC-088: Read vendor data from JSON (data-types/seeds/seed_vendors.json)
+        var seedData = _seedLoader.GetFile("Vendor");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-088] seed_vendors.json not found — skipping vendors seed");
+            return await GetExistingIdsAsync(factory, tenantId, "vendors", ct);
+        }
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM vendors WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= VendorsCount) return await GetExistingIdsAsync(factory, tenantId, "vendors", ct);
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "vendors", ct);
 
         var vendorIds = new List<Guid>();
-        for (int i = 1; i <= VendorsCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var code = $"V-{i:D3}";
-            var name = $"Vendor {i} ({sectors[i % sectors.Length]})";
-            var contact = $"{firstNames[i % firstNames.Length]} المبيعات";
-            var email = $"vendor{i}@example.ly";
-            var phone = $"+21891{i:D7}";
-
+            // DEC-072: 'contact_name' and 'balance' columns were dropped; 'email'/'phone'/'address'/'tax_number' added
             const string sql = @"
-                INSERT INTO vendors (id, tenant_id, code, name, contact_name, email, phone, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Contact, @Email, @Phone, @Balance, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO vendors (id, tenant_id, code, name, email, phone, address, tax_number, currency, payment_terms, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @Code, @Name, @Email, @Phone, @Address, @Tax, @Currency, @PaymentTerms, true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                Code = code,
-                Name = name,
-                Contact = contact,
-                Email = email,
-                Phone = phone,
-                Balance = 5000m + (i * 1000m),
+                Code = GetStr(rec, "code"),
+                Name = GetStr(rec, "name"),
+                Email = GetStrOrNull(rec, "email") ?? "",
+                Phone = GetStrOrNull(rec, "phone") ?? "",
+                Address = GetStrOrNull(rec, "address") ?? "",
+                Tax = GetStrOrNull(rec, "tax_number"),
+                Currency = GetStr(rec, "currency", "LYD"),
+                PaymentTerms = GetStr(rec, "payment_terms", "Net30"),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             vendorIds.Add(id);
 
-            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (vendorIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return vendorIds;
     }
@@ -312,39 +334,45 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedCustomersAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
-        var customerTypes = new[] { "Government", "Private", "Mixed" };
-        var orgs = new[] { "وزارة الإسكان", "شركة الإنماء", "مؤسسة النفط", "بلدية طرابلس", "هيئة الطرق", "مصرف ليبيا", "شركة البريقة", "مجمع الفاتح", "فندق كورنثيا", "مستشفى طرابلس المركزي" };
+        // DEC-088: Read customer data from JSON (data-types/seeds/seed_customers.json)
+        var seedData = _seedLoader.GetFile("Customer");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-088] seed_customers.json not found — skipping customers seed");
+            return await GetExistingIdsAsync(factory, tenantId, "customers", ct);
+        }
 
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM customers WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= CustomersCount) return await GetExistingIdsAsync(factory, tenantId, "customers", ct);
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "customers", ct);
 
         var customerIds = new List<Guid>();
-        for (int i = 1; i <= CustomersCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var code = $"C-{i:D3}";
-            var name = i <= 10 ? orgs[i - 1] : $"Customer {i} (Private)";
-            var type = customerTypes[i % customerTypes.Length];
-
+            // DEC-072: 'type' and 'balance' columns were dropped; 'tax_id' and 'payment_terms_days' added
             const string sql = @"
-                INSERT INTO customers (id, tenant_id, code, name, type, balance, currency, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @Code, @Name, @Type, @Balance, 'LYD', true, @Now, @Now, @User, @User)";
+                INSERT INTO customers (id, tenant_id, code, name, tax_id, email, phone, address, credit_limit, payment_terms_days, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @Code, @Name, @TaxId, @Email, @Phone, @Address, @CreditLimit, @PaymentTermsDays, true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                Code = code,
-                Name = name,
-                Type = type,
-                Balance = 3000m + (i * 750m),
+                Code = GetStr(rec, "code"),
+                Name = GetStr(rec, "name"),
+                TaxId = GetStrOrNull(rec, "tax_id"),
+                Email = GetStrOrNull(rec, "email") ?? "",
+                Phone = GetStrOrNull(rec, "phone") ?? "",
+                Address = GetStrOrNull(rec, "address") ?? "",
+                CreditLimit = GetDecimal(rec, "credit_limit", 0m),
+                PaymentTermsDays = GetInt(rec, "payment_terms_days", 30),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             customerIds.Add(id);
 
-            if (i % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (customerIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return customerIds;
     }
@@ -354,30 +382,36 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedProjectsAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
+        // DEC-088: Read project data from JSON (data-types/seeds/seed_projects.json)
+        var seedData = _seedLoader.GetFile("Project");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-088] seed_projects.json not found — skipping projects seed");
+            return await GetExistingIdsAsync(factory, tenantId, "projects", ct);
+        }
+
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM projects WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= ProjectsCount) return await GetExistingIdsAsync(factory, tenantId, "projects", ct);
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "projects", ct);
 
-        var statuses = new[] { 0, 0, 1, 1, 2, 2, 3, 3 };
-        var projectNames = new[] {
-            "مشروع طريق المطار", "تطوير مجمع السكني", "صيانة المدارس",
-            "بناء مستشفى الأطفال", "تحديث البنية التحتية للمياه",
-            "مشروع الإسكان الاجتماعي", "مجمع تجاري الشط", "صيانة الطرق السريعة"
-        };
+        // Look up the first company + cost_center for FK references
+        var companyId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+        if (companyId == null)
+        {
+            _logger.LogWarning("[DEC-088] No company found for project FKs — skipping");
+            return new List<Guid>();
+        }
+        var costCenterId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM cost_centers WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
 
         var projectIds = new List<Guid>();
-        var rng = new Random(42);
-        for (int i = 0; i < ProjectsCount; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var code = $"P-{2024 + (i / 4)}-{i + 1:D3}";
-            var startOffset = rng.Next(0, TotalMonths - 6);
-            var startDate = ScenarioStart.AddMonths(startOffset);
-            var endDate = startDate.AddMonths(rng.Next(3, 12));
-            if (endDate > ScenarioEnd) endDate = ScenarioEnd.AddDays(-rng.Next(1, 30));
-            var budget = 50_000m + (i * 25_000m);
-
             const string sql = @"
                 INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, status, budget, start_date, end_date, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @CompanyId, @CCId, @Code, @Name, @Desc, @Status, @Budget, @Start, @End, @Now, @Now, @User, @User)";
@@ -385,21 +419,21 @@ public sealed class RealisticSeedHostedService : BackgroundService
             {
                 Id = id,
                 T = tenantId,
-                CompanyId = Guid.NewGuid(),
-                CCId = Guid.NewGuid(),
-                Code = code,
-                Name = projectNames[i],
-                Desc = $"مشروع {projectNames[i]} (نشط)",
-                Status = statuses[i],
-                Budget = budget,
-                Start = startDate,
-                End = endDate,
+                CompanyId = companyId.Value,
+                CCId = costCenterId ?? companyId,  // fallback: use company_id if no cost center
+                Code = GetStr(rec, "code"),
+                Name = GetStr(rec, "name"),
+                Desc = GetStrOrNull(rec, "description") ?? GetStr(rec, "name"),
+                Status = GetInt(rec, "status", 0),
+                Budget = GetDecimal(rec, "budget", 0m),
+                Start = DateTime.Parse(GetStr(rec, "start_date", ScenarioStart.ToString("o"))),
+                End = DateTime.TryParse(GetStrOrNull(rec, "end_date") ?? "", out var e) ? e : (DateTime?)null,
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             projectIds.Add(id);
 
-            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (projectIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return projectIds;
     }
@@ -409,34 +443,60 @@ public sealed class RealisticSeedHostedService : BackgroundService
     private async Task<List<Guid>> SeedItemsAsync(
         IDbConnectionFactory factory, Guid tenantId, CancellationToken ct)
     {
+        // DEC-088: Read item data from JSON (data-types/seeds/seed_items.json)
+        var seedData = _seedLoader.GetFile("Item");
+        if (seedData == null || seedData.Records == null || seedData.Records.Count == 0)
+        {
+            _logger.LogWarning("[DEC-088] seed_items.json not found — skipping items seed");
+            return await GetExistingIdsAsync(factory, tenantId, "items", ct);
+        }
+
         using var conn = await factory.CreateOltpConnectionAsync(ct);
         var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             "SELECT COUNT(*) FROM items WHERE tenant_id = @T", new { T = tenantId }, cancellationToken: ct));
-        if (existing >= 10) return await GetExistingIdsAsync(factory, tenantId, "items", ct);
+        if (existing >= seedData.Records.Count) return await GetExistingIdsAsync(factory, tenantId, "items", ct);
 
-        var itemNames = new[] { "إسمنت", "حديد", "رمل", "حصى", "بلاط", "دهان", "أجهزة مكتبية", "قرطاسية", "معدات نظافة", "مواد غذائية" };
+        // Look up FK references (company + uom)
+        var companyId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+        if (companyId == null)
+        {
+            _logger.LogWarning("[DEC-088] No company found for item FKs — skipping");
+            return new List<Guid>();
+        }
+        var uomId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM units_of_measure WHERE tenant_id = @T ORDER BY created_at ASC LIMIT 1",
+            new { T = tenantId }, cancellationToken: ct));
+
         var itemIds = new List<Guid>();
-        for (int i = 0; i < itemNames.Length; i++)
+        foreach (var rec in seedData.Records)
         {
             var id = Guid.NewGuid();
-            var sku = $"SKU-{i + 1:D4}";
+            // DEC-085 fix: item_type and costing_method are integers (not 'Stock'/'Average' strings)
             const string sql = @"
-                INSERT INTO items (id, tenant_id, company_id, sku, name, item_type, costing_method, unit_of_measure_id, is_active, created_at, updated_at, created_by, updated_by)
-                VALUES (@Id, @T, @CompanyId, @Sku, @Name, 'Stock', 'Average', @UoM, true, @Now, @Now, @User, @User)";
+                INSERT INTO items (id, tenant_id, company_id, sku, name, item_type, costing_method, unit_of_measure_id, average_cost, standard_cost, reorder_level, reorder_quantity, is_active, created_at, updated_at, created_by, updated_by)
+                VALUES (@Id, @T, @CompanyId, @Sku, @Name, @ItemType, @CostingMethod, @UoM, @AvgCost, @StdCost, @ReorderLevel, @ReorderQty, true, @Now, @Now, @User, @User)";
             await conn.ExecuteAsync(new CommandDefinition(sql, new
             {
                 Id = id,
                 T = tenantId,
-                CompanyId = Guid.NewGuid(),
-                Sku = sku,
-                Name = itemNames[i],
-                UoM = Guid.NewGuid(),
+                CompanyId = companyId.Value,
+                Sku = GetStr(rec, "sku"),
+                Name = GetStr(rec, "name"),
+                ItemType = GetInt(rec, "item_type", 1),
+                CostingMethod = GetInt(rec, "costing_method", 3),
+                UoM = uomId ?? Guid.Empty,
+                AvgCost = GetDecimal(rec, "average_cost", 0m),
+                StdCost = GetDecimal(rec, "standard_cost", 0m),
+                ReorderLevel = GetDecimal(rec, "reorder_level", 0m),
+                ReorderQty = GetDecimal(rec, "reorder_quantity", 0m),
                 Now = DateTime.UtcNow,
                 User = Guid.Empty
             }, cancellationToken: ct));
             itemIds.Add(id);
 
-            if ((i + 1) % YieldEveryRecords == 0) await YieldAsync(ct);
+            if (itemIds.Count % YieldEveryRecords == 0) await YieldAsync(ct);
         }
         return itemIds;
     }
@@ -700,5 +760,52 @@ public sealed class RealisticSeedHostedService : BackgroundService
             await Task.Delay(YieldSleepMs, ct);
         }
         catch (OperationCanceledException) { /* expected on shutdown */ }
+    }
+
+    // ==================== JSON helpers (DEC-087) ====================
+
+    private static string GetStr(Dictionary<string, object> rec, string key, string fallback = "")
+    {
+        if (rec.TryGetValue(key, out var v) && v != null) return v.ToString() ?? fallback;
+        return fallback;
+    }
+
+    private static string? GetStrOrNull(Dictionary<string, object> rec, string key)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null) return v.ToString();
+        return null;
+    }
+
+    private static bool GetBool(Dictionary<string, object> rec, string key, bool fallback = false)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is bool b) return b;
+            if (bool.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
+    }
+
+    private static int GetInt(Dictionary<string, object> rec, string key, int fallback = 0)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is long l) return (int)l;
+            if (v is int i) return i;
+            if (int.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
+    }
+
+    private static decimal GetDecimal(Dictionary<string, object> rec, string key, decimal fallback = 0m)
+    {
+        if (rec.TryGetValue(key, out var v) && v != null)
+        {
+            if (v is decimal d) return d;
+            if (v is double dbl) return (decimal)dbl;
+            if (v is long l) return l;
+            if (decimal.TryParse(v.ToString(), out var parsed)) return parsed;
+        }
+        return fallback;
     }
 }
