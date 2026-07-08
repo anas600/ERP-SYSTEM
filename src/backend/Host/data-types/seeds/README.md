@@ -1,20 +1,31 @@
-# DEC-086: JSON-Driven Seed Data
+# DEC-086+: JSON-Driven Seed Data
 
 This directory contains seed data for the `RealisticSeed` BackgroundService.
 
-## Structure
+## Status (DEC-089)
 
-```
-data-types/seeds/
-├── README.md                      # This file
-├── seed_meta.json                 # Tenant + admin user info
-├── seed_companies.json            # 5 companies
-├── seed_vendors.json              # 25 vendors
-├── seed_customers.json            # 20 customers
-├── seed_items.json                # 15 items
-├── seed_projects.json             # 11 projects
-└── ...                            # More to come
-```
+### Active (RealisticSeed reads from JSON)
+- `seed_companies.json` (5 companies) — **DEC-087**
+- `seed_vendors.json` (25 vendors) — **DEC-088**
+- `seed_customers.json` (20 customers) — **DEC-088**
+- `seed_items.json` (15 items) — **DEC-088**
+- `seed_projects.json` (11 projects) — **DEC-088**
+
+### Read-Only (data extracted but RealisticSeed still uses C#)
+- `seed_gls.json` (64 accounts) — **DEC-089**
+- `seed_employees.json` (20 employees) — **DEC-089**
+- `seed_cost_centers.json` (3 cost centers) — **DEC-089**
+- `seed_pos.json` (50 POs) — **DEC-089**
+- `seed_grns.json` (50 GRs) — **DEC-089**
+- `seed_bills.json` (50 bills) — **DEC-089**
+- `seed_bill_lines.json` (50 bill lines) — **DEC-089**
+- `seed_sales_invoices.json` (50 sales invoices) — **DEC-089**
+- `seed_payments.json` (50 payments) — **DEC-089**
+- `seed_journal_entries.json` (50 JEs) — **DEC-089**
+- `seed_je_lines.json` (100 JE lines, 2 per JE) — **DEC-089**
+
+### Reference
+- `seed_meta.json` (tenant_id reference)
 
 ## JSON Schema
 
@@ -34,33 +45,18 @@ Each file has this structure:
 
 - `entity`: Display name (PascalCase)
 - `table`: Database table (snake_case)
-- `tenant_id`: Foreign key to `tenants.id` — all records must have this
-- `records`: Array of objects — each becomes a row
+- `tenant_id`: Foreign key to `tenants.id`
+- `records`: Array of objects
 
 ## Loader
 
-The `JsonSeedLoader` (in `Shared/SeedData/JsonSeedLoader.cs`) reads all `*.json` files from this directory on startup.
+`JsonSeedLoader` (in `Shared/SeedData/`) reads all `*.json` files on startup.
 
-The `RealisticSeed` BackgroundService uses the loader to:
-1. Look up the file by `entity` name
-2. Iterate `records`
-3. INSERT into the corresponding table
+DEC-087+ use it directly in `RealisticSeedHostedService`.
+DEC-089+ are read-only (RealisticSeed still uses C# — DEC-090 will refactor).
 
-## Adding New Records
+## Future Work (DEC-090+)
 
-1. Add a new object to the `records` array in the relevant JSON file
-2. Commit + deploy
-3. Next startup will INSERT the new record (idempotency check prevents duplicates)
-
-## Limitations (DEC-086 PoC)
-
-- Only 5 entities are JSON-driven (companies, vendors, customers, items, projects)
-- The full 518 records from the original RealisticSeed are not yet extracted
-- Future DECs will extract: chart of accounts, employees, POs, GRs, bills, sales invoices, payments, JEs
-
-## Migration Path
-
-- **DEC-086 (this)**: Skeleton + 5 critical entities in JSON
-- **DEC-087**: Extract remaining entities (POMs, GRs, bills, sales invoices)
-- **DEC-088**: Extract chart of accounts + journal entries
-- **DEC-089**: Remove hardcoded C# data entirely (RealisticSeed reads 100% from JSON)
+- Refactor `RealisticSeedHostedService` to use the remaining 11 JSONs
+- Remove hardcoded C# data entirely
+- DEC-091+: Source Generator for C# entity + DTO + repository from JSON
