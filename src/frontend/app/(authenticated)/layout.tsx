@@ -5,7 +5,13 @@
 
 import { ReactNode } from 'react';
 import { AppShell } from '@/components/layout/AppShell';
+import SessionTimeoutModal from '@/components/SessionTimeoutModal';
 
 export default function AuthenticatedLayout({ children }: { children: ReactNode }) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <>
+      <AppShell>{children}</AppShell>
+      <SessionTimeoutModal />
+    </>
+  );
 }
