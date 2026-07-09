@@ -22,13 +22,15 @@ public class PaymentsController : ControllerBase
     private readonly ITenantContext _tenant;
     private readonly IValidator<CreatePaymentRequest> _createV;
     private readonly IValidator<AllocatePaymentRequest> _allocV;
+    private readonly ILogger<PaymentsController> _logger;
 
     public PaymentsController(
         IPaymentService payments, ITenantContext tenant,
         IValidator<CreatePaymentRequest> createV,
-        IValidator<AllocatePaymentRequest> allocV)
+        IValidator<AllocatePaymentRequest> allocV,
+        ILogger<PaymentsController> logger)
     {
-        _payments = payments; _tenant = tenant; _createV = createV; _allocV = allocV;
+        _payments = payments; _tenant = tenant; _createV = createV; _allocV = allocV; _logger = logger;
     }
 
     private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
@@ -40,15 +42,31 @@ public class PaymentsController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _payments.ListAsync(TenantId, partyType, partyId, status, skip, take, ct);
-        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+        try
+        {
+            var r = await _payments.ListAsync(TenantId, partyType, partyId, status, skip, take, ct);
+            return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Payments list failed | tenantId={TenantId} partyType={PartyType}", TenantId, partyType);
+            return StatusCode(500, new { error = "PaymentsListFailed", message = ex.Message, detail = ex.InnerException?.Message });
+        }
     }
 
     [HttpGet("api/payments/{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var r = await _payments.GetByIdAsync(TenantId, id, ct);
-        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+        try
+        {
+            var r = await _payments.GetByIdAsync(TenantId, id, ct);
+            return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Payments getById failed | id={Id}", id);
+            return StatusCode(500, new { error = "PaymentsGetFailed", message = ex.Message });
+        }
     }
 
     [HttpPost("api/payments")]
