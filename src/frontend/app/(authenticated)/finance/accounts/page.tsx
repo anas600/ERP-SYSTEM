@@ -3,7 +3,9 @@
 // صفحة دليل الحسابات (Chart of Accounts) — قائمة الحسابات مع فلترة
 
 import { useEffect, useState } from 'react';
-import { Input, Table, Badge, PageHeader } from '@/components/ui';
+import Link from 'next/link';
+import { Plus, Pencil } from 'lucide-react';
+import { Input, Table, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { financeApi, Account, ACCOUNT_TYPES } from '@/lib/api';
 
@@ -43,12 +45,17 @@ export default function AccountsPage() {
         title="💰 دليل الحسابات"
         description="شجرة الحسابات المحاسبية الأساسية"
         actions={
-          <Input
-            placeholder="🔍 بحث (كود/اسم)..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            containerClassName="w-64"
-          />
+          <div className="flex items-center gap-2">
+            <Link href="/finance/accounts/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>حساب جديد</Button>
+            </Link>
+            <Input
+              placeholder="🔍 بحث (كود/اسم)..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              containerClassName="w-64"
+            />
+          </div>
         }
       />
 
@@ -83,6 +90,15 @@ export default function AccountsPage() {
             header: 'نشط',
             align: 'center',
             render: (a) => (a.isActive ? '✅' : '❌'),
+          },
+          {
+            key: 'actions',
+            header: '',
+            render: (a) => (
+              <Link href={`/finance/accounts/${a.id}/edit`}>
+                <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+              </Link>
+            ),
           },
         ]}
         data={filtered}
