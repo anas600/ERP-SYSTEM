@@ -3,7 +3,9 @@
 // صفحة المنتجات (Items) — بطاقات
 
 import { useEffect, useState } from 'react';
-import { Input, Card, PageHeader } from '@/components/ui';
+import Link from 'next/link';
+import { Plus, Pencil } from 'lucide-react';
+import { Input, Card, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { inventoryApi, Item } from '@/lib/api';
 
@@ -43,12 +45,19 @@ export default function ItemsPage() {
         title="📦 المنتجات (Items)"
         description="قائمة الأصناف في المخزون"
         actions={
-          <Input
-            placeholder="🔍 SKU / اسم..."
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            containerClassName="w-64"
-          />
+          <div className="flex items-center gap-2">
+            <Link href="/inventory/items/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                منتج جديد
+              </Button>
+            </Link>
+            <Input
+              placeholder="🔍 SKU / اسم..."
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              containerClassName="w-64"
+            />
+          </div>
         }
       />
 
@@ -76,9 +85,14 @@ export default function ItemsPage() {
                   <p className="text-xs text-gray-500 font-mono">{item.sku}</p>
                   <h3 className="font-bold text-gray-800 mt-1">{item.name}</h3>
                 </div>
-                <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded">
-                  {item.itemType}
-                </span>
+                <div className="flex items-center gap-1">
+                  <Link href={`/inventory/items/${item.id}/edit`}>
+                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+                  </Link>
+                  <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded">
+                    {item.itemType}
+                  </span>
+                </div>
               </div>
               <p className="text-xs text-gray-500 mt-2">
                 {item.description || 'لا يوجد وصف'}
