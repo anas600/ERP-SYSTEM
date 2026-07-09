@@ -382,6 +382,31 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// DEC-100 / DL 69: Surface unhandled exceptions with JSON body in production
+// (default behavior is empty 500). Catch exceptions anywhere in the pipeline.
+app.Use(async (ctx, next) =>
+{
+    try { await next(); }
+    catch (Exception ex)
+    {
+        var logger = ctx.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Unhandled exception | path={Path} method={Method}", ctx.Request.Path, ctx.Request.Method);
+        if (!ctx.Response.HasStarted)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            ctx.Response.ContentType = "application/json";
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                error = "UnhandledException",
+                message = ex.Message,
+                detail = ex.InnerException?.Message,
+                path = ctx.Request.Path.Value,
+                type = ex.GetType().Name,
+            });
+        }
+    }
+});
+
 // Sprint-4 Day 3 (DEC-045): request tracking FIRST so all downstream logs have RequestId.
 app.UseRequestTracking();
 app.UseSerilogRequestLogging();
