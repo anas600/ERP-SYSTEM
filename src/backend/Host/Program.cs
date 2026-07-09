@@ -222,6 +222,12 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+
+// DEC-100 / DL 69: Register Payments services (was missing → 500 on /api/payments)
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Application.Services.IPaymentService, ERPSystem.Modules.Payments.Application.Services.PaymentService>();
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Infrastructure.IPaymentRepository, ERPSystem.Modules.Payments.Infrastructure.PaymentRepository>();
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Infrastructure.IPaymentSequenceRepository, ERPSystem.Modules.Payments.Infrastructure.PaymentSequenceRepository>();
+builder.Services.AddValidatorsFromAssemblyContaining<ERPSystem.Modules.Payments.Application.CreatePaymentRequestValidator>();
 builder.Services.AddScoped<IVendorBillService, VendorBillService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
