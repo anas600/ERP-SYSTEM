@@ -37,7 +37,32 @@ public sealed class VendorRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "vendors";
+    
+    public async Task UpdateAsync(Vendor entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE vendors SET code = @code, name = @name, email = @email, phone = @phone, address = @address, tax_number = @tax_number, website = @website, currency = @currency, payment_terms = @payment_terms, is_active = @is_active, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("UPDATE vendors SET deleted_at = NOW(), updated_at = NOW(), updated_by = @UserId WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM vendors WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "vendors";
     private string Columns => "id, tenant_id, code, name, email, phone, address, tax_number, website, currency, payment_terms, is_active, created_at, created_by, updated_at, updated_by, deleted_at";
     private string Values => "id, @tenant_id, @code, @name, @email, @phone, @address, @tax_number, @website, @currency, @payment_terms, @is_active, @created_at, @created_by, @updated_at, @updated_by, @deleted_at";
 }

@@ -37,7 +37,31 @@ public sealed class StockMovementRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "stock_movements";
+    
+    public async Task UpdateAsync(StockMovement entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE stock_movements SET company_id = @company_id, reference = @reference, type = @type, movement_date = @movement_date, item_id = @item_id, warehouse_id = @warehouse_id, quantity = @quantity, unit_cost = @unit_cost, project_id = @project_id, cost_center_id = @cost_center_id, destination_warehouse_id = @destination_warehouse_id, source_type = @source_type, source_id = @source_id, notes = @notes, status = @status, posted_at = @posted_at, reversed_by_movement_id = @reversed_by_movement_id WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM stock_movements WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM stock_movements WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "stock_movements";
     private string Columns => "id, tenant_id, company_id, reference, type, movement_date, item_id, warehouse_id, quantity, unit_cost, project_id, cost_center_id, destination_warehouse_id, source_type, source_id, notes, status, created_at, created_by, posted_at, reversed_by_movement_id";
     private string Values => "id, @tenant_id, @company_id, @reference, @type, @movement_date, @item_id, @warehouse_id, @quantity, @unit_cost, @project_id, @cost_center_id, @destination_warehouse_id, @source_type, @source_id, @notes, @status, @created_at, @created_by, @posted_at, @reversed_by_movement_id";
 }

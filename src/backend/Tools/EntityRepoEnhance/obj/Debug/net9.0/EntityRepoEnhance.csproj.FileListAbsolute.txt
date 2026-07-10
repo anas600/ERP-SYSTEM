@@ -1,0 +1,15 @@
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.GeneratedMSBuildEditorConfig.editorconfig
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.AssemblyInfoInputs.cache
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.AssemblyInfo.cs
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.csproj.CoreCompileInputs.cache
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.sourcelink.json
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/bin/Debug/net9.0/EntityRepoEnhance
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/bin/Debug/net9.0/EntityRepoEnhance.deps.json
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/bin/Debug/net9.0/EntityRepoEnhance.runtimeconfig.json
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/bin/Debug/net9.0/EntityRepoEnhance.dll
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/bin/Debug/net9.0/EntityRepoEnhance.pdb
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.dll
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/refint/EntityRepoEnhance.dll
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.pdb
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/EntityRepoEnhance.genruntimeconfig.cache
+/run/csi/mount-root/nas/eab0d61a99b6696edb3d2aff87b585e8/wt-dec-105-codegen/src/backend/Tools/EntityRepoEnhance/obj/Debug/net9.0/ref/EntityRepoEnhance.dll

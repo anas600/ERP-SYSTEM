@@ -37,7 +37,31 @@ public sealed class RefreshTokenRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "refresh_tokens";
+    
+    public async Task UpdateAsync(RefreshToken entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE refresh_tokens SET user_id = @user_id, token_hash = @token_hash, expires_at = @expires_at, revoked_at = @revoked_at, replaced_by_token_hash = @replaced_by_token_hash, revoked_reason = @revoked_reason, created_by_ip = @created_by_ip, revoked_by_ip = @revoked_by_ip WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM refresh_tokens WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM refresh_tokens WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "refresh_tokens";
     private string Columns => "id, user_id, token_hash, expires_at, created_at, revoked_at, replaced_by_token_hash, revoked_reason, created_by_ip, revoked_by_ip";
     private string Values => "id, @user_id, @token_hash, @expires_at, @created_at, @revoked_at, @replaced_by_token_hash, @revoked_reason, @created_by_ip, @revoked_by_ip";
 }

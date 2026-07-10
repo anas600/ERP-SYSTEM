@@ -37,7 +37,32 @@ public sealed class CompanyRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "companies";
+    
+    public async Task UpdateAsync(Company entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE companies SET code = @code, name = @name, legal_name = @legal_name, parent_company_id = @parent_company_id, is_group = @is_group, base_currency = @base_currency, is_active = @is_active, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM companies WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM companies WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "companies";
     private string Columns => "id, tenant_id, code, name, legal_name, parent_company_id, is_group, base_currency, is_active, created_at, updated_at";
     private string Values => "id, @tenant_id, @code, @name, @legal_name, @parent_company_id, @is_group, @base_currency, @is_active, @created_at, @updated_at";
 }

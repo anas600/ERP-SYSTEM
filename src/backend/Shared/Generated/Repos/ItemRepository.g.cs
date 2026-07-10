@@ -37,7 +37,32 @@ public sealed class ItemRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "items";
+    
+    public async Task UpdateAsync(Item entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE items SET company_id = @company_id, sku = @sku, barcode = @barcode, name = @name, description = @description, category_id = @category_id, unit_of_measure_id = @unit_of_measure_id, item_type = @item_type, costing_method = @costing_method, average_cost = @average_cost, standard_cost = @standard_cost, inventory_account_id = @inventory_account_id, cogs_account_id = @cogs_account_id, sales_account_id = @sales_account_id, reorder_level = @reorder_level, reorder_quantity = @reorder_quantity, is_active = @is_active, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM items WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM items WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "items";
     private string Columns => "id, tenant_id, company_id, sku, barcode, name, description, category_id, unit_of_measure_id, item_type, costing_method, average_cost, standard_cost, inventory_account_id, cogs_account_id, sales_account_id, reorder_level, reorder_quantity, is_active, created_at, created_by, updated_at, updated_by";
     private string Values => "id, @tenant_id, @company_id, @sku, @barcode, @name, @description, @category_id, @unit_of_measure_id, @item_type, @costing_method, @average_cost, @standard_cost, @inventory_account_id, @cogs_account_id, @sales_account_id, @reorder_level, @reorder_quantity, @is_active, @created_at, @created_by, @updated_at, @updated_by";
 }

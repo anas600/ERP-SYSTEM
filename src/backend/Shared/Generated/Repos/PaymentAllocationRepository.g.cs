@@ -37,7 +37,31 @@ public sealed class PaymentAllocationRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "payment_allocations";
+    
+    public async Task UpdateAsync(PaymentAllocation entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE payment_allocations SET payment_id = @payment_id, ref_type = @ref_type, ref_id = @ref_id, amount_applied = @amount_applied WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM payment_allocations WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM payment_allocations WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "payment_allocations";
     private string Columns => "id, tenant_id, payment_id, ref_type, ref_id, amount_applied";
     private string Values => "id, @tenant_id, @payment_id, @ref_type, @ref_id, @amount_applied";
 }

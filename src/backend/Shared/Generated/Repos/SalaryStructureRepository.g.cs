@@ -37,7 +37,32 @@ public sealed class SalaryStructureRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "salary_structures";
+    
+    public async Task UpdateAsync(SalaryStructure entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE salary_structures SET name = @name, code = @code, currency = @currency, is_active = @is_active, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM salary_structures WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM salary_structures WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "salary_structures";
     private string Columns => "id, tenant_id, name, code, currency, is_active, created_at, created_by, updated_at, updated_by";
     private string Values => "id, @tenant_id, @name, @code, @currency, @is_active, @created_at, @created_by, @updated_at, @updated_by";
 }

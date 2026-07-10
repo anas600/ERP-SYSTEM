@@ -37,7 +37,31 @@ public sealed class StockReservationRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "stock_reservations";
+    
+    public async Task UpdateAsync(StockReservation entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE stock_reservations SET item_id = @item_id, warehouse_id = @warehouse_id, quantity = @quantity, reference_type = @reference_type, reference_id = @reference_id, expires_at = @expires_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM stock_reservations WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM stock_reservations WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "stock_reservations";
     private string Columns => "id, tenant_id, item_id, warehouse_id, quantity, reference_type, reference_id, expires_at, created_at, created_by";
     private string Values => "id, @tenant_id, @item_id, @warehouse_id, @quantity, @reference_type, @reference_id, @expires_at, @created_at, @created_by";
 }

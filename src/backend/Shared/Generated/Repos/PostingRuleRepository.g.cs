@@ -37,7 +37,32 @@ public sealed class PostingRuleRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "posting_rules";
+    
+    public async Task UpdateAsync(PostingRule entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE posting_rules SET name = @name, description = @description, event_type = @event_type, is_active = @is_active, template_json = @template_json, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM posting_rules WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM posting_rules WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "posting_rules";
     private string Columns => "id, tenant_id, name, description, event_type, is_active, template_json, created_at, updated_at";
     private string Values => "id, @tenant_id, @name, @description, @event_type, @is_active, @template_json, @created_at, @updated_at";
 }
