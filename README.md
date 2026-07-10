@@ -203,3 +203,31 @@ Workflows:
 ## 📜 License
 
 MIT
+
+---
+
+## 📚 Documentation (DEC-103a / DL 78)
+
+Comprehensive documentation:
+
+| Doc | Description | Link |
+|---|---|---|
+| **AGENTS.md** | AI Agent + human conventions | [AGENTS.md](./AGENTS.md) |
+| **Architecture** | High-level system design, modules, multi-tenancy, DTO/Repo pattern | [docs/dec-103a/ARCHITECTURE.md](./docs/dec-103a/ARCHITECTURE.md) |
+| **API Reference** | All 184 endpoints across 28 controllers | [docs/dec-103a/API.md](./docs/dec-103a/API.md) |
+| **Performance Audit** | DB indexes, query patterns, connection pool, caching | [docs/dec-103a/PERFORMANCE-AUDIT.md](./docs/dec-103a/PERFORMANCE-AUDIT.md) |
+| **Phase 2 Report** | UI/API inventory + DEC-094/095/096/097/098 results | [PHASE2-REPORT.md](./PHASE2-REPORT.md) |
+| **STATUS** | Current system state | [STATUS.md](./STATUS.md) |
+| **Runbook** | Operational procedures | [RUNBOOK.md](./RUNBOOK.md) |
+
+## 📊 System State (2026-07-10)
+
+| Metric | Value |
+|---|---|
+| Defense Layers | 78+ |
+| Frontend Pages | 33+ |
+| Backend Endpoints | 184 |
+| Modules | 12 |
+| Seed Entities (JSON) | 14/16 active (87.5%) |
+| Sprint Status | Sprint-3 closed, Phase 2 closed, Phase 3 (docs) complete |
+| Score | **98%** |
