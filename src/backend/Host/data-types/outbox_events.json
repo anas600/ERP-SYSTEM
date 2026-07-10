@@ -19,6 +19,7 @@
   ],
   "indexes": [
     { "name": "ix_outbox_unprocessed", "columns": ["occurred_at"] },
-    { "name": "ix_outbox_tenant_type", "columns": ["tenant_id", "event_type"] }
+    { "name": "ix_outbox_tenant_type", "columns": ["tenant_id", "event_type"] },
+    { "name": "ix_outbox_processed_at", "columns": ["processed_at"] }
   ]
 }
