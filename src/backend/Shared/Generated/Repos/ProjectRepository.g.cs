@@ -37,7 +37,32 @@ public sealed class ProjectRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "projects";
+    
+    public async Task UpdateAsync(Project entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE projects SET company_id = @company_id, cost_center_id = @cost_center_id, code = @code, name = @name, description = @description, customer_id = @customer_id, status = @status, budget = @budget, start_date = @start_date, end_date = @end_date, updated_at = @updated_at, updated_by = @updated_by, is_active = @is_active WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("UPDATE projects SET deleted_at = NOW(), updated_at = NOW(), updated_by = @UserId WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM projects WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "projects";
     private string Columns => "id, tenant_id, company_id, cost_center_id, code, name, description, customer_id, status, budget, start_date, end_date, created_at, created_by, updated_at, updated_by, is_active, deleted_at";
     private string Values => "id, @tenant_id, @company_id, @cost_center_id, @code, @name, @description, @customer_id, @status, @budget, @start_date, @end_date, @created_at, @created_by, @updated_at, @updated_by, @is_active, @deleted_at";
 }

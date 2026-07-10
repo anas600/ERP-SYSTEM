@@ -37,7 +37,31 @@ public sealed class UnitOfMeasureRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "units_of_measure";
+    
+    public async Task UpdateAsync(UnitOfMeasure entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE units_of_measure SET code = @code, name = @name, symbol = @symbol, is_active = @is_active WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM units_of_measure WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM units_of_measure WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "units_of_measure";
     private string Columns => "id, tenant_id, code, name, symbol, is_active, created_at";
     private string Values => "id, @tenant_id, @code, @name, @symbol, @is_active, @created_at";
 }

@@ -37,7 +37,31 @@ public sealed class AttendanceRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "attendance";
+    
+    public async Task UpdateAsync(Attendance entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE attendance SET employee_id = @employee_id, type = @type, timestamp = @timestamp, notes = @notes, ip_address = @ip_address WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM attendance WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM attendance WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "attendance";
     private string Columns => "id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at";
     private string Values => "id, @tenant_id, @employee_id, @type, @timestamp, @notes, @ip_address, @created_at";
 }

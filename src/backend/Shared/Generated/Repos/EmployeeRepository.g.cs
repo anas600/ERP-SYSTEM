@@ -37,7 +37,32 @@ public sealed class EmployeeRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "employees";
+    
+    public async Task UpdateAsync(Employee entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE employees SET employee_number = @employee_number, full_name = @full_name, email = @email, phone = @phone, national_id = @national_id, department_id = @department_id, job_title = @job_title, hire_date = @hire_date, termination_date = @termination_date, base_salary = @base_salary, is_active = @is_active, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM employees WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM employees WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "employees";
     private string Columns => "id, tenant_id, employee_number, full_name, email, phone, national_id, department_id, job_title, hire_date, termination_date, base_salary, is_active, created_at, created_by, updated_at, updated_by";
     private string Values => "id, @tenant_id, @employee_number, @full_name, @email, @phone, @national_id, @department_id, @job_title, @hire_date, @termination_date, @base_salary, @is_active, @created_at, @created_by, @updated_at, @updated_by";
 }

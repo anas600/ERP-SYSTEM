@@ -37,7 +37,32 @@ public sealed class PayrollRunRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "payroll_runs";
+    
+    public async Task UpdateAsync(PayrollRun entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE payroll_runs SET period_start = @period_start, period_end = @period_end, status = @status, total_gross = @total_gross, total_net = @total_net, processed_at = @processed_at, posted_at = @posted_at, notes = @notes, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM payroll_runs WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM payroll_runs WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "payroll_runs";
     private string Columns => "id, tenant_id, period_start, period_end, status, total_gross, total_net, processed_at, posted_at, notes, created_at, created_by, updated_at, updated_by";
     private string Values => "id, @tenant_id, @period_start, @period_end, @status, @total_gross, @total_net, @processed_at, @posted_at, @notes, @created_at, @created_by, @updated_at, @updated_by";
 }

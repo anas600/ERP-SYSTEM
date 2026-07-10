@@ -37,7 +37,32 @@ public sealed class LeaveRequestRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "leave_requests";
+    
+    public async Task UpdateAsync(LeaveRequest entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE leave_requests SET employee_id = @employee_id, leave_type = @leave_type, start_date = @start_date, end_date = @end_date, total_days = @total_days, status = @status, reason = @reason, approver_id = @approver_id, approved_at = @approved_at, notes = @notes, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM leave_requests WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM leave_requests WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "leave_requests";
     private string Columns => "id, tenant_id, employee_id, leave_type, start_date, end_date, total_days, status, reason, approver_id, approved_at, notes, created_at, created_by, updated_at";
     private string Values => "id, @tenant_id, @employee_id, @leave_type, @start_date, @end_date, @total_days, @status, @reason, @approver_id, @approved_at, @notes, @created_at, @created_by, @updated_at";
 }

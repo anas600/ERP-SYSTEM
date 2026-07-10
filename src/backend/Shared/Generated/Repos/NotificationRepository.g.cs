@@ -37,7 +37,31 @@ public sealed class NotificationRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "notifications";
+    
+    public async Task UpdateAsync(Notification entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE notifications SET user_id = @user_id, type = @type, title = @title, message = @message, reference_type = @reference_type, reference_id = @reference_id, is_read = @is_read, read_at = @read_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM notifications WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM notifications WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "notifications";
     private string Columns => "id, tenant_id, user_id, type, title, message, reference_type, reference_id, is_read, created_at, read_at";
     private string Values => "id, @tenant_id, @user_id, @type, @title, @message, @reference_type, @reference_id, @is_read, @created_at, @read_at";
 }

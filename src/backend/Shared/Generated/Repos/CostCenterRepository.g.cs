@@ -37,7 +37,32 @@ public sealed class CostCenterRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "cost_centers";
+    
+    public async Task UpdateAsync(CostCenter entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE cost_centers SET company_id = @company_id, code = @code, name = @name, type = @type, parent_id = @parent_id, budget_amount = @budget_amount, start_date = @start_date, end_date = @end_date, sku = @sku, location = @location, activity_category = @activity_category, is_active = @is_active, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM cost_centers WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM cost_centers WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "cost_centers";
     private string Columns => "id, tenant_id, company_id, code, name, type, parent_id, budget_amount, start_date, end_date, sku, location, activity_category, is_active, created_at, updated_at";
     private string Values => "id, @tenant_id, @company_id, @code, @name, @type, @parent_id, @budget_amount, @start_date, @end_date, @sku, @location, @activity_category, @is_active, @created_at, @updated_at";
 }

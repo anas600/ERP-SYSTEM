@@ -37,7 +37,31 @@ public sealed class TenantRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "tenants";
+    
+    public async Task UpdateAsync(Tenant entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE tenants SET name = @name, subdomain = @subdomain, is_active = @is_active, subscription_expires_at = @subscription_expires_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM tenants WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM tenants WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "tenants";
     private string Columns => "id, name, subdomain, is_active, created_at, subscription_expires_at";
     private string Values => "id, @name, @subdomain, @is_active, @created_at, @subscription_expires_at";
 }

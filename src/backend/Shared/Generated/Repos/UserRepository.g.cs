@@ -37,7 +37,32 @@ public sealed class UserRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "users";
+    
+    public async Task UpdateAsync(User entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE users SET email = @email, password_hash = @password_hash, full_name = @full_name, is_active = @is_active, two_factor_enabled = @two_factor_enabled, updated_at = @updated_at, last_login_at = @last_login_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM users WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM users WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "users";
     private string Columns => "id, tenant_id, email, password_hash, full_name, is_active, two_factor_enabled, created_at, updated_at, last_login_at";
     private string Values => "id, @tenant_id, @email, @password_hash, @full_name, @is_active, @two_factor_enabled, @created_at, @updated_at, @last_login_at";
 }

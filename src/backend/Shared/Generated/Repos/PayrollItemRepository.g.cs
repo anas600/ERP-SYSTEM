@@ -37,7 +37,32 @@ public sealed class PayrollItemRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "payroll_items";
+    
+    public async Task UpdateAsync(PayrollItem entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE payroll_items SET payroll_run_id = @payroll_run_id, employee_id = @employee_id, base_salary = @base_salary, gross_salary = @gross_salary, tax_amount = @tax_amount, social_insurance_employee = @social_insurance_employee, net_salary = @net_salary, status = @status, payment_days = @payment_days, notes = @notes, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM payroll_items WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM payroll_items WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "payroll_items";
     private string Columns => "id, tenant_id, payroll_run_id, employee_id, base_salary, gross_salary, tax_amount, social_insurance_employee, net_salary, status, payment_days, notes, created_at, created_by, updated_at";
     private string Values => "id, @tenant_id, @payroll_run_id, @employee_id, @base_salary, @gross_salary, @tax_amount, @social_insurance_employee, @net_salary, @status, @payment_days, @notes, @created_at, @created_by, @updated_at";
 }

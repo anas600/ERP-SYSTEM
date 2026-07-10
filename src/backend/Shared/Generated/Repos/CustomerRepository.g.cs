@@ -37,7 +37,32 @@ public sealed class CustomerRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "customers";
+    
+    public async Task UpdateAsync(Customer entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE customers SET company_id = @company_id, code = @code, name = @name, name_en = @name_en, tax_id = @tax_id, email = @email, phone = @phone, address = @address, credit_limit = @credit_limit, payment_terms_days = @payment_terms_days, is_active = @is_active, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("UPDATE customers SET deleted_at = NOW(), updated_at = NOW(), updated_by = @UserId WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM customers WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "customers";
     private string Columns => "id, tenant_id, company_id, code, name, name_en, tax_id, email, phone, address, credit_limit, payment_terms_days, is_active, created_at, created_by, updated_at, updated_by, deleted_at";
     private string Values => "id, @tenant_id, @company_id, @code, @name, @name_en, @tax_id, @email, @phone, @address, @credit_limit, @payment_terms_days, @is_active, @created_at, @created_by, @updated_at, @updated_by, @deleted_at";
 }

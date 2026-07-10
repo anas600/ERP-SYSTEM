@@ -37,7 +37,32 @@ public sealed class PaymentRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "payments";
+    
+    public async Task UpdateAsync(Payment entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE payments SET company_id = @company_id, party_type = @party_type, party_id = @party_id, payment_number = @payment_number, payment_date = @payment_date, amount = @amount, currency_code = @currency_code, payment_method = @payment_method, bank_account_id = @bank_account_id, notes = @notes, status = @status, posted_at = @posted_at, posted_by = @posted_by, journal_entry_id = @journal_entry_id, updated_at = @updated_at, updated_by = @updated_by WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM payments WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM payments WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "payments";
     private string Columns => "id, tenant_id, company_id, party_type, party_id, payment_number, payment_date, amount, currency_code, payment_method, bank_account_id, notes, status, posted_at, posted_by, journal_entry_id, created_at, created_by, updated_at, updated_by";
     private string Values => "id, @tenant_id, @company_id, @party_type, @party_id, @payment_number, @payment_date, @amount, @currency_code, @payment_method, @bank_account_id, @notes, @status, @posted_at, @posted_by, @journal_entry_id, @created_at, @created_by, @updated_at, @updated_by";
 }

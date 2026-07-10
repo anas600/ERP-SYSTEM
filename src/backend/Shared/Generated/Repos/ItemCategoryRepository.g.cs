@@ -37,7 +37,32 @@ public sealed class ItemCategoryRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "item_categories";
+    
+    public async Task UpdateAsync(ItemCategory entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        entity.UpdatedAt = DateTime.UtcNow;
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE item_categories SET code = @code, name = @name, description = @description, parent_id = @parent_id, is_active = @is_active, updated_at = @updated_at WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM item_categories WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM item_categories WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "item_categories";
     private string Columns => "id, tenant_id, code, name, description, parent_id, is_active, created_at, updated_at";
     private string Values => "id, @tenant_id, @code, @name, @description, @parent_id, @is_active, @created_at, @updated_at";
 }

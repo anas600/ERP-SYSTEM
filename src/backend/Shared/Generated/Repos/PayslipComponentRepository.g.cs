@@ -37,7 +37,31 @@ public sealed class PayslipComponentRepository
             entity, cancellationToken: ct));
     }
 
-    private string Table => "payslip_components";
+    
+    public async Task UpdateAsync(PayslipComponent entity, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition(
+            $"UPDATE payslip_components SET payroll_item_id = @payroll_item_id, component_type = @component_type, name = @name, amount = @amount, sort_order = @sort_order WHERE id = @Id AND tenant_id = @TenantId",
+            entity, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid id, Guid tenantId, Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await conn.ExecuteAsync(new CommandDefinition("DELETE FROM payslip_components WHERE id = @Id AND tenant_id = @TenantId",
+            new { Id = id, TenantId = tenantId, UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            $"SELECT COUNT(*) FROM payslip_components WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
+private string Table => "payslip_components";
     private string Columns => "id, tenant_id, payroll_item_id, component_type, name, amount, sort_order";
     private string Values => "id, @tenant_id, @payroll_item_id, @component_type, @name, @amount, @sort_order";
 }

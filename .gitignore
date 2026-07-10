@@ -3,3 +3,7 @@ src/backend/Tools/DataTypeCodeGen/bin/
 src/backend/Tools/DataTypeCodeGen/obj/
 src/frontend/.next/
 src/frontend/node_modules/
+
+# EntityRepoEnhance build artifacts
+src/backend/Tools/EntityRepoEnhance/obj/
+src/backend/Tools/EntityRepoEnhance/bin/
