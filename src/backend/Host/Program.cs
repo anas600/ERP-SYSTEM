@@ -141,6 +141,10 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.VendorBillStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollRunStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
+// DEC-107 / DL 82: Response caching
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ERPSystem.Host.Utilities.ITenantCache, ERPSystem.Host.Utilities.TenantCache>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
