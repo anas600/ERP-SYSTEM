@@ -10,6 +10,7 @@
     { "name": "processed_at", "type": "timestamptz", "nullable": false, "default": "now()" }
   ],
   "indexes": [
-    { "name": "ix_processed_events_tenant", "columns": ["tenant_id"] }
+    { "name": "ix_processed_events_tenant", "columns": ["tenant_id"] },
+    { "name": "ix_processed_events_tenant_processed", "columns": ["tenant_id", "processed_at"] }
   ]
 }
