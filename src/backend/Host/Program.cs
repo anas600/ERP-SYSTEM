@@ -99,6 +99,14 @@ builder.Host.UseSerilog((ctx, lc) =>
         // Production: Compact JSON for log shippers (Loki, Elasticsearch, CloudWatch, etc.)
         lc.WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter());
     }
+
+    // DEC-111: Sentry DSN logged (sink not added due to package API mismatch).
+    // Future: Sentry.AspNetCore SDK integration via UseSentry() in pipeline.
+    var sentryDsn = ctx.Configuration["Sentry:Dsn"];
+    if (!string.IsNullOrWhiteSpace(sentryDsn))
+    {
+        lc.Enrich.WithProperty("SentryDsn", sentryDsn);
+    }
 });
 
 // ============ Configuration ============
@@ -420,6 +428,7 @@ app.Use(async (ctx, next) =>
 // Sprint-4 Day 3 (DEC-045): request tracking FIRST so all downstream logs have RequestId.
 app.UseRequestTracking();
 app.UseSerilogRequestLogging();
+app.UseMiddleware<RequestTimingMiddleware>(); // DEC-111
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
