@@ -41,6 +41,16 @@ public sealed class VendorRepository : IVendorRepository
             new { TenantId = tenantId, Skip = skip, Take = take }, cancellationToken: ct));
         return rows.AsList();
     }
+    public async Task<IReadOnlyList<Vendor>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return new List<Vendor>();
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var rows = await conn.QueryAsync<Vendor>(new CommandDefinition(
+            $"SELECT {Sel} FROM vendors WHERE id = ANY(@Ids)",
+            new { Ids = idList.ToArray() }, cancellationToken: ct));
+        return rows.AsList();
+    }
 
     public async Task InsertAsync(Vendor v, CancellationToken ct)
     {

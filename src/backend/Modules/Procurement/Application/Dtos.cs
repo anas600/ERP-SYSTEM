@@ -135,9 +135,16 @@ public sealed class GoodsReceiptResponse
     public Guid TenantId { get; set; }
     public string GrNumber { get; set; } = string.Empty;
     public Guid PurchaseOrderId { get; set; }
+    public string? PoNumber { get; set; }             // DEC-031: enriched
+    public string? PoStatus { get; set; }             // DEC-031: enriched
     public GoodsReceiptStatus Status { get; set; }
     public DateTime ReceivedDate { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }        // DEC-031: enriched
+    public string? WarehouseCode { get; set; }        // DEC-031: enriched
+    public Guid? VendorId { get; set; }               // DEC-031: via PO
+    public string? VendorName { get; set; }           // DEC-031: via PO
+    public string? VendorCode { get; set; }           // DEC-031: via PO
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<GoodsReceiptLineResponse> Lines { get; set; } = new();

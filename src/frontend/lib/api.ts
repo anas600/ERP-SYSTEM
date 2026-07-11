@@ -846,6 +846,10 @@ export const procurementApi = {
     const r = await api.get<GoodsReceipt[]>('/api/procurement/grs');
     return r.data;
   },
+  getGR: async (id: string): Promise<GoodsReceipt> => { // DEC-031
+    const r = await api.get<GoodsReceipt>(`/api/procurement/grs/${id}`);
+    return r.data;
+  },
   createGR: async (data: Partial<GoodsReceipt>): Promise<GoodsReceipt> => {
     const r = await api.post<GoodsReceipt>('/api/procurement/grs', data);
     return r.data;

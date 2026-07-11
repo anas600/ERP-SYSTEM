@@ -4,6 +4,7 @@ using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
+using ERPSystem.Modules.Inventory.Infrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
@@ -23,12 +24,15 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
     private readonly IStockMovementService _stockService;
     private readonly IDocumentSequenceRepository _seq;
     private readonly ICompanyRepository _companies;
+    private readonly IVendorRepository _vendors;
+    private readonly IWarehouseRepository _warehouses;
     private readonly ILogger<GoodsReceiptService> _logger;
 
     public GoodsReceiptService(IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
         IStockMovementService stockService, IDocumentSequenceRepository seq,
-        ICompanyRepository companies, ILogger<GoodsReceiptService> logger)
-    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _logger = logger; }
+        ICompanyRepository companies, IVendorRepository vendors, IWarehouseRepository warehouses,
+        ILogger<GoodsReceiptService> logger)
+    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _vendors = vendors; _warehouses = warehouses; _logger = logger; }
 
     public async Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct)
     {
@@ -88,14 +92,52 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
         var gr = await _grs.GetByIdAsync(id, ct);
         if (gr == null || gr.TenantId != tenantId)
             return ProcurementResult<GoodsReceiptResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
-        return ProcurementResult<GoodsReceiptResponse>.Ok(MapToResponse(gr));
+        return ProcurementResult<GoodsReceiptResponse>.Ok(await EnrichAsync(gr, ct));
     }
 
     public async Task<ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>> ListAsync(Guid tenantId, Guid? poId, GoodsReceiptStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
         var list = await _grs.ListAsync(tenantId, poId, status, skip, take, ct);
-        return ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>.Ok(list.Select(MapToResponse).ToList());
+        if (list.Count == 0) return ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>.Ok(new List<GoodsReceiptResponse>());
+
+        // DEC-031: Batch fetch related entities (avoid N+1)
+        var poIds = list.Select(g => g.PurchaseOrderId).Distinct().ToList();
+        var warehouseIds = list.Select(g => g.WarehouseId).Distinct().ToList();
+        var pos = await _pos.GetByIdsAsync(poIds, ct);
+        var warehouses = await _warehouses.GetByIdsAsync(warehouseIds, ct);
+        var vendorIds = pos.Select(p => p.VendorId).Distinct().ToList();
+        var vendors = vendorIds.Count > 0 ? await _vendors.GetByIdsAsync(vendorIds, ct) : new List<Vendor>();
+
+        var posMap = pos.ToDictionary(p => p.Id);
+        var whMap = warehouses.ToDictionary(w => w.Id);
+        var vendorMap = vendors.ToDictionary(v => v.Id);
+
+        var responses = list.Select(g =>
+        {
+            var resp = MapToResponse(g);
+            posMap.TryGetValue(g.PurchaseOrderId, out var po);
+            whMap.TryGetValue(g.WarehouseId, out var wh);
+            if (po != null)
+            {
+                resp.PoNumber = po.PoNumber;
+                resp.PoStatus = po.Status.ToString();
+                if (vendorMap.TryGetValue(po.VendorId, out var v))
+                {
+                    resp.VendorId = v.Id;
+                    resp.VendorName = v.Name;
+                    resp.VendorCode = v.Code;
+                }
+            }
+            if (wh != null)
+            {
+                resp.WarehouseName = wh.Name;
+                resp.WarehouseCode = wh.Code;
+            }
+            return resp;
+        }).ToList();
+
+        return ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>.Ok(responses);
     }
 
     /// <summary>
@@ -161,7 +203,32 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
         }
 
         _logger.LogInformation("تم استلام GR {GrNumber} وإنشاء {Count} حركات مخزون", gr.GrNumber, gr.Lines.Count);
-        return ProcurementResult<GoodsReceiptResponse>.Ok(MapToResponse(gr));
+        return ProcurementResult<GoodsReceiptResponse>.Ok(await EnrichAsync(gr, ct));
+    }
+
+    private async Task<GoodsReceiptResponse> EnrichAsync(GoodsReceipt gr, CancellationToken ct)
+    {
+        var resp = MapToResponse(gr);
+        var po = await _pos.GetByIdAsync(gr.PurchaseOrderId, ct);
+        var wh = await _warehouses.GetByIdAsync(gr.WarehouseId, ct);
+        if (po != null)
+        {
+            resp.PoNumber = po.PoNumber;
+            resp.PoStatus = po.Status.ToString();
+            var v = await _vendors.GetByIdAsync(po.VendorId, ct);
+            if (v != null)
+            {
+                resp.VendorId = v.Id;
+                resp.VendorName = v.Name;
+                resp.VendorCode = v.Code;
+            }
+        }
+        if (wh != null)
+        {
+            resp.WarehouseName = wh.Name;
+            resp.WarehouseCode = wh.Code;
+        }
+        return resp;
     }
 
     private static GoodsReceiptResponse MapToResponse(GoodsReceipt gr) => new()

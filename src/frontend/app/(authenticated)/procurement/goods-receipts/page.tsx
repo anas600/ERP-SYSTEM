@@ -110,6 +110,7 @@ export default function GoodsReceiptsPage() {
         data={grs}
         loading={loading}
         rowKey={(g) => g.id}
+        rowHref={(g) => `/procurement/goods-receipts/${g.id}`} // DEC-031
         emptyMessage="لا توجد استلامات بضاعة بعد."
       />
 
