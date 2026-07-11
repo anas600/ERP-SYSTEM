@@ -248,6 +248,11 @@ internal class FakeWarehouseRepository : IWarehouseRepository
     public Task<IReadOnlyList<Warehouse>> ListAsync(Guid tenantId, Guid? companyId, bool includeInactive, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Warehouse>>(_items.Values
             .Where(w => w.TenantId == tenantId && (includeInactive || w.IsActive) && (companyId == null || w.CompanyId == companyId)).ToList());
+    public Task<IReadOnlyList<Warehouse>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct) // DEC-031
+    {
+        var idSet = ids.ToHashSet();
+        return Task.FromResult<IReadOnlyList<Warehouse>>(_items.Values.Where(w => idSet.Contains(w.Id)).ToList());
+    }
     public Task InsertAsync(Warehouse w, CancellationToken ct) { _items[w.Id] = w; return Task.CompletedTask; }
     public Task UpdateAsync(Warehouse w, CancellationToken ct) { _items[w.Id] = w; return Task.CompletedTask; }
 }
