@@ -37,6 +37,16 @@ public sealed class WarehouseRepository : IWarehouseRepository
         var rows = await conn.QueryAsync<Warehouse>(new CommandDefinition(sql, p, cancellationToken: ct));
         return rows.AsList();
     }
+    public async Task<IReadOnlyList<Warehouse>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return new List<Warehouse>();
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var rows = await conn.QueryAsync<Warehouse>(new CommandDefinition(
+            $"SELECT {Sel} FROM warehouses WHERE id = ANY(@Ids)",
+            new { Ids = idList.ToArray() }, cancellationToken: ct));
+        return rows.AsList();
+    }
     public async Task InsertAsync(Warehouse w, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);

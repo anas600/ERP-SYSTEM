@@ -53,6 +53,16 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         var rows = await conn.QueryAsync<PurchaseOrder>(new CommandDefinition(sql, p, cancellationToken: ct));
         return rows.AsList();
     }
+    public async Task<IReadOnlyList<PurchaseOrder>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct)
+    {
+        var idList = ids.Distinct().ToList();
+        if (idList.Count == 0) return new List<PurchaseOrder>();
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var rows = await conn.QueryAsync<PurchaseOrder>(new CommandDefinition(
+            $"SELECT {SelPo} FROM purchase_orders WHERE id = ANY(@Ids)",
+            new { Ids = idList.ToArray() }, cancellationToken: ct));
+        return rows.AsList();
+    }
 
     public async Task InsertAsync(PurchaseOrder po, CancellationToken ct)
     {

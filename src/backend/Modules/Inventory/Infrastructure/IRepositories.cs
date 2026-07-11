@@ -17,6 +17,7 @@ public interface IWarehouseRepository
     Task<Warehouse?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<Warehouse?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
     Task<IReadOnlyList<Warehouse>> ListAsync(Guid tenantId, Guid? companyId, bool includeInactive, CancellationToken ct);
+    Task<IReadOnlyList<Warehouse>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct); // DEC-031
     Task InsertAsync(Warehouse warehouse, CancellationToken ct);
     Task UpdateAsync(Warehouse warehouse, CancellationToken ct);
 }

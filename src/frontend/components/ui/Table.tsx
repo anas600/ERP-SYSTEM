@@ -4,6 +4,7 @@
 // الاستخدام: <Table columns={...} data={...} loading={...} emptyMessage="..." />
 
 import { ReactNode } from 'react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 
 export interface TableColumn<T> {
@@ -24,6 +25,8 @@ export interface TableProps<T> {
   emptyMessage?: ReactNode;
   rowKey: (row: T) => string;
   onRowClick?: (row: T) => void;
+  /** DEC-031: If set, each row becomes a link to this URL. Mutually exclusive with onRowClick. */
+  rowHref?: (row: T) => string;
   className?: string;
 }
 
@@ -34,6 +37,7 @@ export function Table<T>({
   emptyMessage = 'لا توجد بيانات',
   rowKey,
   onRowClick,
+  rowHref,
   className,
 }: TableProps<T>) {
   if (loading) {
@@ -76,30 +80,59 @@ export function Table<T>({
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
-              <tr
-                key={rowKey(row)}
-                onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={cn(
-                  'border-b border-gray-100 last:border-0',
-                  onRowClick && 'cursor-pointer hover:bg-gray-50'
-                )}
-              >
-                {columns.map((col) => (
-                  <td
-                    key={col.key}
-                    className={cn(
-                      'px-4 py-3 text-sm',
-                      col.align === 'center' && 'text-center',
-                      col.align === 'end' && 'text-end',
-                      col.className
-                    )}
-                  >
-                    {col.render(row)}
-                  </td>
-                ))}
-              </tr>
-            ))}
+            {data.map((row) => {
+              const href = rowHref ? rowHref(row) : null;
+              const inner = (
+                <>
+                  {columns.map((col) => (
+                    <td
+                      key={col.key}
+                      className={cn(
+                        'px-4 py-3 text-sm',
+                        col.align === 'center' && 'text-center',
+                        col.align === 'end' && 'text-end',
+                        col.className
+                      )}
+                    >
+                      {col.render(row)}
+                    </td>
+                  ))}
+                </>
+              );
+              return (
+                <tr
+                  key={rowKey(row)}
+                  onClick={onRowClick ? () => onRowClick(row) : undefined}
+                  className={cn(
+                    'border-b border-gray-100 last:border-0',
+                    (onRowClick || rowHref) && 'cursor-pointer hover:bg-gray-50'
+                  )}
+                >
+                  {href ? (
+                    <td colSpan={columns.length} className="p-0">
+                      <Link href={href} className="block px-4 py-3 text-sm no-underline text-inherit">
+                        <div className="grid" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(0, 1fr))` }}>
+                          {columns.map((col) => (
+                            <div
+                              key={col.key}
+                              className={cn(
+                                col.align === 'center' && 'text-center',
+                                col.align === 'end' && 'text-end',
+                                col.className
+                              )}
+                            >
+                              {col.render(row)}
+                            </div>
+                          ))}
+                        </div>
+                      </Link>
+                    </td>
+                  ) : (
+                    inner
+                  )}
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>
