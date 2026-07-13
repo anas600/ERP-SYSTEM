@@ -126,7 +126,7 @@ export default function GoodsReceiptDetailPage() {
               {gr.poStatus && (
                 <div className="flex justify-between">
                   <dt className="text-gray-500">حالة PO:</dt>
-                  <dd><Badge variant="blue">{gr.poStatus}</Badge></dd>
+                  <dd><Badge variant="info">{gr.poStatus}</Badge></dd>
                 </div>
               )}
             </dl>
