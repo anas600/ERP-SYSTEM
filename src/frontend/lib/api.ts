@@ -261,12 +261,16 @@ export interface GoodsReceipt {
   grNumber: string;
   purchaseOrderId: string;
   poNumber?: string;
+  poStatus?: string;        // DEC-031: enriched
   vendorName?: string;
   vendorId?: string;
+  vendorCode?: string;      // DEC-031: enriched
   status: number;
   receivedDate: string;
   warehouseId: string;
   warehouseName?: string;
+  warehouseCode?: string;   // DEC-031: enriched
+  notes?: string;           // DEC-031: enriched
   currency?: string;
   lines: GoodsReceiptLine[];
   createdAt: string;
