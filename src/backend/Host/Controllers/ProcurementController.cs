@@ -15,7 +15,7 @@ namespace ERPSystem.Host.Controllers;
 /// Result pattern عبر ProcurementResult&lt;T&gt;، و FluentValidation في الـ entry point.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ProcurementWrite)]
 public class ProcurementController : ControllerBase
 {
     private readonly IVendorService _vendors;

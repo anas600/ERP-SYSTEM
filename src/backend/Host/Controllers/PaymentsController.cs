@@ -15,7 +15,7 @@ namespace ERPSystem.Host.Controllers;
 /// PaymentResult&lt;T&gt; + FluentValidation في entry point.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.FinanceWrite)]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _payments;

@@ -17,7 +17,7 @@ namespace ERPSystem.Host.Controllers;
 /// يتبع نفس النمط الموحّد: TenantId من ITenantContext + Result pattern + FluentValidation.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.HRWrite)]
 public class HrController : ControllerBase
 {
     private readonly IDepartmentService _depts;

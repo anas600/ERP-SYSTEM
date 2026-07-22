@@ -10,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/reservations")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.InventoryWrite)]
 public class StockReservationsController : ControllerBase
 {
     private readonly IStockReservationService _service;

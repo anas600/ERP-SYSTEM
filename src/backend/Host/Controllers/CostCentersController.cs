@@ -9,7 +9,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/cost-centers")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
 public class CostCentersController : ControllerBase
 {
     private readonly ICostCenterService _service;
