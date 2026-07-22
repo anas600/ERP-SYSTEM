@@ -1,0 +1,86 @@
+# DEC-051 P2: Weekly backup verification
+# Runs every Sunday at 04:00 UTC (after nightly backup at 02:00, before retention cleanup at 03:00 → wait, 04:00 conflict)
+# Actually runs at 05:00 UTC — after retention cleanup.
+
+name: Backup Verify (Weekly)
+
+on:
+  schedule:
+    - cron: '0 5 * * 0'  # 05:00 UTC every Sunday
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN mode (no actual restore, just verify file)'
+        required: false
+        default: '0'
+
+concurrency:
+  group: backup-verify
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify Latest Backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PostgreSQL client + boto3
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          pip install --quiet boto3
+
+      - name: Make scripts executable
+        run: chmod +x infra/scripts/verify-backup.sh
+
+      - name: Run backup verification
+        id: verify
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: bash infra/scripts/verify-backup.sh
+
+      - name: Upload verification log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-verify-logs
+          path: /tmp/backup-verify.log
+          retention-days: 90
+
+      - name: Notify on success
+        if: success() && github.event.inputs.dry_run != '1'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=✅ Weekly backup verification PASSED" > /dev/null || true
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=❌ Weekly backup verification FAILED: ${RUN_URL}" > /dev/null || true
+          fi
