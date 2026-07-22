@@ -1,0 +1,80 @@
+# DEC-062: .dockerignore - excludes from Docker build context
+# Keeps build fast + image small
+
+# Git
+.git
+.gitignore
+.gitattributes
+.github
+
+# Build artifacts
+**/bin
+**/obj
+**/out
+**/dist
+**/build
+**/.next
+**/node_modules
+**/coverage
+**/.nyc_output
+**/.cache
+**/.tmp
+
+# IDE
+.vs
+.vscode
+.idea
+*.user
+*.suo
+*.sln.docstates
+
+# Test files
+**/Tests/**
+**/*.test
+**/*.spec
+**/__tests__
+**/test-results
+**/playwright-report
+**/.pytest_cache
+**/coverage.xml
+
+# Documentation (not needed in image)
+docs
+*.md
+!src/frontend/README.md
+!src/backend/README.md
+
+# Environment
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+
+# Logs
+*.log
+logs
+*.pid
+*.seed
+*.pid.lock
+
+# OS
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Docker
+Dockerfile
+Dockerfile.*
+.dockerignore
+docker-compose*.yml
+docker-compose*.yaml
+
+# Worktrees
+wt-*
+
+# CI
+.mavis
+.cron
+.worktree-helpers
