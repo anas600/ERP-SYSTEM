@@ -16,7 +16,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/finance")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
 public class FinanceReportsController : ControllerBase
 {
     private readonly IGeneralLedgerReportService _gl;

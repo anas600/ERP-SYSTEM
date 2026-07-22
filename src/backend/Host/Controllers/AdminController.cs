@@ -19,7 +19,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/admin")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.AdminOnly)]
 public class AdminController : ControllerBase
 {
     private readonly IServiceProvider _serviceProvider;
