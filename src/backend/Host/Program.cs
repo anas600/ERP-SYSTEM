@@ -396,6 +396,20 @@ builder.Services.AddAuthorization(options =>
     // Write admin (Admin only)
     options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteAdmin, p =>
         p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // ============ DEC-053 P1.5: Module-level aliases ============
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.HRWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.FinanceWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.ProcurementWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.InventoryWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.EventsWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AuditRead, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
 });
 
 // ============ CORS ============

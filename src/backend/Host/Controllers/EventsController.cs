@@ -8,7 +8,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/events")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.EventsWrite)]
 public class EventsController : ControllerBase
 {
     private readonly IOutboxRepository _outbox;

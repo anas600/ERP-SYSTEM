@@ -15,7 +15,7 @@ namespace ERPSystem.Host.Controllers;
 /// Result pattern عبر ArResult&lt;T&gt;، و FluentValidation في الـ entry point.
 /// </summary>
 [ApiController]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.FinanceWrite)]
 public class FinanceArController : ControllerBase
 {
     private readonly ICustomerService _customers;

@@ -9,7 +9,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/categories")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.MasterData.Write)]
 public class ItemCategoriesController : ControllerBase
 {
     private readonly IItemCategoryService _service;

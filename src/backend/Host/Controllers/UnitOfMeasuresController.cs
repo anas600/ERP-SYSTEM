@@ -9,7 +9,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/uom")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.MasterData.Write)]
 public class UnitOfMeasuresController : ControllerBase
 {
     private readonly IUnitOfMeasureService _service;
