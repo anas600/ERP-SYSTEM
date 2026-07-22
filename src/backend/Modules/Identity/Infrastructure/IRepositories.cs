@@ -12,6 +12,8 @@ public interface IUserRepository
     Task UpdateLastLoginAsync(Guid userId, DateTime at, CancellationToken ct);
     Task<IReadOnlyList<string>> GetRoleNamesAsync(Guid userId, CancellationToken ct);
     Task AssignRoleAsync(Guid userId, Guid roleId, CancellationToken ct);
+    Task<IReadOnlyList<User>> ListAsync(Guid tenantId, int skip, int take, CancellationToken ct); // DEC-067-C
+    Task<int> CountAsync(Guid tenantId, CancellationToken ct); // DEC-067-C
 }
 
 public interface IRoleRepository
