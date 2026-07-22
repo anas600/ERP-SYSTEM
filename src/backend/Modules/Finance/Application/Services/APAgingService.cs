@@ -34,8 +34,7 @@ public sealed class APAgingService : IAPAgingService
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
         // استعلام واحد: لكل bill في حالة Posted، نحسب المبلغ المُسدَّد عبر payment_allocations
-        // نُمرّر Status كـ Dapper parameter (EnumStringTypeHandler يكتبها كنص) لتجنّب ambiguity
-        // بين الـ schema المُعدَّل و الـ migration الأصلي.
+        // نُمرّر Status كـ Dapper parameter (نُقارن كنص صراحة عبر ::text cast لتجنّب int = text mismatch)
         const string sql = @"
             SELECT vb.id AS BillId, vb.bill_number AS BillNumber, vb.vendor_id AS VendorId,
                    v.code AS VendorCode, v.name AS VendorName,
@@ -45,14 +44,14 @@ public sealed class APAgingService : IAPAgingService
                        FROM payment_allocations pa
                        INNER JOIN payments p ON p.id = pa.payment_id
                        WHERE p.tenant_id = vb.tenant_id
-                         AND p.status = @PostedStatus
+                         AND p.status::text = @PostedStatus
                          AND pa.ref_type = 'VendorBill'
                          AND pa.ref_id = vb.id
                    ), 0) AS PaidAmount
             FROM vendor_bills vb
             INNER JOIN vendors v ON v.id = vb.vendor_id
             WHERE vb.tenant_id = @TenantId
-              AND vb.status = @PostedStatus
+              AND vb.status::text = @PostedStatus
               AND vb.total_amount > 0
             ORDER BY v.code, vb.bill_number";
 
