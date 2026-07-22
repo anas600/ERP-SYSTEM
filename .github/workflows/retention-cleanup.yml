@@ -1,0 +1,76 @@
+# DEC-052: Nightly Tier 1 retention cleanup
+# Runs at 03:00 UTC daily (after backup at 02:00).
+# Can be triggered manually with DRY_RUN=1 to preview.
+
+name: Retention Cleanup
+
+on:
+  schedule:
+    - cron: '0 3 * * *'  # 03:00 UTC daily
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'DRY_RUN (1=yes, 0=no)'
+        required: false
+        default: '0'
+
+concurrency:
+  group: retention-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Tier 1 Cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+
+      - name: Make scripts executable
+        run: chmod +x scripts/data-retention-cleanup.sh scripts/retention-stats.sh
+
+      - name: Show stats before cleanup
+        env:
+          NEON_URL: ${{ secrets.NEON_URL }}
+        run: bash scripts/retention-stats.sh
+
+      - name: Run cleanup
+        env:
+          NEON_URL: ${{ secrets.NEON_URL }}
+          DRY_RUN: ${{ github.event.inputs.dry_run || '0' }}
+        run: bash scripts/data-retention-cleanup.sh
+
+      - name: Notify on high delete count
+        if: always()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          # Tail log for total
+          LAST_LINE=$(tail -20 /tmp/retention-cleanup.log | grep "Total rows deleted" | tail -1)
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ] && [ -n "$LAST_LINE" ]; then
+            MSG="🧹 Retention cleanup: ${LAST_LINE}"
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=${MSG}" > /dev/null || true
+          fi
+
+      - name: Upload log as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: retention-cleanup-logs
+          path: /tmp/retention-cleanup.log
+          retention-days: 7
