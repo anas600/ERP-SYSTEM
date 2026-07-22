@@ -47,15 +47,23 @@ log() {
 }
 
 # Install psql if missing
+# Install psql if missing
 if ! command -v psql >/dev/null 2>&1; then
   log "Installing postgresql-client..."
-  apt-get install -y postgresql-client >/dev/null 2>&1 || apk add postgresql-client >/dev/null 2>&1
+  if command -v apt-get >/dev/null 2>&1; then
+    apt-get install -y postgresql-client >/dev/null 2>&1 || { log "ERROR: Failed to install postgresql-client (apt)"; exit 1; }
+  elif command -v apk >/dev/null 2>&1; then
+    apk add postgresql-client >/dev/null 2>&1 || { log "ERROR: Failed to install postgresql-client (apk)"; exit 1; }
+  else
+    log "ERROR: psql not installed and no package manager found"
+    exit 1
+  fi
 fi
 
 # Install boto3 if R2 ready
 if [ "$R2_READY" = "1" ] && ! python3 -c "import boto3" 2>/dev/null; then
   log "Installing boto3..."
-  pip3 install --quiet --break-system-packages boto3
+  pip3 install --quiet --break-system-packages boto3 || { log "ERROR: Failed to install boto3"; R2_READY=0; }
 fi
 
 log "============================================"
