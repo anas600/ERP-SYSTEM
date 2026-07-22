@@ -10,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/debug")]
-[Authorize(Roles = "Admin")]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.AdminOnly)]
 public class DebugController : ControllerBase
 {
     [HttpGet("seed-status")]
