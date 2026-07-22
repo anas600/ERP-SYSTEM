@@ -10,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/warehouses")]
-[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.MasterData.Write)]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
 public class WarehousesController : ControllerBase
 {
     private readonly IWarehouseService _service;
