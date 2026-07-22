@@ -30,7 +30,7 @@ def test_format_report_full_metrics():
     assert "Daily Status Report" in report
     assert "Supabase" in report
     assert "35 tables" in report
-    assert "Open PRs: 2" in report
+    assert "**Open PRs**: 2" in report
     assert "#119" in report
     assert "abc1234" in report
     assert "DECs" in report
