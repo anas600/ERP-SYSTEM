@@ -11,7 +11,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/finance/posting-rules")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
 public class PostingRulesController : ControllerBase
 {
     private readonly IPostingRulesService _service;

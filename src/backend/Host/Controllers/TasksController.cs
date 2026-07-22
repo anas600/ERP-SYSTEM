@@ -9,7 +9,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/tasks")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
 public class TasksController : ControllerBase
 {
     private readonly ITaskService _tasks;

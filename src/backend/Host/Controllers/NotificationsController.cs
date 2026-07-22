@@ -8,7 +8,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/notifications")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
 public class NotificationsController : ControllerBase
 {
     private readonly INotificationService _service;

@@ -8,7 +8,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/companies")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyService _service;

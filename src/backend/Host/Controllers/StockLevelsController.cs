@@ -7,7 +7,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/levels")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
 public class StockLevelsController : ControllerBase
 {
     private readonly IStockLevelService _service;

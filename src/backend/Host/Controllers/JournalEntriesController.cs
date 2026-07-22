@@ -11,7 +11,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/finance/journal-entries")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
 public class JournalEntriesController : ControllerBase
 {
     private readonly IJournalEntryService _service;

@@ -11,7 +11,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/projects")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projects;
