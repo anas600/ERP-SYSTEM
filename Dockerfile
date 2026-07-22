@@ -135,24 +135,26 @@ export JwtSettings__Issuer="${JwtSettings__Issuer:-${JWT_ISSUER:-ERP-SYSTEM}}"
 export JwtSettings__Audience="${JwtSettings__Audience:-${JWT_AUDIENCE:-ERP-SYSTEM-Users}}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Production}"
 
-# التحقق من المتغيرات المطلوبة
+# التحقق من المتغيرات المطلوبة (DEC-062 P2: warn but don't exit - allow fallback to appsettings.json)
 if [ -z "$ConnectionStrings__Postgres" ]; then
-    echo "❌ ERROR: DB_CONNECTION (or ConnectionStrings__Postgres) is not set!"
+    echo "⚠️ WARNING: DB_CONNECTION (or ConnectionStrings__Postgres) is not set!"
+    echo "   Will use ConnectionStrings:Postgres from appsettings.json"
     echo "   Available env vars matching DB:"
     env | grep -i db || echo "   (none found)"
-    exit 1
 fi
 if [ -z "$JwtSettings__Secret" ]; then
-    echo "❌ ERROR: JWT_SECRET (or JwtSettings__Secret) is not set!"
+    echo "⚠️ WARNING: JWT_SECRET (or JwtSettings__Secret) is not set!"
+    echo "   Will use JwtSettings:Secret from appsettings.json"
     echo "   Available env vars matching JWT:"
     env | grep -i jwt || echo "   (none found)"
-    exit 1
 fi
 if [ -z "$Marten__ConnectionString" ]; then
-    echo "❌ ERROR: EVENTS_CONNECTION (or Marten__ConnectionString) is not set!"
+    echo "⚠️ WARNING: EVENTS_CONNECTION (or Marten__ConnectionString) is not set!"
+    echo "   Will use Marten:ConnectionString from appsettings.json"
     echo "   Available env vars matching EVENTS:"
     env | grep -i event || echo "   (none found)"
-    exit 1
+    # Fallback to OLTP if events not set
+    export Marten__ConnectionString="${Marten__ConnectionString:-$ConnectionStrings__Postgres}"
 fi
 
 echo "✅ Environment variables mapped successfully"
