@@ -1,0 +1,117 @@
+# DEC-051: Nightly PostgreSQL backup to Cloudflare R2
+# Runs at 02:00 UTC daily. Can also be triggered manually.
+#
+# Required GitHub secrets (Settings → Secrets and variables → Actions):
+#   NEON_URL           — PostgreSQL connection string
+#   R2_ACCESS_KEY      — Cloudflare R2 access key
+#   R2_SECRET_KEY      — Cloudflare R2 secret key
+#   R2_ENDPOINT        — R2 endpoint URL
+#   R2_BUCKET          — bucket name
+#   TG_BOT_TOKEN       — Telegram bot for notifications (optional)
+#   TG_CHAT_ID         — Telegram chat ID (optional)
+
+name: Nightly PG Backup
+
+on:
+  schedule:
+    # 02:00 UTC daily (low traffic window)
+    - cron: '0 2 * * *'
+  workflow_dispatch:  # Manual trigger for testing
+    inputs:
+      keep_local:
+        description: 'Keep local file after upload (0/1)'
+        required: false
+        default: '0'
+      notify:
+        description: 'Send Telegram notification (yes/no)'
+        required: false
+        default: 'yes'
+
+# Avoid concurrent runs (esp. if previous run hangs)
+concurrency:
+  group: nightly-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    name: Dump + Upload
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install PostgreSQL client + boto3
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y postgresql-client
+          pip install --quiet boto3
+
+      - name: Make scripts executable
+        run: chmod +x scripts/pg-dump.sh scripts/r2-upload.sh
+
+      - name: Run pg_dump
+        id: dump
+        env:
+          NEON_URL: ${{ secrets.NEON_URL }}
+          BACKUP_DIR: /tmp
+          KEEP_LOCAL: '1'  # keep local so upload step can use it
+        run: bash scripts/pg-dump.sh
+
+      - name: Upload to R2
+        id: upload
+        env:
+          R2_ACCESS_KEY: ${{ secrets.R2_ACCESS_KEY }}
+          R2_SECRET_KEY: ${{ secrets.R2_SECRET_KEY }}
+          R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+          R2_BUCKET: ${{ secrets.R2_BUCKET }}
+          R2_PREFIX: 'backups/'
+          R2_KEEP_VERSIONS: '30'
+          DELETE_LOCAL: ${{ github.event.inputs.keep_local || '1' }}
+        run: bash scripts/r2-upload.sh "$BACKUP_FILE"
+
+      - name: Notify on success
+        if: success() && github.event.inputs.notify != 'no'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          BACKUP_FILE: ${{ steps.dump.outputs.BACKUP_FILE }}
+          SIZE: ${{ steps.dump.outputs.SIZE }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            MSG="✅ Nightly backup OK: ${SIZE} bytes"
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=${MSG}" > /dev/null || true
+          else
+            echo "Telegram not configured, skipping notification"
+          fi
+
+      - name: Notify on failure
+        if: failure() && github.event.inputs.notify != 'no'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            MSG="❌ Nightly backup FAILED: ${RUN_URL}"
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=${MSG}" > /dev/null || true
+          else
+            echo "Telegram not configured, skipping failure notification"
+          fi
+
+      - name: Upload logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backup-logs
+          path: /tmp/erp-backup-*.log
+          retention-days: 7
