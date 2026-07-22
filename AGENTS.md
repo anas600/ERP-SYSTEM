@@ -334,3 +334,83 @@ This project has an analytical team connected via the **Brainstorming Lab** repo
 - Reading a specific file: ~50 tokens in the directive
 - Reading the whole hub every task: ~500 tokens (10× waste)
 - Rule: **only read what's referenced**
+
+---
+
+## 🛠️ Jimi Tech-Lead Tools (DEC-055, 2026-07-22)
+
+> **Status**: ✅ Active (pending: install in Jimi sandbox)
+> **Reference**: DEC-055 in brainstorming-lab portal
+> **Source**: https://anas600.github.io/brainstorming-lab/portals/04-erp-system/decisions/DEC-2026-07-22-055-hf-neon-control-tools.html
+
+### HF Space Control
+
+- **Token path**: `/workspace/.mavis/secrets/hf.token` (chmod 600)
+- **SDK**: `huggingface_hub` Python lib v1.24.0+
+- **CLI**: `hf` v1.24.0+
+- **Capabilities**: deploy, start, stop, restart, logs, status
+
+```python
+from huggingface_hub import HfApi
+api = HfApi(token=open("/workspace/.mavis/secrets/hf.token").read().strip())
+api.create_repo(repo_id="erp-portal", repo_type="space", space_sdk="static")
+```
+
+### Neon DB Control
+
+- **Token path**: `/workspace/.mavis/secrets/neon.key` (chmod 600)
+- **MCP endpoint**: `https://mcp.neon.tech/mcp` via `Authorization: Bearer napi_*`
+- **DB project**: `lingering-feather-01780772` (erp-system-db, aws-eu-central-1, PG 16)
+- **4 tenants**: AlFajr, Al-Burj, AlFajr Holding, الفجر
+
+```python
+import psycopg2
+conn = psycopg2.connect(open("/workspace/.mavis/secrets/neon.url").read().strip())
+try:
+    cursor = conn.cursor()
+    cursor.execute("SELECT 1")
+finally:
+    conn.close()  # ALWAYS close
+```
+
+### 🔒 Connection Lifecycle (CRITICAL)
+
+**RULE**: Every connection → open → use → **close**. Never leave open.
+
+| State | Cost | Rule |
+|---|---|---|
+| Open + Idle | 💰 Paid (Neon compute) | ❌ Never leave |
+| Open + Active | 💰 Paid | ✅ OK briefly |
+| Closed | 🆓 Free | ✅ Default |
+
+**Why**: Idle connections = wasted Neon compute units. Closed = free.
+
+### ⚠️ HF Rate Limit Warning
+
+Current state: IP `47.253.4.207` is rate-limited (429).
+- API, MCP, Git, Raw = all 429
+- Wait for reset (1-24h)
+- Don't retry aggressively
+
+### Cross-References
+
+- **DEC-055** (Master doc): `brainstorming-lab/portals/04-erp-system/decisions/DEC-2026-07-22-055-hf-neon-control-tools.md`
+- **Mavis internal**: `/workspace/.mavis/DEC-2026-07-22-055-hf-neon-control-tools.md`
+- **HF Space target**: `anasassaket-erp-portal.hf.space` (when rate limit clears)
+
+### Setup (for Jimi sandbox)
+
+```bash
+# Install Python libs
+pip install huggingface_hub psycopg2-binary --break-system-packages
+
+# Set up secrets
+mkdir -p ~/.mavis/secrets
+cp /workspace/.mavis/secrets/hf.token ~/.mavis/secrets/
+cp /workspace/.mavis/secrets/neon.key ~/.mavis/secrets/
+chmod 600 ~/.mavis/secrets/*
+
+# Verify
+hf auth whoami
+python3 -c "from huggingface_hub import HfApi; print('OK')"
+```
