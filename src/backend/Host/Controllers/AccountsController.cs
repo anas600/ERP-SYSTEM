@@ -10,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/finance/accounts")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
 public class AccountsController : ControllerBase
 {
     private readonly IChartOfAccountsService _service;

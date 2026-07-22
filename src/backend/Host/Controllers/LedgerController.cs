@@ -8,7 +8,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/finance/ledger")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
 public class LedgerController : ControllerBase
 {
     private readonly IGeneralLedgerService _ledger;

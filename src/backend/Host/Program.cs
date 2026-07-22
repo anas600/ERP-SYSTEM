@@ -142,6 +142,9 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
 
 // ============ Infrastructure ============
 builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
+// DEC-053: HttpContextAccessor (for audit IP/user extraction) + AuditLogger
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ERPSystem.Host.Audit.IAuditLogger, ERPSystem.Host.Audit.AuditLogger>();
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
@@ -358,7 +361,42 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // ============ DEC-053: RBAC Policies ============
+    // Admin only
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOnly, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // Admin or Accountant
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOrAccountant, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    // Admin or ProjectManager
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOrProjectManager, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Any authenticated user
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AnyAuthenticated, p =>
+        p.RequireAuthenticatedUser());
+    // Read access (all roles)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.ReadAccess, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager, ERPSystem.Host.Auth.Roles.Viewer));
+    // Write finance
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteFinance, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    // Write projects
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteProjects, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Write stock
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteStock, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Write master data (Admin only)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteMasterData, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // Write admin (Admin only)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteAdmin, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+});
 
 // ============ CORS ============
 builder.Services.AddCors(options =>

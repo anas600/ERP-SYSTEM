@@ -11,7 +11,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/items")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteStock)]
 public class ItemsController : ControllerBase
 {
     private readonly IItemService _service;
