@@ -6,7 +6,7 @@ name: Build and Deploy to HF
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
     inputs:
       force_deploy:
