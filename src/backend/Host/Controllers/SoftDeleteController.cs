@@ -46,14 +46,17 @@ public class SoftDeleteController : ControllerBase
             return BadRequest(new { error = "Table not allowed for soft delete" });
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var affected = await conn.ExecuteAsync(new CommandDefinition($@"
-            UPDATE {table}
-            SET is_deleted = TRUE,
-                deleted_at = NOW(),
-                deleted_by = @UserId,
-                updated_at = NOW()
-            WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = FALSE",
-            new { Id = id, TenantId = TenantId, UserId = UserId }, cancellationToken: ct));
+        // CodeQL cs/sql-injection fix: avoid {table} interpolation; emit one hardcoded SQL literal per allowed table.
+        string? sql = table.ToLowerInvariant() switch
+        {
+            "sales_invoices" => "UPDATE sales_invoices SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = @UserId, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = FALSE",
+            "payments" => "UPDATE payments SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = @UserId, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = FALSE",
+            "journal_entries" => "UPDATE journal_entries SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = @UserId, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = FALSE",
+            "users" => "UPDATE users SET is_deleted = TRUE, deleted_at = NOW(), deleted_by = @UserId, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = FALSE",
+            _ => null
+        };
+        if (sql is null) return BadRequest(new { error = "Table not allowed for soft delete" });
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { Id = id, TenantId = TenantId, UserId = UserId }, cancellationToken: ct));
 
         if (affected == 0)
             return NotFound(new { error = "Not found or already deleted" });
@@ -71,14 +74,17 @@ public class SoftDeleteController : ControllerBase
             return BadRequest(new { error = "Table not allowed" });
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var affected = await conn.ExecuteAsync(new CommandDefinition($@"
-            UPDATE {table}
-            SET is_deleted = FALSE,
-                deleted_at = NULL,
-                deleted_by = NULL,
-                updated_at = NOW()
-            WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = TRUE",
-            new { Id = id, TenantId = TenantId }, cancellationToken: ct));
+        // CodeQL cs/sql-injection fix: avoid {table} interpolation; emit one hardcoded SQL literal per allowed table.
+        string? sql = table.ToLowerInvariant() switch
+        {
+            "sales_invoices" => "UPDATE sales_invoices SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = TRUE",
+            "payments" => "UPDATE payments SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = TRUE",
+            "journal_entries" => "UPDATE journal_entries SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = TRUE",
+            "users" => "UPDATE users SET is_deleted = FALSE, deleted_at = NULL, deleted_by = NULL, updated_at = NOW() WHERE id = @Id AND tenant_id = @TenantId AND is_deleted = TRUE",
+            _ => null
+        };
+        if (sql is null) return BadRequest(new { error = "Table not allowed" });
+        var affected = await conn.ExecuteAsync(new CommandDefinition(sql, new { Id = id, TenantId = TenantId }, cancellationToken: ct));
 
         if (affected == 0)
             return NotFound(new { error = "Not found or not deleted" });
@@ -101,13 +107,17 @@ public class SoftDeleteController : ControllerBase
         if (take is < 1 or > 200) take = 50;
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var rows = await conn.QueryAsync(new CommandDefinition($@"
-            SELECT id, deleted_at, deleted_by
-            FROM {table}
-            WHERE tenant_id = @TenantId AND is_deleted = TRUE
-            ORDER BY deleted_at DESC
-            OFFSET @Skip LIMIT @Take",
-            new { TenantId = TenantId, Skip = skip, Take = take }, cancellationToken: ct));
+        // CodeQL cs/sql-injection fix: avoid {table} interpolation; emit one hardcoded SQL literal per allowed table.
+        string? sql = table.ToLowerInvariant() switch
+        {
+            "sales_invoices" => "SELECT id, deleted_at, deleted_by FROM sales_invoices WHERE tenant_id = @TenantId AND is_deleted = TRUE ORDER BY deleted_at DESC OFFSET @Skip LIMIT @Take",
+            "payments" => "SELECT id, deleted_at, deleted_by FROM payments WHERE tenant_id = @TenantId AND is_deleted = TRUE ORDER BY deleted_at DESC OFFSET @Skip LIMIT @Take",
+            "journal_entries" => "SELECT id, deleted_at, deleted_by FROM journal_entries WHERE tenant_id = @TenantId AND is_deleted = TRUE ORDER BY deleted_at DESC OFFSET @Skip LIMIT @Take",
+            "users" => "SELECT id, deleted_at, deleted_by FROM users WHERE tenant_id = @TenantId AND is_deleted = TRUE ORDER BY deleted_at DESC OFFSET @Skip LIMIT @Take",
+            _ => null
+        };
+        if (sql is null) return BadRequest(new { error = "Table not allowed" });
+        var rows = await conn.QueryAsync(new CommandDefinition(sql, new { TenantId = TenantId, Skip = skip, Take = take }, cancellationToken: ct));
 
         return Ok(rows);
     }
