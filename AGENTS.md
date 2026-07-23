@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 4 — Payroll + EOS (يونيو 2026) — كل التغييرات من Phase 3/3.5/4 موثّقة
+> محدّث: Release v5.0 (يوليو 2026) — Phase 4.5 (AlFajr) + Phase 5.A (AR + AP Payments + Finance Reports) + DEC-051/052/053/055/062/067/084/086/087/088/109/110/111. Fresh build mode (no seeders). Mavis + Jamie Executive + Jamie Analytical team pattern.
 
 ---
 
@@ -313,7 +313,8 @@ urllib.request.urlopen(req)
 | **Phase 3** | **Procurement Core (Vendor + PO + GR + Bill) + AppShell + 8 UI components** | ✅ مكتمل |
 | **Phase 3.5** | **HR Core (Department + Employee + Attendance + Leave)** | ✅ مكتمل |
 | **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
-| **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR قادم) |
+| **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR #18) |
+| **Phase 5.A Sprint 2** | **AP Payments + Finance Reports rebuild + Fresh Build Mode** | ✅ مكتمل (PR #127) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
