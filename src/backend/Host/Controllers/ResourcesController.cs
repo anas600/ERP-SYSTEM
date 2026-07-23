@@ -9,7 +9,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/resources")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
 public class ResourcesController : ControllerBase
 {
     private readonly IResourceService _service;

@@ -1,0 +1,170 @@
+# DEC-062: Build Docker image + deploy to HF Space
+# Focused workflow: just build + push (no tests, no health check rollback).
+# For full pipeline (tests + health), see ci-deploy.yml.
+
+name: Build and Deploy to HF
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even if no changes (yes/no)'
+        required: false
+        default: 'no'
+
+concurrency:
+  group: hf-deploy
+  cancel-in-progress: false  # Never cancel a deploy in progress
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20'
+  HF_SPACE: 'Anas-Assaket/erp-system'
+
+jobs:
+  build-and-deploy:
+    name: Docker Build + HF Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Verify Dockerfile exists
+        run: |
+          test -f Dockerfile || (echo "Dockerfile missing!" && exit 1)
+          echo "Dockerfile OK ($(wc -l < Dockerfile) lines)"
+
+      - name: Build Docker image
+        id: build
+        run: |
+          docker buildx build \
+            --tag erp-system:${{ github.sha }} \
+            --tag erp-system:latest \
+            --cache-from type=local,src=/tmp/.buildx-cache \
+            --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max \
+            --load \
+            --progress=plain \
+            . 2>&1 | tail -30
+
+      - name: Image size check
+        run: |
+          SIZE=$(docker images erp-system:latest --format "{{.Size}}")
+          echo "Image size: $SIZE"
+          # Warn if > 2GB
+          SIZE_MB=$(docker images erp-system:latest --format "{{.Size}}" | sed 's/MB//;s/GB/*1024/' | bc 2>/dev/null || echo 0)
+          if [ "${SIZE_MB%.*}" -gt 2048 ] 2>/dev/null; then
+            echo "::warning::Image > 2GB, may exceed HF Space limits"
+          fi
+
+      - name: Save cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+      - name: Clone HF Space repo
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          git clone --depth 1 "https://x-access-token:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE}" hf-space
+          cd hf-space
+          echo "Current HF Space SHA: $(git rev-parse HEAD)"
+
+      - name: Prepare space files
+        run: |
+          # Copy Dockerfile + supporting files to space repo
+          cp Dockerfile hf-space/
+          [ -f README.md ] && cp README.md hf-space/README.md
+          # Create app.json for HF Space metadata
+          cat > hf-space/app.json << 'EOF'
+          {
+            "sdk": "docker",
+            "version": "1.0.0",
+            "hardware": "cpu-basic"
+          }
+          EOF
+
+      - name: Commit to HF Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_USERNAME: ${{ secrets.HF_USERNAME || 'Anas-Assaket' }}
+        run: |
+          cd hf-space
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+          # Only commit if there are changes
+          if git diff --staged --quiet; then
+            echo "No changes to deploy"
+            exit 0
+          fi
+          git commit -m "Deploy: ${{ github.sha }} from ${{ github.repository }}@${{ github.ref_name }}"
+          git push "https://x-access-token:${HF_TOKEN}@huggingface.co/spaces/${HF_SPACE_NAME:-Anas-Assaket/erp-system}" main
+
+      - name: Wait for HF Space to rebuild
+        run: |
+          echo "Waiting 60s for HF Space to rebuild..."
+          sleep 60
+          # Try to ping the space
+          for i in 1 2 3 4 5; do
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+              "https://anas-assaket-erp-system.hf.space/api/health/ready" 2>/dev/null || echo "000")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Space is UP after attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i: HTTP $HTTP_CODE, waiting 30s..."
+            sleep 30
+          done
+          echo "::warning::Space did not become healthy in 4 min"
+
+      - name: Notify on success
+        if: success()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=✅ HF Deploy OK: ${{ github.sha }}" > /dev/null || true
+          fi
+
+      - name: Notify on failure
+        if: failure()
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=❌ HF Deploy FAILED: ${RUN_URL}" > /dev/null || true
+          fi

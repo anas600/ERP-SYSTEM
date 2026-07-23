@@ -7,7 +7,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/reports")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
 public class ReportsController : ControllerBase
 {
     private readonly IProjectReportService _projects;

@@ -52,7 +52,7 @@ export default function PayslipPage({ params }: PageProps) {
     if (typeof window !== 'undefined') window.print();
   };
 
-  const formatDate = (s?: string) => (s ? new Date(s).toLocaleDateString('ar-EG') : '—');
+  const formatDate = (s?: string) => (s ? new Date(s).toLocaleDateString('en-GB') : '—');  // DEC-077: BUG-008 — use en-GB (dd/MM/yyyy)
   const formatMoney = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00';
 
   if (loading) {

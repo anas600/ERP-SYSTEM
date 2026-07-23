@@ -1,6 +1,8 @@
 # 💰 src/backend/Modules/Finance/AGENTS.md
 
-> Finance Module — ✅ Phase 1 مكتمل (Chart of Accounts + Journal Entries + General Ledger + Rules Engine)
+> Finance Module — ✅ Phase 1 مكتمل (Chart of Accounts + Journal Entries + General Ledger + Rules Engine).
+>
+> محدّث: 2026-06-24 — إضافة Phase 4 (Payroll uses CoA 4200/1210)
 
 ## شو فيه
 
@@ -97,3 +99,18 @@ Finance/
 - [`../Identity/AGENTS.md`](../Identity/AGENTS.md) — أنماط متبعة
 - [`../Inventory/AGENTS.md`](../Inventory/AGENTS.md) — التكامل المستقبلي
 - [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — Migrations (002_CreateFinanceTables)
+
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project works with an analytical team via the **Brainstorming Lab**.
+
+- **When to read from hub**: ONLY when explicitly instructed by the analytical team
+- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
+- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+
+See root [`AGENTS.md`](../../../../AGENTS.md) for full cross-team protocol.
+
+Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).

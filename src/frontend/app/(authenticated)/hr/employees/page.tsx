@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة قائمة الموظفين (Employees) — جدول
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, Mail, Phone } from 'lucide-react';
 import { Button, Input, Table, Badge, PageHeader } from '@/components/ui';
@@ -116,7 +117,7 @@ export default function EmployeesPage() {
             key: 'hireDate',
             header: 'تاريخ التعيين',
             render: (e) => (
-              <span className="text-sm text-gray-700">{new Date(e.hireDate).toLocaleDateString('ar-EG')}</span>
+              <span className="text-sm text-gray-700">{formatDate(e.hireDate)}</span>
             ),
           },
           {
@@ -148,3 +149,5 @@ export default function EmployeesPage() {
     </div>
   );
 }
+
+

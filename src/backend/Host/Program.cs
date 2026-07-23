@@ -7,6 +7,9 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Dapper;
+using ERPSystem.Host.Middleware;
+using ERPSystem.Shared.Audit;
+using ERPSystem.Shared.DataTypes;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
@@ -28,6 +31,9 @@ using ERPSystem.Modules.Payroll.Application;
 using ERPSystem.Modules.Payroll.Application.Services;
 using ERPSystem.Modules.Payroll.Domain.Calculators;
 using ERPSystem.Modules.Payroll.Infrastructure;
+using ERPSystem.Modules.AccountsReceivable.Application;
+using ERPSystem.Modules.AccountsReceivable.Application.Services;
+using ERPSystem.Modules.AccountsReceivable.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
@@ -38,6 +44,7 @@ using ERPSystem.Shared.Events.Application.Services;
 using ERPSystem.Shared.Events.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
+using ERPSystem.Shared.SeedData;
 using ERPSystem.Shared.MultiTenancy;
 using FluentMigrator.Runner;
 using FluentValidation;
@@ -49,12 +56,58 @@ using StackExchange.Redis;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// ============ Error tracking (Sentry — optional) ============
+// Sprint-4 Day 3 (DEC-045). Disabled unless Sentry__Dsn env var is set.
+var sentryDsn = builder.Configuration["Sentry:Dsn"] ?? builder.Configuration["Sentry__Dsn"];
+if (!string.IsNullOrWhiteSpace(sentryDsn))
+{
+    builder.WebHost.UseSentry(o =>
+    {
+        o.Dsn = sentryDsn;
+        o.Environment = builder.Environment.EnvironmentName;
+        o.Release = "erp-system@1.0.0";
+        o.TracesSampleRate = 0.2; // 20% of transactions (HF free tier)
+        o.SendDefaultPii = false; // GDPR-safe default
+        o.AttachStacktrace = true;
+    });
+    Console.WriteLine($"[SENTRY] Error tracking enabled (env={builder.Environment.EnvironmentName})");
+}
+else
+{
+    Console.WriteLine("[SENTRY] Error tracking disabled (no Sentry__Dsn env var)");
+}
+
 // ============ Logging ============
-builder.Host.UseSerilog((ctx, lc) => lc
-    .ReadFrom.Configuration(ctx.Configuration)
-    .Enrich.FromLogContext()
-    .WriteTo.Console(outputTemplate:
-        "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}"));
+// Sprint-4 Day 3 (DEC-045): structured JSON logging.
+// In Development: human-readable output. In Production: JSON for log aggregation.
+builder.Host.UseSerilog((ctx, lc) =>
+{
+    lc.ReadFrom.Configuration(ctx.Configuration)
+      .Enrich.FromLogContext()
+      .Enrich.WithMachineName()
+      .Enrich.WithThreadId()
+      .Enrich.WithProperty("Application", "ERP-SYSTEM")
+      .Enrich.WithProperty("Environment", ctx.HostingEnvironment.EnvironmentName);
+
+    if (ctx.HostingEnvironment.IsDevelopment())
+    {
+        lc.WriteTo.Console(outputTemplate:
+            "[{Timestamp:HH:mm:ss} {Level:u3}] {SourceContext}: {Message:lj} {Properties:j}{NewLine}{Exception}");
+    }
+    else
+    {
+        // Production: Compact JSON for log shippers (Loki, Elasticsearch, CloudWatch, etc.)
+        lc.WriteTo.Console(new Serilog.Formatting.Compact.CompactJsonFormatter());
+    }
+
+    // DEC-111: Sentry DSN logged (sink not added due to package API mismatch).
+    // Future: Sentry.AspNetCore SDK integration via UseSentry() in pipeline.
+    var sentryDsn = ctx.Configuration["Sentry:Dsn"];
+    if (!string.IsNullOrWhiteSpace(sentryDsn))
+    {
+        lc.Enrich.WithProperty("SentryDsn", sentryDsn);
+    }
+});
 
 // ============ Configuration ============
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>()
@@ -68,8 +121,30 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
     opts.EventStoreConnectionString = builder.Configuration.GetSection("Marten")["ConnectionString"];
 });
 
+// ============================================
+// TODO: Enable Marten in Sprint-5 (DEC-017)
+// ============================================
+// Marten package is installed and configured but NOT yet wired up.
+// Event store using PostgreSQL LISTEN/NOTIFY planned for Sprint-5+.
+//
+// When enabling:
+//   1. Uncomment below
+//   2. Add IDocumentSession to OutboxEventPublisher
+//   3. Create projections for materialized views
+//
+// Why deferred: Event sourcing adds complexity. We need feature flag
+// infrastructure first (Sprint-4) before activating Marten.
+//
+// Reference: DEC-017 (2026-07-05)
+// ============================================
+// builder.Services.AddMarten(opts =>
+//     opts.Connection(builder.Configuration["Marten:ConnectionString"]!));
+
 // ============ Infrastructure ============
 builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
+// DEC-053: HttpContextAccessor (for audit IP/user extraction) + AuditLogger
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<ERPSystem.Host.Audit.IAuditLogger, ERPSystem.Host.Audit.AuditLogger>();
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
@@ -77,6 +152,10 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.VendorBillStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollRunStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
+// DEC-107 / DL 82: Response caching
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ERPSystem.Host.Utilities.ITenantCache, ERPSystem.Host.Utilities.TenantCache>();
+
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 builder.Services.AddScoped<ITenantRepository, TenantRepository>();
@@ -112,11 +191,23 @@ builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
 builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
+// AR module (Phase 5 Sprint 1 — Finance AR)
+builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
+builder.Services.AddScoped<ISalesInvoiceRepository, SalesInvoiceRepository>();
+builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
+builder.Services.AddScoped<IArDocumentSequenceRepository, ArDocumentSequenceRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
 // ============ Multi-tenancy ============
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+
+// ============ Audit (Sprint-4.5 / DEC-056) ============
+builder.Services.AddScoped<IAuditLogger, AuditLogger>();
+
+// ============ Domain Events (Sprint-4.5 T-010 / DEC-057) ============
+// In-process Pub/Sub — lightweight cross-module integration without outbox overhead.
+builder.Services.AddSingleton<IDomainEventPublisher, DomainEventPublisher>();
 
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
@@ -146,12 +237,22 @@ builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+
+// DEC-100 / DL 69: Register Payments services (was missing → 500 on /api/payments)
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Application.Services.IPaymentService, ERPSystem.Modules.Payments.Application.Services.PaymentService>();
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Infrastructure.IPaymentRepository, ERPSystem.Modules.Payments.Infrastructure.PaymentRepository>();
+builder.Services.AddScoped<ERPSystem.Modules.Payments.Infrastructure.IPaymentSequenceRepository, ERPSystem.Modules.Payments.Infrastructure.PaymentSequenceRepository>();
+builder.Services.AddValidatorsFromAssemblyContaining<ERPSystem.Modules.Payments.Application.CreatePaymentRequestValidator>();
 builder.Services.AddScoped<IVendorBillService, VendorBillService>();
 builder.Services.AddScoped<IDepartmentService, DepartmentService>();
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IAttendanceService, AttendanceService>();
 builder.Services.AddScoped<ILeaveRequestService, LeaveRequestService>();
 builder.Services.AddScoped<IPayrollService, PayrollService>();
+// AR module (Phase 5 Sprint 1 — Finance AR)
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
+builder.Services.AddScoped<IReceiptService, ReceiptService>();
 builder.Services.AddScoped<IEosService, EosService>();
 builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
 builder.Services.AddScoped<IEosCalculator, EosCalculator>();
@@ -177,6 +278,9 @@ builder.Services.AddValidatorsFromAssemblyContaining<CreateEmployeeRequestValida
 builder.Services.AddValidatorsFromAssemblyContaining<CheckInOutRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateLeaveRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreatePayrollRunRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateCustomerRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateSalesInvoiceRequestValidator>();
+builder.Services.AddValidatorsFromAssemblyContaining<CreateReceiptRequestValidator>();
 
 // ============ Redis ============
 // Redis اختياري في dev. لو connection string فاضي، ما نسجّل IConnectionMultiplexer
@@ -206,7 +310,30 @@ builder.Services.AddFluentMigratorCore()
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
+builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079: JSON-driven additive schema migrator (runs after FluentMigrator)
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
+
+// ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
+// Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB
+// (only DefaultCoASeed + DefaultInventorySeed as reference data). The owner registers the
+// first real user via /api/auth/register.
+//
+// To re-enable seeders in a future environment (e.g., a demo/staging space), flip the
+// flags in appsettings.json + revert this block. The seeder files (ScenarioSeederHostedService
+// + RealisticSeedHostedService) are kept for re-enable but currently not registered in DI.
+var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", false);
+var seedAlBurj = builder.Configuration.GetValue<bool>("Database:SeedAlBurjScenario", false);
+var seedRealistic = builder.Configuration.GetValue<bool>("Database:SeedRealisticScenario", false);
+if (seedAlFajr) { builder.Services.AddHostedService<ScenarioSeederHostedService>(); Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=true — AlFajr seeder registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedAlFajrScenario=false — AlFajr seeder SKIPPED."); }
+if (seedRealistic) { builder.Services.AddHostedService<RealisticSeedHostedService>(); Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=true — RealisticSeed registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedRealisticScenario=false — RealisticSeed SKIPPED."); }
+if (seedAlBurj)
+{
+    Console.Error.WriteLine("[SPRINT-4] WARNING: SeedAlBurjScenario=true — AlBurj seeder would run if registered (30K records; ensure DB is clean). NOT registered automatically (use manual endpoint).");
+}
+else
+{
+    Console.WriteLine("[SPRINT-4] SeedAlBurjScenario=false (SAFE default, DEC-009 prevention).");
+}
 
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -223,7 +350,56 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             RoleClaimType = System.Security.Claims.ClaimTypes.Role,
         };
     });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    // ============ DEC-053: RBAC Policies ============
+    // Admin only
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOnly, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // Admin or Accountant
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOrAccountant, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    // Admin or ProjectManager
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AdminOrProjectManager, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Any authenticated user
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AnyAuthenticated, p =>
+        p.RequireAuthenticatedUser());
+    // Read access (all roles)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.ReadAccess, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager, ERPSystem.Host.Auth.Roles.Viewer));
+    // Write finance
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteFinance, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    // Write projects
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteProjects, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Write stock
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteStock, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager));
+    // Write master data (Admin only)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteMasterData, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // Write admin (Admin only)
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.WriteAdmin, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    // ============ DEC-053 P1.5: Module-level aliases ============
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.HRWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.FinanceWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.ProcurementWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.InventoryWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant,
+            ERPSystem.Host.Auth.Roles.ProjectManager));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.EventsWrite, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+    options.AddPolicy(ERPSystem.Host.Auth.PolicyNames.AuditRead, p =>
+        p.RequireRole(ERPSystem.Host.Auth.Roles.Admin, ERPSystem.Host.Auth.Roles.Accountant));
+});
 
 // ============ CORS ============
 builder.Services.AddCors(options =>
@@ -265,7 +441,35 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+// DEC-100 / DL 69: Surface unhandled exceptions with JSON body in production
+// (default behavior is empty 500). Catch exceptions anywhere in the pipeline.
+app.Use(async (ctx, next) =>
+{
+    try { await next(); }
+    catch (Exception ex)
+    {
+        var logger = ctx.RequestServices.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Unhandled exception | path={Path} method={Method}", ctx.Request.Path, ctx.Request.Method);
+        if (!ctx.Response.HasStarted)
+        {
+            ctx.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            ctx.Response.ContentType = "application/json";
+            await ctx.Response.WriteAsJsonAsync(new
+            {
+                error = "UnhandledException",
+                message = ex.Message,
+                detail = ex.InnerException?.Message,
+                path = ctx.Request.Path.Value,
+                type = ex.GetType().Name,
+            });
+        }
+    }
+});
+
+// Sprint-4 Day 3 (DEC-045): request tracking FIRST so all downstream logs have RequestId.
+app.UseRequestTracking();
 app.UseSerilogRequestLogging();
+app.UseMiddleware<RequestTimingMiddleware>(); // DEC-111
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();

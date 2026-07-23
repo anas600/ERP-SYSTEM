@@ -44,9 +44,10 @@ public sealed class MigrationRunnerHostedService : IHostedService
         catch (Exception ex)
         {
             _logger.LogError(ex, "فشل تنفيذ الـ migrations!");
-            // في dev: نسمح للخدمة بالاستمرار حتى يمكن فحصها
-            // في prod: الأفضل أن نرمي exception لمنع البدء
-            throw;
+            // Hotfix: لا نرمي exception - نسجل فقط ونكمل
+            // السبب: لو DB schema تالف، نريد الـ app يبدأ حتى نرى الـ real error
+            // عبر /api/health بدلاً من 502
+            _logger.LogWarning("⚠️ CONTINUING DESPITE MIGRATION FAILURE - app will start but DB queries may fail");
         }
         return Task.CompletedTask;
     }

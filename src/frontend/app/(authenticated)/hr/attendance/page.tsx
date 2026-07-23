@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة الحضور (Attendance) — CheckIn / CheckOut + history
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import { LogIn, LogOut as LogOutIcon, CheckCircle2, Clock } from 'lucide-react';
 import { Button, Select, Table, Badge, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
@@ -140,9 +141,9 @@ export default function AttendancePage() {
               header: 'الوقت',
               render: (r) => (
                 <div>
-                  <p className="text-sm text-gray-800">{new Date(r.timestamp).toLocaleDateString('ar-EG')}</p>
+                  <p className="text-sm text-gray-800">{formatDate(r.timestamp)}</p>
                   <p className="text-xs text-gray-500 font-mono">
-                    {new Date(r.timestamp).toLocaleTimeString('ar-EG')}
+                    {formatTime(r.timestamp)}
                   </p>
                 </div>
               ),
@@ -181,3 +182,5 @@ export default function AttendancePage() {
     </div>
   );
 }
+
+

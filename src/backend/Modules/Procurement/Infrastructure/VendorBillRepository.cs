@@ -16,7 +16,7 @@ public sealed class VendorBillRepository : IVendorBillRepository
         journal_entry_id AS JournalEntryId, posted_at AS PostedAt,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string SelLine = @"id, tenant_id AS TenantId, vendor_id AS VendorId, vendor_bill_id AS VendorBillId,
+    private const string SelLine = @"id, tenant_id AS TenantId, vendor_bill_id AS VendorBillId,
         item_id AS ItemId, quantity, unit_price AS UnitPrice, tax_rate AS TaxRate, sub_total AS SubTotal, line_order AS LineOrder";
 
     public async Task<VendorBill?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -48,8 +48,24 @@ public sealed class VendorBillRepository : IVendorBillRepository
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", status.Value.ToString()); }
         sql += " ORDER BY created_at DESC OFFSET @Skip LIMIT @Take";
         p.Add("Skip", skip); p.Add("Take", take);
-        var rows = await conn.QueryAsync<VendorBill>(new CommandDefinition(sql, p, cancellationToken: ct));
-        return rows.AsList();
+        var rows = (await conn.QueryAsync<VendorBill>(new CommandDefinition(sql, p, cancellationToken: ct))).AsList();
+
+        // DEC-074: Load lines for each bill (BUG-003 fix — was empty before)
+        // Simple N+1 pattern; can be optimized with a JOIN if needed
+        if (rows.Count > 0)
+        {
+            var billIds = rows.Select(b => b.Id).ToList();
+            var allLines = await conn.QueryAsync<VendorBillLine>(new CommandDefinition(
+                $"SELECT {SelLine} FROM vendor_bill_lines WHERE vendor_bill_id = ANY(@BillIds) ORDER BY line_order",
+                new { BillIds = billIds.ToArray() }, cancellationToken: ct));
+            var linesByBill = allLines.GroupBy(l => l.VendorBillId).ToDictionary(g => g.Key, g => g.ToList());
+            foreach (var bill in rows)
+            {
+                bill.Lines = linesByBill.TryGetValue(bill.Id, out var ls) ? ls : new List<VendorBillLine>();
+            }
+        }
+
+        return rows;
     }
 
     public async Task InsertAsync(VendorBill bill, CancellationToken ct)
@@ -98,11 +114,11 @@ public sealed class VendorBillRepository : IVendorBillRepository
         foreach (var l in lines)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO vendor_bill_lines (id, tenant_id, vendor_id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
-                VALUES (@Id, @TenantId, @VendorId, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
+                INSERT INTO vendor_bill_lines (id, tenant_id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
+                VALUES (@Id, @TenantId, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
                 new
                 {
-                    l.Id, TenantId = tenantId, l.VendorId, VendorBillId = billId,
+                    l.Id, TenantId = tenantId, VendorBillId = billId,
                     l.ItemId, l.Quantity, l.UnitPrice, l.TaxRate, l.SubTotal, l.LineOrder
                 }, cancellationToken: ct));
         }

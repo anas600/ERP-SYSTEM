@@ -1,0 +1,65 @@
+# DEC-053 P2: RBAC matrix generation + verification
+# Runs on every PR + nightly to keep the matrix in sync
+
+name: RBAC Matrix
+
+on:
+  pull_request:
+    paths:
+      - 'src/backend/Host/Controllers/**'
+      - 'src/backend/Host/Auth/**'
+      - 'src/backend/Host/Program.cs'
+      - 'scripts/generate-rbac-matrix.py'
+  push:
+    branches: [develop]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 6 * * *'  # 06:00 UTC daily (after work day)
+
+concurrency:
+  group: rbac-matrix
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    name: Generate Matrix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Generate matrix
+        run: python3 scripts/generate-rbac-matrix.py
+
+      - name: Upload matrix as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbac-test-matrix
+          path: docs/rbac-test-matrix.md
+          retention-days: 90
+
+      - name: Check for regressions
+        run: |
+          # Verify the new matrix doesn't show unexpected policy removals
+          if grep -q "⚠️ Controllers without specific policy" docs/rbac-test-matrix.md; then
+            UNGUARDED=$(grep -c "(no policy — \[Authorize\] only)" docs/rbac-test-matrix.md || true)
+            echo "::warning::Found $UNGUARDED controllers without specific policy (should be investigated)"
+          fi
+
+      - name: Notify on change
+        if: github.event_name == 'schedule'
+        env:
+          TG_BOT_TOKEN: ${{ secrets.TG_BOT_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          if [ -n "$TG_BOT_TOKEN" ] && [ -n "$TG_CHAT_ID" ]; then
+            curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
+              -d "chat_id=${TG_CHAT_ID}&text=📊 RBAC matrix regenerated" > /dev/null || true
+          fi

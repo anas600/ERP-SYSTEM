@@ -10,6 +10,7 @@ public interface IVendorRepository
     Task<Vendor?> GetByIdAsync(Guid id, CancellationToken ct);
     Task<Vendor?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
     Task<IReadOnlyList<Vendor>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<IReadOnlyList<Vendor>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct); // DEC-031
     Task InsertAsync(Vendor vendor, CancellationToken ct);
     Task UpdateAsync(Vendor vendor, CancellationToken ct);
 }
@@ -25,6 +26,7 @@ public interface IPurchaseOrderRepository
     Task InsertLinesAsync(Guid tenantId, Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct);
     Task UpdateLinesAsync(Guid tenantId, Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct);
     Task<IReadOnlyList<PurchaseOrderLine>> GetLinesAsync(Guid poId, CancellationToken ct);
+    Task<IReadOnlyList<PurchaseOrder>> GetByIdsAsync(IEnumerable<Guid> ids, CancellationToken ct); // DEC-031
 }
 
 /// <summary>Repository contracts لسندات الاستلام.</summary>

@@ -1,9 +1,12 @@
-'use client';
+﻿'use client';
 
 // صفحة المشاريع (Projects) — قائمة
 
 import { useEffect, useState } from 'react';
-import { Card, Badge, PageHeader } from '@/components/ui';
+import Link from 'next/link';
+import { Plus, Pencil } from 'lucide-react';
+import { formatDate, formatTime } from '@/lib/utils';
+import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { projectsApi, Project, PROJECT_STATUSES } from '@/lib/api';
 
@@ -34,7 +37,17 @@ export default function ProjectsPage() {
 
   return (
     <div>
-      <PageHeader title="📊 المشاريع" description="قائمة المشاريع النشطة والمكتملة" />
+      <PageHeader
+        title="📊 المشاريع"
+        description="قائمة المشاريع النشطة والمكتملة"
+        actions={
+          <Link href="/projects/new">
+            <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+              مشروع جديد
+            </Button>
+          </Link>
+        }
+      />
 
       {error && (
         <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
@@ -61,7 +74,12 @@ export default function ProjectsPage() {
                   <h3 className="font-bold text-gray-800 mt-1 text-lg">{p.name}</h3>
                   {p.description && <p className="text-sm text-gray-500 mt-1">{p.description}</p>}
                 </div>
-                <Badge variant="info">{PROJECT_STATUSES[p.status] || p.status}</Badge>
+                <div className="flex items-center gap-1">
+                  <Link href={`/projects/${p.id}/edit`}>
+                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+                  </Link>
+                  <Badge variant="info">{PROJECT_STATUSES[p.status] || p.status}</Badge>
+                </div>
               </div>
               <div className="mt-3 pt-3 border-t grid grid-cols-2 gap-4 text-sm">
                 <div>
@@ -71,7 +89,7 @@ export default function ProjectsPage() {
                 <div>
                   <p className="text-gray-500">تاريخ البدء</p>
                   <p className="font-mono text-gray-800">
-                    {new Date(p.startDate).toLocaleDateString('ar-EG')}
+                    {formatDate(p.startDate)}
                   </p>
                 </div>
               </div>
@@ -82,3 +100,5 @@ export default function ProjectsPage() {
     </div>
   );
 }
+
+

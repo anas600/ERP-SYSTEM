@@ -1,39 +1,9 @@
-# .NET
-src/backend/Host/bin/
-src/backend/Host/obj/
-src/backend/**/*.user
-src/backend/**/*.suo
-src/backend/.vs/
-
-# Node
-src/frontend/node_modules/
+# Build outputs
+src/backend/Tools/DataTypeCodeGen/bin/
+src/backend/Tools/DataTypeCodeGen/obj/
 src/frontend/.next/
-src/frontend/.out/
-src/frontend/build/
-src/frontend/dist/
-src/frontend/*.log
-src/frontend/.env*.local
+src/frontend/node_modules/
 
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-.DS_Store
-Thumbs.db
-
-# Secrets (NEVER commit!)
-.env
-*.env
-appsettings.Development.json
-appsettings.Local.json
-appsettings.Production.json
-
-# Logs
-*.log
-logs/
-
-# Test results
-TestResults/
-coverage/
-*.trx
+# EntityRepoEnhance build artifacts
+src/backend/Tools/EntityRepoEnhance/obj/
+src/backend/Tools/EntityRepoEnhance/bin/

@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة الإجازات (Leaves) — قائمة + Approve/Reject
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, Check, X } from 'lucide-react';
 import { Button, Table, Badge, PageHeader } from '@/components/ui';
@@ -106,7 +107,7 @@ export default function LeavesPage() {
             render: (l) => (
               <div>
                 <p className="text-sm text-gray-800">
-                  {new Date(l.startDate).toLocaleDateString('ar-EG')} - {new Date(l.endDate).toLocaleDateString('ar-EG')}
+                  {formatDate(l.startDate)} - {formatDate(l.endDate)}
                 </p>
                 <p className="text-xs text-gray-500">{l.totalDays} يوم</p>
               </div>
@@ -170,3 +171,5 @@ export default function LeavesPage() {
     </div>
   );
 }
+
+

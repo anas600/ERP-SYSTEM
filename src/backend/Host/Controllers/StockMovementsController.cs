@@ -11,7 +11,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Route("api/inventory/movements")]
-[Authorize]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteStock)]
 public class StockMovementsController : ControllerBase
 {
     private readonly IStockMovementService _service;

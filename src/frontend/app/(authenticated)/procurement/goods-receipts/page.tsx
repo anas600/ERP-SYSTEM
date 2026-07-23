@@ -1,8 +1,9 @@
-'use client';
+﻿'use client';
 
 // صفحة قائمة استلامات البضاعة (Goods Receipts) — جدول
 
 import { useEffect, useState } from 'react';
+import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { Button, Table, Badge, PageHeader } from '@/components/ui';
@@ -86,7 +87,7 @@ export default function GoodsReceiptsPage() {
             header: 'تاريخ الاستلام',
             render: (g) => (
               <span className="text-sm text-gray-700">
-                {new Date(g.receivedDate).toLocaleDateString('ar-EG')}
+                {formatDate(g.receivedDate)}
               </span>
             ),
           },
@@ -109,6 +110,7 @@ export default function GoodsReceiptsPage() {
         data={grs}
         loading={loading}
         rowKey={(g) => g.id}
+        rowHref={(g) => `/procurement/goods-receipts/${g.id}`} // DEC-031
         emptyMessage="لا توجد استلامات بضاعة بعد."
       />
 
@@ -118,3 +120,5 @@ export default function GoodsReceiptsPage() {
     </div>
   );
 }
+
+

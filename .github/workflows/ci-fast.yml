@@ -1,15 +1,16 @@
-name: CI
+name: CI Fast (Tests + Build)
 
+# DEC-054: Fast feedback loop on every push.
+# Runs unit + integration tests, NO HF Space deploy (saves 8-12 min).
+# For deploy, see ci-deploy.yml (manual or merge to develop).
 on:
   push:
-    branches: [ main, develop ]
-    tags: [ 'v*' ]
+    branches: [develop, main]
   pull_request:
-    branches: [ main, develop ]
+    branches: [develop, main]
 
-# نمنع تشغيل pipelines قديمة على نفس الـ PR عند push جديد
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ci-fast-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -18,10 +19,10 @@ env:
 
 jobs:
   # ===================================================================
-  # Backend: restore → build → test → publish artifact
+  # Backend: unit + integration tests (with test DB)
   # ===================================================================
-  backend:
-    name: Backend (.NET 9.0)
+  backend-tests:
+    name: Backend Tests (.NET 9.0)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -40,21 +41,14 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
     env:
       ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
       ConnectionStrings__Redis: "localhost:6379"
-      Marten__ConnectionString: "Host=localhost;Port=5432;Database=erp_test_events;Username=erp_test;Password=erp_test_pw"
-      JwtSettings__Secret: "CI_TEST_SECRET_REPLACE_NEVER_USE_IN_PROD_32CHARS_xxxxxxxxxxxx"
+      # Marten disabled (DEC-017). Re-enable in Sprint-5.
+      # When enabled: Marten__ConnectionString: "Host=localhost;..."
+      JwtSettings__Secret: "CI_FAST_TEST_SECRET_REPLACE_32CHARS_xxxxxxxxxxxxxx"
       Database__AutoMigrate: "true"
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -72,37 +66,38 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-nuget-
 
-      - name: Restore
+      - name: Restore Backend
         run: dotnet restore Host/ERP-SYSTEM.csproj
 
-      - name: Restore (Tests)
+      - name: Restore Tests
         run: dotnet restore Tests/ERPSystem.Tests/ERPSystem.Tests.csproj
 
-      - name: Build
+      - name: Build Backend
         run: dotnet build Host/ERP-SYSTEM.csproj --no-restore --configuration Release
 
-      - name: Build (Tests)
+      - name: Build Tests
         run: dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj --no-restore --configuration Release
 
-      - name: Run tests with coverage
+      - name: Run all tests (unit + integration)
         run: |
           dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
             --no-build --configuration Release \
             --collect:"XPlat Code Coverage" \
-            --logger "trx;LogFileName=test-results.trx"
+            --logger "trx;LogFileName=test-results.trx" \
+            --logger "console;verbosity=normal"
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-backend
+          name: test-results-ci-fast
           path: '**/TestResults/**/*.trx'
 
   # ===================================================================
-  # Frontend: install → type-check → lint → build
+  # Frontend: type-check + lint + build
   # ===================================================================
-  frontend:
-    name: Frontend (Node 20)
+  frontend-build:
+    name: Frontend Build (Next.js 14)
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -129,26 +124,13 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: 'http://localhost:5000'
 
-  # ===================================================================
-  # Docker: validate compose syntax + build api image
-  # ===================================================================
-  docker:
-    name: Docker Build (api)
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Build API image
-        uses: docker/build-push-action@v6
+      - name: Upload build artifact
+        if: success()
+        uses: actions/upload-artifact@v4
         with:
-          context: src/backend
-          file: src/backend/Dockerfile
-          push: false
-          tags: erp-system/api:ci-${{ github.sha }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          name: frontend-dist
+          path: src/frontend/.next/standalone/
+          retention-days: 3

@@ -22,6 +22,9 @@ public class Vendor
     /// <summary>الرقم الضريبي (اختياري) — يُستخدم في الفاتورة الإلكترونية (ZATCA/ETA مستقبلاً).</summary>
     public string? TaxNumber { get; set; }
 
+    /// <summary>الموقع الإلكتروني (اختياري) — أُضيف في DEC-081b.</summary>
+    public string? Website { get; set; }
+
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
 

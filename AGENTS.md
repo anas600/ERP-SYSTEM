@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 2.5 — Reports + Frontend (يونيو 2026)
+> محدّث: Phase 4 — Payroll + EOS (يونيو 2026) — كل التغييرات من Phase 3/3.5/4 موثّقة
 
 ---
 
@@ -15,7 +15,7 @@
 | المدة المتوقعة | 8-10 أسابيع |
 | المالك | anas600 (https://github.com/anas600) |
 | الترخيص | Private — جميع الحقوق محفوظة |
-| الحالة | Phase 2.5+ مكتمل (PR #1 → #8)، Phase 3 قادم |
+| الحالة | **Phase 4 مكتمل (PR #1 → #15)**، Phase 5 قادم |
 
 ---
 
@@ -27,7 +27,7 @@
 | Language (Backend) | C# | 12+ | Nullable Reference Types مفعّلة |
 | Database (OLTP) | **PostgreSQL** | **15** | ✅ مُختبَر محلياً (15.18). 16+ مقبول |
 | Database (Events) | PostgreSQL | 15 | نفس الـ instance، schema منفصل `mt_events` |
-| Migrations | FluentMigrator | 5.0 | 7 migrations: identity → finance → projects → inventory → outbox |
+| Migrations | FluentMigrator | 5.0 | **10 migrations**: identity → finance → projects → inventory → outbox → procurement → hr → payroll |
 | ORM | Dapper | 2.1+ | لا EF Core (القرار في PLAN.md) |
 | Event Store | MartenDB | 7.34+ | حزمة مُثبّتة (Phase 3+)؛ حالياً Outbox pattern في Postgres |
 | Cache/Queue | Redis | 7 | **اختياري** في dev؛ الكود يتفحص `ConnectionStrings:Redis` |
@@ -36,7 +36,7 @@
 | Frontend Language | TypeScript | 5.5+ | Strict mode |
 | UI Components | **Tailwind CSS** | 3.4 | ⚠️ shadcn/ui مذكور تاريخياً لكن **غير مُطبَّق** (لا يوجد `components/ui/`) |
 | API Docs | Swashbuckle | 6.6+ | Swagger UI على `/swagger` |
-| Testing | xUnit + FluentAssertions | — | 15 اختبار في `src/backend/Tests/` |
+| Testing | xUnit + FluentAssertions | — | `src/backend/Tests/` — عدد الاختبارات حسب الـ modules |
 | Container | Docker Compose | 3.9 | `infra/docker/docker-compose.dev.yml` |
 | CI | GitHub Actions | — | `.github/workflows/ci.yml` |
 
@@ -97,6 +97,20 @@
 - **Naming**: snake_case للجداول والأعمدة (Postgres convention)
 - **Indexes**: أنشئ index على كل foreign key + أعمدة البحث الشائعة
 - **Foreign Keys**: حدد `OnDelete` بشكل صريح (Cascade أو Restrict)
+
+---
+
+## 🧪 Testing Strategy (DEC-054)
+
+نظام 3 طبقات (Testing Pyramid):
+
+| Type | Location | Speed | Trigger |
+|---|---|---|---|
+| Unit (no DB) | `./scripts/local-verify.sh` | ~30 sec | Before every push |
+| Integration (test DB) | `./scripts/local-integration.sh` (Docker) or CI Fast | ~2 min | On every push (ci-fast.yml) |
+| Smoke (HF Space) | CI Deploy → auto-rollback check | ~10 min | On PR merge to develop (ci-deploy.yml) |
+
+**Local testing إلزامي قبل push.** لا تدفع كود لا يجتاز `./scripts/local-verify.sh`.
 
 ---
 
@@ -176,6 +190,114 @@ test(auth): add JwtTokenService tests
 
 ---
 
+## 🛠️ Jimi Tech-Lead Tools (DEC-055, 2026-07-22)
+
+Jimi (session `408773242015948` = "خطة-النظام") has elevated privileges to manage infrastructure:
+
+### HF Space Control (`huggingface_hub` v1.24.0+)
+
+| Capability | Tool | When |
+|---|---|---|
+| Deploy | `hf` CLI or `huggingface_hub.HfApi()` | After CI passes (manual trigger) |
+| Start/Stop/Restart | `HfApi().run_space()` | When stale or rate-limited |
+| Logs | `HfApi().space_logs()` | Debug deploy failures |
+| Status | `https://huggingface.co/api/spaces/Anas-Assaket/erp-system` | Check before deploy |
+
+**Token**: `HF_TOKEN` env var (sourced from `/workspace/.mavis/secrets/hf.token`, chmod 600)
+
+### Neon DB Control (`psycopg2` + Neon API)
+
+| Capability | Tool | When |
+|---|---|---|
+| SQL queries | `psycopg2.connect(NEON_URL)` | Read-only inspection, schema audit |
+| Schema | `psql \d` or query `information_schema` | Migration verification |
+| Migrations | FluentMigrator (in code, not Neon API) | Applied via app startup |
+| Logs | Neon Console (https://console.neon.tech) | When queries fail |
+
+**Token**: `NEON_API_KEY` env var (MCP-compatible) + `NEON_URL` for direct PG
+**Project**: `lingering-feather-01780772` (erp-system-db, aws-eu-central-1, PG 16)
+
+### ⚠️ Connection Lifecycle (CRITICAL — Anas Mandate)
+
+**Rule**: Every connection → open → use → **close**. Never leave open.
+
+```python
+# Correct
+import os, psycopg2
+conn = psycopg2.connect(os.environ['NEON_URL'])
+try:
+    cursor.execute("SELECT ...")
+    rows = cursor.fetchall()
+finally:
+    conn.close()  # ALWAYS
+```
+
+**Why**: Idle connections = paid Neon compute. Closed = free. Don't burn tokens.
+
+### ⚠️ HF Rate Limit Warning
+
+Currently the cloud sandbox IP (`47.253.4.207`) is rate-limited by HF (HTTP 429).
+- **Don't retry immediately** — wait or work on other tasks
+- HF Space auto-deploys from `develop` branch every push (via GitHub Action)
+- Manual restart needed only when auto-deploy stalls (>10 min)
+
+### Cross-Reference
+
+- DEC-055: `/workspace/.mavis/DEC-2026-07-22-055-hf-neon-control-tools.md`
+- Portal: https://anas600.github.io/brainstorming-lab/portals/04-erp-system/decisions/
+- Backup tokens in: `/workspace/.mavis/secrets/` (chmod 600)
+
+---
+
+## 👥 Work Division (DEC-055, per Anas)
+
+| Tool/Task | Owner |
+|---|---|
+| HF Hub CLI / Protel | Mavis |
+| HF Space deploy (ERP-PORTAL) | Jimi |
+| ERPNext execution | Jimi |
+| BSY Configuration 2 | Jimi |
+| Postgres config | Jimi |
+| **Push** changes to ERP-SYSTEM | Jimi |
+| Review Jimi's push | Mavis (DevOps) |
+| Forward to Lab | Mavis (if complex) |
+
+### Workflow (per Anas, FINAL)
+
+1. **Jimi** يعمل شغل (BSY, Postgres, HF deploy)
+2. **Jimi** يعمل push
+3. **Jimi** يبعت "done" عبر Channel 5
+4. **Mavis** يراجع كـ coordinator + DevOps
+5. **Mavis** يحوّل للفريق التحليلي لو في قرارات معقدة
+
+### Communication
+
+- **Channel 5** (`communicate` tool) = standard communication
+- Mavis = leader/reviewer, Jimi = implementation lead
+- No cron job needed (Channel 5 is more flexible)
+
+### Git Push from Jimi Sandbox
+
+Jimi's local GITHUB_TOKEN has `repo` scope for `anas600/ERP-SYSTEM`. Pattern:
+
+```python
+# Use GitHub API (most reliable from cloud sandbox)
+import urllib.request, json, base64
+token = open('/root/.mavis/secrets/github.token').read().strip()
+req = urllib.request.Request(
+    'https://api.github.com/repos/anas600/ERP-SYSTEM/contents/AGENTS.md',
+    data=json.dumps({
+        'message': 'docs: ...',
+        'content': base64.b64encode(open('AGENTS.md', 'rb').read()).decode(),
+        'branch': 'develop'
+    }).encode(),
+    headers={'Authorization': f'token {token}', 'Content-Type': 'application/json'}
+)
+urllib.request.urlopen(req)
+```
+
+---
+
 ## 📅 Phase Status
 
 | Phase | المحتوى | الحالة |
@@ -191,12 +313,17 @@ test(auth): add JwtTokenService tests
 | **Phase 3** | **Procurement Core (Vendor + PO + GR + Bill) + AppShell + 8 UI components** | ✅ مكتمل |
 | **Phase 3.5** | **HR Core (Department + Employee + Attendance + Leave)** | ✅ مكتمل |
 | **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
+| **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR قادم) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-06-24b — Mavis Telegram Architecture Guide 🆕
+
+- [`docs/MAVIS-TELEGRAM-GUIDE.html`](docs/MAVIS-TELEGRAM-GUIDE.html): 🆕 دليل Mavis + Telegram التقني — معمارية Sessions، Routing، Lifecycle، Scenarios، الأوامر، توصيات التنظيف (25KB)
 
 ### 2026-06-24 — Phase 3: Procurement + HR + Frontend Foundation
 
@@ -244,3 +371,74 @@ test(auth): add JwtTokenService tests
 ---
 
 **حافظ على هذا الملف محدّثاً** عند إضافة AGENTS.md جديدة أو tech جديد.
+
+---
+
+## 🌿 Branching Strategy (DEC-052)
+
+This project uses **GitHub Flow + develop branch**:
+
+- `main` = production (protected — required reviews + CI check)
+- `develop` = integration (protected — required reviews + CI check)
+- `feature/*`, `fix/*`, `hotfix/*`, `docs/*` = working branches
+
+### Before starting work:
+
+1. Read AGENTS.md (this file)
+2. Check existing branches: `git branch -a`
+3. Create branch from `develop` (or `main` for hotfixes):
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git worktree add ../wt-$(name) -b <branch-name> develop
+   ```
+
+### Branch naming:
+
+- `feature/<epic>-<description>` (e.g., `feature/M1-add-login`)
+- `fix/<issue-number>-<description>` (e.g., `fix/123-alburj-bug`)
+- `hotfix/<description>` (e.g., `hotfix/critical-prod-fix`)
+- `docs/<description>` (e.g., `docs/update-readme`)
+
+See `.github/BRANCHING.md` for full details.
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project has an analytical team connected via the **Brainstorming Lab** repo.
+
+### Hub
+
+- **Hub repo**: https://github.com/anas600/brainstorming-lab
+- **Session folder**: `portals/02-session-002/`
+
+### How to read from the hub
+
+- **Default**: Work from **local context** — AGENTS.md, RUNBOOK.md, source code, git history.
+- **When to read from hub**: **ONLY when explicitly instructed by the analytical team** (e.g., "read SYSTEM.md §4" or "see decisions/DEC-042").
+- **Read specific files, not all**: Each directive names the file. Don't read SYSTEM.md + ROLE-CLARIFICATION.md + SESSION.md every task — that's a token waste.
+
+### Hub files (read on-demand)
+
+| File | When |
+|---|---|
+| `SYSTEM.md` | Constitution (referenced by section number) |
+| `CROSS-TEAM-COORDINATION.md` | Cross-team protocol (read once, then reference) |
+| `board.md` | Live ERP-SYSTEM progress (read for context) |
+| `tasks.md` | Task tracker (read for your pending tasks) |
+| `decisions/DEC-NNN-*.md` | Specific decision file (when cited) |
+
+### Pattern
+
+1. Receive directive (mention "read X" or "see DEC-NNN")
+2. Read the specific referenced file
+3. Do the work
+4. Push + report back
+5. Wait for review
+
+### Token efficiency
+
+- Reading a specific file: ~50 tokens in the directive
+- Reading the whole hub every task: ~500 tokens (10× waste)
+- Rule: **only read what's referenced**

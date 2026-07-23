@@ -30,6 +30,14 @@ public sealed class CompanyRepository : ICompanyRepository
             new { TenantId = tenantId, Code = code }, cancellationToken: ct));
     }
 
+    public async Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM companies WHERE tenant_id = @TenantId AND is_group = true LIMIT 1",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);

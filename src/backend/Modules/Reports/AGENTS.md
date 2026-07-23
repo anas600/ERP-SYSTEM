@@ -1,6 +1,8 @@
 # 📊 src/backend/Modules/Reports/AGENTS.md
 
 > Reports Module — ✅ Phase 2.5 (مكتمل).
+>
+> محدّث: 2026-06-24 — إضافة Phase 3+ context
 
 ## شو فيه
 
@@ -94,3 +96,21 @@
 - [`../Projects/AGENTS.md`](../Projects/AGENTS.md)
 - [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — IDbConnectionFactory
 - [`../../Tests/AGENTS.md`](../../Tests/AGENTS.md) — test patterns
+- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (Vendor Spend report — مستقبلي)
+- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5 (Headcount report)
+- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4 (Payroll summary, EOS liability)
+
+
+---
+
+## 🤝 Cross-Team Coordination (Brainstorming Lab)
+
+This project works with an analytical team via the **Brainstorming Lab**.
+
+- **When to read from hub**: ONLY when explicitly instructed by the analytical team
+- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
+- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+
+See root [`AGENTS.md`](../../../../AGENTS.md) for full cross-team protocol.
+
+Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).

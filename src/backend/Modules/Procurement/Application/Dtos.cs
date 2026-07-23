@@ -14,6 +14,7 @@ public sealed class CreateVendorRequest
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+    public string? Website { get; set; }  // DEC-081b
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
 }
@@ -25,6 +26,7 @@ public sealed class UpdateVendorRequest
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+    public string? Website { get; set; }  // DEC-081c
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
     public bool IsActive { get; set; } = true;
@@ -40,6 +42,7 @@ public sealed class VendorResponse
     public string? Phone { get; set; }
     public string? Address { get; set; }
     public string? TaxNumber { get; set; }
+    public string? Website { get; set; }  // DEC-081b
     public string Currency { get; set; } = "LYD";
     public string PaymentTerms { get; set; } = "Net30";
     public bool IsActive { get; set; }
@@ -132,9 +135,16 @@ public sealed class GoodsReceiptResponse
     public Guid TenantId { get; set; }
     public string GrNumber { get; set; } = string.Empty;
     public Guid PurchaseOrderId { get; set; }
+    public string? PoNumber { get; set; }             // DEC-031: enriched
+    public string? PoStatus { get; set; }             // DEC-031: enriched
     public GoodsReceiptStatus Status { get; set; }
     public DateTime ReceivedDate { get; set; }
     public Guid WarehouseId { get; set; }
+    public string? WarehouseName { get; set; }        // DEC-031: enriched
+    public string? WarehouseCode { get; set; }        // DEC-031: enriched
+    public Guid? VendorId { get; set; }               // DEC-031: via PO
+    public string? VendorName { get; set; }           // DEC-031: via PO
+    public string? VendorCode { get; set; }           // DEC-031: via PO
     public string? Notes { get; set; }
     public DateTime CreatedAt { get; set; }
     public List<GoodsReceiptLineResponse> Lines { get; set; } = new();

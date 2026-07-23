@@ -64,9 +64,10 @@ public sealed class JournalEntryService : IJournalEntryService
 
         // 4) بناء الـ aggregate
         var now = DateTime.UtcNow;
+        var entryId = Guid.NewGuid();
         var entry = new JournalEntry
         {
-            Id = Guid.NewGuid(),
+            Id = entryId,
             TenantId = tenantId,
             EntryNumber = entryNumber,
             EntryDate = request.EntryDate,
@@ -80,6 +81,7 @@ public sealed class JournalEntryService : IJournalEntryService
             Lines = request.Lines.Select((l, idx) => new JournalLine
             {
                 Id = Guid.NewGuid(),
+                JournalEntryId = entryId,
                 AccountId = l.AccountId,
                 Debit = l.Debit,
                 Credit = l.Credit,
