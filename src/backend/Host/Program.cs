@@ -313,30 +313,19 @@ builder.Services.AddHostedService<MigrationRunnerHostedService>();
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079: JSON-driven additive schema migrator (runs after FluentMigrator)
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
-// ============ Seeder feature flags (Sprint-4 Day 1, DEC-023/DEC-032 + DEC-064) ============
-// Default OFF for AlBurj to prevent DEC-009-style incidents (30K records flooded the DB).
-// Use POST /api/admin/seed/alburj (Sprint-4 Day 2) to trigger manually after a clean DB reset.
-var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", true);
+// ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
+// Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB
+// (only DefaultCoASeed + DefaultInventorySeed as reference data). The owner registers the
+// first real user via /api/auth/register.
+//
+// To re-enable seeders in a future environment (e.g., a demo/staging space), flip the
+// flags in appsettings.json + revert this block. The seeder files (ScenarioSeederHostedService
+// + RealisticSeedHostedService) are kept for re-enable but currently not registered in DI.
+var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", false);
 var seedAlBurj = builder.Configuration.GetValue<bool>("Database:SeedAlBurjScenario", false);
 var seedRealistic = builder.Configuration.GetValue<bool>("Database:SeedRealisticScenario", false);
-if (seedAlFajr)
-{
-    builder.Services.AddHostedService<ScenarioSeederHostedService>();
-    Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=true — AlFajr seeder registered (safe default).");
-}
-else
-{
-    Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=false — AlFajr seeder SKIPPED.");
-}
-if (seedRealistic)
-{
-    builder.Services.AddHostedService<RealisticSeedHostedService>();
-    Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=true — RealisticSeed (5 companies, 24 months) registered.");
-}
-else
-{
-    Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=false — RealisticSeed SKIPPED (DEC-064).");
-}
+if (seedAlFajr) { builder.Services.AddHostedService<ScenarioSeederHostedService>(); Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=true — AlFajr seeder registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedAlFajrScenario=false — AlFajr seeder SKIPPED."); }
+if (seedRealistic) { builder.Services.AddHostedService<RealisticSeedHostedService>(); Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=true — RealisticSeed registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedRealisticScenario=false — RealisticSeed SKIPPED."); }
 if (seedAlBurj)
 {
     Console.Error.WriteLine("[SPRINT-4] WARNING: SeedAlBurjScenario=true — AlBurj seeder would run if registered (30K records; ensure DB is clean). NOT registered automatically (use manual endpoint).");
