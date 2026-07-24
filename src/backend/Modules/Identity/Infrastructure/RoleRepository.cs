@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -13,9 +14,14 @@ public sealed class RoleRepository : IRoleRepository
     public async Task<Role?> GetByNameAsync(Guid tenantId, string name, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await GetByNameAsync(tenantId, name, conn, null, ct);
+    }
+
+    public async Task<Role?> GetByNameAsync(Guid tenantId, string name, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         const string sql = @"SELECT id, tenant_id AS TenantId, name, description, created_at AS CreatedAt
                              FROM roles WHERE tenant_id = @TenantId AND LOWER(name) = LOWER(@Name) LIMIT 1";
-        return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { TenantId = tenantId, Name = name }, cancellationToken: ct));
+        return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { TenantId = tenantId, Name = name }, transaction: tx, cancellationToken: ct));
     }
 
     public async Task<Role?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -29,12 +35,23 @@ public sealed class RoleRepository : IRoleRepository
     public async Task InsertAsync(Role role, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(role, conn, null, ct);
+    }
+
+    public async Task InsertAsync(Role role, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         const string sql = @"INSERT INTO roles (id, tenant_id, name, description, created_at)
                              VALUES (@Id, @TenantId, @Name, @Description, @CreatedAt)";
-        await conn.ExecuteAsync(new CommandDefinition(sql, role, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, role, transaction: tx, cancellationToken: ct));
     }
 
     public async Task EnsureDefaultRolesAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await EnsureDefaultRolesAsync(tenantId, conn, null, ct);
+    }
+
+    public async Task EnsureDefaultRolesAsync(Guid tenantId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         // الأدوار الافتراضية لأي مستأجر جديد
         var defaults = new (string Name, string Description)[]
@@ -47,7 +64,7 @@ public sealed class RoleRepository : IRoleRepository
 
         foreach (var (name, desc) in defaults)
         {
-            var existing = await GetByNameAsync(tenantId, name, ct);
+            var existing = await GetByNameAsync(tenantId, name, conn, tx, ct);
             if (existing == null)
             {
                 await InsertAsync(new Role
@@ -57,7 +74,7 @@ public sealed class RoleRepository : IRoleRepository
                     Name = name,
                     Description = desc,
                     CreatedAt = DateTime.UtcNow
-                }, ct);
+                }, conn, tx, ct);
             }
         }
     }

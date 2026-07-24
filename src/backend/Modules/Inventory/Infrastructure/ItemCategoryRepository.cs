@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -43,9 +44,14 @@ public sealed class ItemCategoryRepository : IItemCategoryRepository
     public async Task InsertAsync(ItemCategory c, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(c, conn, null, ct);
+    }
+
+    public async Task InsertAsync(ItemCategory c, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO item_categories (id, tenant_id, code, name, description, parent_id, is_active, created_at, updated_at)
-            VALUES (@Id, @TenantId, @Code, @Name, @Description, @ParentId, @IsActive, @CreatedAt, @UpdatedAt)", c, cancellationToken: ct));
+            VALUES (@Id, @TenantId, @Code, @Name, @Description, @ParentId, @IsActive, @CreatedAt, @UpdatedAt)", c, transaction: tx, cancellationToken: ct));
     }
     public async Task UpdateAsync(ItemCategory c, CancellationToken ct)
     {

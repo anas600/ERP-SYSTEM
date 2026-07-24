@@ -1,3 +1,4 @@
+using System.Data;
 using ERPSystem.Modules.Companies.Entities;
 
 namespace ERPSystem.Modules.Companies.Infrastructure;
@@ -10,6 +11,7 @@ public interface ICompanyRepository
     Task<IReadOnlyList<Company>> ListSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
     Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct);
     Task InsertAsync(Company company, CancellationToken ct);
+    Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task UpdateAsync(Company company, CancellationToken ct);
 }
 

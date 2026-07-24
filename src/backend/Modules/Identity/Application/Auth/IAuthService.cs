@@ -1,6 +1,12 @@
+using System.Data;
+
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
-public interface ITenantBootstrap { Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct); }
+public interface ITenantBootstrap
+{
+    Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct);
+    Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
+}
 
 public interface IAuthService
 {

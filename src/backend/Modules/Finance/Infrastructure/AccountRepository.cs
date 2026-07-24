@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -60,12 +61,17 @@ public sealed class AccountRepository : IAccountRepository
     public async Task InsertAsync(Account account, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(account, conn, null, ct);
+    }
+
+    public async Task InsertAsync(Account account, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO accounts (id, tenant_id, company_id, code, name, description, type, normal_balance,
                                   parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
             VALUES (@Id, @TenantId, @CompanyId, @Code, @Name, @Description, @Type, @NormalBalance,
                     @ParentAccountId, @IsPostable, @IsActive, @IsIntercompany, @CreatedAt, @UpdatedAt)",
-            account, cancellationToken: ct));
+            account, transaction: tx, cancellationToken: ct));
     }
 
     public async Task UpdateAsync(Account account, CancellationToken ct)
@@ -89,7 +95,19 @@ public sealed class AccountRepository : IAccountRepository
 
     public async Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct)
     {
-        if (await GetByCodeAsync(tenantId, "0000", ct) != null) return;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await EnsureDefaultCoAAsync(tenantId, companyId, conn, null, ct);
+    }
+
+    public async Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        // P1-9: CoA-seeded inside the register-flow transaction. Read uses the same conn so it
+        // sees the just-inserted companies row, and the subsequent inserts roll back together
+        // with the tenant/holding insert if anything else fails.
+        var existingCoA = await conn.QueryFirstOrDefaultAsync<Account>(new CommandDefinition(
+            $"SELECT {SelectColumns} FROM accounts WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { TenantId = tenantId, Code = "0000" }, transaction: tx, cancellationToken: ct));
+        if (existingCoA != null) return;
 
         // Topological sort: نضيف على passes متتالية حتى ما يبقى accounts بـ parent غير محلول
         var allEntries = DefaultCoASeed.HoldingAccounts.ToList();
@@ -108,7 +126,7 @@ public sealed class AccountRepository : IAccountRepository
                     parentId = p;
                 }
                 var acc = NewAccount(tenantId, companyId, code, name, type, parentId, postable, intercompany);
-                await InsertAsync(acc, ct);
+                await InsertAsync(acc, conn, tx, ct);
                 idByCode[code] = acc.Id;
                 addedThisPass++;
             }
@@ -164,7 +182,7 @@ public sealed class AccountRepository : IAccountRepository
         };
     }
 
-    private static async Task<Account?> QueryFirstAsync(System.Data.IDbConnection conn, string where, object p, CancellationToken ct)
+    private static async Task<Account?> QueryFirstAsync(IDbConnection conn, string where, object p, CancellationToken ct)
     {
         return await conn.QueryFirstOrDefaultAsync<Account>(new CommandDefinition(
             $"SELECT {SelectColumns} FROM accounts " + where + " LIMIT 1", p, cancellationToken: ct));

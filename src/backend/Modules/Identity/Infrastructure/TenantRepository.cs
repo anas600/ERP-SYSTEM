@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -39,8 +40,13 @@ public sealed class TenantRepository : ITenantRepository
     public async Task InsertAsync(Tenant tenant, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(tenant, conn, null, ct);
+    }
+
+    public async Task InsertAsync(Tenant tenant, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         const string sql = @"INSERT INTO tenants (id, name, subdomain, is_active, created_at, subscription_expires_at)
                              VALUES (@Id, @Name, @Subdomain, @IsActive, @CreatedAt, @SubscriptionExpiresAt)";
-        await conn.ExecuteAsync(new CommandDefinition(sql, tenant, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, tenant, transaction: tx, cancellationToken: ct));
     }
 }

@@ -1,6 +1,8 @@
+using System.Data;
 using System.Security.Claims;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Modules.Identity.Infrastructure;
+using ERPSystem.Shared.Infrastructure;
 
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
@@ -13,41 +15,60 @@ public sealed class AuthService : IAuthService
     private readonly IJwtTokenService _jwt;
     private readonly ITenantBootstrap _bootstrap;
     private readonly ILogger<AuthService> _logger;
-    public AuthService(IUserRepository u, IRoleRepository r, ITenantRepository t, IRefreshTokenRepository rt, IJwtTokenService j, ITenantBootstrap b, ILogger<AuthService> l)
-    { _users = u; _roles = r; _tenants = t; _refreshTokens = rt; _jwt = j; _bootstrap = b; _logger = l; }
+    private readonly IDbConnectionFactory _db; // P1-9: needed for the single-conn register tx
+    public AuthService(IUserRepository u, IRoleRepository r, ITenantRepository t, IRefreshTokenRepository rt, IJwtTokenService j, ITenantBootstrap b, ILogger<AuthService> l, IDbConnectionFactory db)
+    { _users = u; _roles = r; _tenants = t; _refreshTokens = rt; _jwt = j; _bootstrap = b; _logger = l; _db = db; }
 
+    // P1-9: Register flow is now atomic — single connection + single transaction.
+    // Any step failure (or HF Space proxy timeout that drops the connection) triggers
+    // automatic rollback, so the database never ends up with orphan tenants.
     public async Task<AuthResult> RegisterAsync(RegisterRequest req, string? ip, CancellationToken ct)
     {
-        Tenant tenant;
-        var isNewTenant = false;
-        Guid holdingId;
-        if (req.TenantId != Guid.Empty)
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+        try
         {
-            tenant = (await _tenants.GetByIdAsync(req.TenantId, ct))!;
-            if (tenant == null) return AuthResult.Fail("المستأجر غير موجود.", AuthErrorCode.TenantNotFound);
-            if (!tenant.IsActive) return AuthResult.Fail("المستأجر موقوف.", AuthErrorCode.TenantInactive);
-            holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, "LYD", ct);
+            Tenant tenant;
+            var isNewTenant = false;
+            Guid holdingId;
+            if (req.TenantId != Guid.Empty)
+            {
+                // Existing-tenant path: tenant row is already committed, read on its own conn is fine.
+                tenant = (await _tenants.GetByIdAsync(req.TenantId, ct))!;
+                if (tenant == null) return AuthResult.Fail("المستأجر غير موجود.", AuthErrorCode.TenantNotFound);
+                if (!tenant.IsActive) return AuthResult.Fail("المستأجر موقوف.", AuthErrorCode.TenantInactive);
+                holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, "LYD", conn, tx, ct);
+            }
+            else
+            {
+                tenant = new Tenant { Id = Guid.NewGuid(), Name = req.TenantName!, Subdomain = Slugify(req.TenantName!), IsActive = true, CreatedAt = DateTime.UtcNow };
+                await _tenants.InsertAsync(tenant, conn, tx, ct);
+                isNewTenant = true;
+                holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, req.BaseCurrency, conn, tx, ct);
+            }
+            if (await _users.GetByEmailAndTenantAsync(req.Email, tenant.Id, conn, tx, ct) != null)
+                return AuthResult.Fail("البريد مستخدم.", AuthErrorCode.UserAlreadyExists);
+            var now = DateTime.UtcNow;
+            var user = new User { Id = Guid.NewGuid(), TenantId = tenant.Id, Email = req.Email.Trim().ToLowerInvariant(), PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, 12), FullName = req.FullName.Trim(), IsActive = true, CreatedAt = now, UpdatedAt = now };
+            await _users.InsertAsync(user, conn, tx, ct);
+            await _roles.EnsureDefaultRolesAsync(tenant.Id, conn, tx, ct);
+            if (isNewTenant)
+            {
+                var admin = await _roles.GetByNameAsync(tenant.Id, "Admin", conn, tx, ct);
+                if (admin != null) await _users.AssignRoleAsync(user.Id, admin.Id, conn, tx, ct);
+            }
+            var roles = await _users.GetRoleNamesAsync(user.Id, conn, tx, ct);
+
+            // Build response also goes inside the transaction (the refresh token insert too)
+            var response = await BuildAsync(user, roles, holdingId, ip, conn, tx, ct);
+            tx.Commit();
+            return AuthResult.Ok(response);
         }
-        else
+        catch
         {
-            tenant = new Tenant { Id = Guid.NewGuid(), Name = req.TenantName!, Subdomain = Slugify(req.TenantName!), IsActive = true, CreatedAt = DateTime.UtcNow };
-            await _tenants.InsertAsync(tenant, ct);
-            isNewTenant = true;
-            holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, req.BaseCurrency, ct);
+            try { tx.Rollback(); } catch { /* best-effort */ }
+            throw;
         }
-        if (await _users.GetByEmailAndTenantAsync(req.Email, tenant.Id, ct) != null)
-            return AuthResult.Fail("البريد مستخدم.", AuthErrorCode.UserAlreadyExists);
-        var now = DateTime.UtcNow;
-        var user = new User { Id = Guid.NewGuid(), TenantId = tenant.Id, Email = req.Email.Trim().ToLowerInvariant(), PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, 12), FullName = req.FullName.Trim(), IsActive = true, CreatedAt = now, UpdatedAt = now };
-        await _users.InsertAsync(user, ct);
-        await _roles.EnsureDefaultRolesAsync(tenant.Id, ct);
-        if (isNewTenant)
-        {
-            var admin = await _roles.GetByNameAsync(tenant.Id, "Admin", ct);
-            if (admin != null) await _users.AssignRoleAsync(user.Id, admin.Id, ct);
-        }
-        var roles = await _users.GetRoleNamesAsync(user.Id, ct);
-        return AuthResult.Ok(await BuildAsync(user, roles, holdingId, ip, ct));
     }
 
     public async Task<AuthResult> LoginAsync(LoginRequest req, string? ip, CancellationToken ct)
@@ -97,11 +118,22 @@ public sealed class AuthService : IAuthService
             await _refreshTokens.RevokeAsync(stored, "User logout", null, ip, ct);
     }
 
+    // Back-compat BuildAsync for Login/Refresh (no shared conn).
     private async Task<AuthResponse> BuildAsync(User user, IReadOnlyList<string> roles, Guid holdingId, string? ip, CancellationToken ct)
     {
         var (at, atExp) = _jwt.GenerateAccessToken(user, roles);
         var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();
         await _refreshTokens.InsertAsync(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = rtHash, ExpiresAt = rtExp, CreatedAt = DateTime.UtcNow, CreatedByIp = ip }, ct);
+        return new AuthResponse { AccessToken = at, RefreshToken = rt, AccessTokenExpiresAt = atExp, RefreshTokenExpiresAt = rtExp, User = new UserInfo { Id = user.Id, TenantId = user.TenantId, Email = user.Email, FullName = user.FullName, Roles = roles }, HoldingCompanyId = holdingId };
+    }
+
+    // P1-9: Tx-aware BuildAsync for the register flow — refresh token insert rolls back
+    // together with the user/tenant insert if anything later throws.
+    private async Task<AuthResponse> BuildAsync(User user, IReadOnlyList<string> roles, Guid holdingId, string? ip, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        var (at, atExp) = _jwt.GenerateAccessToken(user, roles);
+        var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();
+        await _refreshTokens.InsertAsync(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = rtHash, ExpiresAt = rtExp, CreatedAt = DateTime.UtcNow, CreatedByIp = ip }, conn, tx, ct);
         return new AuthResponse { AccessToken = at, RefreshToken = rt, AccessTokenExpiresAt = atExp, RefreshTokenExpiresAt = rtExp, User = new UserInfo { Id = user.Id, TenantId = user.TenantId, Email = user.Email, FullName = user.FullName, Roles = roles }, HoldingCompanyId = holdingId };
     }
 
