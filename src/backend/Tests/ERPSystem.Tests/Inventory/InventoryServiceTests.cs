@@ -268,6 +268,7 @@ internal class FakeUnitOfMeasureRepository : IUnitOfMeasureRepository
         Task.FromResult<IReadOnlyList<UnitOfMeasure>>(_items.Values
             .Where(u => u.TenantId == tenantId && (includeInactive || u.IsActive)).ToList());
     public Task InsertAsync(UnitOfMeasure u, CancellationToken ct) { _items[u.Id] = u; return Task.CompletedTask; }
+    public Task InsertAsync(UnitOfMeasure u, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => InsertAsync(u, ct);
     public Task UpdateAsync(UnitOfMeasure u, CancellationToken ct) { _items[u.Id] = u; return Task.CompletedTask; }
 }
 
@@ -284,5 +285,6 @@ internal class FakeItemCategoryRepository : IItemCategoryRepository
     public Task<IReadOnlyList<ItemCategory>> ListChildrenAsync(Guid parentId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<ItemCategory>>(_items.Values.Where(c => c.ParentId == parentId).ToList());
     public Task InsertAsync(ItemCategory c, CancellationToken ct) { _items[c.Id] = c; return Task.CompletedTask; }
+    public Task InsertAsync(ItemCategory c, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => InsertAsync(c, ct);
     public Task UpdateAsync(ItemCategory c, CancellationToken ct) { _items[c.Id] = c; return Task.CompletedTask; }
 }

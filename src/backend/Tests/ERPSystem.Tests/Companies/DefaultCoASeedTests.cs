@@ -137,6 +137,7 @@ internal class FakeAccountRepository : IAccountRepository
     public Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => a.TenantId == tenantId && a.CompanyId == companyId).ToList());
     public Task InsertAsync(Account account, CancellationToken ct) { _accounts.Add(account); return Task.CompletedTask; }
+    public Task InsertAsync(Account account, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => InsertAsync(account, ct);
     public Task UpdateAsync(Account account, CancellationToken ct)
     {
         var idx = _accounts.FindIndex(a => a.Id == account.Id);
@@ -170,6 +171,7 @@ internal class FakeAccountRepository : IAccountRepository
             added += pass;
         }
     }
+    public Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => EnsureDefaultCoAAsync(tenantId, companyId, ct);
     public async Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct)
     {
         var src = _accounts.Where(a => a.CompanyId == sourceCompanyId).ToList();
