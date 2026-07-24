@@ -136,4 +136,29 @@ public sealed class UserRepository : IUserRepository
             "SELECT COUNT(*)::int FROM users WHERE tenant_id = @TenantId",
             new { TenantId = tenantId }, cancellationToken: ct));
     }
+
+    // DEC-067-C: List users for admin page
+    public async Task<IReadOnlyList<User>> ListAsync(Guid tenantId, int skip, int take, CancellationToken ct)
+    {
+        if (take is < 1 or > 200) take = 50;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = @"SELECT id, tenant_id AS TenantId, email, full_name AS FullName,
+                             is_active AS IsActive, two_factor_enabled AS TwoFactorEnabled,
+                             created_at AS CreatedAt, updated_at AS UpdatedAt, last_login_at AS LastLoginAt
+                             FROM users
+                             WHERE tenant_id = @TenantId
+                             ORDER BY created_at DESC
+                             OFFSET @Skip LIMIT @Take";
+        var rows = await conn.QueryAsync<User>(new CommandDefinition(sql,
+            new { TenantId = tenantId, Skip = skip, Take = take }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*)::int FROM users WHERE tenant_id = @TenantId",
+            new { TenantId = tenantId }, cancellationToken: ct));
+    }
 }
