@@ -1,8 +1,8 @@
 # خطة تطوير وتنفيذ النظام (ERP-SYSTEM)
 
-> **الإصدار:** 2.0
-> **التاريخ:** 2026-06-16
-> **الحالة:** Phase 0 → 4 مكتملة ✅ · Phase 5 قادم (Mobile App + AlFajr Demo Data)
+> **الإصدار:** 2.1
+> **التاريخ:** 2026-07-24
+> **الحالة:** Phase 0 → 5.B Sprint 1 مكتملة ✅ (Release v5.0.1, PR #132, commit `52e8c26`) · Phase 5 Mobile + Phase 6 Reports قادمين
 > **المنهجية:** Agile (Scrum) + Iterative MVP + GitFlow
 > **الهدف:** نظام ERP متعدد المستأجرين، Modular Monolith، قابل للإنتاج
 
@@ -173,6 +173,13 @@
 - Shared API
 - Offline-first
 - Push notifications
+
+### ✅ Phase 5.B Sprint 1 — Atomic Register (DEC-091, 2026-07-24)
+**المدة:** 1 يوم
+- `AuthService.RegisterAsync` صار atomic عبر Dapper `IDbTransaction` (PR #131, merged to develop → PR #132, merged to main, commit `52e8c26`)
+- 16 ملف معدّل: 9 repos مع overloads `(IDbConnection, IDbTransaction?, ct)`، CompanyService + InventoryBootstrapper threaded
+- 15 orphan tenants تم تنظيفها من Supabase قبل الـ fix
+- Fresh Build Mode يحافظ على DB نظيفة (لا seeders)
 
 ### 🔜 Phase 6: Advanced Reporting
 **المدة المتوقعة:** 2 أسابيع
