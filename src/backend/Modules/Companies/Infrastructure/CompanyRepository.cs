@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -59,12 +60,17 @@ public sealed class CompanyRepository : ICompanyRepository
     public async Task InsertAsync(Company company, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(company, conn, null, ct);
+    }
+
+    public async Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO companies (id, tenant_id, code, name, legal_name, parent_company_id,
                                    is_group, base_currency, is_active, created_at, updated_at)
             VALUES (@Id, @TenantId, @Code, @Name, @LegalName, @ParentCompanyId,
                     @IsGroup, @BaseCurrency, @IsActive, @CreatedAt, @UpdatedAt)",
-            company, cancellationToken: ct));
+            company, transaction: tx, cancellationToken: ct));
     }
 
     public async Task UpdateAsync(Company company, CancellationToken ct)

@@ -1,7 +1,12 @@
-# ERP-SYSTEM — Start Dev Environment (Optimized v3 — uses Start-Process for detached processes)
+# ERP-SYSTEM — Start Dev Environment (v4 — Cloud-only, no local PostgreSQL)
 # استعمل: .\start-dev.ps1
 #
-# Optimizations vs v1:
+# Changes vs v3 (2026-07-24):
+# - REMOVED local PostgreSQL check (Anas is decommissioning the local PG service to free RAM)
+# - Backend now connects to Supabase (cloud) via appsettings.Development.json
+# - Backend applies migrations on startup to Supabase automatically
+#
+# Optimizations preserved:
 # - Parallel backend + frontend startup (saves 5-10s)
 # - Detached processes (Start-Process -PassThru) — survive script exit
 # - Reduced polling timeout (30s → 15s, with success-break)
@@ -11,20 +16,21 @@
 $ErrorActionPreference = 'Continue'
 $ProjectRoot = $PSScriptRoot
 
-Write-Host "=== ERP-SYSTEM Dev Launcher ===" -ForegroundColor Cyan
+Write-Host "=== ERP-SYSTEM Dev Launcher (cloud-only) ===" -ForegroundColor Cyan
 Write-Host ""
 
-# --- 1. PostgreSQL ---
-Write-Host "[1/4] التحقق من PostgreSQL..." -ForegroundColor Yellow
-$pgService = Get-Service postgresql-x64-15 -ErrorAction SilentlyContinue
-if ($null -eq $pgService) {
-    Write-Host "  X خدمة PostgreSQL غير موجودة!" -ForegroundColor Red
-    exit 1
+# --- 1. Cloud DB connectivity check (Supabase) ---
+Write-Host "[1/4] التحقق من Supabase (cloud DB)..." -ForegroundColor Yellow
+try {
+    $r = Invoke-WebRequest -Uri "https://anas-assaket-erp-system.hf.space/api/health/ready" -UseBasicParsing -TimeoutSec 10
+    if ($r.StatusCode -eq 200) {
+        Write-Host "  OK Supabase HF Space is reachable" -ForegroundColor Green
+    } else {
+        Write-Host "  ! Supabase health returned HTTP $($r.StatusCode) — proceeding anyway" -ForegroundColor Yellow
+    }
+} catch {
+    Write-Host "  ! Cannot reach Supabase HF Space (may be cold-starting) — proceeding anyway" -ForegroundColor Yellow
 }
-if ($pgService.Status -ne 'Running') {
-    Start-Service postgresql-x64-15
-}
-Write-Host "  OK PostgreSQL شغّال على :5432" -ForegroundColor Green
 
 # --- 2. Cleanup (fast: <1 sec) ---
 Write-Host "[2/4] تنظيف العمليات القديمة..." -ForegroundColor Yellow
@@ -124,10 +130,9 @@ Write-Host "  Frontend:  http://localhost:3000"
 Write-Host "  Swagger:   http://localhost:5000/swagger"
 Write-Host "  Health:    http://localhost:5000/health/ready"
 Write-Host ""
-Write-Host "بيانات الدخول الجاهزة:" -ForegroundColor Cyan
-Write-Host "  Email:     anas@demo.local"
-Write-Host "  Password:  Demo1234"
-Write-Host "  Tenant:    DemoCompany"
+Write-Host "قاعدة البيانات (Supabase cloud):" -ForegroundColor Cyan
+Write-Host "  (لا local PostgreSQL — يستخدم Supabase عبر appsettings.Development.json)"
+Write-Host "  المالك يسجل أول مستخدم حقيقي عبر /register"
 Write-Host ""
 Write-Host "للتعديل بدون restart: استخدم .\restart-backend.ps1 (سريع)" -ForegroundColor Yellow
 Write-Host "لإيقاف النظام: .\stop-dev.ps1" -ForegroundColor Yellow

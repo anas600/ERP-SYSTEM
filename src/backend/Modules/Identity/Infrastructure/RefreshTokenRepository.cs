@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -13,10 +14,15 @@ public sealed class RefreshTokenRepository : IRefreshTokenRepository
     public async Task InsertAsync(RefreshToken token, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(token, conn, null, ct);
+    }
+
+    public async Task InsertAsync(RefreshToken token, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         const string sql = @"
             INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at, created_at, created_by_ip)
             VALUES (@Id, @UserId, @TokenHash, @ExpiresAt, @CreatedAt, @CreatedByIp)";
-        await conn.ExecuteAsync(new CommandDefinition(sql, token, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, token, transaction: tx, cancellationToken: ct));
     }
 
     public async Task<RefreshToken?> GetByHashAsync(string tokenHash, CancellationToken ct)
