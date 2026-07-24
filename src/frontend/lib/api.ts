@@ -7,10 +7,16 @@ import axios, { AxiosInstance } from 'axios';
 // في dev: NEXT_PUBLIC_API_URL=http://localhost:5000
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '';
 
+// DEC-093: Bumped to 60s to align with backend CommandTimeout=60s
+// and OutboxProcessor exponential backoff window. HF Space proxy default
+// is still ~30s, so heavy register flows (CoA + UoMs + Categories) might
+// still hit a proxy timeout on cold start — see RUNBOOK.md for retry.
+export const API_TIMEOUT_MS = 60_000;
+
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: API_TIMEOUT_MS,
 });
 
 // Request interceptor: أضف JWT token تلقائياً

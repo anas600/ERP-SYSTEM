@@ -30,17 +30,30 @@ public class AddMissingIndexes : Migration
 {
     public override void Up()
     {
-        // vendor_bills.due_date (AP aging)
+        // vendor_bills.due_date (AP aging) — defensive: skip if table missing
+        // (table created by migration 020 if absent, see FixMissingProcurementTables)
         Execute.Sql(@"
-            CREATE INDEX IF NOT EXISTS ix_vendor_bills_tenant_due_date
-            ON vendor_bills (tenant_id, due_date)
-            WHERE due_date IS NOT NULL");
+            DO $$ BEGIN
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'vendor_bills') THEN
+                    CREATE INDEX IF NOT EXISTS ix_vendor_bills_tenant_due_date
+                    ON vendor_bills (tenant_id, due_date)
+                    WHERE due_date IS NOT NULL;
+                ELSE
+                    RAISE NOTICE 'Skipping ix_vendor_bills_tenant_due_date: table vendor_bills does not exist yet (will be created by FixMissingProcurementTables)';
+                END IF;
+            END $$");
 
-        // sales_invoices.due_date (AR aging)
+        // sales_invoices.due_date (AR aging) — defensive: skip if table missing
         Execute.Sql(@"
-            CREATE INDEX IF NOT EXISTS ix_sales_invoices_tenant_due_date
-            ON sales_invoices (tenant_id, due_date)
-            WHERE due_date IS NOT NULL");
+            DO $$ BEGIN
+                IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'sales_invoices') THEN
+                    CREATE INDEX IF NOT EXISTS ix_sales_invoices_tenant_due_date
+                    ON sales_invoices (tenant_id, due_date)
+                    WHERE due_date IS NOT NULL;
+                ELSE
+                    RAISE NOTICE 'Skipping ix_sales_invoices_tenant_due_date: table sales_invoices does not exist yet';
+                END IF;
+            END $$");
 
         // Note: outbox_events + processed_events indexes added via JSON update
         // (see src/backend/Host/data-types/outbox_events.json + processed_events.json)

@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 5.B Sprint 2 (يوليو 2026) — **Npgsql Resiliency baseline (DEC-093) + Playwright E2E suite (DEC-094) + Workflow discipline: develop=E2E, main=locked**. Mavis + Jamie Executive + Jamie Analytical team pattern.
+> محدّث: Phase 5.B Sprint 3 (يوليو 2026) — **Migration fix (42P01) + Timeout alignment 60s + CoA batch INSERT (DEC-093 part 2) + GitHub Secrets automation**. Mavis + Jamie Executive + Jamie Analytical team pattern.
 
 ---
 
@@ -316,13 +316,25 @@ urllib.request.urlopen(req)
 | **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR #18) |
 | **Phase 5.A Sprint 2** | **AP Payments + Finance Reports rebuild + Fresh Build Mode** | ✅ مكتمل (PR #127) |
 | **Phase 5.B Sprint 1** | **Atomic Register (DEC-091): single-conn + single-tx for AuthService.RegisterAsync → no orphan tenants on HF timeout** | ✅ مكتمل (PR #131 → develop, PR #132 → main, commit `52e8c26`) |
-| **Phase 5.B Sprint 2** | **Npgsql Resiliency (DEC-093) + Playwright E2E (DEC-094) + Workflow discipline** | ✅ مكتمل (PR open on develop → main) |
+| **Phase 5.B Sprint 2** | **Npgsql Resiliency (DEC-093) + Playwright E2E (DEC-094) + Workflow discipline** | ✅ مكتمل (PR #134 → main, commit `da97b6b`) |
+| **Phase 5.B Sprint 3** | **Migration fix (42P01) + Frontend timeout 60s + CoA batch INSERT + GitHub Secrets** | ✅ مكتمل (PR open on develop → main) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-07-24c — Phase 5.B Sprint 3: Migration fix + Timeout 60s + CoA perf (DEC-093 part 2)
+
+- **PR open:** develop → main
+- **Migration fix:** `20260724_120000_FixMissingProcurementTables` ينشئ `vendor_bills` + `vendor_bill_lines` بـ `IF NOT EXISTS` (idempotent)
+- **Defensive guards:** `20260710_120000_AddMissingIndexes` الآن يـ skip indexes لو الجدول غير موجود (يحل 42P01)
+- **Frontend timeout:** `lib/api.ts` 30s → 60s (align مع Backend CommandTimeout=60s)
+- **CoA batch INSERT:** `EnsureDefaultCoAAsync` — topological pass in-memory + 1 batched INSERT عبر `unnest()` (was 47 sequential INSERTs)
+- **JSON schemas:** `vendor_bills.json` + `vendor_bill_lines.json` (DEC-080 alignment)
+- **GitHub Secrets:** 7 Supabase secrets تم تعيينها (HOST, PORT, DB, USER, PASSWORD, URL, DB_CONN). SUPABASE_ANON_KEY محتاج من أنس.
+- **Detail:** [`docs/CHANGELOG.md`](docs/CHANGELOG.md)
 
 ### 2026-07-24b — Phase 5.B Sprint 2: Npgsql Resiliency + Playwright E2E (DEC-093, 094)
 
