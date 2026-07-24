@@ -4,6 +4,101 @@
 
 ---
 
+## 2026-07-24b — Phase 5.B Sprint 2: Npgsql Resiliency + Playwright E2E (DEC-093, 094) 🆕
+
+### 🎯 الهدف
+1. **Npgsql Resiliency baseline (DEC-093):** ضبط connection params (CommandTimeout, Keepalive, Pool) + OutboxProcessor exponential backoff → استقرار ضد Supabase pooler timeouts
+2. **Playwright E2E suite (DEC-094):** standard للتحقق من الـ flows على develop → أي PR لـ main يمر على E2E أولاً
+3. **Workflow discipline:** develop = work + E2E، main = locked (حماية HF Space من re-deploys)
+
+### 📊 ملخص الإنجاز
+- **Backend changes:** `NpgsqlConnectionFactory.cs` (الـ Resiliency defaults)، `OutboxProcessorHostedService.cs` (exponential backoff)، `appsettings.json` (Database.* keys)، `Program.cs` (Configure binding)
+- **Frontend changes:** `playwright.config.ts`، `e2e/auth.spec.ts` (4 tests)، `e2e/README.md`، `package.json` (scripts + dep)
+- **CI:** `.github/workflows/e2e.yml` — Playwright on develop pushes + PRs
+- **Branch protection:** develop updated (CI + Playwright required)، main unchanged (locked)
+- **Build:** 0 errors, 0 warnings
+
+### 📝 التغييرات الرئيسية
+
+| # | الملف | التغيير |
+|---|------|--------|
+| 1 | `src/backend/Shared/Infrastructure/NpgsqlConnectionFactory.cs` | 🆕 يقرأ `NpgsqlConnectionOptions` ويطبّق defaults: CommandTimeout=60, Timeout=15, MinPool=1, MaxPool=20, KeepAlive=30, ConnectionIdleLifetime=300 |
+| 2 | `src/backend/Shared/Infrastructure/NpgsqlConnectionFactory.cs` (NpgsqlConnectionOptions) | 🆕 6 properties جديدة للـ Resiliency + defaults في الكود |
+| 3 | `src/backend/Host/appsettings.json` | 🆕 `Database.CommandTimeoutSeconds/ConnectionTimeoutSeconds/MaxPoolSize/MinPoolSize/KeepaliveSeconds/ConnectionIdleLifetimeSeconds` (defaults = النسب في الـ factory) |
+| 4 | `src/backend/Host/Program.cs` | 🆕 `Configure<NpgsqlConnectionOptions>` يقرأ الـ Database section ويربط الـ keys |
+| 5 | `src/backend/Shared/Events/Application/Services/OutboxProcessorHostedService.cs` | 🆕 Exponential backoff على مستوى الـ loop: 5s → 10s → 20s → 40s → 60s على الفشل المتتالي، reset عند أول نجاح |
+| 6 | `src/frontend/playwright.config.ts` | 🆕 E2E_BASE_URL + E2E_API_URL envs، 1 worker local / 2 CI، chromium only |
+| 7 | `src/frontend/e2e/auth.spec.ts` | 🆕 4 tests: `register.happy`, `register.duplicate`, `login.happy`, **`atomicity`** (DEC-091 proof) |
+| 8 | `src/frontend/e2e/README.md` | 🆕 دليل سريع + rationale للـ tests |
+| 9 | `src/frontend/package.json` | 🆕 scripts: `e2e`, `e2e:ui`, `e2e:headed`, `e2e:install` + `@playwright/test@^1.47.0` |
+| 10 | `.github/workflows/e2e.yml` | 🆕 CI: build backend → start with Supabase secrets → install Playwright → run E2E → upload report on failure |
+| 11 | `.gitignore` | 🆕 `.env*`, `playwright/`, `playwright-report/`, `test-results/`, IDE/OS junk |
+| 12 | `src/backend/Shared/AGENTS.md` | 🆕 "Npgsql Resiliency Baseline" + "OutboxProcessor Backoff" sections |
+| 13 | `AGENTS.md` (root) | 🆕 Phase 5.B Sprint 2 + جدول "Branch role" الجديد + workflow discipline |
+
+### 🛡️ Npgsql Resiliency Baseline (DEC-093)
+
+| Parameter | Default | Override key | Why |
+|-----------|---------|--------------|-----|
+| `CommandTimeout` | 60s | `Database.CommandTimeoutSeconds` | منع `OutboxProcessor` timeout على استعلامات طويلة |
+| `Timeout` (connect) | 15s | `Database.ConnectionTimeoutSeconds` | fail-fast على network issues |
+| `MinPoolSize` | 1 | `Database.MinPoolSize` | warm connection للـ OutboxProcessor |
+| `MaxPoolSize` | 20 | `Database.MaxPoolSize` | مناسب لـ 6GB RAM + HF Space free tier |
+| `KeepAlive` | 30s | `Database.KeepaliveSeconds` | يمنع stale connections عبر Supabase pooler |
+| `ConnectionIdleLifetime` | 300s | `Database.ConnectionIdleLifetimeSeconds` | تنظيف connections الخاملة |
+| `ConnectionPruningInterval` | 10s | hardcoded | فحص دوري |
+
+**Note:** `NpgsqlConnectionStringBuilder.TcpKeepalive` غير متاح في Npgsql 8.0.5 (موجود في 9.x). نعتمد على Postgres-level `KeepAlive`.
+
+### 🔄 OutboxProcessor Exponential Backoff (DEC-093)
+
+```csharp
+// OutboxProcessorHostedService.cs
+private static readonly TimeSpan BasePollInterval = TimeSpan.FromSeconds(5);
+private static readonly TimeSpan MaxPollInterval = TimeSpan.FromSeconds(60);
+
+// After each failure: currentInterval = min(5s * 2^(failures-1), 60s)
+// After each success: reset to 5s
+```
+
+**الهدف:** منع hot-loop ضد Supabase وقت الانقطاع المؤقت (مثل pooler 504s). يوفر compute + Supabase quota.
+
+### 🧪 Playwright E2E Suite (DEC-094)
+
+| Test | Verifies |
+|------|----------|
+| `register.happy` | POST /api/auth/register → 200 + JWT + HoldingCompany created |
+| `register.duplicate` | Same email twice → conflict, original tenant intact |
+| `login.happy` | Register then login → JWT cookie set |
+| **`atomicity`** | **DEC-091 proof:** abort 5 register requests mid-process → ZERO orphan tenants (login with aborted email should fail with 401) |
+
+**CI integration:** `.github/workflows/e2e.yml` runs on every `develop` push + PR to develop/main. Fails the build if any test fails. Upload `playwright-report/` + `test-results/` artifacts on failure.
+
+### 🌿 Branch Discipline (DEC-094)
+
+| Branch | Role | Required Checks |
+|--------|------|-----------------|
+| `main` | Production — locked | `Build and Deploy to HF` + 1 review + `enforce_admins: true` |
+| `develop` | Integration — work + E2E | `CI + Deploy` + `Playwright E2E` + 1 review + `enforce_admins: false` |
+
+**Rule:** كل push لـ main = HF rebuild + cold start (يستهلك compute hours). لذا develop هو الـ work branch + E2E validation، main فقط للـ releases الرسمية.
+
+### 📋 Local Hybrid Setup (CLI-First)
+
+- Backend + frontend run locally على جهاز أنس (6GB RAM)
+- متصل بـ Supabase cloud عبر `appsettings.Development.json` (gitignored)
+- `psql CLI` للـ schema checks + atomicity verification
+- `npm run e2e` للـ E2E suite
+- لا local PostgreSQL — لا واجهات رسومية
+
+### 📊 Build & Test Status
+- ✅ Backend build: 0 errors
+- ✅ Frontend TypeScript: clean
+- ✅ Playwright 1.61.1 installed
+- ⚠️ E2E local run: needs backend running (CI runs it automatically)
+
+---
+
 ## 2026-07-24 — Release v5.0.1: Atomic Register (DEC-091) 🆕
 
 ### 🎯 الهدف

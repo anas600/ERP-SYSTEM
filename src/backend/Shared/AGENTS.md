@@ -1,6 +1,8 @@
 # 🔧 src/backend/Shared/AGENTS.md
 
 > كود مشترك بين كل الـ modules (لا يحتوي domain logic خاص).
+>
+> محدّث: 2026-07-24 — **Npgsql Resiliency baseline (DEC-093)** + **OutboxProcessor exponential backoff**
 
 ## شو فيه
 
@@ -36,6 +38,43 @@ Shared/
 - **الاتصال**: `using var conn = await _factory.CreateOltpConnectionAsync(ct)` — ثم Dapper queries
 - **لا singleton** على الـ Repository — scoped (لكل request)
 - **ممنوع** استدعاء Repositories من Shared/
+
+### 🛡️ Npgsql Resiliency Baseline (DEC-093, 2026-07-24)
+
+**الإعدادات الافتراضية** تُطبَّق على كل connection يفتحه `NpgsqlConnectionFactory` (حتى لو الـ connection string ما يحويها):
+
+| Parameter | Default | Why |
+|-----------|---------|-----|
+| `CommandTimeout` | **60s** (was 30) | منع `OutboxProcessor` timeout على استعلامات طويلة (root cause لـ timeout في HF deploy) |
+| `Timeout` (connect) | **15s** | fail-fast على network issues، أحسن من default 30s |
+| `MinPoolSize` | **1** | يحافظ على connection warm للـ OutboxProcessor |
+| `MaxPoolSize` | **20** | مناسب لـ 6GB RAM local + HF Space free tier (2 vCPU 16GB) |
+| `KeepAlive` | **30s** | يمنع stale connections عبر Supabase pooler (eu-central-1) |
+| `ConnectionIdleLifetime` | **300s** (5min) | تنظيف connections الخاملة |
+| `ConnectionPruningInterval` | **10s** | فحص دوري للـ pruning |
+
+**Override:** كل قيمة قابلة للـ override من `appsettings.json` → `Database.*`:
+```json
+"Database": {
+  "CommandTimeoutSeconds": 60,
+  "ConnectionTimeoutSeconds": 15,
+  "MaxPoolSize": 20,
+  "MinPoolSize": 1,
+  "KeepaliveSeconds": 30,
+  "ConnectionIdleLifetimeSeconds": 300
+}
+```
+
+**ملاحظة:** `NpgsqlConnectionStringBuilder` ما يدعم `TcpKeepalive` في الإصدار 8.0.5 (موجود في 9.x). نعتمد على Postgres-level `KeepAlive` بدلاً.
+
+### 🔄 OutboxProcessor Exponential Backoff (DEC-093)
+
+`OutboxProcessorHostedService` يستخدم exponential backoff على مستوى الـ loop:
+- Base: 5s
+- بعد أي فشل: 5s → 10s → 20s → 40s → max 60s
+- Reset: أول batch ناجح → رجوع لـ 5s
+
+**الهدف:** منع hot-loop ضد Supabase وقت الانقطاع المؤقت (مثل pooler 504s).
 
 ### MultiTenancy
 

@@ -9,18 +9,22 @@ namespace ERPSystem.Shared.Events.Application.Services;
 
 /// <summary>
 /// Background job: reads unprocessed events from outbox_events,
-/// finds the matching IIntegrationEventHandler<T> via DI, and dispatches.
+/// finds the matching IIntegrationEventHandler&lt;T&gt; via DI, and dispatches.
 /// Idempotent via processed_events table (EventId-based dedup).
 ///
-/// Every 5 seconds. Production-grade: would use Postgres LISTEN/NOTIFY
-/// or FOR UPDATE SKIP LOCKED for true real-time. Phase 2.4 keeps it simple.
+/// Every 5 seconds in normal operation. On consecutive batch failures, the
+/// poll interval grows exponentially (DEC-093, 2026-07-24): 5s → 10s → 20s
+/// → 40s → max 60s, then resets on the first successful batch. This protects
+/// Supabase from a hot-loop during transient outages (e.g. pooler 504s).
 /// </summary>
 public sealed class OutboxProcessorHostedService : BackgroundService
 {
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<OutboxProcessorHostedService> _logger;
-    private static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan BasePollInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan MaxPollInterval = TimeSpan.FromSeconds(60);
     private const int BatchSize = 50;
+    private const int BackoffFailureThreshold = 1; // أي فشل يدخل الـ backoff
 
     public OutboxProcessorHostedService(IServiceProvider sp, ILogger<OutboxProcessorHostedService> logger)
     {
@@ -29,19 +33,50 @@ public sealed class OutboxProcessorHostedService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("OutboxProcessor started. Polling every {Seconds}s, batch={Batch}", PollInterval.TotalSeconds, BatchSize);
+        _logger.LogInformation("OutboxProcessor started. Base poll={Base}s, max poll={Max}s, batch={Batch}",
+            BasePollInterval.TotalSeconds, MaxPollInterval.TotalSeconds, BatchSize);
+
+        var consecutiveFailures = 0;
+        var currentInterval = BasePollInterval;
+
         while (!stoppingToken.IsCancellationRequested)
         {
+            var ok = false;
             try
             {
                 await ProcessBatchAsync(stoppingToken);
+                ok = true;
             }
             catch (OperationCanceledException) { break; }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "OutboxProcessor batch failed");
+                _logger.LogError(ex, "OutboxProcessor batch failed (consecutive failures: {N})", consecutiveFailures + 1);
             }
-            try { await Task.Delay(PollInterval, stoppingToken); }
+
+            if (ok)
+            {
+                if (consecutiveFailures > 0)
+                {
+                    _logger.LogInformation("OutboxProcessor recovered after {N} consecutive failures — reset poll interval", consecutiveFailures);
+                    consecutiveFailures = 0;
+                    currentInterval = BasePollInterval;
+                }
+            }
+            else
+            {
+                consecutiveFailures++;
+                // Exponential backoff: base * 2^(failures - 1), capped at MaxPollInterval
+                var candidateSecs = BasePollInterval.TotalSeconds * Math.Pow(2, Math.Min(consecutiveFailures - 1, 6));
+                var newInterval = TimeSpan.FromSeconds(Math.Min(candidateSecs, MaxPollInterval.TotalSeconds));
+                if (newInterval != currentInterval)
+                {
+                    _logger.LogWarning("OutboxProcessor backing off: {Old}s → {New}s (after {N} failures)",
+                        currentInterval.TotalSeconds, newInterval.TotalSeconds, consecutiveFailures);
+                    currentInterval = newInterval;
+                }
+            }
+
+            try { await Task.Delay(currentInterval, stoppingToken); }
             catch (OperationCanceledException) { break; }
         }
         _logger.LogInformation("OutboxProcessor stopped");
