@@ -1,3 +1,4 @@
+using System.Data;
 using ERPSystem.Modules.Inventory.Entities;
 
 namespace ERPSystem.Modules.Inventory.Infrastructure;
@@ -28,6 +29,7 @@ public interface IUnitOfMeasureRepository
     Task<UnitOfMeasure?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
     Task<IReadOnlyList<UnitOfMeasure>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
     Task InsertAsync(UnitOfMeasure uom, CancellationToken ct);
+    Task InsertAsync(UnitOfMeasure uom, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task UpdateAsync(UnitOfMeasure uom, CancellationToken ct);
 }
 
@@ -38,5 +40,6 @@ public interface IItemCategoryRepository
     Task<IReadOnlyList<ItemCategory>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<ItemCategory>> ListChildrenAsync(Guid parentId, CancellationToken ct);
     Task InsertAsync(ItemCategory category, CancellationToken ct);
+    Task InsertAsync(ItemCategory category, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task UpdateAsync(ItemCategory category, CancellationToken ct);
 }

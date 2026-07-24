@@ -1,3 +1,4 @@
+using System.Data;
 using ERPSystem.Modules.Finance.Entities;
 
 namespace ERPSystem.Modules.Finance.Infrastructure;
@@ -10,9 +11,11 @@ public interface IAccountRepository
     Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct);
     Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct);
     Task InsertAsync(Account account, CancellationToken ct);
+    Task InsertAsync(Account account, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload (called by EnsureDefaultCoAAsync inside the tx)
     Task UpdateAsync(Account account, CancellationToken ct);
     Task<int> CountPostingsAsync(Guid accountId, CancellationToken ct);
     Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct);
+    Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct);
 }
 

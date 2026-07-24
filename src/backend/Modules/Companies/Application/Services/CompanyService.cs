@@ -1,3 +1,4 @@
+using System.Data;
 using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Infrastructure;
@@ -10,6 +11,7 @@ namespace ERPSystem.Modules.Companies.Application.Services;
 public interface ICompanyService
 {
     Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, CancellationToken ct);
+    Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task<CompanyResult<Company>> AddSubsidiaryAsync(Guid tenantId, Guid parentCompanyId, string code, string name, string? legalName, CancellationToken ct);
     Task<CompanyResult<Company>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
     Task<CompanyResult<IReadOnlyList<Company>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
@@ -32,6 +34,7 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
 
     public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct)
     {
+        // Back-compat path used by Login/Refresh: own connection per repo call, no shared tx.
         var existing = (await _companies.ListAsync(tenantId, true, ct)).FirstOrDefault(c => c.IsGroup);
         if (existing != null) return existing.Id;
         existing = await _companies.GetByCodeAsync(tenantId, "000", ct);
@@ -46,6 +49,26 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
         return r.Succeeded ? r.Value!.Id : Guid.Empty;
     }
 
+    public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        // P1-9: Tx-aware path used by Register. Read-checks use the non-tx overload
+        // because for a brand-new tenant there cannot be a pre-existing holding; the
+        // insert path goes through the caller-supplied connection so it rolls back
+        // together with the tenant insert if anything else fails.
+        var existing = (await _companies.ListAsync(tenantId, true, ct)).FirstOrDefault(c => c.IsGroup);
+        if (existing != null) return existing.Id;
+        existing = await _companies.GetByCodeAsync(tenantId, "000", ct);
+        if (existing != null) return existing.Id;
+        var r = await CreateHoldingAsync(tenantId, "000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, conn, tx, ct);
+        if (r.Succeeded)
+        {
+            // Phase 2.2: seed UoMs and Categories for new tenant (inside same tx)
+            try { await _inventoryBootstrap.EnsureDefaultUoMsAndCategoriesAsync(tenantId, conn, tx, ct); }
+            catch (Exception ex) { _logger.LogWarning(ex, "فشل زرع UoMs/Categories للمستأجر {TenantId}", tenantId); }
+        }
+        return r.Succeeded ? r.Value!.Id : Guid.Empty;
+    }
+
     public async Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, CancellationToken ct)
     {
         if (await _companies.GetByCodeAsync(tenantId, code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
@@ -53,6 +76,20 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
         var c = new Company { Id = Guid.NewGuid(), TenantId = tenantId, Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
         await _companies.InsertAsync(c, ct);
         await _accounts.EnsureDefaultCoAAsync(tenantId, c.Id, ct);
+        return CompanyResult<Company>.Ok(c);
+    }
+
+    public async Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        // P1-9: Tx-aware path. The GetByCodeAsync uniqueness check is on a non-tx
+        // connection (safe — for a brand-new tenant the code does not exist), and
+        // both the company insert and the CoA seed go through the caller-supplied
+        // connection so they roll back together with the tenant insert.
+        if (await _companies.GetByCodeAsync(tenantId, code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
+        var now = DateTime.UtcNow;
+        var c = new Company { Id = Guid.NewGuid(), TenantId = tenantId, Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
+        await _companies.InsertAsync(c, conn, tx, ct);
+        await _accounts.EnsureDefaultCoAAsync(tenantId, c.Id, conn, tx, ct);
         return CompanyResult<Company>.Ok(c);
     }
 

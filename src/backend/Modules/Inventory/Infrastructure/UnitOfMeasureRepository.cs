@@ -1,3 +1,4 @@
+using System.Data;
 using Dapper;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Shared.Infrastructure;
@@ -34,9 +35,14 @@ public sealed class UnitOfMeasureRepository : IUnitOfMeasureRepository
     public async Task InsertAsync(UnitOfMeasure u, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await InsertAsync(u, conn, null, ct);
+    }
+
+    public async Task InsertAsync(UnitOfMeasure u, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO units_of_measure (id, tenant_id, code, name, symbol, is_active, created_at)
-            VALUES (@Id, @TenantId, @Code, @Name, @Symbol, @IsActive, @CreatedAt)", u, cancellationToken: ct));
+            VALUES (@Id, @TenantId, @Code, @Name, @Symbol, @IsActive, @CreatedAt)", u, transaction: tx, cancellationToken: ct));
     }
     public async Task UpdateAsync(UnitOfMeasure u, CancellationToken ct)
     {
