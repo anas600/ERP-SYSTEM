@@ -7,13 +7,14 @@
 ### 📋 Plans & Reports
 - [`PLAN.md`](PLAN.md) — الخطة الكاملة للمشروع (8-10 أسابيع)
 - [`CHANGELOG.md`](CHANGELOG.md) — سجل التغييرات الموثّقة
-- [`SETUP-LOCAL.md`](SETUP-LOCAL.md) — دليل التشغيل بدون Docker (PostgreSQL 15 محلياً)
+- [`SETUP-LOCAL.md`](SETUP-LOCAL.md) — دليل التشغيل بدون Docker (PostgreSQL 15 محلياً) — **🆕 v4: Supabase-only (لا local PG)**
 - [`FINAL-INTEGRATION-REPORT.md`](FINAL-INTEGRATION-REPORT.md) — تقرير Phase 2.5+
 - [`RELEASE-REPORT-PHASE3.html`](RELEASE-REPORT-PHASE3.html) — 🆕 تقرير Phase 3 (HTML، RTL، Chart.js، 23KB)
 - [`RELEASE-REPORT-PHASE4.html`](RELEASE-REPORT-PHASE4.html) — 🆕 تقرير Phase 4 (HTML، RTL، 28KB)
 - [`SMOKE-TEST-REPORT.md`](SMOKE-TEST-REPORT.md) — تقرير smoke test للـ Phase 2.5+
 - [`E2E-TEST-RESULT.json`](E2E-TEST-RESULT.json) — 🆕 نتائج E2E للـ Phase 3 (12/12 PASS)
 - [`E2E-TEST-PHASE4/`](E2E-TEST-PHASE4/) — 🆕 نتائج E2E للـ Phase 4 (14/14 PASS)
+- [`LOCAL-WORK-PLAN.md`](LOCAL-WORK-PLAN.md) — 🆕 خطة العمل المحلية (Supabase + CLI-First)
 
 ### 🔬 Competitive Research (Phase 3)
 - [`research/daftra-features.md`](research/daftra-features.md) — بحث Daftra (60KB)

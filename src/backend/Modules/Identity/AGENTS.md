@@ -2,7 +2,7 @@
 
 > Identity Module — Phase 0 (✅ مكتمل).
 >
-> محدّث: 2026-06-24 — إضافة الربط مع Phase 3/4 modules
+> محدّث: 2026-07-24 — **Release v5.0.1: RegisterAsync صار atomic (DEC-091) — single conn + single tx**
 
 ## شو فيه
 
@@ -79,6 +79,42 @@ Body: {
 - إذا `tenantName` موجود: إنشاء tenant جديد (Subdomain = Slugify(TenantName)) + Admin role للمستخدم الجديد
 - `EnsureDefaultRolesAsync(tenantId)` يضمن وجود الأدوار الأربعة
 - `BaseCurrency` يُمرر لـ `ITenantBootstrap.OnTenantCreatedAsync` (لإنشاء الـ holding company بنفس العملة)
+
+#### 🛡️ Atomicity (DEC-091, Release v5.0.1)
+
+**الـ Register flow atomic** — يستخدم `IDbTransaction` واحد عبر كل الـ inserts:
+
+```csharp
+using var conn = await _db.CreateOltpConnectionAsync(ct);
+using var tx = conn.BeginTransaction();
+try
+{
+    // 1. tenant insert (إذا جديد)
+    // 2. OnTenantCreatedAsync (HoldingCompany + CoA)
+    // 3. user insert
+    // 4. EnsureDefaultRolesAsync (4 default roles)
+    // 5. admin role assign
+    // 6. GetRoleNamesAsync
+    // 7. BuildAsync → refresh token insert
+    tx.Commit();
+}
+catch
+{
+    try { tx.Rollback(); } catch { /* best-effort */ }
+    throw;
+}
+```
+
+**الـ repos تأخذ overloads جديدة `(IDbConnection, IDbTransaction?, ct)`:**
+- `TenantRepository.InsertAsync(tenant, conn, tx, ct)`
+- `UserRepository.InsertAsync(user, conn, tx, ct)` + `GetByEmailAndTenantAsync` + `GetRoleNamesAsync` + `AssignRoleAsync`
+- `RoleRepository.EnsureDefaultRolesAsync(tenantId, conn, tx, ct)` + `GetByNameAsync`
+- `RefreshTokenRepository.InsertAsync(rt, conn, tx, ct)` (يُستدعى من `BuildAsync`)
+- الـ signatures القديمة `(ct)` preserved كـ back-compat wrappers
+
+**Trigger:** HF Space proxy كان يقطع الاتصال بعد 60s timeout، مما يترك orphan tenants (Tenant + HoldingCompany + CoA + DefaultRoles بدون User) — قبل الـ fix، كان 15 orphan tenants في Supabase.
+
+**Audit:** أي service method جديد يـ insert في >1 جدول → استخدم نفس الـ pattern. DEC-091 يحدد القاعدة.
 
 ### 2. Login
 

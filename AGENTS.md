@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Release v5.0 (يوليو 2026) — Phase 4.5 (AlFajr) + Phase 5.A (AR + AP Payments + Finance Reports) + DEC-051/052/053/055/062/067/084/086/087/088/109/110/111. Fresh build mode (no seeders). Mavis + Jamie Executive + Jamie Analytical team pattern.
+> محدّث: Release v5.0.1 (يوليو 2026) — Phase 5.B Sprint 1 (Atomic Register) + DEC-091/092. AuthService.RegisterAsync صار atomic عبر Dapper IDbTransaction. Mavis + Jamie Executive + Jamie Analytical team pattern.
 
 ---
 
@@ -315,12 +315,30 @@ urllib.request.urlopen(req)
 | **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
 | **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR #18) |
 | **Phase 5.A Sprint 2** | **AP Payments + Finance Reports rebuild + Fresh Build Mode** | ✅ مكتمل (PR #127) |
+| **Phase 5.B Sprint 1** | **Atomic Register (DEC-091): single-conn + single-tx for AuthService.RegisterAsync → no orphan tenants on HF timeout** | ✅ مكتمل (PR #131 → develop, PR #132 → main, commit `52e8c26`) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-07-24 — Release v5.0.1: Atomic Register (DEC-091)
+
+- **PR #131** → develop, **PR #132** → main (`52e8c26`)
+- **`AuthService.RegisterAsync`** صار atomic — single connection + single transaction عبر 16 ملف، 9 repos مع overloads جديدة `(IDbConnection, IDbTransaction?, ct)`
+- **Pattern:** `using var conn = await _db.CreateOltpConnectionAsync(ct); using var tx = conn.BeginTransaction(); try { ... tx.Commit(); } catch { try { tx.Rollback(); } catch {} throw; }`
+- **15 orphan tenants** تم تنظيفها من Supabase قبل الـ fix
+- **DEC-091**: كل multi-insert service flow لازم atomic (Audit pass قادم)
+- **DEC-092**: orphan cleanup script مسجّل
+- **Detail:** [`docs/CHANGELOG.md`](docs/CHANGELOG.md) + Identity/AGENTS.md
+
+### 2026-07-23 — Release v5.0: Phase 4.5 + Phase 5.A + Fresh Build Mode
+
+- **PR #127** → main (`c9c662c`): 250 commits، أول release رسمي منذ Phase 4
+- **Fresh Build Mode:** seeders (AlFajr/AlBurj/Realistic) معطّلة افتراضياً — HF Space يبدأ بـ DB فارغة
+- **CI/CD:** `build-and-deploy-hf.yml` صار على `branches: [main]` (PR #126)
+- **CodeQL cleanup:** `SoftDeleteController` refactor يحل 7 high-severity `cs/sql-injection` false positives
 
 ### 2026-06-24b — Mavis Telegram Architecture Guide 🆕
 

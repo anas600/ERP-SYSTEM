@@ -4,6 +4,79 @@
 
 ---
 
+## 2026-07-24 — Release v5.0.1: Atomic Register (DEC-091) 🆕
+
+### 🎯 الهدف
+إصلاح bug خطير: **`AuthService.RegisterAsync` كان non-atomic** — لو الـ HF Space proxy قطع الاتصال قبل اكتمال التسجيل (timeout، cold-start، أو network blip)، كانت الـ DB تحتوي على **orphan tenant** (Tenant row + HoldingCompany + CoA + Default Roles) بدون User ولا RefreshToken. النتيجة: tenant يتيّم يستهلك storage ويمنع تسجيل نفس الاسم لاحقاً.
+
+**الحل:** جميع الـ inserts في Register flow صارت داخل **connection واحد + transaction واحد** — أي failure = automatic rollback، الـ DB تبقى نظيفة.
+
+### 📊 ملخص الإنجاز
+- **2 PRs**: #131 (atomic fix) + #132 (Release v5.0.1)
+- **PR #131** (squash-merged to develop): atomic Register (16 files changed)
+- **PR #132** (squash-merged to main, commit `52e8c26`): Release v5.0.1 — 496 files
+- **+36982 / -1585** lines (full release bundle)
+- **15 orphan tenants** تم تنظيفها من Supabase قبل الـ fix
+
+### 📝 التغييرات الرئيسية
+
+| # | الملف | التغيير |
+|---|------|--------|
+| 1 | `src/backend/Modules/Identity/Application/Auth/AuthService.cs` | 🆕 `RegisterAsync` يفتح connection واحد + transaction واحد، كل repo call يمرر `(conn, tx, ct)`، `tx.Commit()` في النهاية، `tx.Rollback()` على أي exception |
+| 2 | `src/backend/Modules/Identity/Infrastructure/IRepositories.cs` | 🆕 إضافة overloads `(IDbConnection, IDbTransaction?, ct)` لـ 9 repos: `TenantRepository`, `UserRepository`, `RoleRepository`, `RefreshTokenRepository`, `CompanyRepository`, `AccountRepository`, `UnitOfMeasureRepository`, `ItemCategoryRepository` — الـ signatures القديمة `(ct)` preserved كـ back-compat wrappers |
+| 3 | `src/backend/Modules/Companies/Application/Services/CompanyService.cs` | 🆕 `OnTenantCreatedAsync` + `CreateHoldingAsync` ياخذوا `(conn, tx, ct)` — كمان thread الـ tx عبر كل الـ bootstrap |
+| 4 | `src/backend/Modules/Inventory/Application/Services/InventoryBootstrapper.cs` | 🆕 `EnsureDefaultUoMsAndCategoriesAsync` ياخذ `(conn, tx, ct)` — الـ UoM + Category inserts كلها في نفس الـ tx |
+| 5 | `src/backend/Tests/ERPSystem.Tests/{Inventory,Finance,Companies}/*Tests.cs` | 🆕 إضافة thin wrappers `=> InsertAsync(x, ct)` في Fake repos لتطابق الـ overloads الجديدة |
+| 6 | `start-dev.ps1` | 🆕 v4 (cloud-only) — يشيل local PG check، يتحقق من Supabase عبر HF Space health endpoint |
+| 7 | `src/backend/Host/appsettings.Development.json` | 🆕 Supabase connection (gitignored) |
+
+### 🛡️ Pattern: Atomic Multi-Step Dapper Transaction
+
+**Reference pattern for all future multi-insert flows in this codebase:**
+
+```csharp
+public async Task<X> MultiStepAsync(Req req, CancellationToken ct)
+{
+    using var conn = await _db.CreateOltpConnectionAsync(ct);
+    using var tx = conn.BeginTransaction();
+    try
+    {
+        // ... all repo calls pass (conn, tx, ct)
+        var result = await _someRepo.InsertAsync(x, conn, tx, ct);
+        await _otherRepo.DoWork(x, conn, tx, ct);
+        tx.Commit();
+        return result;
+    }
+    catch
+    {
+        try { tx.Rollback(); } catch { /* best-effort */ }
+        throw;
+    }
+}
+```
+
+**القاعدة:** أي service method يـ insert في > 1 جدول، لازم يستخدم transaction. الـ exception safety pattern فوق يضمن rollback.
+
+### 🐛 Atomicity Test (Pending)
+
+- **الـ happy path** (نجاح): POST /api/auth/register → 200 + JWT ✅
+- **الـ atomicity test** (rollback): POST register → kill mid-process → GET /api/auth/login بـ نفس email → لازم يفشل بـ "Tenant not found" (مش 401 عادي) — دليل إن الـ tenant تم rollback
+- **المتوقع:** 0 orphan tenants بعد 100 register requests (50 success + 50 mid-process killed)
+
+سيتم اختباره على **HF Space** (Linux) — مش local (Windows Npgsql 8.0.5 يفشل في parse `User Id=postgres.juhfbjozrjvzflravxrn` بسبب dot في username — known bug).
+
+### 🔧 Decisions
+
+- **DEC-091** (جديد): كل multi-insert service flow لازم atomic. Audit pass قادم للـ flows القديمة.
+- **DEC-092** (جديد): 15 orphan tenants تم تنظيفها يدوياً من Supabase قبل الـ fix (script: `psql DELETE FROM tenants WHERE id NOT IN (SELECT tenant_id FROM users)`). 
+- **ملاحظة:** `Login/Refresh` flows بقوا non-tx (قراءة فقط + refresh token rotation) — التحسين التالي.
+
+### 🌿 Branch Cleanup
+- `feature/atomic-register` ← deleted locally + remotely بعد merge PR #131
+- `release-v5.0.1` ← deleted after merge PR #132
+
+---
+
 ## 2026-07-23 — Release v5.0 to main + Fresh Build Mode 🆕
 
 ### 🎯 الهدف
