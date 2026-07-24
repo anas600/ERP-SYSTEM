@@ -1,7 +1,7 @@
 # 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Release v5.0.1 (يوليو 2026) — Phase 5.B Sprint 1 (Atomic Register) + DEC-091/092. AuthService.RegisterAsync صار atomic عبر Dapper IDbTransaction. Mavis + Jamie Executive + Jamie Analytical team pattern.
+> محدّث: Phase 5.B Sprint 2 (يوليو 2026) — **Npgsql Resiliency baseline (DEC-093) + Playwright E2E suite (DEC-094) + Workflow discipline: develop=E2E, main=locked**. Mavis + Jamie Executive + Jamie Analytical team pattern.
 
 ---
 
@@ -316,12 +316,23 @@ urllib.request.urlopen(req)
 | **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR #18) |
 | **Phase 5.A Sprint 2** | **AP Payments + Finance Reports rebuild + Fresh Build Mode** | ✅ مكتمل (PR #127) |
 | **Phase 5.B Sprint 1** | **Atomic Register (DEC-091): single-conn + single-tx for AuthService.RegisterAsync → no orphan tenants on HF timeout** | ✅ مكتمل (PR #131 → develop, PR #132 → main, commit `52e8c26`) |
+| **Phase 5.B Sprint 2** | **Npgsql Resiliency (DEC-093) + Playwright E2E (DEC-094) + Workflow discipline** | ✅ مكتمل (PR open on develop → main) |
 
 راجع [`docs/PLAN.md`](docs/PLAN.md) للتفاصيل الكاملة.
 
 ---
 
 ## 📝 Changelog (آخر التحديثات)
+
+### 2026-07-24b — Phase 5.B Sprint 2: Npgsql Resiliency + Playwright E2E (DEC-093, 094)
+
+- **PR #134** (open): develop → main
+- **Npgsql Resiliency (DEC-093):** `NpgsqlConnectionFactory` يطبّق defaults (CommandTimeout=60, KeepAlive=30, MaxPool=20) على كل connection
+- **OutboxProcessor exponential backoff:** 5s → 10s → 20s → 40s → 60s على الفشل المتتالي، reset عند النجاح
+- **Playwright E2E (DEC-094):** 4 tests على `src/frontend/e2e/` — register.happy, register.duplicate, login.happy, **atomicity (DEC-091 proof)**
+- **Workflow discipline:** develop = work + E2E required (Playwright CI runs on develop push), main = locked (only PR from develop, "Build and Deploy to HF" required check)
+- **Supabase-only dev:** `start-dev.ps1` v4 يحقق من Supabase connection عبر HF Space health endpoint
+- **CLI-First:** `psql` للـ schema checks + atomicity verification
 
 ### 2026-07-24 — Release v5.0.1: Atomic Register (DEC-091)
 
@@ -393,13 +404,31 @@ urllib.request.urlopen(req)
 
 ---
 
-## 🌿 Branching Strategy (DEC-052)
+## 🌿 Branching Strategy (DEC-052, updated Phase 5.B Sprint 2)
 
-This project uses **GitHub Flow + develop branch**:
+This project uses **GitHub Flow + develop branch** with strict workflow discipline:
 
-- `main` = production (protected — required reviews + CI check)
-- `develop` = integration (protected — required reviews + CI check)
-- `feature/*`, `fix/*`, `hotfix/*`, `docs/*` = working branches
+| Branch | Role | Protection | Push policy |
+|--------|------|------------|------------|
+| `main` | **Production only** — stable, deployed to HF Space | `enforce_admins: true` + 1 review + `Build and Deploy to HF` required | **PR only from develop** (no direct push) |
+| `develop` | **Integration** — work + E2E verification | 1 review + `CI + Deploy` + `Playwright E2E` required | Direct push OK for solo owner (with `enforce_admins: false`) |
+| `feature/*`, `fix/*`, `hotfix/*`, `docs/*` | Working branches | None | Free |
+
+**Workflow (DEC-094):**
+1. **Work on develop** (or feature branch off develop)
+2. **Run E2E locally** (`npm run e2e` in `src/frontend/`) — 0 failures required
+3. **Commit + push to develop**
+4. **CI runs Playwright E2E on develop push** — must pass
+5. **Open PR develop → main** (with E2E proof in description)
+6. **Admin merges** to main → triggers HF deploy
+
+**Why this discipline?** `main` is on HF Space. Every push to main = rebuild + cold start (consumes compute hours). By keeping `main` locked and forcing all work to go through develop, we get E2E validation BEFORE the expensive HF rebuild.
+
+**Local hybrid dev:**
+- Backend + frontend run on Anas's machine (6GB RAM)
+- Connected to **Supabase** cloud via `appsettings.Development.json` (gitignored)
+- Playwright tests run against this local stack
+- Zero local PostgreSQL — CLI-First with `psql` for schema inspection
 
 ### Before starting work:
 

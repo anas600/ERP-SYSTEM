@@ -1,0 +1,115 @@
+name: Playwright E2E
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+
+# Required by `gh pr merge --admin` for develop: E2E must pass before merging
+# any feature branch into develop or develop into main.
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20.x'
+  ASPNETCORE_ENVIRONMENT: Development
+  CI: 'true'
+
+jobs:
+  e2e:
+    name: Playwright E2E (chromium)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: src/frontend/package-lock.json
+
+      - name: Build backend
+        working-directory: src/backend
+        run: dotnet build Host/ERP-SYSTEM.csproj -c Release --nologo -v minimal
+
+      - name: Start backend (background)
+        working-directory: src/backend
+        run: |
+          # Get HF-space-style env vars from secrets (if available) or use dummy values
+          # For E2E we use the same Supabase instance as production.
+          # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
+          cat > Host/appsettings.Development.json <<EOF
+          {
+            "ConnectionStrings": {
+              "Postgres": "Host=\${SUPABASE_HOST};Port=\${SUPABASE_PORT};Database=\${SUPABASE_DB};User Id=\${SUPABASE_USER};Password=\${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
+            },
+            "Database": {
+              "AutoMigrate": true
+            }
+          }
+          EOF
+          nohup dotnet run --project Host/ERP-SYSTEM.csproj --no-launch-profile --urls http://localhost:5000 > /tmp/backend.log 2>&1 &
+          echo "Backend PID: $!"
+        env:
+          SUPABASE_HOST: ${{ secrets.SUPABASE_HOST }}
+          SUPABASE_PORT: ${{ secrets.SUPABASE_PORT }}
+          SUPABASE_DB: ${{ secrets.SUPABASE_DB }}
+          SUPABASE_USER: ${{ secrets.SUPABASE_USER }}
+          SUPABASE_PASSWORD: ${{ secrets.SUPABASE_PASSWORD }}
+
+      - name: Wait for backend health
+        run: |
+          for i in {1..60}; do
+            if curl -sf http://localhost:5000/api/health/ready; then
+              echo "Backend ready after ${i}s"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Backend failed to start"
+          cat /tmp/backend.log
+          exit 1
+
+      - name: Install frontend deps
+        working-directory: src/frontend
+        run: npm ci
+
+      - name: Install Playwright chromium
+        working-directory: src/frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        working-directory: src/frontend
+        run: npm run e2e
+        env:
+          E2E_BASE_URL: http://localhost:3000
+          E2E_API_URL: http://localhost:5000
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: src/frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results
+          path: src/frontend/test-results/
+          retention-days: 7
+
+      - name: Stop backend
+        if: always()
+        run: pkill -f 'dotnet run' || true

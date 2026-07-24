@@ -119,6 +119,16 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
     opts.OltpConnectionString = builder.Configuration.GetConnectionString("Postgres")
         ?? throw new InvalidOperationException("ConnectionStrings:Postgres غير معرّف.");
     opts.EventStoreConnectionString = builder.Configuration.GetSection("Marten")["ConnectionString"];
+
+    // Resiliency baseline (DEC-093, 2026-07-24): values من appsettings.json،
+    // الـ defaults في NpgsqlConnectionFactory تأخذ الأولوية لو الـ keys ناقصة.
+    var db = builder.Configuration.GetSection("Database");
+    opts.CommandTimeoutSeconds = db.GetValue<int?>("CommandTimeoutSeconds") ?? opts.CommandTimeoutSeconds;
+    opts.ConnectionTimeoutSeconds = db.GetValue<int?>("ConnectionTimeoutSeconds") ?? opts.ConnectionTimeoutSeconds;
+    opts.MaxPoolSize = db.GetValue<int?>("MaxPoolSize") ?? opts.MaxPoolSize;
+    opts.MinPoolSize = db.GetValue<int?>("MinPoolSize") ?? opts.MinPoolSize;
+    opts.KeepaliveSeconds = db.GetValue<int?>("KeepaliveSeconds") ?? opts.KeepaliveSeconds;
+    opts.ConnectionIdleLifetimeSeconds = db.GetValue<int?>("ConnectionIdleLifetimeSeconds") ?? opts.ConnectionIdleLifetimeSeconds;
 });
 
 // ============================================
