@@ -352,8 +352,8 @@ builder.Services.AddFluentMigratorCore()
         .WithGlobalConnectionString(postgresConn)
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
+builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator runs FIRST to create tables (many C# migrations depend on JSON-created tables)
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
-builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079: JSON-driven additive schema migrator (runs after FluentMigrator)
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
