@@ -313,10 +313,43 @@ if (!string.IsNullOrWhiteSpace(redisConn))
 }
 
 // ============ FluentMigrator ============
+// DEC-096: URL-decode the Postgres connection string if it contains URL-encoded chars.
+// Npgsql 8.0.5 does NOT URL-decode the Password in connection strings, so when
+// appsettings.json (or .Development.json) has Password=QZYn8S%26%2Fif%21%23i%26e
+// the literal URL-encoded string is sent to Postgres, which fails with 28P01
+// "password authentication failed for user postgres".
+// On Linux/HF, env vars usually have the raw password so the bug doesn't manifest.
+// We fix it centrally here so both the migration runner AND NpgsqlConnectionFactory
+// get a usable connection string.
+var postgresConn = builder.Configuration.GetConnectionString("Postgres");
+if (!string.IsNullOrEmpty(postgresConn) && postgresConn.Contains("Password=") && postgresConn.Contains("%"))
+{
+    try
+    {
+        var csb = new Npgsql.NpgsqlConnectionStringBuilder(postgresConn);
+        if (!string.IsNullOrEmpty(csb.Password) && csb.Password.Contains('%'))
+        {
+            var decoded = System.Web.HttpUtility.UrlDecode(csb.Password);
+            if (!string.IsNullOrEmpty(decoded) && decoded != csb.Password)
+            {
+                csb.Password = decoded;
+                postgresConn = csb.ConnectionString;
+                // Also update Configuration so downstream services (NpgsqlConnectionFactory) see the decoded version
+                builder.Configuration["ConnectionStrings:Postgres"] = postgresConn;
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        // Best effort: log but don't fail startup
+        Console.WriteLine($"[Program.cs] Warning: failed to URL-decode Postgres connection string: {ex.Message}");
+    }
+}
+
 builder.Services.AddFluentMigratorCore()
     .ConfigureRunner(rb => rb
         .AddPostgres()
-        .WithGlobalConnectionString(builder.Configuration.GetConnectionString("Postgres"))
+        .WithGlobalConnectionString(postgresConn)
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<MigrationRunnerHostedService>();

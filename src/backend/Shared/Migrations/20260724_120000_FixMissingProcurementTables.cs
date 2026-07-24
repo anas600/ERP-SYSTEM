@@ -104,6 +104,79 @@ public class FixMissingProcurementTables : Migration
         Execute.Sql("CREATE INDEX IF NOT EXISTS ix_vbl_tenant_vb ON vendor_bill_lines (tenant_id, vendor_bill_id);");
         Execute.Sql("CREATE INDEX IF NOT EXISTS ix_vbl_tenant_item ON vendor_bill_lines (tenant_id, item_id);");
         Execute.Sql("CREATE INDEX IF NOT EXISTS ix_vbl_vb_order ON vendor_bill_lines (vendor_bill_id, line_order);");
+
+        // ============== accounts (Chart of Accounts) ==============
+        // The C# CreateFinanceTables (20260614_180000) was also NoOp (DEC-082)
+        // expecting JSON migrator to create 'accounts'. With JsonMigrationEnabled=false,
+        // the table was never created. Without it, EnsureDefaultCoAAsync fails at register.
+        Execute.Sql(@"
+            CREATE TABLE IF NOT EXISTS accounts (
+                id uuid PRIMARY KEY,
+                tenant_id uuid NOT NULL,
+                company_id uuid,
+                code varchar(50) NOT NULL,
+                name varchar(200) NOT NULL,
+                description varchar(500),
+                type integer NOT NULL,
+                normal_balance integer NOT NULL,
+                parent_account_id uuid,
+                is_intercompany boolean NOT NULL DEFAULT false,
+                is_postable boolean NOT NULL DEFAULT true,
+                is_active boolean NOT NULL DEFAULT true,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                updated_at timestamptz NOT NULL DEFAULT now()
+            );");
+
+        Execute.Sql(@"
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_accounts_tenant') THEN
+                    ALTER TABLE accounts
+                        ADD CONSTRAINT fk_accounts_tenant FOREIGN KEY (tenant_id)
+                        REFERENCES tenants(id) ON DELETE CASCADE;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_accounts_company') THEN
+                    ALTER TABLE accounts
+                        ADD CONSTRAINT fk_accounts_company FOREIGN KEY (company_id)
+                        REFERENCES companies(id) ON DELETE SET NULL;
+                END IF;
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_accounts_parent') THEN
+                    ALTER TABLE accounts
+                        ADD CONSTRAINT fk_accounts_parent FOREIGN KEY (parent_account_id)
+                        REFERENCES accounts(id) ON DELETE SET NULL;
+                END IF;
+            END $$;");
+
+        Execute.Sql("CREATE INDEX IF NOT EXISTS ix_accounts_tenant_code ON accounts (tenant_id, code);");
+        Execute.Sql("CREATE INDEX IF NOT EXISTS ix_accounts_tenant_parent ON accounts (tenant_id, parent_account_id);");
+        Execute.Sql("CREATE INDEX IF NOT EXISTS ix_accounts_company ON accounts (company_id);");
+
+        // ============== warehouses ==============
+        // Also missing per DB inspection. Inventory migrations are also NoOp.
+        Execute.Sql(@"
+            CREATE TABLE IF NOT EXISTS warehouses (
+                id uuid PRIMARY KEY,
+                tenant_id uuid NOT NULL,
+                code varchar(50) NOT NULL,
+                name varchar(200) NOT NULL,
+                address text,
+                is_active boolean NOT NULL DEFAULT true,
+                created_at timestamptz NOT NULL DEFAULT now(),
+                created_by uuid NOT NULL,
+                updated_at timestamptz NOT NULL DEFAULT now(),
+                updated_by uuid,
+                deleted_at timestamptz
+            );");
+
+        Execute.Sql(@"
+            DO $$ BEGIN
+                IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_warehouses_tenant') THEN
+                    ALTER TABLE warehouses
+                        ADD CONSTRAINT fk_warehouses_tenant FOREIGN KEY (tenant_id)
+                        REFERENCES tenants(id) ON DELETE CASCADE;
+                END IF;
+            END $$;");
+
+        Execute.Sql("CREATE INDEX IF NOT EXISTS ix_warehouses_tenant_code ON warehouses (tenant_id, code);");
     }
 
     public override void Down()

@@ -1,4 +1,5 @@
 using System.Data;
+using System.Web;
 using Microsoft.Extensions.Options;
 using Npgsql;
 
@@ -8,6 +9,12 @@ namespace ERPSystem.Shared.Infrastructure;
 /// تنفيذ IDbConnectionFactory باستخدام Npgsql مع إعدادات Resiliency افتراضية
 /// (DEC-093: Command Timeout / Keepalive / Pool sizing — تُطبَّق على كل connection
 /// حتى لو الـ connection string المُمرّر ما يحويها).
+///
+/// DEC-096: Npgsql 8.0.5 لا يفك URL-encoding للـ Password في connection string.
+///   appsettings.json:Password=QZYn8S%26%2Fif%21%23i%26e تبقى كما هي → Supabase
+///   يرفض المصادقة (28P01) → "password authentication failed for user postgres".
+///   على Linux/HF، env vars عادة تحتوي raw password فيتجاوز الـ bug.
+///   نعمل URL-decode للـ Password هنا عشان نشتغل على Windows + Linux بنفس الـ config.
 /// </summary>
 public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
 {
@@ -26,18 +33,7 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
         {
             throw new InvalidOperationException("ConnectionStrings:Postgres غير معرّف في الإعدادات.");
         }
-        var csb = new NpgsqlConnectionStringBuilder(_options.OltpConnectionString)
-        {
-            // Resiliency baseline (DEC-093). الـ values الموجودة في الـ connection string تأخذ أولوية
-            // لو محتاجين override على مستوى environment.
-            CommandTimeout = _options.CommandTimeoutSeconds,
-            Timeout = _options.ConnectionTimeoutSeconds,
-            MinPoolSize = _options.MinPoolSize,
-            MaxPoolSize = _options.MaxPoolSize,
-            KeepAlive = _options.KeepaliveSeconds,
-            ConnectionIdleLifetime = _options.ConnectionIdleLifetimeSeconds,
-            ConnectionPruningInterval = 10,
-        };
+        var csb = BuildBuilderWithResiliency(_options.OltpConnectionString);
         var conn = new NpgsqlConnection(csb.ConnectionString);
         await conn.OpenAsync(ct).ConfigureAwait(false);
         _logger.LogDebug("فُتح اتصال OLTP جديد (DB={Database}, Pool={Min}-{Max}, CmdTimeout={Cmd}s)",
@@ -52,8 +48,20 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
         {
             throw new InvalidOperationException("ConnectionStrings:Marten غير معرّف في الإعدادات.");
         }
-        var csb = new NpgsqlConnectionStringBuilder(cs)
+        var csb = BuildBuilderWithResiliency(cs);
+        var conn = new NpgsqlConnection(csb.ConnectionString);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        _logger.LogDebug("فُتح اتصال EventStore جديد (DB={Database}, Pool={Min}-{Max}, CmdTimeout={Cmd}s)",
+            conn.Database, csb.MinPoolSize, csb.MaxPoolSize, csb.CommandTimeout);
+        return conn;
+    }
+
+    private NpgsqlConnectionStringBuilder BuildBuilderWithResiliency(string connectionString)
+    {
+        var csb = new NpgsqlConnectionStringBuilder(connectionString)
         {
+            // Resiliency baseline (DEC-093). الـ values الموجودة في الـ connection string تأخذ أولوية
+            // لو محتاجين override على مستوى environment.
             CommandTimeout = _options.CommandTimeoutSeconds,
             Timeout = _options.ConnectionTimeoutSeconds,
             MinPoolSize = _options.MinPoolSize,
@@ -62,11 +70,28 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
             ConnectionIdleLifetime = _options.ConnectionIdleLifetimeSeconds,
             ConnectionPruningInterval = 10,
         };
-        var conn = new NpgsqlConnection(csb.ConnectionString);
-        await conn.OpenAsync(ct).ConfigureAwait(false);
-        _logger.LogDebug("فُتح اتصال EventStore جديد (DB={Database}, Pool={Min}-{Max}, CmdTimeout={Cmd}s)",
-            conn.Database, csb.MinPoolSize, csb.MaxPoolSize, csb.CommandTimeout);
-        return conn;
+
+        // DEC-096: URL-decode the password if it appears URL-encoded.
+        // Npgsql 8.0.5 keeps the value as-is, which breaks Supabase auth on Windows.
+        if (!string.IsNullOrEmpty(csb.Password) && csb.Password.Contains('%'))
+        {
+            try
+            {
+                var decoded = HttpUtility.UrlDecode(csb.Password);
+                if (!string.IsNullOrEmpty(decoded) && decoded != csb.Password)
+                {
+                    csb.Password = decoded;
+                    _logger.LogDebug("[NpgsqlConnectionFactory] URL-decoded Password (was {OldLen} chars, now {NewLen} chars)",
+                        csb.Password.Length, decoded.Length);
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[NpgsqlConnectionFactory] Failed to URL-decode Password — using as-is");
+            }
+        }
+
+        return csb;
     }
 }
 
