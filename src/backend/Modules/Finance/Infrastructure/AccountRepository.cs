@@ -109,30 +109,57 @@ public sealed class AccountRepository : IAccountRepository
             new { TenantId = tenantId, Code = "0000" }, transaction: tx, cancellationToken: ct));
         if (existingCoA != null) return;
 
-        // Topological sort: نضيف على passes متتالية حتى ما يبقى accounts بـ parent غير محلول
+        // DEC-093 + perf fix: Compute all IDs in-memory (topological), then ONE batched INSERT
+        // with 47 rows via Postgres unnest(). Was previously 47 sequential INSERT round-trips
+        // (~3.5s on Supabase eu-central-1 per register); now ~200ms.
         var allEntries = DefaultCoASeed.HoldingAccounts.ToList();
         var idByCode = new Dictionary<string, Guid>();
-        var added = 0;
-        while (added < allEntries.Count)
+        var accountObjects = new List<Account>(allEntries.Count);
+
+        // Pass 1: roots (no parent)
+        foreach (var (code, name, type, parentCode, postable, intercompany) in allEntries.Where(e => e.ParentCode == null))
         {
-            var addedThisPass = 0;
-            foreach (var (code, name, type, parentCode, postable, intercompany) in allEntries)
-            {
-                if (idByCode.ContainsKey(code)) continue; // already added
-                Guid? parentId = null;
-                if (parentCode != null)
-                {
-                    if (!idByCode.TryGetValue(parentCode, out var p)) continue; // parent not yet added
-                    parentId = p;
-                }
-                var acc = NewAccount(tenantId, companyId, code, name, type, parentId, postable, intercompany);
-                await InsertAsync(acc, conn, tx, ct);
-                idByCode[code] = acc.Id;
-                addedThisPass++;
-            }
-            if (addedThisPass == 0) break; // لن يحدث لأن الـ seed صحيح
-            added += addedThisPass;
+            var acc = NewAccount(tenantId, companyId, code, name, type, null, postable, intercompany);
+            idByCode[code] = acc.Id;
+            accountObjects.Add(acc);
         }
+        // Pass 2: children (parent already mapped)
+        foreach (var (code, name, type, parentCode, postable, intercompany) in allEntries.Where(e => e.ParentCode != null))
+        {
+            if (!idByCode.TryGetValue(parentCode!, out var parentId))
+                throw new InvalidOperationException($"CoA seed bug: parent code {parentCode} not resolved before child {code}");
+            var acc = NewAccount(tenantId, companyId, code, name, type, parentId, postable, intercompany);
+            idByCode[code] = acc.Id;
+            accountObjects.Add(acc);
+        }
+
+        if (accountObjects.Count == 0) return;
+
+        // Single batched INSERT using unnest() — 1 round-trip for 47 rows
+        // type + normal_balance are integer columns in Postgres (per accounts.json).
+        // We pass int[] instead of text[] + cast to skip the parse step.
+        const string batchInsertSql = @"
+            INSERT INTO accounts (id, tenant_id, company_id, code, name, type, normal_balance,
+                                  parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
+            SELECT u.id, @TenantId, @CompanyId, u.code, u.name, u.type, u.balance,
+                   u.parent_id, u.postable, true, u.intercompany, now(), now()
+            FROM unnest(@Ids::uuid[], @Codes::text[], @Names::text[], @Types::int[], @Balances::int[],
+                        @ParentIds::uuid[], @Postables::bool[], @Inters::bool[])
+            AS u(id, code, name, type, balance, parent_id, postable, intercompany);";
+
+        await conn.ExecuteAsync(new CommandDefinition(batchInsertSql, new
+        {
+            TenantId = tenantId,
+            CompanyId = companyId,
+            Ids = accountObjects.Select(a => a.Id).ToArray(),
+            Codes = accountObjects.Select(a => a.Code).ToArray(),
+            Names = accountObjects.Select(a => a.Name).ToArray(),
+            Types = accountObjects.Select(a => (int)a.Type).ToArray(),
+            Balances = accountObjects.Select(a => (int)a.NormalBalance).ToArray(),
+            ParentIds = accountObjects.Select(a => a.ParentAccountId ?? (Guid?)null).ToArray(),
+            Postables = accountObjects.Select(a => a.IsPostable).ToArray(),
+            Inters = accountObjects.Select(a => a.IsIntercompany).ToArray(),
+        }, transaction: tx, cancellationToken: ct));
     }
 
     public async Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct)

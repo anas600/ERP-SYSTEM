@@ -4,6 +4,92 @@
 
 ---
 
+## 2026-07-24c — Phase 5.B Sprint 3: Migration Fix + Timeout Sync + CoA Batch Insert 🆕
+
+### 🎯 الهدف
+ثلاثة إصلاحات عاجلة رصدها أنس في سجلات الحاوية (Container Logs) لـ v5.0.2:
+1. إصلاح خطأ الـ Migration (42P01) عند إقلاع السيرفر
+2. مزامنة مهلة الـ Frontend timeout (30s → 60s)
+3. تسريع `EnsureDefaultCoAAsync` (47 round-trips → 1)
+
+### 📊 ملخص الإنجاز
+- **Migration fix:** `20260724_120000_FixMissingProcurementTables` ينشئ `vendor_bills` + `vendor_bill_lines` بـ `CREATE TABLE IF NOT EXISTS` (idempotent)
+- **Defensive guards:** `20260710_120000_AddMissingIndexes` الآن يـ skip indexes لو الجدول غير موجود (بدل crash بـ 42P01)
+- **Frontend timeout:** `lib/api.ts` من 30s → 60s (align مع Backend CommandTimeout=60s)
+- **CoA batch INSERT:** `EnsureDefaultCoAAsync` يستخدم `unnest()` — 1 round-trip لـ 47 account (was 47 RT)
+- **JSON schemas:** `vendor_bills.json` + `vendor_bill_lines.json` (DEC-080 alignment)
+- **GitHub Secrets:** 7 Supabase secrets تم تعيينها تلقائياً (HOST, PORT, DB, USER, PASSWORD, URL, DB_CONN)
+
+### 📝 التغييرات الرئيسية
+
+| # | الملف | التغيير |
+|---|------|--------|
+| 1 | `src/backend/Shared/Migrations/20260724_120000_FixMissingProcurementTables.cs` | 🆕 ينشئ `vendor_bills` + `vendor_bill_lines` + FKs + indexes (idempotent) |
+| 2 | `src/backend/Shared/Migrations/20260710_120000_AddMissingIndexes.cs` | 🆕 `DO $$ ... IF EXISTS(table) ...` guards (defensive ضد 42P01) |
+| 3 | `src/backend/Host/data-types/vendor_bills.json` | 🆕 JSON schema (DEC-080) |
+| 4 | `src/backend/Host/data-types/vendor_bill_lines.json` | 🆕 JSON schema (DEC-080) |
+| 5 | `src/frontend/lib/api.ts` | 🆕 `timeout: 30000` → `timeout: API_TIMEOUT_MS = 60_000` (DEC-093) |
+| 6 | `src/backend/Modules/Finance/Infrastructure/AccountRepository.cs` | 🆕 `EnsureDefaultCoAAsync` — topological pass in-memory + 1 batched INSERT عبر `unnest()` (was 47 sequential INSERTs) |
+
+### 🛠️ Root Cause Analysis: Migration 42P01
+
+| Layer | الحالة | السبب |
+|-------|--------|------|
+| C# migration `20260623_120000_CreateProcurementTables` | NoOp (DEC-080) | يفترض JSON migrator ينشئ الجداول |
+| `JsonMigrationEnabled` في `appsettings.json` | **false** | JSON migrator ما يـ run |
+| `vendor_bills.json` + `vendor_bill_lines.json` | **مفقودين** | حتى لو JSON migrator شغّال، الجداول ما تنوجد |
+| `20260710_120000_AddMissingIndexes` | يفشل بـ 42P01 | يـ `CREATE INDEX ON vendor_bills` لكن الجدول مش موجود |
+
+**الحل المعتمد:** migration جديد ينشئ الجداول الناقصة idempotent + defensive guards في الـ index migration.
+
+### ⚡ CoA Batch INSERT (DEC-093 part 2)
+
+**Before (47 round-trips):**
+```csharp
+foreach (var entry in entries) {
+    await InsertAsync(NewAccount(...));  // 1 RT
+}
+```
+
+**After (1 round-trip):**
+```csharp
+// Compute all 47 IDs in memory
+var accountObjects = ResolveIdsTopologically(entries);
+// Single batched INSERT via unnest()
+INSERT INTO accounts (...)
+SELECT u.* FROM unnest(@Ids::uuid[], @Codes::text[], @Types::int[], ...)
+  AS u(id, code, name, type, ...);
+```
+
+**التأثير المتوقع:** Register time من 30s (timeout) → ~3-5s (perf budget).
+
+### 🔐 GitHub Secrets المُعيّنة
+
+```bash
+gh secret set SUPABASE_HOST --repo anas600/ERP-SYSTEM  # aws-0-eu-central-1.pooler.supabase.com
+gh secret set SUPABASE_PORT --repo anas600/ERP-SYSTEM  # 6543
+gh secret set SUPABASE_DB --repo anas600/ERP-SYSTEM    # postgres
+gh secret set SUPABASE_USER --repo anas600/ERP-SYSTEM  # postgres.juhfbjozrjvzflravxrn
+gh secret set SUPABASE_PASSWORD --repo anas600/ERP-SYSTEM  # من appsettings
+gh secret set SUPABASE_URL --repo anas600/ERP-SYSTEM   # https://juhfbjozrjvzflravxrn.supabase.co
+gh secret set SUPABASE_DB_CONN --repo anas600/ERP-SYSTEM  # full conn string
+```
+
+**SUPABASE_ANON_KEY مفقود** — محتاج من أنس (موجود في Supabase dashboard → Settings → API).
+
+### ⚠️ Known Limitations
+
+- **HF Space Caddy proxy timeout:** ما نقدر نعدّل من الـ repo. لو الـ register flow الكامل (CoA + UoMs + Categories + UoMs = 80+ accounts/items) تجاوز 30s على cold start، الـ proxy يقطع. الحل: keep-warm ping أو split register into 2 steps.
+- **JSON migrator:** لسه OFF (Fresh Build Mode). الـ C# migration الجديد يعوّض vendor_bills/lines. لو في جداول JSON ناقصة أخرى (customers, sales_invoices, etc.)، نضيفها بالـ C# migration.
+
+### 📊 Build & Test
+- ✅ Backend build: 0 errors, 0 warnings
+- ✅ Frontend TypeScript: clean
+- ✅ Tests: 7/7 pass (DefaultCoASeedTests, AuthService, UserRepository)
+- ⚠️ Live DB verification: psql not available locally (CLI-First per strategy)
+
+---
+
 ## 2026-07-24b — Phase 5.B Sprint 2: Npgsql Resiliency + Playwright E2E (DEC-093, 094) 🆕
 
 ### 🎯 الهدف
