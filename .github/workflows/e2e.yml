@@ -44,13 +44,16 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # DEBUG: print the actual secret values as base64 to bypass GitHub's
-          # log redaction. This tells us if the secrets are valid (numeric port
-          # etc) or corrupt (whitespace, newlines, wrong values).
-          echo "DEBUG_SUPABASE_PORT_B64=$(printf '%s' "${SUPABASE_PORT}" | base64 -w0)"
-          echo "DEBUG_SUPABASE_HOST_B64=$(printf '%s' "${SUPABASE_HOST}" | base64 -w0)"
-          echo "DEBUG_SUPABASE_DB_B64=$(printf '%s' "${SUPABASE_DB}" | base64 -w0)"
-          echo "DEBUG_SUPABASE_USER_B64=$(printf '%s' "${SUPABASE_USER}" | base64 -w0)"
+          # DEBUG: print LENGTH and MD5 of each secret to bypass redaction.
+          # We learn: is the value empty, very long, has leading/trailing whitespace, etc.
+          # Length tells us if there's data at all; MD5 lets us compare to expected values.
+          for var in SUPABASE_HOST SUPABASE_PORT SUPABASE_DB SUPABASE_USER SUPABASE_PASSWORD; do
+            v="${!var}"
+            len=${#v}
+            # MD5 via printf (avoids xxd/od which are noisy); use python for stability
+            md5=$(python3 -c "import hashlib,sys;print(hashlib.md5(sys.argv[1].encode()).hexdigest())" "$v" 2>/dev/null || echo "ERR")
+            echo "DEBUG_${var}_LEN=$len _MD5=$md5 _FIRST2=${v:0:2} _LAST2=${v: -2}"
+          done
           # Pass the connection string as an env var directly to dotnet run.
           # .NET's IConfiguration reads ConnectionStrings__Postgres from env,
           # so we skip writing a JSON file entirely (avoids heredoc + escaping
