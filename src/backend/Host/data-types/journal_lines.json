@@ -13,15 +13,15 @@
     { "name": "credit", "type": "numeric(18,4)", "nullable": false, "default": "0" },
     { "name": "description", "type": "varchar(500)", "nullable": true },
     { "name": "line_number", "type": "integer", "nullable": false },
-    { "name": "company_id", "type": "uuid", "nullable": true,
-      "foreign_key": { "table": "companies", "column": "id", "on_delete": "set_null" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "cost_center_id", "type": "uuid", "nullable": true,
       "foreign_key": { "table": "cost_centers", "column": "id", "on_delete": "set_null" } }
   ],
   "indexes": [
     { "name": "ix_journal_lines_entry", "columns": ["journal_entry_id"] },
     { "name": "ix_journal_lines_account", "columns": ["account_id"] },
-    { "name": "ix_jl_company", "columns": ["company_id"] },
-    { "name": "ix_jl_cost_center", "columns": ["cost_center_id"] }
+    { "name": "ix_journal_lines_company", "columns": ["company_id"] },
+    { "name": "ix_journal_lines_cost_center", "columns": ["cost_center_id"] }
   ]
 }

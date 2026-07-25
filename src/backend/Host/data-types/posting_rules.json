@@ -5,8 +5,8 @@
   "module": "Finance",
   "fields": [
     { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "name", "type": "varchar(200)", "nullable": false },
     { "name": "description", "type": "varchar(500)", "nullable": true },
     { "name": "event_type", "type": "integer", "nullable": false },
@@ -16,6 +16,6 @@
     { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
   ],
   "indexes": [
-    { "name": "ix_posting_rules_tenant_event", "columns": ["tenant_id", "event_type", "is_active"] }
+    { "name": "ix_posting_rules_company_event", "columns": ["company_id", "event_type", "is_active"] }
   ]
 }

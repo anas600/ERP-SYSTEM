@@ -5,8 +5,8 @@
   "module": "Shared",
   "fields": [
     { "name": "id", "type": "bigint", "nullable": false, "primary_key": true, "default": "nextval('audit_log_id_seq'::regclass)" },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": true,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "entity_type", "type": "varchar(50)", "nullable": false },
     { "name": "entity_id", "type": "uuid", "nullable": false },
     { "name": "action", "type": "varchar(20)", "nullable": false },
@@ -16,7 +16,7 @@
     { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
   ],
   "indexes": [
-    { "name": "ix_audit_log_entity", "columns": ["tenant_id", "entity_type", "entity_id", "created_at"] },
-    { "name": "ix_audit_log_user", "columns": ["tenant_id", "user_id", "created_at"] }
+    { "name": "ix_audit_log_company_entity", "columns": ["company_id", "entity_type", "entity_id", "created_at"] },
+    { "name": "ix_audit_log_user", "columns": ["user_id", "created_at"] }
   ]
 }
