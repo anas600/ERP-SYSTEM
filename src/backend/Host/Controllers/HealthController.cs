@@ -34,6 +34,10 @@ public class HealthController : ControllerBase
 
     /// <summary>
     /// Readiness probe — can serve traffic?
+    /// Phase 6.3: includes a check that the default Holding Company is seeded
+    /// by DefaultHoldingBootstrapHostedService. If the bootstrap is still
+    /// running (or has silently failed), /api/health/ready returns 503 so
+    /// the e2e health probe waits for bootstrap to complete.
     /// </summary>
     [HttpGet("ready")]
     public async Task<IActionResult> Ready(CancellationToken ct = default)
@@ -51,6 +55,44 @@ public class HealthController : ControllerBase
         catch (Exception ex)
         {
             components["database"] = new { status = "unhealthy", error = ex.Message };
+            overall = "unhealthy";
+        }
+
+        // Phase 6.3: check the Holding is seeded. The e2e workflow polls this
+        // endpoint and waits for healthy. Without this check, register.happy
+        // fails with "الشركة القابضة غير مهيأة" because the bootstrap was
+        // still running (or silently failed) when the test fired.
+        try
+        {
+            using var conn = await _db.CreateOltpConnectionAsync(ct);
+            var holdingId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+                @"SELECT id FROM companies
+                  WHERE is_group = true
+                    AND parent_company_id IS NULL
+                    AND code = '000'
+                  LIMIT 1",
+                cancellationToken: ct));
+            if (holdingId.HasValue)
+            {
+                components["holding_company"] = new
+                {
+                    status = "healthy",
+                    id = holdingId.Value
+                };
+            }
+            else
+            {
+                components["holding_company"] = new
+                {
+                    status = "unhealthy",
+                    error = "DefaultHoldingBootstrap not yet completed (or failed)"
+                };
+                overall = "unhealthy";
+            }
+        }
+        catch (Exception ex)
+        {
+            components["holding_company"] = new { status = "unhealthy", error = ex.Message };
             overall = "unhealthy";
         }
 
