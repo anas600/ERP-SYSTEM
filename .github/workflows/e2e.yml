@@ -44,22 +44,26 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # DEBUG: print LENGTH and MD5 of each secret to bypass redaction.
-          # We learn: is the value empty, very long, has leading/trailing whitespace, etc.
-          # Length tells us if there's data at all; MD5 lets us compare to expected values.
-          for var in SUPABASE_HOST SUPABASE_PORT SUPABASE_DB SUPABASE_USER SUPABASE_PASSWORD; do
-            v="${!var}"
-            len=${#v}
-            # MD5 via printf (avoids xxd/od which are noisy); use python for stability
-            md5=$(python3 -c "import hashlib,sys;print(hashlib.md5(sys.argv[1].encode()).hexdigest())" "$v" 2>/dev/null || echo "ERR")
-            echo "DEBUG_${var}_LEN=$len _MD5=$md5 _FIRST2=${v:0:2} _LAST2=${v: -2}"
-          done
+          # Strip any trailing whitespace/newlines from secrets. The Supabase
+          # secrets were set with `gh secret set` from a file, which added a
+          # trailing newline that survives into the env var. .NET's connection
+          # string parser then chokes on "6543\n" when it tries to parse the
+          # Port as an integer.
+          SUPABASE_HOST=$(echo -n "${SUPABASE_HOST}" | tr -d '[:space:]')
+          SUPABASE_PORT=$(echo -n "${SUPABASE_PORT}" | tr -d '[:space:]')
+          SUPABASE_DB=$(echo -n "${SUPABASE_DB}" | tr -d '[:space:]')
+          SUPABASE_USER=$(echo -n "${SUPABASE_USER}" | tr -d '[:space:]')
+          SUPABASE_PASSWORD=$(echo -n "${SUPABASE_PASSWORD}" | tr -d '[:space:]')
+          # URL-encode the password for safe inclusion in the connection string
+          # (Npgsql treats &, #, !, and other special chars literally in the
+          # password field). python3's urllib.quote is the standard encoder.
+          SUPABASE_PASSWORD_ENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "${SUPABASE_PASSWORD}")
           # Pass the connection string as an env var directly to dotnet run.
           # .NET's IConfiguration reads ConnectionStrings__Postgres from env,
           # so we skip writing a JSON file entirely (avoids heredoc + escaping
           # + envsubst brittleness).
           # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
-          export ConnectionStrings__Postgres="Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
+          export ConnectionStrings__Postgres="Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD_ENC};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
           export Database__AutoMigrate=true
           # Also write a minimal appsettings.Development.json so DataTypeHostedService
           # doesn't bail looking for the dev config file (it expects one even if empty).
