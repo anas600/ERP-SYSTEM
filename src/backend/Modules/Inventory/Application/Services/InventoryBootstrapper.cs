@@ -7,13 +7,14 @@ using Microsoft.Extensions.Logging;
 namespace ERPSystem.Modules.Inventory.Application.Services;
 
 /// <summary>
-/// يُستدعى من ITenantBootstrap.OnTenantCreatedAsync
-/// لزرع UoMs و Categories الافتراضية لكل tenant جديد.
+/// Phase 6.1c: Multi-Company model. UoMs and Categories are global reference
+/// data — no per-company scope. Called once at startup (or by tests /
+/// re-seed scripts).
 /// </summary>
 public interface IInventoryBootstrapper
 {
-    Task EnsureDefaultUoMsAndCategoriesAsync(Guid tenantId, CancellationToken ct);
-    Task EnsureDefaultUoMsAndCategoriesAsync(Guid tenantId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
+    Task EnsureDefaultUoMsAndCategoriesAsync(CancellationToken ct);
+    Task EnsureDefaultUoMsAndCategoriesAsync(IDbConnection conn, IDbTransaction? tx, CancellationToken ct);
 }
 
 public sealed class InventoryBootstrapper : IInventoryBootstrapper
@@ -27,11 +28,8 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         _uoms = uoms; _categories = categories; _logger = logger;
     }
 
-    public async Task EnsureDefaultUoMsAndCategoriesAsync(Guid tenantId, CancellationToken ct)
+    public async Task EnsureDefaultUoMsAndCategoriesAsync(CancellationToken ct)
     {
-        // Back-compat path: each underlying repo call opens its own connection.
-        // Preserved exactly as before so non-register callers (e.g. seed scripts) are untouched.
-        // UoMs are global reference data (no per-company scope) — phase 6.0b.
         if (await _uoms.GetByCodeAsync("pcs", ct) == null)
         {
             foreach (var (code, name, symbol) in DefaultInventorySeed.DefaultUoMs)
@@ -48,10 +46,8 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
             _logger.LogInformation("تم زرع 6 UoMs افتراضية (global reference data)");
         }
 
-        // Categories
         if (await _categories.GetByCodeAsync("RM", ct) == null)
         {
-            // Phase 1: roots
             var idByCode = new Dictionary<string, Guid>();
             foreach (var (code, name, _, parentCode) in DefaultInventorySeed.DefaultCategories.Where(c => c.ParentCode == null))
             {
@@ -67,17 +63,8 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         }
     }
 
-    public async Task EnsureDefaultUoMsAndCategoriesAsync(Guid tenantId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    public async Task EnsureDefaultUoMsAndCategoriesAsync(IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
-        // P1-9: Tx-aware path used by the register flow. Read-checks still use the
-        // no-conn overload on their own connection because the only call site is
-        // creating a brand-new tenant with no pre-existing UoMs / categories —
-        // those reads always return null. The inserts go through the caller-supplied
-        // connection so they roll back together with the tenant/holding insert.
-        // Phase 6.1b: tenantId parameter kept for back-compat with ITenantBootstrap
-        // (out of scope for 6.1b, will be removed in 6.1c). UoMs/Categories are global.
-
-        // UoMs (global reference data)
         if (await _uoms.GetByCodeAsync("pcs", ct) == null)
         {
             foreach (var (code, name, symbol) in DefaultInventorySeed.DefaultUoMs)
@@ -94,10 +81,8 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
             _logger.LogInformation("تم زرع 6 UoMs افتراضية (global reference data)");
         }
 
-        // Categories
         if (await _categories.GetByCodeAsync("RM", ct) == null)
         {
-            // Phase 1: roots
             var idByCode = new Dictionary<string, Guid>();
             foreach (var (code, name, _, parentCode) in DefaultInventorySeed.DefaultCategories.Where(c => c.ParentCode == null))
             {

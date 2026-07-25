@@ -19,7 +19,7 @@ namespace ERPSystem.Tests.Reports;
 /// </summary>
 public class FinanceReportServiceTests
 {
-    private static (FinanceReportService svc, FakeDbConnectionFactory db, Guid tenantId) Build()
+    private static (FinanceReportService svc, FakeDbConnectionFactory db, Guid companyId) Build()
     {
         var tenant = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();

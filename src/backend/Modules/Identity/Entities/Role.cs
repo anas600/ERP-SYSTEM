@@ -4,8 +4,7 @@ using System.Collections.Generic;
 namespace ERPSystem.Modules.Identity.Entities;
 
 /// <summary>
-/// Role entity - represents a role that can be assigned to users
-/// Phase 0: Foundation + Identity Module
+/// Role entity — Phase 6.1c: Multi-Company model. Roles are global (not per-tenant).
 /// </summary>
 public class Role
 {
@@ -15,7 +14,6 @@ public class Role
     public DateTime CreatedAt { get; set; }
 
     // Navigation
-    public Tenant? Tenant { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
 }
 

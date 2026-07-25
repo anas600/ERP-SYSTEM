@@ -168,7 +168,7 @@ builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
-builder.Services.AddScoped<ITenantRepository, TenantRepository>();
+// Phase 6.1c: ITenantRepository removed — multi-company model has no tenants.
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<ICostCenterRepository, CostCenterRepository>();
@@ -224,7 +224,7 @@ builder.Services.AddSingleton<IDomainEventPublisher, DomainEventPublisher>();
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<CompanyService>();
-builder.Services.AddScoped<ITenantBootstrap>(sp => sp.GetRequiredService<CompanyService>());
+// Phase 6.1c: ITenantBootstrap removed — multi-company model. Holding is auto-seeded at startup.
 builder.Services.AddScoped<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
 builder.Services.AddScoped<ICostCenterService, CostCenterService>();
 builder.Services.AddScoped<IChartOfAccountsService, ChartOfAccountsService>();

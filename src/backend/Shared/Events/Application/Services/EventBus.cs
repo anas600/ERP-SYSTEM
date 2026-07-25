@@ -36,13 +36,17 @@ public sealed class EventBus : IEventBus
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
-        // Phase 6.1b: multi-company model — OutboxEvent.CompanyId is the publisher's company
-        // (filled by handlers that have ICompanyContext). Event payloads still carry the
-        // historical TenantId field for back-compat; here we map it to CompanyId when present.
+        // Phase 6.1c: multi-company model. OutboxEvent.CompanyId is the publisher's
+        // company (set by handlers that have ICompanyContext). Events no longer carry
+        // TenantId — CompanyId is resolved at the event handler boundary via the
+        // ICompanyContext populated by CompanyContextMiddleware from the request's
+        // X-Company-Id header. For now we use Guid.Empty as a placeholder; the handler
+        // can set it explicitly if needed (most don't need it — they use the receiver's
+        // ICompanyContext at apply time).
         var row = new OutboxEvent
         {
             Id = Guid.NewGuid(),
-            CompanyId = @event.TenantId,  // back-compat: integration events still expose TenantId
+            CompanyId = Guid.Empty,
             EventType = eventType,
             AggregateId = @event.EventId,  // EventId is the dedup key; but AggregateId is for routing
             AggregateType = aggregateType2,

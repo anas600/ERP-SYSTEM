@@ -27,12 +27,14 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            
             Email = "user@test.com",
             FullName = "Test User",
         };
 
-        var (token, expires) = service.GenerateAccessToken(user, new[] { "Admin", "Accountant" });
+        var defaultCompanyId = Guid.NewGuid();
+        var companyIds = new[] { defaultCompanyId, Guid.NewGuid() };
+
+        var (token, expires) = service.GenerateAccessToken(user, new[] { "Admin", "Accountant" }, defaultCompanyId, companyIds);
 
         token.Should().NotBeNullOrEmpty();
         expires.Should().BeAfter(DateTime.UtcNow);
@@ -40,6 +42,10 @@ public class JwtTokenServiceTests
         var principal = service.GetPrincipalFromExpiredToken(token);
         principal.Should().NotBeNull();
         principal!.Identity!.IsAuthenticated.Should().BeTrue();
+
+        // Phase 6.1c: verify the new multi-company claims
+        principal.FindFirst("default_company_id")!.Value.Should().Be(defaultCompanyId.ToString());
+        principal.FindAll("company_ids").Select(c => c.Value).Should().Contain(defaultCompanyId.ToString());
     }
 
     [Fact]

@@ -26,9 +26,8 @@ public class ProjectServiceTests
     public async Task Create_AutoCreatesCostCenter_AndBudget()
     {
         var (svc, projects, costCenters) = Build();
-        var tenantId = Guid.NewGuid();
-        var userId = Guid.NewGuid();
         var companyId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
 
         var result = await svc.CreateAsync(userId, new CreateProjectRequest
         {
@@ -58,7 +57,7 @@ public class ProjectServiceTests
     public async Task Create_DuplicateCode_Fails()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PRJ-001", Name = "A", Budget = 100, StartDate = DateTime.UtcNow
@@ -75,7 +74,7 @@ public class ProjectServiceTests
     public async Task ChangeStatus_PlanningToActive_Succeeds()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P1", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -89,7 +88,7 @@ public class ProjectServiceTests
     public async Task ChangeStatus_ActiveToPlanning_Fails()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -104,7 +103,7 @@ public class ProjectServiceTests
     public async Task ChangeStatus_ActiveToCompleted_ThenToActive_Fails()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2c", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -120,7 +119,7 @@ public class ProjectServiceTests
     public async Task Deactivate_SetsIsActiveFalse()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P3", Name = "X", Budget = 100, StartDate = DateTime.UtcNow
@@ -144,7 +143,7 @@ public class ProjectServiceTests
     public async Task List_FiltersByCompany()
     {
         var (svc, _, _) = Build();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var comp1 = Guid.NewGuid();
         var comp2 = Guid.NewGuid();
         await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1A", Name = "A", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);

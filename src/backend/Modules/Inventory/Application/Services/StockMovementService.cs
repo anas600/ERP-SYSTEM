@@ -199,7 +199,7 @@ public sealed class StockMovementService : IStockMovementService
         if (movement.Type == StockMovementType.Receive)
         {
             var receiveEvt = new StockReceivedEvent(
-                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
                 PurchaseOrderRef: movement.SourceId?.ToString(), OccurredAt: DateTime.UtcNow);
@@ -208,7 +208,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Issue)
         {
             var issueEvt = new StockIssuedEvent(
-                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 Quantity: Math.Abs(movement.Quantity),
                 ReferenceType: movement.SourceType, ReferenceId: movement.SourceId,
@@ -218,7 +218,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Transfer && movement.DestinationWarehouseId.HasValue)
         {
             var transferEvt = new StockTransferredEvent(
-                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
                 ItemId: movement.ItemId, FromWarehouseId: movement.WarehouseId,
                 ToWarehouseId: movement.DestinationWarehouseId.Value,
                 Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
@@ -228,7 +228,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Adjust)
         {
             var adjEvt = new StockAdjustedEvent(
-                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 QuantityDelta: movement.Quantity, UnitCost: movement.UnitCost,
                 Reason: movement.Notes, OccurredAt: DateTime.UtcNow);

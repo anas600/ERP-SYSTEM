@@ -59,9 +59,9 @@ public class HealthDefenseE2ETests : IClassFixture<E2E.TestFixtures.ErpWebApplic
     }
 
     [Fact(Skip = "Requires Postgres on localhost:5432. Run via ./scripts/local-integration.sh then dotnet test, or via ci-fast.yml in CI.")]
-    public async Task HealthStartupDeep_TenantIdEnrichment()
+    public async Task HealthStartupDeep_CompanyIdEnrichment()
     {
-        // Verify the LogContext enricher pulls tenantId from JWT.
+        // Verify the LogContext enricher pulls companyId from JWT.
         // We can't easily verify logs here but we can verify the endpoint returns.
         var client = _factory.CreateClient();
         var response = await client.GetAsync("/api/health/startup-deep");

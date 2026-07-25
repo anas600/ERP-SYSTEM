@@ -2,6 +2,11 @@ using FluentValidation;
 
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
+/// <summary>
+/// Phase 6.1c: Multi-Company model. Register creates the first user under
+/// the default Holding Company. No tenant / subdomain / base currency
+/// fields. The Holding is auto-seeded at startup.
+/// </summary>
 public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest>
 {
     public RegisterRequestValidator()
@@ -20,11 +25,6 @@ public sealed class RegisterRequestValidator : AbstractValidator<RegisterRequest
         RuleFor(x => x.FullName)
             .NotEmpty().WithMessage("الاسم الكامل مطلوب.")
             .MaximumLength(200);
-
-        // إما TenantId موجود أو TenantName (لإنشاء tenant جديد)
-        RuleFor(x => x)
-            .Must(x => x.TenantId != Guid.Empty || !string.IsNullOrWhiteSpace(x.TenantName))
-            .WithMessage("يجب تحديد TenantId أو TenantName للمستأجر.");
     }
 }
 

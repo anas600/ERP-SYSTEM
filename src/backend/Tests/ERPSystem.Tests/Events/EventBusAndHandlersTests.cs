@@ -22,14 +22,13 @@ public class EventBusTests
     {
         var repo = new FakeOutboxRepository();
         var bus = new EventBus(repo, NullLogger<EventBus>.Instance);
-        var tenantId = Guid.NewGuid();
-        var evt = new StockReceivedEvent(Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10, 5, "PO-1", DateTime.UtcNow);
+        var evt = new StockReceivedEvent(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 10, 5, "PO-1", DateTime.UtcNow);
 
         await bus.PublishAsync(evt);
 
         repo.Stored.Count.Should().Be(1);
         var row = repo.Stored[0];
-        row.CompanyId.Should().Be(tenantId);
+        row.CompanyId.Should().Be(Guid.Empty);
         row.EventType.Should().Be(nameof(StockReceivedEvent));
         row.AggregateType.Should().Be("StockMovement");
         row.RetryCount.Should().Be(0);
@@ -43,10 +42,9 @@ public class EventBusTests
     {
         var repo = new FakeOutboxRepository();
         var bus = new EventBus(repo, NullLogger<EventBus>.Instance);
-        var tenantId = Guid.NewGuid();
-        await bus.PublishAsync(new StockReceivedEvent(Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, 1, null, DateTime.UtcNow));
-        await bus.PublishAsync(new StockIssuedEvent(Guid.NewGuid(), tenantId, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, null, null, DateTime.UtcNow));
-        await bus.PublishAsync(new JournalEntryPostedEvent(Guid.NewGuid(), tenantId, Guid.NewGuid(), "REF-1", DateTime.UtcNow));
+        await bus.PublishAsync(new StockReceivedEvent(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, 1, null, DateTime.UtcNow));
+        await bus.PublishAsync(new StockIssuedEvent(Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid(), 1, null, null, DateTime.UtcNow));
+        await bus.PublishAsync(new JournalEntryPostedEvent(Guid.NewGuid(), Guid.NewGuid(), "REF-1", DateTime.UtcNow));
         repo.Stored[0].AggregateType.Should().Be("StockMovement");
         repo.Stored[1].AggregateType.Should().Be("StockMovement");
         repo.Stored[2].AggregateType.Should().Be("JournalEntry");
@@ -69,7 +67,7 @@ public class StockReceivedHandlerTests
         var handler = new StockReceivedEventHandler(rules, itemRepo, NullLogger<StockReceivedEventHandler>.Instance);
 
         var evt = new StockReceivedEvent(
-            EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: Guid.NewGuid(),
+            EventId: Guid.NewGuid(), StockMovementId: Guid.NewGuid(),
             ItemId: item.Id, WarehouseId: Guid.NewGuid(),
             Quantity: 10, UnitCost: 5, PurchaseOrderRef: "PO-1", OccurredAt: DateTime.UtcNow);
         await handler.HandleAsync(evt, CancellationToken.None);
@@ -91,7 +89,7 @@ public class StockReceivedHandlerTests
         var rules = new FakePostingRulesService();
         var handler = new StockReceivedEventHandler(rules, itemRepo, NullLogger<StockReceivedEventHandler>.Instance);
 
-        var evt = new StockReceivedEvent(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), item.Id, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow);
+        var evt = new StockReceivedEvent(Guid.NewGuid(), Guid.NewGuid(), item.Id, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow);
         await handler.HandleAsync(evt, CancellationToken.None);
         rules.LastAmount.Should().Be(0, "no InventoryAccountId → skip");
     }
@@ -103,7 +101,7 @@ public class StockIssuedHandlerTests
     public async Task StockIssued_AppliesPostingRule_WithAmountQtyTimesAverageCost()
     {
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "IS",
@@ -122,7 +120,7 @@ public class StockIssuedHandlerTests
         var rules = new FakePostingRulesService();
         var handler = new StockIssuedEventHandler(rules, itemRepo, levels, NullLogger<StockIssuedEventHandler>.Instance);
 
-        var evt = new StockIssuedEvent(Guid.NewGuid(), tenantId, Guid.NewGuid(), itemId, wh, 5, "Project", Guid.NewGuid(), DateTime.UtcNow);
+        var evt = new StockIssuedEvent(Guid.NewGuid(), Guid.NewGuid(), itemId, wh, 5, "Project", Guid.NewGuid(), DateTime.UtcNow);
         await handler.HandleAsync(evt, CancellationToken.None);
         rules.LastAmount.Should().Be(40, "5 * 8 = 40 (avg cost)");
         rules.LastEventType.Should().Be(TriggeringEvent.StockIssued);
@@ -137,7 +135,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "P",
@@ -149,12 +147,12 @@ public class OutboxProcessorTests
         var handler = new StockReceivedEventHandler(rules, itemRepo, NullLogger<StockReceivedEventHandler>.Instance);
 
         var evt = new StockReceivedEvent(
-            EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: Guid.NewGuid(),
+            EventId: Guid.NewGuid(), StockMovementId: Guid.NewGuid(),
             ItemId: itemId, WarehouseId: Guid.NewGuid(), Quantity: 10, UnitCost: 5,
             PurchaseOrderRef: null, OccurredAt: DateTime.UtcNow);
         var row = new OutboxEvent
         {
-            Id = Guid.NewGuid(), CompanyId = tenantId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(evt),
@@ -194,7 +192,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "IDP",
@@ -211,7 +209,7 @@ public class OutboxProcessorTests
             Id = evtId, EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(new StockReceivedEvent(
-                Guid.NewGuid(), tenantId, Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
+                Guid.NewGuid(), Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
             OccurredAt = DateTime.UtcNow
         };
         outbox.Stored.Add(row);
@@ -232,7 +230,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "FAIL",
@@ -248,7 +246,7 @@ public class OutboxProcessorTests
             Id = Guid.NewGuid(), EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(new StockReceivedEvent(
-                Guid.NewGuid(), tenantId, Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
+                Guid.NewGuid(), Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
             OccurredAt = DateTime.UtcNow, MaxRetries = 3
         };
         outbox.Stored.Add(row);
@@ -293,12 +291,12 @@ internal class FakeOutboxRepository : IOutboxRepository
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = retryCount; s.LastError = error; }
         return Task.CompletedTask;
     }
-    public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
+    public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid companyId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == companyId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
     public Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(Stored.FirstOrDefault(e => e.Id == id));
-    public Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct) =>
-        Task.FromResult(Stored.Count(e => e.CompanyId == tenantId && e.ProcessedAt == null));
+    public Task<int> CountPendingAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult(Stored.Count(e => e.CompanyId == companyId && e.ProcessedAt == null));
     public Task ResetForRetryAsync(Guid id, CancellationToken ct)
     {
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = 0; s.LastError = null; s.ProcessedAt = null; }
