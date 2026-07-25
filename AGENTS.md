@@ -179,6 +179,8 @@ test(auth): add JwtTokenService tests
 
 كل entity في أي module **يجب** أن يحتوي على `TenantId` (Guid). الـ `TenantContext` يُملأ من JWT claim `tenant_id` عبر `TenantMiddleware`. أي استعلام DB يجب أن يفلتر بـ `tenant_id` (القاعدة لاحقة — حالياً Auth module فقط يطبّقها، باقي الـ modules تبدأ مع Phase 1).
 
+> **Phase 6.1a (2026-07-25):** `ICompanyContext` (multi-company model) أُضيف بجانب `ITenantContext` كـ back-compat shim. الـ `ITenantContext` القديم يبقى فعّال حتى PR-6.1b. الـ `CompanyContextMiddleware` يقرأ `X-Company-Id` header + JWT `company_ids[]` claim.
+
 ---
 
 ## 🔐 Secrets & Environment

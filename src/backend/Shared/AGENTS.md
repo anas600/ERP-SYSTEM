@@ -82,6 +82,7 @@ Shared/
 - `TenantMiddleware` يلتقط من claims `tenant_id` و `sub` بعد `UseAuthentication()`
 - **استخدام في Repositories** (المرحلة القادمة): filter بـ `WHERE tenant_id = @TenantId`
 - **ممنوع** استدعاء DB بدون tenant filter (للمرحلة القادمة)
+- **Phase 6.1a (2026-07-25):** `ICompanyContext` + `CompanyContext` + `CompanyContextMiddleware` أُضيفت بجانب الـ Tenant* (back-compat). الـ `ICompanyContext` يحوي `CompanyId`/`UserId`/`CompanyIds[]`. الـ middleware يقرأ `X-Company-Id` header (أولوية) → JWT `default_company_id` claim → أول company في `company_ids[]`. حذف الـ Tenant* في PR-6.1b.
 
 ### Migrations
 
