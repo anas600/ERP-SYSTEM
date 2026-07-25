@@ -165,7 +165,6 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Dom
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
 // DEC-107 / DL 82: Response caching
 builder.Services.AddMemoryCache();
-builder.Services.AddSingleton<ERPSystem.Host.Utilities.ITenantCache, ERPSystem.Host.Utilities.TenantCache>();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
@@ -210,10 +209,8 @@ builder.Services.AddScoped<IArDocumentSequenceRepository, ArDocumentSequenceRepo
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
-// ============ Multi-tenancy ============
-// Phase 6.1a: ITenantContext stays registered (back-compat for PR-6.1b consumers).
-// ICompanyContext is the new abstraction; deleted ITenantContext in PR-6.1b.
-builder.Services.AddScoped<ITenantContext, TenantContext>();
+// ============ Multi-tenancy (Phase 6.1b) ===========
+// ICompanyContext is the active abstraction.
 builder.Services.AddScoped<ICompanyContext, CompanyContext>();
 
 // ============ Audit (Sprint-4.5 / DEC-056) ============
@@ -522,9 +519,7 @@ app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseMiddleware<TenantMiddleware>();
-// Phase 6.1a: CompanyContextMiddleware runs alongside TenantMiddleware (back-compat).
-// TenantMiddleware is removed in PR-6.1b.
+// Phase 6.1b: CompanyContextMiddleware is the sole context pipeline.
 app.UseMiddleware<CompanyContextMiddleware>();
 app.MapControllers();
 

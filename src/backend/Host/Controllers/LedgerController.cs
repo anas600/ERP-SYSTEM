@@ -1,6 +1,5 @@
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -12,12 +11,10 @@ namespace ERPSystem.Host.Controllers;
 public class LedgerController : ControllerBase
 {
     private readonly IGeneralLedgerService _ledger;
-    private readonly ITenantContext _tenantContext;
 
-    public LedgerController(IGeneralLedgerService ledger, ITenantContext tenantContext)
+    public LedgerController(IGeneralLedgerService ledger)
     {
         _ledger = ledger;
-        _tenantContext = tenantContext;
     }
 
     /// <summary>Trial Balance — كل الحسابات وأرصدتها</summary>
@@ -25,8 +22,7 @@ public class LedgerController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<AccountBalanceResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> TrialBalance([FromQuery] DateTime? asOf, CancellationToken ct)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
-        var r = await _ledger.GetTrialBalanceAsync(_tenantContext.TenantId!.Value, asOf, ct);
+        var r = await _ledger.GetTrialBalanceAsync(asOf, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -35,8 +31,7 @@ public class LedgerController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<LedgerLineResponse>), StatusCodes.Status200OK)]
     public async Task<IActionResult> AccountLedger(Guid accountId, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
-        var r = await _ledger.GetAccountLedgerAsync(_tenantContext.TenantId!.Value, accountId, from, to, ct);
+        var r = await _ledger.GetAccountLedgerAsync(accountId, from, to, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 

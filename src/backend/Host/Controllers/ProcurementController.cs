@@ -2,7 +2,6 @@ using System.Security.Claims;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Entities;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 
 /// <summary>
 /// Procurement API — vendors, POs, GRs, Bills.
-/// يتبع نفس نمط ItemsController/ProjectsController: TenantId من ITenantContext، UserId من JWT claims،
+/// يتبع نفس نمط ItemsController/ProjectsController: UserId من JWT claims،
 /// Result pattern عبر ProcurementResult&lt;T&gt;، و FluentValidation في الـ entry point.
 /// </summary>
 [ApiController]
@@ -22,7 +21,6 @@ public class ProcurementController : ControllerBase
     private readonly IPurchaseOrderService _pos;
     private readonly IGoodsReceiptService _grs;
     private readonly IVendorBillService _bills;
-    private readonly ITenantContext _tenant;
 
     private readonly IValidator<CreateVendorRequest> _createVendorV;
     private readonly IValidator<UpdateVendorRequest> _updateVendorV;
@@ -32,17 +30,15 @@ public class ProcurementController : ControllerBase
 
     public ProcurementController(
         IVendorService vendors, IPurchaseOrderService pos, IGoodsReceiptService grs, IVendorBillService bills,
-        ITenantContext tenant,
         IValidator<CreateVendorRequest> createVendorV, IValidator<UpdateVendorRequest> updateVendorV,
         IValidator<CreatePurchaseOrderRequest> createPoV,
         IValidator<CreateGoodsReceiptRequest> createGrV, IValidator<CreateVendorBillRequest> createBillV)
     {
-        _vendors = vendors; _pos = pos; _grs = grs; _bills = bills; _tenant = tenant;
+        _vendors = vendors; _pos = pos; _grs = grs; _bills = bills;
         _createVendorV = createVendorV; _updateVendorV = updateVendorV; _createPoV = createPoV;
         _createGrV = createGrV; _createBillV = createBillV;
     }
 
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     // ============== Vendors ==============
@@ -53,14 +49,14 @@ public class ProcurementController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _vendors.ListAsync(TenantId, includeInactive, skip, take, ct);
+        var r = await _vendors.ListAsync(includeInactive, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/procurement/vendors/{id:guid}")]
     public async Task<IActionResult> GetVendor(Guid id, CancellationToken ct)
     {
-        var r = await _vendors.GetByIdAsync(TenantId, id, ct);
+        var r = await _vendors.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -69,7 +65,7 @@ public class ProcurementController : ControllerBase
     {
         var v = await _createVendorV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _vendors.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _vendors.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetVendor), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -80,14 +76,14 @@ public class ProcurementController : ControllerBase
     {
         var v = await _updateVendorV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _vendors.UpdateAsync(TenantId, UserId, id, req, ct);
+        var r = await _vendors.UpdateAsync(UserId, id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpDelete("api/procurement/vendors/{id:guid}")]
     public async Task<IActionResult> DeactivateVendor(Guid id, CancellationToken ct)
     {
-        var r = await _vendors.DeactivateAsync(TenantId, UserId, id, ct);
+        var r = await _vendors.DeactivateAsync(UserId, id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 
@@ -99,14 +95,14 @@ public class ProcurementController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _pos.ListAsync(TenantId, vendorId, status, skip, take, ct);
+        var r = await _pos.ListAsync(vendorId, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/procurement/pos/{id:guid}")]
     public async Task<IActionResult> GetPO(Guid id, CancellationToken ct)
     {
-        var r = await _pos.GetByIdAsync(TenantId, id, ct);
+        var r = await _pos.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -115,7 +111,7 @@ public class ProcurementController : ControllerBase
     {
         var v = await _createPoV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _pos.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _pos.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetPO), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -124,14 +120,14 @@ public class ProcurementController : ControllerBase
     [HttpPut("api/procurement/pos/{id:guid}/approve")]
     public async Task<IActionResult> ApprovePO(Guid id, CancellationToken ct)
     {
-        var r = await _pos.ApproveAsync(TenantId, UserId, id, ct);
+        var r = await _pos.ApproveAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpPut("api/procurement/pos/{id:guid}/send")]
     public async Task<IActionResult> SendPO(Guid id, CancellationToken ct)
     {
-        var r = await _pos.SendAsync(TenantId, UserId, id, ct);
+        var r = await _pos.SendAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -143,14 +139,14 @@ public class ProcurementController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _grs.ListAsync(TenantId, poId, status, skip, take, ct);
+        var r = await _grs.ListAsync(poId, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/procurement/grs/{id:guid}")]
     public async Task<IActionResult> GetGR(Guid id, CancellationToken ct)
     {
-        var r = await _grs.GetByIdAsync(TenantId, id, ct);
+        var r = await _grs.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -159,7 +155,7 @@ public class ProcurementController : ControllerBase
     {
         var v = await _createGrV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _grs.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _grs.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetGR), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -168,7 +164,7 @@ public class ProcurementController : ControllerBase
     [HttpPut("api/procurement/grs/{id:guid}/receive")]
     public async Task<IActionResult> ReceiveGR(Guid id, CancellationToken ct)
     {
-        var r = await _grs.ReceiveAsync(TenantId, UserId, id, ct);
+        var r = await _grs.ReceiveAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -180,14 +176,14 @@ public class ProcurementController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _bills.ListAsync(TenantId, vendorId, grId, status, skip, take, ct);
+        var r = await _bills.ListAsync(vendorId, grId, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/procurement/bills/{id:guid}")]
     public async Task<IActionResult> GetBill(Guid id, CancellationToken ct)
     {
-        var r = await _bills.GetByIdAsync(TenantId, id, ct);
+        var r = await _bills.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -196,7 +192,7 @@ public class ProcurementController : ControllerBase
     {
         var v = await _createBillV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _bills.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _bills.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetBill), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -205,7 +201,7 @@ public class ProcurementController : ControllerBase
     [HttpPut("api/procurement/bills/{id:guid}/post")]
     public async Task<IActionResult> PostBill(Guid id, CancellationToken ct)
     {
-        var r = await _bills.PostAsync(TenantId, UserId, id, ct);
+        var r = await _bills.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 

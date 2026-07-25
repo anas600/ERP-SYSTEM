@@ -13,7 +13,7 @@ public class AuditLoggerTests
     private readonly AuditLogger _logger;
     private readonly Mock<IDbConnectionFactory> _factoryMock;
     private readonly FakeDbConnection _conn;
-    private readonly Mock<ITenantContext> _tenantContextMock;
+    private readonly Mock<ICompanyContext> _companyContextMock;
 
     public AuditLoggerTests()
     {
@@ -23,21 +23,21 @@ public class AuditLoggerTests
             .Setup(f => f.CreateOltpConnectionAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(_conn);
 
-        _tenantContextMock = new Mock<ITenantContext>();
-        _tenantContextMock.Setup(t => t.TenantId).Returns(Guid.NewGuid());
-        _tenantContextMock.Setup(t => t.UserId).Returns(Guid.NewGuid());
+        _companyContextMock = new Mock<ICompanyContext>();
+        _companyContextMock.Setup(t => t.CompanyId).Returns(Guid.NewGuid());
+        _companyContextMock.Setup(t => t.UserId).Returns(Guid.NewGuid());
 
         _logger = new AuditLogger(
             _factoryMock.Object,
-            _tenantContextMock.Object,
+            _companyContextMock.Object,
             NullLogger<AuditLogger>.Instance);
     }
 
     [Fact]
-    public async Task LogAsync_WithEmptyTenantId_SkipsAndLogsWarning()
+    public async Task LogAsync_WithEmptyCompanyId_SkipsAndLogsWarning()
     {
         await _logger.LogAsync(
-            tenantId: Guid.Empty,
+            companyId: Guid.Empty,
             entityType: "journal_entry",
             entityId: Guid.NewGuid(),
             action: AuditAction.Create);
@@ -52,7 +52,7 @@ public class AuditLoggerTests
     public async Task LogAsync_WithEmptyEntityType_SkipsAndLogsWarning()
     {
         await _logger.LogAsync(
-            tenantId: Guid.NewGuid(),
+            companyId: Guid.NewGuid(),
             entityType: "",
             entityId: Guid.NewGuid(),
             action: AuditAction.Create);
@@ -66,13 +66,13 @@ public class AuditLoggerTests
     public async Task LogAsync_WithValidData_OpensConnectionAndExecutesInsert()
     {
         // Arrange
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var entityId = Guid.NewGuid();
         var changes = new { Field = "value" };
 
         // Act
         await _logger.LogAsync(
-            tenantId: tenantId,
+            companyId: companyId,
             entityType: "journal_entry",
             entityId: entityId,
             action: AuditAction.Create,
@@ -85,13 +85,13 @@ public class AuditLoggerTests
     }
 
     [Fact]
-    public async Task LogAsync_FromTenantContext_UsesContextValues()
+    public async Task LogAsync_FromCompanyContext_UsesContextValues()
     {
         // Arrange
-        var expectedTenantId = Guid.NewGuid();
+        var expectedCompanyId = Guid.NewGuid();
         var expectedUserId = Guid.NewGuid();
-        _tenantContextMock.Setup(t => t.TenantId).Returns(expectedTenantId);
-        _tenantContextMock.Setup(t => t.UserId).Returns(expectedUserId);
+        _companyContextMock.Setup(t => t.CompanyId).Returns(expectedCompanyId);
+        _companyContextMock.Setup(t => t.UserId).Returns(expectedUserId);
 
         // Act
         await _logger.LogAsync(
@@ -106,10 +106,10 @@ public class AuditLoggerTests
     }
 
     [Fact]
-    public async Task LogAsync_FromTenantContext_WhenContextEmpty_Skips()
+    public async Task LogAsync_FromCompanyContext_WhenContextEmpty_Skips()
     {
         // Arrange
-        _tenantContextMock.Setup(t => t.TenantId).Returns(Guid.Empty);
+        _companyContextMock.Setup(t => t.CompanyId).Returns(Guid.Empty);
 
         // Act
         await _logger.LogAsync(
@@ -133,7 +133,7 @@ public class AuditLoggerTests
 
         // Act — must NOT throw (audit failures must not break business ops)
         await _logger.LogAsync(
-            tenantId: Guid.NewGuid(),
+            companyId: Guid.NewGuid(),
             entityType: "journal_entry",
             entityId: Guid.NewGuid(),
             action: AuditAction.Create);

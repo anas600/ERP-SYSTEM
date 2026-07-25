@@ -177,9 +177,9 @@ test(auth): add JwtTokenService tests
 
 ## 🌍 Multi-tenancy Convention
 
-كل entity في أي module **يجب** أن يحتوي على `TenantId` (Guid). الـ `TenantContext` يُملأ من JWT claim `tenant_id` عبر `TenantMiddleware`. أي استعلام DB يجب أن يفلتر بـ `tenant_id` (القاعدة لاحقة — حالياً Auth module فقط يطبّقها، باقي الـ modules تبدأ مع Phase 1).
+> **Phase 6.1b (2026-07-25):** `ITenantContext`, `TenantContext`, `TenantMiddleware`, and `TenantCache` **removed**. الـ `MultiTenancy` folder الآن يحتوي فقط على `ICompanyContext`, `CompanyContext`, `CompanyContextMiddleware` (multi-company model — مستخدمون globalون، شركات متعددة). الـ `CompanyContextMiddleware` يقرأ `X-Company-Id` header + JWT `company_ids[]` claim ويختار default company لو الـ header غائب. لا يوجد `tenant_id` في الـ schema بعد الآن — الـ user→company mapping في `user_companies` table (Phase 6.0 schema reset). الـ entities لم تعد تحمل `TenantId` (سقطت من 35 entity في 6.1b-1). الـ repos/services/Controllers أُزيل منها `Guid tenantId` (6.1b-2/6.1b-3). الـ `*.g.cs` regenerated بسحب `tenant_id` column references. Auth flow (AuthService/JwtTokenService) مع back-compat placeholder `Guid.Empty` لـ `tenant_id` JWT claim — full rewrite في 6.1c.
 
-> **Phase 6.1a (2026-07-25):** `ICompanyContext` (multi-company model) أُضيف بجانب `ITenantContext` كـ back-compat shim. الـ `ITenantContext` القديم يبقى فعّال حتى PR-6.1b. الـ `CompanyContextMiddleware` يقرأ `X-Company-Id` header + JWT `company_ids[]` claim.
+Legacy context (Phase 5 وما قبل): كل entity في أي module كان يحتوي على `TenantId` (Guid). الـ `TenantContext` كان يُملأ من JWT claim `tenant_id` عبر `TenantMiddleware`. أي استعلام DB كان يفلتر بـ `tenant_id`.
 
 ---
 

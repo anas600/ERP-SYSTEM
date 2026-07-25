@@ -5,13 +5,25 @@
 ---
 
 ## [Unreleased] - 2026-07-25
+### Changed (Phase 6.1b — tenant_id removal, multi-company model)
+- **Removed:** `ITenantContext`, `TenantContext`, `TenantMiddleware`, `ITenantContext.cs`, `TenantContext.cs`, `TenantMiddleware.cs` files
+- **Removed:** `Host/Utilities/TenantCache.cs` + `ITenantCache` abstraction
+- **Removed from 35 entities:** `TenantId` property dropped (Customer, Receipt, SalesInvoice, Company, CostCenter, Account, JournalEntry, PostingRule, Attendance, Department, Employee, LeaveRequest, Role, User, Item, ItemCategory, StockLevel, StockMovement, StockReservation, UnitOfMeasure, Warehouse, Notification, Payment, PayrollItem, PayrollRun, SalaryStructure, GoodsReceipt, PurchaseOrder, Vendor, VendorBill, Project, ProjectBudget, ProjectTask, Resource, ResourceAssignment)
+- **Removed from 50+ repositories:** `Guid tenantId` parameter dropped from method signatures
+- **Removed from 25+ services:** `Guid tenantId` parameter dropped (services now use `ICompanyContext.CompanyId` internally where needed, or are tenantless)
+- **Removed from 25+ controllers:** `ITenantContext` dependency replaced with `ICompanyContext`; `Guid tenantId` arg dropped from service calls
+- **Removed from AuditLogger:** `tenantId` → `companyId`; `tenant_id` column → `company_id` in `audit_log` table
+- **Removed from OutboxEvent:** `tenant_id` column dropped (event has `tenantId` field for back-compat but unused)
+- **Removed from SoftDeleteController:** `tenant_id` filter in raw SQL removed
+- **Removed from EventsController, AuditController, ReportsController, FinanceReportsController:** all `ITenantContext` swapped to `ICompanyContext`
+- **Preserved (back-compat placeholder):** `AuthService` + `JwtTokenService` still emit `tenant_id` JWT claim with `Guid.Empty` value (full rewrite deferred to Phase 6.1c)
 ### Added (Phase 6.1a — CompanyContext Foundation)
 - `ICompanyContext` + `CompanyContext` (AsyncLocal) — new abstraction for active company
 - `CompanyContextMiddleware` — reads X-Company-Id header + JWT company_ids[] claim
 - CORS updated to allow X-Company-Id header
 - Unit tests for CompanyContext (4 tests)
 ### Back-Compat
-- ITenantContext + TenantMiddleware remain active (deleted in PR-6.1b)
+- ITenantContext + TenantMiddleware remain active (deleted in PR-6.1b) — **DELETED in Phase 6.1b**
 
 ## 2026-07-24c — Phase 5.B Sprint 3: Migration Fix + Timeout Sync + CoA Batch Insert 🆕
 

@@ -33,7 +33,10 @@ public sealed class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new("tenant_id", user.TenantId.ToString()),
+            // Phase 6.1b: User.TenantId removed (multi-company model). tenant_id JWT claim is
+            // kept for backward compat with the Phase 6.1c rewrite (which will introduce
+            // default_company_id + company_ids[]). Value is Guid.Empty placeholder for now.
+            new("tenant_id", Guid.Empty.ToString()),
             new("full_name", user.FullName),
         };
 

@@ -1,7 +1,6 @@
 using System.Security.Claims;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,23 +13,21 @@ namespace ERPSystem.Host.Controllers;
 public class WarehousesController : ControllerBase
 {
     private readonly IWarehouseService _service;
-    private readonly ITenantContext _tenant;
     private readonly IValidator<CreateWarehouseRequest> _createV;
-    public WarehousesController(IWarehouseService s, ITenantContext t, IValidator<CreateWarehouseRequest> c)
-    { _service = s; _tenant = t; _createV = c; }
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
+    public WarehousesController(IWarehouseService s, IValidator<CreateWarehouseRequest> c)
+    { _service = s; _createV = c; }
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] Guid? companyId, [FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
-        var r = await _service.ListAsync(TenantId, companyId, includeInactive, ct);
+        var r = await _service.ListAsync(companyId, includeInactive, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var r = await _service.GetByIdAsync(TenantId, id, ct);
+        var r = await _service.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
     [HttpPost]
@@ -38,7 +35,7 @@ public class WarehousesController : ControllerBase
     {
         var v = await _createV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -46,13 +43,13 @@ public class WarehousesController : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateWarehouseRequest req, CancellationToken ct)
     {
-        var r = await _service.UpdateAsync(TenantId, UserId, id, req, ct);
+        var r = await _service.UpdateAsync(UserId, id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
-        var r = await _service.DeactivateAsync(TenantId, UserId, id, ct);
+        var r = await _service.DeactivateAsync(UserId, id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 

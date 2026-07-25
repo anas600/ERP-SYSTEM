@@ -13,21 +13,21 @@ namespace ERPSystem.Shared.Audit;
 public class AuditLogger : IAuditLogger
 {
     private readonly IDbConnectionFactory _dbFactory;
-    private readonly ITenantContext _tenantContext;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<AuditLogger> _logger;
 
     public AuditLogger(
         IDbConnectionFactory dbFactory,
-        ITenantContext tenantContext,
+        ICompanyContext companyContext,
         ILogger<AuditLogger> logger)
     {
         _dbFactory = dbFactory;
-        _tenantContext = tenantContext;
+        _companyContext = companyContext;
         _logger = logger;
     }
 
     public async Task LogAsync(
-        Guid tenantId,
+        Guid companyId,
         string entityType,
         Guid entityId,
         string action,
@@ -35,9 +35,9 @@ public class AuditLogger : IAuditLogger
         object? changes = null,
         string? ipAddress = null)
     {
-        if (tenantId == Guid.Empty)
+        if (companyId == Guid.Empty)
         {
-            _logger.LogWarning("AuditLog skipped: tenantId is empty (entity: {EntityType}/{EntityId})", entityType, entityId);
+            _logger.LogWarning("AuditLog skipped: companyId is empty (entity: {EntityType}/{EntityId})", entityType, entityId);
             return;
         }
 
@@ -51,9 +51,9 @@ public class AuditLogger : IAuditLogger
         {
             const string sql = @"
                 INSERT INTO audit_log (
-                    tenant_id, entity_type, entity_id, action, user_id, changes, ip_address
+                    company_id, entity_type, entity_id, action, user_id, changes, ip_address
                 ) VALUES (
-                    @TenantId, @EntityType, @EntityId, @Action, @UserId, @Changes::jsonb, @IpAddress
+                    @CompanyId, @EntityType, @EntityId, @Action, @UserId, @Changes::jsonb, @IpAddress
                 )";
 
             var changesJson = changes != null
@@ -63,7 +63,7 @@ public class AuditLogger : IAuditLogger
             using var conn = await _dbFactory.CreateOltpConnectionAsync();
             await conn.ExecuteAsync(sql, new
             {
-                TenantId = tenantId,
+                CompanyId = companyId,
                 EntityType = entityType,
                 EntityId = entityId,
                 Action = action,
@@ -87,15 +87,15 @@ public class AuditLogger : IAuditLogger
         string action,
         object? changes = null)
     {
-        var tenantId = _tenantContext.TenantId;
-        var userId = _tenantContext.UserId;
+        var companyId = _companyContext.CompanyId;
+        var userId = _companyContext.UserId;
 
-        if (tenantId == null || tenantId == Guid.Empty)
+        if (companyId == null || companyId == Guid.Empty)
         {
-            _logger.LogWarning("AuditLog (context) skipped: tenant context empty");
+            _logger.LogWarning("AuditLog (context) skipped: company context empty");
             return;
         }
 
-        await LogAsync(tenantId.Value, entityType, entityId, action, userId, changes);
+        await LogAsync(companyId.Value, entityType, entityId, action, userId, changes);
     }
 }

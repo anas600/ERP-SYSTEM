@@ -2,7 +2,6 @@ using System.Security.Claims;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -16,16 +15,13 @@ public class JournalEntriesController : ControllerBase
 {
     private readonly IJournalEntryService _service;
     private readonly IValidator<PostJournalEntryRequest> _validator;
-    private readonly ITenantContext _tenantContext;
 
     public JournalEntriesController(
         IJournalEntryService service,
-        IValidator<PostJournalEntryRequest> validator,
-        ITenantContext tenantContext)
+        IValidator<PostJournalEntryRequest> validator)
     {
         _service = service;
         _validator = validator;
-        _tenantContext = tenantContext;
     }
 
     private Guid? CurrentUserId()
@@ -43,17 +39,15 @@ public class JournalEntriesController : ControllerBase
         [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
         if (take is < 1 or > 200) take = 50;
-        var r = await _service.ListAsync(_tenantContext.TenantId!.Value, from, to, status, skip, take, ct);
+        var r = await _service.ListAsync(from, to, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
-        var r = await _service.GetByIdAsync(_tenantContext.TenantId!.Value, id, ct);
+        var r = await _service.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -62,7 +56,6 @@ public class JournalEntriesController : ControllerBase
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
     public async Task<IActionResult> CreateDraft([FromBody] PostJournalEntryRequest request, CancellationToken ct)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
         var userId = CurrentUserId();
         if (userId == null) return Unauthorized();
 
@@ -72,7 +65,7 @@ public class JournalEntriesController : ControllerBase
                 g => g.Key,
                 g => g.Select(e => e.ErrorMessage).ToArray())));
 
-        var r = await _service.CreateDraftAsync(_tenantContext.TenantId!.Value, userId.Value, request, ct);
+        var r = await _service.CreateDraftAsync(userId.Value, request, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -82,11 +75,10 @@ public class JournalEntriesController : ControllerBase
     [HttpPost("{id:guid}/post")]
     public async Task<IActionResult> Post(Guid id, CancellationToken ct)
     {
-        if (!_tenantContext.IsResolved) return Unauthorized();
         var userId = CurrentUserId();
         if (userId == null) return Unauthorized();
 
-        var r = await _service.PostAsync(_tenantContext.TenantId!.Value, userId.Value, id, ct);
+        var r = await _service.PostAsync(userId.Value, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 

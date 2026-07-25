@@ -160,9 +160,9 @@ public class AdminController : ControllerBase
     // 2. Bill AP Posting — for each bill without journal_entry_id, create + post JE
     // ============================================================
     [HttpPost("finance/backfill")]
-    public IActionResult TriggerFinanceBackfill([FromServices] ITenantContext tenantCtx)
+    public IActionResult TriggerFinanceBackfill([FromServices] ICompanyContext companyCtx)
     {
-        var tenantId = tenantCtx.TenantId ?? throw new UnauthorizedAccessException("Tenant context missing");
+        var companyId = companyCtx.CompanyId ?? throw new UnauthorizedAccessException("Company context missing");
         var jobId = Guid.NewGuid();
         _jobs[jobId] = new SeedJobStatus(jobId, "finance-backfill", "queued", DateTime.UtcNow);
 
@@ -190,8 +190,8 @@ public class AdminController : ControllerBase
 
                 // 1) Opening Balance JE — idempotent via reference check
                 var existingOpening = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-                    "SELECT COUNT(*) FROM journal_entries WHERE tenant_id = @T AND reference LIKE 'OPENING-BALANCE%'",
-                    new { T = tenantId }, cancellationToken: ct));
+                    "SELECT COUNT(*) FROM journal_entries WHERE reference LIKE 'OPENING-BALANCE%'",
+                    new { C = companyId }, cancellationToken: ct));
 
                 if (existingOpening > 0)
                 {
@@ -201,8 +201,8 @@ public class AdminController : ControllerBase
                 else
                 {
                     var accts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
-                        "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1210', '3100')",
-                        new { T = tenantId }, cancellationToken: ct));
+                        "SELECT code, id FROM accounts WHERE code IN ('1210', '3100')",
+                        new { C = companyId }, cancellationToken: ct));
                     Guid? cashId = null, capitalId = null;
                     foreach (var (code, acctId) in accts)
                     {
@@ -213,7 +213,7 @@ public class AdminController : ControllerBase
                     if (cashId != null && capitalId != null)
                     {
                         const decimal openingAmount = 5_000_000m;
-                        var draft = await journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+                        var draft = await journalSvc.CreateDraftAsync(userId, new PostJournalEntryRequest
                         {
                             EntryDate = new DateTime(2024, 1, 1),
                             Description = "Opening Balance — Owner's Capital Investment",
@@ -229,7 +229,7 @@ public class AdminController : ControllerBase
 
                         if (draft.Succeeded)
                         {
-                            var post = await journalSvc.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+                            var post = await journalSvc.PostAsync(userId, draft.Value!.Id, ct);
                             if (post.Succeeded)
                             {
                                 summary = summary with { opening_balance_created = true };
@@ -247,8 +247,8 @@ public class AdminController : ControllerBase
 
                 // 2) Look up Inventory + AP account IDs
                 var billAccts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
-                    "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1240', '2210')",
-                    new { T = tenantId }, cancellationToken: ct));
+                    "SELECT code, id FROM accounts WHERE code IN ('1240', '2210')",
+                    new { C = companyId }, cancellationToken: ct));
                 Guid? inventoryId = null, apId = null;
                 foreach (var (code, acctId) in billAccts)
                 {
@@ -263,14 +263,14 @@ public class AdminController : ControllerBase
                 else
                 {
                     // 3) Backfill AP JEs for all posted bills without journal_entry_id
-                    var bills = await billRepo.ListAsync(tenantId, null, null, null, 0, 200, ct);
+                    var bills = await billRepo.ListAsync(null, null, null, 0, 200, ct);
                     var billsToProcess = bills.Where(b => b.Status == VendorBillStatus.Posted && (!b.JournalEntryId.HasValue || b.JournalEntryId == Guid.Empty)).ToList();
 
                     foreach (var bill in billsToProcess)
                     {
                         try
                         {
-                            var draft = await journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+                            var draft = await journalSvc.CreateDraftAsync(userId, new PostJournalEntryRequest
                             {
                                 EntryDate = bill.BillDate,
                                 Description = $"Vendor Bill {bill.BillNumber} (backfilled)",
@@ -291,7 +291,7 @@ public class AdminController : ControllerBase
                                 continue;
                             }
 
-                            var post = await journalSvc.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+                            var post = await journalSvc.PostAsync(userId, draft.Value!.Id, ct);
                             if (!post.Succeeded)
                             {
                                 ((List<string>)summary.errors).Add($"Bill {bill.BillNumber} post failed: {post.Error}");

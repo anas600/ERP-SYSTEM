@@ -23,16 +23,16 @@ public class FinanceReportsController : ControllerBase
     private readonly IBalanceSheetService _bs;
     private readonly ICashFlowService _cf;
     private readonly IAPAgingService _ap;
-    private readonly ITenantContext _tenant;
+    private readonly ICompanyContext _companyContext;
 
     public FinanceReportsController(
         IGeneralLedgerReportService gl, IBalanceSheetService bs, ICashFlowService cf, IAPAgingService ap,
-        ITenantContext tenant)
+        ICompanyContext companyContext)
     {
-        _gl = gl; _bs = bs; _cf = cf; _ap = ap; _tenant = tenant;
+        _gl = gl; _bs = bs; _cf = cf; _ap = ap; _companyContext = companyContext;
     }
 
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
+    private Guid CompanyId => _companyContext.CompanyId ?? throw new UnauthorizedAccessException();
 
     [HttpGet("general-ledger")]
     public async Task<IActionResult> GeneralLedger(
@@ -41,14 +41,14 @@ public class FinanceReportsController : ControllerBase
         CancellationToken ct)
     {
         if (accountId == Guid.Empty) return BadRequest("accountId مطلوب.");
-        var r = await _gl.GetAccountLedgerAsync(TenantId, accountId, from, to, ct);
+        var r = await _gl.GetAccountLedgerAsync(accountId, from, to, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(new { error = r.Error });
     }
 
     [HttpGet("balance-sheet")]
     public async Task<IActionResult> BalanceSheet([FromQuery] DateTime asOf, CancellationToken ct)
     {
-        var r = await _bs.GetAsync(TenantId, asOf, ct);
+        var r = await _bs.GetAsync(CompanyId, asOf, ct);
         return Ok(r);
     }
 
@@ -57,14 +57,14 @@ public class FinanceReportsController : ControllerBase
         [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct)
     {
         if (to < from) return BadRequest("to يجب أن يكون >= from.");
-        var r = await _cf.GetAsync(TenantId, from, to, ct);
+        var r = await _cf.GetAsync(CompanyId, from, to, ct);
         return Ok(r);
     }
 
     [HttpGet("aging/ap")]
     public async Task<IActionResult> APAging([FromQuery] DateTime asOf, CancellationToken ct)
     {
-        var r = await _ap.GetAsync(TenantId, asOf, ct);
+        var r = await _ap.GetAsync(CompanyId, asOf, ct);
         return Ok(r);
     }
 }

@@ -12,16 +12,16 @@ namespace ERPSystem.Host.Controllers;
 public class EventsController : ControllerBase
 {
     private readonly IOutboxRepository _outbox;
-    private readonly ITenantContext _tenant;
-    public EventsController(IOutboxRepository outbox, ITenantContext tenant) { _outbox = outbox; _tenant = tenant; }
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
+    private readonly ICompanyContext _companyContext;
+    public EventsController(IOutboxRepository outbox, ICompanyContext companyContext) { _outbox = outbox; _companyContext = companyContext; }
+    private Guid CompanyId => _companyContext.CompanyId ?? throw new UnauthorizedAccessException();
 
-    /// <summary>Admin: list pending (unprocessed) events for the tenant</summary>
+    /// <summary>Admin: list pending (unprocessed) events for the company</summary>
     [HttpGet("outbox")]
     public async Task<IActionResult> ListPending([FromQuery] int skip = 0, [FromQuery] int take = 50, CancellationToken ct = default)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _outbox.ListAllAsync(TenantId, unprocessedOnly: true, skip, take, ct);
+        var list = await _outbox.ListAllAsync(CompanyId, unprocessedOnly: true, skip, take, ct);
         return Ok(new { count = list.Count, items = list });
     }
 
@@ -30,15 +30,15 @@ public class EventsController : ControllerBase
     public async Task<IActionResult> ListProcessed([FromQuery] int skip = 0, [FromQuery] int take = 50, CancellationToken ct = default)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _outbox.ListAllAsync(TenantId, unprocessedOnly: false, skip, take, ct);
+        var list = await _outbox.ListAllAsync(CompanyId, unprocessedOnly: false, skip, take, ct);
         return Ok(new { count = list.Count, items = list });
     }
 
-    /// <summary>Admin: count of unprocessed events for the tenant</summary>
+    /// <summary>Admin: count of unprocessed events for the company</summary>
     [HttpGet("pending-count")]
     public async Task<IActionResult> PendingCount(CancellationToken ct)
     {
-        var c = await _outbox.CountPendingAsync(TenantId, ct);
+        var c = await _outbox.CountPendingAsync(CompanyId, ct);
         return Ok(new { count = c });
     }
 
@@ -47,7 +47,7 @@ public class EventsController : ControllerBase
     public async Task<IActionResult> Retry(Guid id, CancellationToken ct)
     {
         var evt = await _outbox.GetByIdAsync(id, ct);
-        if (evt == null || evt.TenantId != TenantId) return NotFound();
+        if (evt == null || evt.TenantId != CompanyId) return NotFound();
         await _outbox.ResetForRetryAsync(id, ct);
         return NoContent();
     }

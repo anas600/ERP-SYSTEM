@@ -26,8 +26,8 @@ public class JournalEntryServiceUnitTests
         var revenueId = Guid.NewGuid();
 
         var accounts = new FakeAccountRepository();
-        accounts.Add(new Account { Id = cashId, TenantId = tenantId, Code = "1110", Name = "الصندوق", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
-        accounts.Add(new Account { Id = revenueId, TenantId = tenantId, Code = "4100", Name = "إيرادات", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = cashId, Code = "1110", Name = "الصندوق", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = revenueId, Code = "4100", Name = "إيرادات", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
 
         var entries = new FakeJournalEntryRepository();
         var svc = BuildService(accounts, entries);
@@ -43,7 +43,7 @@ public class JournalEntryServiceUnitTests
             }
         };
 
-        var result = await svc.CreateDraftAsync(tenantId, Guid.NewGuid(), req, CancellationToken.None);
+        var result = await svc.CreateDraftAsync(Guid.NewGuid(), req, CancellationToken.None);
 
         result.Succeeded.Should().BeTrue();
         result.Value!.EntryNumber.Should().StartWith("JE-");
@@ -61,8 +61,8 @@ public class JournalEntryServiceUnitTests
         var revenueId = Guid.NewGuid();
 
         var accounts = new FakeAccountRepository();
-        accounts.Add(new Account { Id = cashId, TenantId = tenantId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
-        accounts.Add(new Account { Id = revenueId, TenantId = tenantId, Code = "4100", Name = "Revenue", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = cashId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = revenueId, Code = "4100", Name = "Revenue", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
 
         var entries = new FakeJournalEntryRepository();
         var svc = BuildService(accounts, entries);
@@ -78,7 +78,7 @@ public class JournalEntryServiceUnitTests
             }
         };
 
-        var result = await svc.CreateDraftAsync(tenantId, Guid.NewGuid(), req, CancellationToken.None);
+        var result = await svc.CreateDraftAsync(Guid.NewGuid(), req, CancellationToken.None);
 
         result.Succeeded.Should().BeFalse();
         result.ErrorCode.Should().Be(FinanceErrorCode.Unbalanced);
@@ -92,8 +92,8 @@ public class JournalEntryServiceUnitTests
         var cashId = Guid.NewGuid();
 
         var accounts = new FakeAccountRepository();
-        accounts.Add(new Account { Id = parentId, TenantId = tenantId, Code = "1100", Name = "Parent (non-postable)", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = false, IsActive = true });
-        accounts.Add(new Account { Id = cashId, TenantId = tenantId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = parentId, Code = "1100", Name = "Parent (non-postable)", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = false, IsActive = true });
+        accounts.Add(new Account { Id = cashId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
 
         var entries = new FakeJournalEntryRepository();
         var svc = BuildService(accounts, entries);
@@ -109,7 +109,7 @@ public class JournalEntryServiceUnitTests
             }
         };
 
-        var result = await svc.CreateDraftAsync(tenantId, Guid.NewGuid(), req, CancellationToken.None);
+        var result = await svc.CreateDraftAsync(Guid.NewGuid(), req, CancellationToken.None);
 
         result.Succeeded.Should().BeFalse();
         result.ErrorCode.Should().Be(FinanceErrorCode.InvalidAccount);
@@ -124,13 +124,13 @@ public class JournalEntryServiceUnitTests
         var userId = Guid.NewGuid();
 
         var accounts = new FakeAccountRepository();
-        accounts.Add(new Account { Id = cashId, TenantId = tenantId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
-        accounts.Add(new Account { Id = revenueId, TenantId = tenantId, Code = "4100", Name = "Revenue", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = cashId, Code = "1110", Name = "Cash", Type = AccountType.Asset, NormalBalance = NormalBalance.Debit, IsPostable = true, IsActive = true });
+        accounts.Add(new Account { Id = revenueId, Code = "4100", Name = "Revenue", Type = AccountType.Revenue, NormalBalance = NormalBalance.Credit, IsPostable = true, IsActive = true });
 
         var entries = new FakeJournalEntryRepository();
         var svc = BuildService(accounts, entries);
 
-        var draft = await svc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+        var draft = await svc.CreateDraftAsync(userId, new PostJournalEntryRequest
         {
             EntryDate = DateTime.UtcNow,
             Description = "test",
@@ -141,7 +141,7 @@ public class JournalEntryServiceUnitTests
             }
         }, CancellationToken.None);
 
-        var post = await svc.PostAsync(tenantId, userId, draft.Value!.Id, CancellationToken.None);
+        var post = await svc.PostAsync(userId, draft.Value!.Id, CancellationToken.None);
 
         post.Succeeded.Should().BeTrue();
         post.Value!.Status.Should().Be(JournalEntryStatus.Posted);
@@ -156,20 +156,20 @@ internal class FakeAccountRepository : IAccountRepository
     private readonly List<Account> _accounts = new();
     public void Add(Account a) => _accounts.Add(a);
     public Task<Account?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.Id == id));
-    public Task<Account?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.TenantId == tenantId && a.Code == code));
-    public Task<IReadOnlyList<Account>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => a.TenantId == tenantId && (includeInactive || a.IsActive)).ToList());
+    public Task<Account?> GetByCodeAsync(string code, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.Code == code));
+    public Task<IReadOnlyList<Account>> ListAsync(bool includeInactive, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => (includeInactive || a.IsActive)).ToList());
     public Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => a.ParentAccountId == parentId).ToList());
     public Task InsertAsync(Account account, CancellationToken ct) { _accounts.Add(account); return Task.CompletedTask; }
     public Task InsertAsync(Account account, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => InsertAsync(account, ct);
     public Task UpdateAsync(Account account, CancellationToken ct) { var existing = _accounts.FindIndex(a => a.Id == account.Id); if (existing >= 0) _accounts[existing] = account; return Task.CompletedTask; }
     public Task<int> CountPostingsAsync(Guid accountId, CancellationToken ct) => Task.FromResult(0);
-    public Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct) => Task.CompletedTask;
-    public Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => EnsureDefaultCoAAsync(tenantId, companyId, ct);
+    public Task EnsureDefaultCoAAsync(Guid companyId, CancellationToken ct) => Task.CompletedTask;
+    public Task EnsureDefaultCoAAsync(Guid companyId, System.Data.IDbConnection conn, System.Data.IDbTransaction? tx, CancellationToken ct) => EnsureDefaultCoAAsync(companyId, ct);
     public Task CloneCoAFromCompanyAsync(Guid targetCompanyId, Guid sourceCompanyId, CancellationToken ct) => Task.CompletedTask;
-    public Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => a.TenantId == tenantId && (companyId == null || a.CompanyId == companyId)).ToList());
+    public Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid? companyId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => (companyId == null || a.CompanyId == companyId)).ToList());
 }
 
 internal class FakeJournalEntryRepository : IJournalEntryRepository
@@ -181,15 +181,14 @@ internal class FakeJournalEntryRepository : IJournalEntryRepository
         Task.FromResult(_entries.TryGetValue(id, out var e) ? e : null);
     public Task<JournalEntry?> GetWithLinesAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(_entries.TryGetValue(id, out var e) ? e : null);
-    public Task<bool> EntryNumberExistsAsync(Guid tenantId, string entryNumber, CancellationToken ct) =>
-        Task.FromResult(_entries.Values.Any(e => e.TenantId == tenantId && e.EntryNumber == entryNumber));
-    public Task<string> GetNextEntryNumberAsync(Guid tenantId, CancellationToken ct) =>
+    public Task<bool> EntryNumberExistsAsync(string entryNumber, CancellationToken ct) =>
+        Task.FromResult(_entries.Values.Any(e => e.EntryNumber == entryNumber));
+    public Task<string> GetNextEntryNumberAsync(CancellationToken ct) =>
         Task.FromResult($"JE-{DateTime.UtcNow.Year}-{_counter++:D4}");
     public Task InsertAsync(JournalEntry entry, CancellationToken ct) { _entries[entry.Id] = entry; return Task.CompletedTask; }
     public Task UpdateAsync(JournalEntry entry, CancellationToken ct) { _entries[entry.Id] = entry; return Task.CompletedTask; }
-    public Task<IReadOnlyList<JournalEntry>> ListAsync(Guid tenantId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct) =>
+    public Task<IReadOnlyList<JournalEntry>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<JournalEntry>>(_entries.Values
-            .Where(e => e.TenantId == tenantId)
             .OrderByDescending(e => e.EntryDate)
             .ToList());
 }

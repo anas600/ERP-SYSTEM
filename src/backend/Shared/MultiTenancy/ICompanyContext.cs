@@ -4,7 +4,7 @@ namespace ERPSystem.Shared.MultiTenancy;
 /// سياق الشركة (Company) النشطة داخل الـ request
 /// يُملأ من CompanyContextMiddleware بناءً على X-Company-Id header + JWT user id
 ///
-/// Phase 6: يحل محل ITenantContext (Multi-Company model، NOT Multi-Tenant).
+/// Company context abstraction (Phase 6.1b: Multi-Company model, NOT Multi-Tenant).
 /// في الـ v1 كل المستخدمين ينتمون لنفس الـ Holding افتراضياً؛
 /// الـ header يسمح للـ Admin بتبديل الشركة النشطة في الواجهة.
 /// </summary>

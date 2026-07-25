@@ -12,7 +12,7 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            TenantId = Guid.NewGuid(),
+            
             Email = "user@example.com",
             Password = "Strong1Pass",
             FullName = "Test User"
@@ -44,7 +44,7 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            TenantId = Guid.NewGuid(),
+            
             Email = email,
             Password = "Strong1Pass",
             FullName = "Test"
@@ -61,7 +61,7 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            TenantId = Guid.NewGuid(),
+            
             Email = "user@example.com",
             Password = password,
             FullName = "Test"

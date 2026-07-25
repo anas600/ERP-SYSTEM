@@ -2,7 +2,6 @@ using System.Security.Claims;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Entities;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,17 +14,15 @@ namespace ERPSystem.Host.Controllers;
 public class StockMovementsController : ControllerBase
 {
     private readonly IStockMovementService _service;
-    private readonly ITenantContext _tenant;
     private readonly IValidator<ReceiveStockRequest> _recvV;
     private readonly IValidator<IssueStockRequest> _issueV;
     private readonly IValidator<TransferStockRequest> _trfV;
     private readonly IValidator<AdjustStockRequest> _adjV;
     public StockMovementsController(
-        IStockMovementService s, ITenantContext t,
+        IStockMovementService s,
         IValidator<ReceiveStockRequest> r, IValidator<IssueStockRequest> i,
         IValidator<TransferStockRequest> tr, IValidator<AdjustStockRequest> a)
-    { _service = s; _tenant = t; _recvV = r; _issueV = i; _trfV = tr; _adjV = a; }
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
+    { _service = s; _recvV = r; _issueV = i; _trfV = tr; _adjV = a; }
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
@@ -37,13 +34,13 @@ public class StockMovementsController : ControllerBase
         [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _service.ListAsync(TenantId, companyId, type, status, skip, take, ct);
+        var r = await _service.ListAsync(companyId, type, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpGet("{id:guid}")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
-        var r = await _service.GetByIdAsync(TenantId, id, ct);
+        var r = await _service.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
     [HttpPost("receive")]
@@ -51,7 +48,7 @@ public class StockMovementsController : ControllerBase
     {
         var v = await _recvV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateReceiveAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateReceiveAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -61,7 +58,7 @@ public class StockMovementsController : ControllerBase
     {
         var v = await _issueV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateIssueAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateIssueAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -71,7 +68,7 @@ public class StockMovementsController : ControllerBase
     {
         var v = await _trfV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateTransferAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateTransferAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -81,7 +78,7 @@ public class StockMovementsController : ControllerBase
     {
         var v = await _adjV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateAdjustAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateAdjustAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetById), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -89,13 +86,13 @@ public class StockMovementsController : ControllerBase
     [HttpPost("{id:guid}/post")]
     public async Task<IActionResult> Post(Guid id, CancellationToken ct)
     {
-        var r = await _service.PostAsync(TenantId, UserId, id, ct);
+        var r = await _service.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpPost("{id:guid}/reverse")]
     public async Task<IActionResult> Reverse(Guid id, [FromBody] ReverseRequest? body, CancellationToken ct)
     {
-        var r = await _service.ReverseAsync(TenantId, UserId, id, body?.Reason, ct);
+        var r = await _service.ReverseAsync(UserId, id, body?.Reason, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 

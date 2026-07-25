@@ -1,6 +1,5 @@
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,17 +13,15 @@ namespace ERPSystem.Host.Controllers;
 public class StockReservationsController : ControllerBase
 {
     private readonly IStockReservationService _service;
-    private readonly ITenantContext _tenant;
     private readonly IValidator<CreateReservationRequest> _createV;
-    public StockReservationsController(IStockReservationService s, ITenantContext t, IValidator<CreateReservationRequest> c)
-    { _service = s; _tenant = t; _createV = c; }
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
+    public StockReservationsController(IStockReservationService s, IValidator<CreateReservationRequest> c)
+    { _service = s; _createV = c; }
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
     public async Task<IActionResult> List([FromQuery] Guid? itemId, [FromQuery] Guid? warehouseId, CancellationToken ct = default)
     {
-        var r = await _service.ListAsync(TenantId, itemId, warehouseId, ct);
+        var r = await _service.ListAsync(itemId, warehouseId, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpPost]
@@ -32,7 +29,7 @@ public class StockReservationsController : ControllerBase
     {
         var v = await _createV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _service.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _service.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(List), new { }, r.Value)
             : BadRequest(Problem(r));
@@ -40,7 +37,7 @@ public class StockReservationsController : ControllerBase
     [HttpDelete("{id:guid}")]
     public async Task<IActionResult> Release(Guid id, CancellationToken ct)
     {
-        var r = await _service.ReleaseAsync(TenantId, UserId, id, ct);
+        var r = await _service.ReleaseAsync(UserId, id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 

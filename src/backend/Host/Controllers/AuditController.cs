@@ -16,23 +16,15 @@ namespace ERPSystem.Host.Controllers;
 public class AuditController : ControllerBase
 {
     private readonly IDbConnectionFactory _db;
-    private readonly ITenantContext _tenant;
+    private readonly ICompanyContext _companyContext;
 
-    public AuditController(IDbConnectionFactory db, ITenantContext tenant)
+    public AuditController(IDbConnectionFactory db, ICompanyContext companyContext)
     {
         _db = db;
-        _tenant = tenant;
+        _companyContext = companyContext;
     }
 
-    private Guid? TenantIdFilter
-    {
-        get
-        {
-            // If TenantContext available, filter to current tenant
-            // (Admin from tenant A can only see tenant A's audit)
-            return _tenant.TenantId;
-        }
-    }
+    private Guid? CompanyIdFilter => _companyContext.CompanyId;
 
     /// <summary>
     /// List audit log entries with optional filters and pagination.
@@ -50,17 +42,17 @@ public class AuditController : ControllerBase
     {
         if (take is < 1 or > 500) take = 50;
 
-        var sql = @"SELECT id, tenant_id AS TenantId, entity_type AS EntityType, entity_id AS EntityId,
+        var sql = @"SELECT id, company_id AS CompanyId, entity_type AS EntityType, entity_id AS EntityId,
                     action, user_id AS UserId, changes, ip_address::text AS IpAddress, created_at AS CreatedAt
                     FROM audit_log
                     WHERE 1=1";
         var p = new DynamicParameters();
 
-        var tid = TenantIdFilter;
-        if (tid.HasValue)
+        var cid = CompanyIdFilter;
+        if (cid.HasValue)
         {
-            sql += " AND tenant_id = @Tid";
-            p.Add("Tid", tid.Value);
+            sql += " AND company_id = @Cid";
+            p.Add("Cid", cid.Value);
         }
         if (fromDate.HasValue)
         {
@@ -105,7 +97,7 @@ public class AuditController : ControllerBase
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var row = await conn.QueryFirstOrDefaultAsync<AuditEntry>(new CommandDefinition(@"
-            SELECT id, tenant_id AS TenantId, entity_type AS EntityType, entity_id AS EntityId,
+            SELECT id, company_id AS CompanyId, entity_type AS EntityType, entity_id AS EntityId,
                    action, user_id AS UserId, changes, ip_address::text AS IpAddress, created_at AS CreatedAt
             FROM audit_log WHERE id = @Id", new { Id = id }, cancellationToken: ct));
         if (row == null) return NotFound();
@@ -119,13 +111,13 @@ public class AuditController : ControllerBase
     public async Task<IActionResult> Summary(CancellationToken ct = default)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var tid = TenantIdFilter;
+        var cid = CompanyIdFilter;
         var sql = @"SELECT entity_type, COUNT(*) AS cnt
                     FROM audit_log
-                    WHERE 1=1" + (tid.HasValue ? " AND tenant_id = @Tid" : "") +
+                    WHERE 1=1" + (cid.HasValue ? " AND company_id = @Cid" : "") +
                     @" GROUP BY entity_type ORDER BY cnt DESC";
         var p = new DynamicParameters();
-        if (tid.HasValue) p.Add("Tid", tid.Value);
+        if (cid.HasValue) p.Add("Cid", cid.Value);
         var rows = await conn.QueryAsync<AuditSummary>(new CommandDefinition(sql, p, cancellationToken: ct));
         return Ok(rows);
     }
@@ -134,7 +126,7 @@ public class AuditController : ControllerBase
 public sealed class AuditEntry
 {
     public long Id { get; set; }
-    public Guid? TenantId { get; set; }
+    public Guid? CompanyId { get; set; }
     public string EntityType { get; set; } = "";
     public Guid? EntityId { get; set; }
     public string Action { get; set; } = "";

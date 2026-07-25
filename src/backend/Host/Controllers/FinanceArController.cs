@@ -2,7 +2,6 @@ using System.Security.Claims;
 using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Application.Services;
 using ERPSystem.Modules.AccountsReceivable.Entities;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -11,7 +10,7 @@ namespace ERPSystem.Host.Controllers;
 
 /// <summary>
 /// AR API — customers, sales invoices, receipts, aging report.
-/// يتبع نفس نمط ProcurementController: TenantId من ITenantContext، UserId من JWT claims،
+/// يتبع نفس نمط ProcurementController: UserId من JWT claims،
 /// Result pattern عبر ArResult&lt;T&gt;، و FluentValidation في الـ entry point.
 /// </summary>
 [ApiController]
@@ -21,7 +20,6 @@ public class FinanceArController : ControllerBase
     private readonly ICustomerService _customers;
     private readonly ISalesInvoiceService _invoices;
     private readonly IReceiptService _receipts;
-    private readonly ITenantContext _tenant;
 
     private readonly IValidator<CreateCustomerRequest> _createCustomerV;
     private readonly IValidator<UpdateCustomerRequest> _updateCustomerV;
@@ -33,19 +31,17 @@ public class FinanceArController : ControllerBase
         ICustomerService customers,
         ISalesInvoiceService invoices,
         IReceiptService receipts,
-        ITenantContext tenant,
         IValidator<CreateCustomerRequest> createCustomerV,
         IValidator<UpdateCustomerRequest> updateCustomerV,
         IValidator<CreateSalesInvoiceRequest> createInvoiceV,
         IValidator<UpdateSalesInvoiceRequest> updateInvoiceV,
         IValidator<CreateReceiptRequest> createReceiptV)
     {
-        _customers = customers; _invoices = invoices; _receipts = receipts; _tenant = tenant;
+        _customers = customers; _invoices = invoices; _receipts = receipts;
         _createCustomerV = createCustomerV; _updateCustomerV = updateCustomerV;
         _createInvoiceV = createInvoiceV; _updateInvoiceV = updateInvoiceV; _createReceiptV = createReceiptV;
     }
 
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     // ============== Customers ==============
@@ -56,14 +52,14 @@ public class FinanceArController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _customers.ListAsync(TenantId, includeInactive, skip, take, ct);
+        var r = await _customers.ListAsync(includeInactive, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/ar/customers/{id:guid}")]
     public async Task<IActionResult> GetCustomer(Guid id, CancellationToken ct)
     {
-        var r = await _customers.GetByIdAsync(TenantId, id, ct);
+        var r = await _customers.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -72,7 +68,7 @@ public class FinanceArController : ControllerBase
     {
         var v = await _createCustomerV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _customers.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _customers.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetCustomer), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -83,14 +79,14 @@ public class FinanceArController : ControllerBase
     {
         var v = await _updateCustomerV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _customers.UpdateAsync(TenantId, UserId, id, req, ct);
+        var r = await _customers.UpdateAsync(UserId, id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpDelete("api/ar/customers/{id:guid}")]
     public async Task<IActionResult> DeactivateCustomer(Guid id, CancellationToken ct)
     {
-        var r = await _customers.DeactivateAsync(TenantId, UserId, id, ct);
+        var r = await _customers.DeactivateAsync(UserId, id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 
@@ -102,14 +98,14 @@ public class FinanceArController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _invoices.ListAsync(TenantId, customerId, status, skip, take, ct);
+        var r = await _invoices.ListAsync(customerId, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/ar/sales-invoices/{id:guid}")]
     public async Task<IActionResult> GetInvoice(Guid id, CancellationToken ct)
     {
-        var r = await _invoices.GetByIdAsync(TenantId, id, ct);
+        var r = await _invoices.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -118,7 +114,7 @@ public class FinanceArController : ControllerBase
     {
         var v = await _createInvoiceV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _invoices.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _invoices.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetInvoice), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -129,21 +125,21 @@ public class FinanceArController : ControllerBase
     {
         var v = await _updateInvoiceV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _invoices.UpdateAsync(TenantId, UserId, id, req, ct);
+        var r = await _invoices.UpdateAsync(UserId, id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpPut("api/ar/sales-invoices/{id:guid}/post")]
     public async Task<IActionResult> PostInvoice(Guid id, CancellationToken ct)
     {
-        var r = await _invoices.PostAsync(TenantId, UserId, id, ct);
+        var r = await _invoices.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpPut("api/ar/sales-invoices/{id:guid}/cancel")]
     public async Task<IActionResult> CancelInvoice(Guid id, CancellationToken ct)
     {
-        var r = await _invoices.CancelAsync(TenantId, UserId, id, ct);
+        var r = await _invoices.CancelAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -155,14 +151,14 @@ public class FinanceArController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _receipts.ListAsync(TenantId, customerId, skip, take, ct);
+        var r = await _receipts.ListAsync(customerId, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/ar/receipts/{id:guid}")]
     public async Task<IActionResult> GetReceipt(Guid id, CancellationToken ct)
     {
-        var r = await _receipts.GetByIdAsync(TenantId, id, ct);
+        var r = await _receipts.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -171,7 +167,7 @@ public class FinanceArController : ControllerBase
     {
         var v = await _createReceiptV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _receipts.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _receipts.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetReceipt), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -180,14 +176,14 @@ public class FinanceArController : ControllerBase
     [HttpPut("api/ar/receipts/{id:guid}/post")]
     public async Task<IActionResult> PostReceipt(Guid id, CancellationToken ct)
     {
-        var r = await _receipts.PostAsync(TenantId, UserId, id, ct);
+        var r = await _receipts.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpPut("api/ar/receipts/{id:guid}/reverse")]
     public async Task<IActionResult> ReverseReceipt(Guid id, CancellationToken ct)
     {
-        var r = await _receipts.ReverseAsync(TenantId, UserId, id, ct);
+        var r = await _receipts.ReverseAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -197,7 +193,7 @@ public class FinanceArController : ControllerBase
     public async Task<IActionResult> GetAging([FromQuery] DateTime? asOfDate, CancellationToken ct = default)
     {
         var asOf = asOfDate ?? DateTime.UtcNow;
-        var r = await _invoices.GetAgingReportAsync(TenantId, asOf, ct);
+        var r = await _invoices.GetAgingReportAsync(asOf, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 

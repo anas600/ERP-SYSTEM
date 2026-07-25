@@ -1,4 +1,4 @@
-﻿using System.Data;
+using System.Data;
 using Dapper;
 using ERPSystem.Host.Utilities;
 using ERPSystem.Modules.Finance.Application;
