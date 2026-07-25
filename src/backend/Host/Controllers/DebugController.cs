@@ -24,7 +24,7 @@ public class DebugController : ControllerBase
                 execute_async_called = SeedDebugState.ExecuteAsyncCalled,
                 seed_enabled = SeedDebugState.SeedEnabled,
                 connectivity_check_passed = SeedDebugState.ConnectivityCheckPassed,
-                tenant_id = SeedDebugState.TenantId,
+                holding_company_id = SeedDebugState.TenantId,  // Phase 6.1c: renamed to holding_company_id (Holding bootstrap)
                 current_step = SeedDebugState.CurrentStep,
                 started_at = SeedDebugState.StartedAt,
                 completed_at = SeedDebugState.CompletedAt,

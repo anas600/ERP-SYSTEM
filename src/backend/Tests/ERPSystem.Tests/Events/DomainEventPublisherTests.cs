@@ -30,7 +30,6 @@ public class DomainEventPublisherTests
     {
         var publisher = BuildServiceProvider().GetRequiredService<IDomainEventPublisher>();
         var evt = new InvoiceCreatedDomainEvent(
-            TenantId: Guid.NewGuid(),
             InvoiceId: Guid.NewGuid(),
             ProjectId: Guid.NewGuid(),
             Amount: 100m,
@@ -52,7 +51,7 @@ public class DomainEventPublisherTests
             s.AddSingleton<IDomainEventHandler<InvoiceCreatedDomainEvent>>(handlerMock.Object);
         }).GetRequiredService<IDomainEventPublisher>();
 
-        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), Guid.NewGuid(), null, 50m, DateTime.UtcNow);
+        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), null, 50m, DateTime.UtcNow);
         await publisher.PublishAsync(evt);
 
         handlerMock.Verify(
@@ -77,7 +76,7 @@ public class DomainEventPublisherTests
             s.AddSingleton<IDomainEventHandler<InvoiceCreatedDomainEvent>>(handler2.Object);
         }).GetRequiredService<IDomainEventPublisher>();
 
-        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), Guid.NewGuid(), null, 10m, DateTime.UtcNow);
+        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), null, 10m, DateTime.UtcNow);
         await publisher.PublishAsync(evt);
 
         handler1.Verify(h => h.HandleAsync(It.IsAny<InvoiceCreatedDomainEvent>(), It.IsAny<CancellationToken>()), Times.Once);
@@ -102,7 +101,7 @@ public class DomainEventPublisherTests
             s.AddSingleton<IDomainEventHandler<InvoiceCreatedDomainEvent>>(okHandler.Object);
         }).GetRequiredService<IDomainEventPublisher>();
 
-        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), Guid.NewGuid(), null, 10m, DateTime.UtcNow);
+        var evt = new InvoiceCreatedDomainEvent(Guid.NewGuid(), null, 10m, DateTime.UtcNow);
         await publisher.PublishAsync(evt);
 
         okHandler.Verify(h => h.HandleAsync(It.IsAny<InvoiceCreatedDomainEvent>(), It.IsAny<CancellationToken>()), Times.Once);

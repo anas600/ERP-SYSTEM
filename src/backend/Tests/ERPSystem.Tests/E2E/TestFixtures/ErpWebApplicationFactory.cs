@@ -18,7 +18,7 @@ namespace ERPSystem.Tests.E2E.TestFixtures;
 /// </summary>
 public class ErpWebApplicationFactory : WebApplicationFactory<Program>
 {
-    public const string TestTenantId = "11111111-1111-1111-1111-111111111111";
+    public const string TestCompanyId = "11111111-1111-1111-1111-111111111111";
     public const string TestUserId = "22222222-2222-2222-2222-222222222222";
 
     public const string TestJwtSecret = "E2E_TEST_SECRET_AT_LEAST_32_CHARACTERS_LONG_xxxxxxxxxx";

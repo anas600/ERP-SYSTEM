@@ -28,12 +28,12 @@ public class InvoiceLifecycleE2ETests : IClassFixture<ErpWebApplicationFactory>
         _factory = factory;
     }
 
-    private HttpClient CreateAuthedClient(string tenantId = ErpWebApplicationFactory.TestTenantId)
+    private HttpClient CreateAuthedClient(string companyId = ErpWebApplicationFactory.TestCompanyId)
     {
         var client = _factory.CreateClient();
         var token = TestJwtGenerator.Generate(
             userId: ErpWebApplicationFactory.TestUserId,
-            tenantId: tenantId);
+            companyId: companyId);
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client;
     }
@@ -117,8 +117,8 @@ public class InvoiceLifecycleE2ETests : IClassFixture<ErpWebApplicationFactory>
     {
         // Two clients with different tenant IDs.
         // A client from tenant A must not see tenant B's data.
-        var clientA = CreateAuthedClient(tenantId: Guid.NewGuid().ToString());
-        var clientB = CreateAuthedClient(tenantId: Guid.NewGuid().ToString());
+        var clientA = CreateAuthedClient(companyId: Guid.NewGuid().ToString());
+        var clientB = CreateAuthedClient(companyId: Guid.NewGuid().ToString());
 
         var resA = await clientA.GetAsync("/api/ar/sales-invoices");
         var resB = await clientB.GetAsync("/api/ar/sales-invoices");

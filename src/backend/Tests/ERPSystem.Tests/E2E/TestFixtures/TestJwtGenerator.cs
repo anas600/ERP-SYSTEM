@@ -7,20 +7,23 @@ using Microsoft.IdentityModel.Tokens;
 namespace ERPSystem.Tests.E2E.TestFixtures;
 
 /// <summary>
-/// Generates JWTs for E2E tests (Sprint-4.5 T-012 / DEC-060).
-/// Tokens signed with the test secret — accepted by the Host's JWT validation.
+/// Generates JWTs for E2E tests. Phase 6.1c: Multi-Company model.
+/// Tokens carry <c>default_company_id</c> + <c>company_ids</c> instead of
+/// the legacy <c>tenantId</c> / <c>tid</c> claims.
 /// </summary>
 public static class TestJwtGenerator
 {
     public static string Generate(
         string userId,
-        string tenantId,
-        string email = "[email protected]",
+        string companyId,
+        string? email = null,
         string fullName = "E2E Test User",
         string[]? roles = null,
-        TimeSpan? expires = null)
+        TimeSpan? expires = null,
+        string[]? additionalCompanyIds = null)
     {
         roles ??= new[] { "Admin" };
+        email ??= $"{userId}@test.local";
 
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(ErpWebApplicationFactory.TestJwtSecret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -31,11 +34,17 @@ public static class TestJwtGenerator
             new(JwtRegisteredClaimNames.Email, email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
             new(ClaimTypes.NameIdentifier, userId),
-            new("tenantId", tenantId),
-            new("tid", tenantId),
+            new("default_company_id", companyId),
             new("fullName", fullName),
             new(ClaimTypes.Role, string.Join(",", roles))
         };
+
+        // One company_ids claim per company. Always include the default.
+        var allCompanyIds = new List<string> { companyId };
+        if (additionalCompanyIds != null)
+            allCompanyIds.AddRange(additionalCompanyIds);
+        foreach (var cid in allCompanyIds.Distinct())
+            claims.Add(new Claim("company_ids", cid));
 
         var token = new JwtSecurityToken(
             issuer: "E2E-TEST",
