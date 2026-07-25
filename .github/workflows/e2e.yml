@@ -55,6 +55,12 @@ jobs:
           SUPABASE_DB=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_DB}")
           SUPABASE_USER=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_USER}")
           SUPABASE_PASSWORD=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_PASSWORD}")
+          # DEBUG: print sanitized values (length only, since GitHub redacts the actual content)
+          echo "DEBUG_SANITIZED_HOST_LEN=${#SUPABASE_HOST} _FIRST5=${SUPABASE_HOST:0:5} _LAST5=${SUPABASE_HOST: -5}"
+          echo "DEBUG_SANITIZED_PORT_LEN=${#SUPABASE_PORT}"
+          echo "DEBUG_SANITIZED_DB_LEN=${#SUPABASE_DB} _FIRST5=${SUPABASE_DB:0:5} _LAST5=${SUPABASE_DB: -5}"
+          echo "DEBUG_SANITIZED_USER_LEN=${#SUPABASE_USER} _FIRST5=${SUPABASE_USER:0:5} _LAST5=${SUPABASE_USER: -5}"
+          echo "DEBUG_SANITIZED_PASSWORD_LEN=${#SUPABASE_PASSWORD} _FIRST3=${SUPABASE_PASSWORD:0:3} _LAST3=${SUPABASE_PASSWORD: -3}"
           # URL-encode the password for safe inclusion in the connection string
           # (Npgsql treats &, #, !, and other special chars literally in the
           # password field). python3's urllib.quote is the standard encoder.
