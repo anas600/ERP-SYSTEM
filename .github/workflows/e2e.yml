@@ -86,14 +86,26 @@ jobs:
 
       - name: Wait for backend health
         run: |
-          for i in {1..60}; do
+          # Allow up to 10 minutes for the backend to bind to port 5000.
+          # The DefaultHoldingBootstrap is slow on first connection from CI runner
+          # to Supabase (transatlantic latency + cold-start). 60 iterations × 2s
+          # (= 120s) was too tight; bumped to 300 iterations × 2s = 600s.
+          # Every 10s we dump the last 5 lines of the backend log for debug.
+          for i in {1..300}; do
             if curl -sf http://localhost:5000/api/health/ready; then
-              echo "Backend ready after ${i}s"
+              echo "Backend ready after ${i} attempts (~$((i*2))s)"
               exit 0
+            fi
+            # Every 10 iterations (~20s), dump a short log tail for debug
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "--- [health check t=$((i*2))s] backend.log tail ---"
+              tail -n 5 /tmp/backend.log 2>/dev/null || echo "(no log yet)"
+              echo "--- end tail ---"
             fi
             sleep 2
           done
-          echo "Backend failed to start"
+          echo "Backend failed to start (timed out after 600s)"
+          echo "--- full backend.log ---"
           cat /tmp/backend.log
           exit 1
 
