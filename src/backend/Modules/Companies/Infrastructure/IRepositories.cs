@@ -10,6 +10,12 @@ public interface ICompanyRepository
     Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<Company>> ListSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
     Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct);
+    // Phase 6.0b (P6-0b): tenant-less overload — the default Holding in the new
+    // Multi-Company schema has no tenant_id. Returns the id of the row where
+    // is_group = true AND parent_company_id IS NULL AND code = '000' (the seed
+    // holding), or null if none exists. Used by DefaultHoldingBootstrapHostedService
+    // at app startup for the idempotency check.
+    Task<Guid?> GetHoldingCompanyIdAsync(CancellationToken ct);
     Task InsertAsync(Company company, CancellationToken ct);
     Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task UpdateAsync(Company company, CancellationToken ct);
