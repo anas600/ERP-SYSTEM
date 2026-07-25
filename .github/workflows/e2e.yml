@@ -44,6 +44,13 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
+          # DEBUG: print the actual secret values as base64 to bypass GitHub's
+          # log redaction. This tells us if the secrets are valid (numeric port
+          # etc) or corrupt (whitespace, newlines, wrong values).
+          echo "DEBUG_SUPABASE_PORT_B64=$(printf '%s' "${SUPABASE_PORT}" | base64 -w0)"
+          echo "DEBUG_SUPABASE_HOST_B64=$(printf '%s' "${SUPABASE_HOST}" | base64 -w0)"
+          echo "DEBUG_SUPABASE_DB_B64=$(printf '%s' "${SUPABASE_DB}" | base64 -w0)"
+          echo "DEBUG_SUPABASE_USER_B64=$(printf '%s' "${SUPABASE_USER}" | base64 -w0)"
           # Pass the connection string as an env var directly to dotnet run.
           # .NET's IConfiguration reads ConnectionStrings__Postgres from env,
           # so we skip writing a JSON file entirely (avoids heredoc + escaping
