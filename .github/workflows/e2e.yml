@@ -44,21 +44,16 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # Use envsubst to safely fill in Supabase secrets from a template file.
-          # This avoids YAML literal-block + bash heredoc quoting pitfalls where
-          # ${VAR} is sometimes treated literally instead of expanded.
+          # Pass the connection string as an env var directly to dotnet run.
+          # .NET's IConfiguration reads ConnectionStrings__Postgres from env,
+          # so we skip writing a JSON file entirely (avoids heredoc + escaping
+          # + envsubst brittleness).
           # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
-          cat > /tmp/appsettings.template.json <<'TEMPLATE_EOF'
-          {
-            "ConnectionStrings": {
-              "Postgres": "Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
-            },
-            "Database": {
-              "AutoMigrate": true
-            }
-          }
-          TEMPLATE_EOF
-          envsubst < /tmp/appsettings.template.json > Host/appsettings.Development.json
+          export ConnectionStrings__Postgres="Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
+          export Database__AutoMigrate=true
+          # Also write a minimal appsettings.Development.json so DataTypeHostedService
+          # doesn't bail looking for the dev config file (it expects one even if empty).
+          echo '{}' > Host/appsettings.Development.json
           nohup dotnet run --project Host/ERP-SYSTEM.csproj --no-launch-profile --urls http://localhost:5000 > /tmp/backend.log 2>&1 &
           echo "Backend PID: $!"
         env:
