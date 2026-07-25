@@ -7,12 +7,12 @@ import { authApi } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
-  // ملاحظة: لا نطلب "subdomain" — الـ backend يحسبه تلقائياً من TenantName عبر Slugify
+  // Phase 6.3: Multi-Company model. Register creates the first user under
+  // the default Holding Company (auto-seeded at startup). No tenant wizard.
   const [form, setForm] = useState({
     email: '',
     password: '',
     fullName: '',
-    tenantName: '',
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,7 +39,9 @@ export default function RegisterPage() {
     <main className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-6" dir="rtl">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
         <h1 className="text-3xl font-bold text-gray-800 mb-2">📝 إنشاء حساب</h1>
-        <p className="text-gray-500 mb-6">سجّل شركتك وابدأ باستخدام ERP-SYSTEM</p>
+        <p className="text-gray-500 mb-6">
+          أنشئ أول مستخدم للشركة القابضة (Holding) وابدأ باستخدام ERP-SYSTEM.
+        </p>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
@@ -78,19 +80,6 @@ export default function RegisterPage() {
               required
               minLength={8}
             />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">اسم الشركة</label>
-            <input
-              type="text"
-              value={form.tenantName}
-              onChange={onChange('tenantName')}
-              className="w-full border border-gray-300 rounded-lg px-4 py-2"
-              required
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              سيُولَّد subdomain شركتك تلقائياً من اسمها (مثال: &quot;شركة الأمل&quot; → subdomain: <code>shrkt-lamal</code>)
-            </p>
           </div>
           <button
             type="submit"

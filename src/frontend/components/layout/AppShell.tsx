@@ -31,6 +31,7 @@ import {
   ChevronLeft,
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
+import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -220,6 +221,10 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
         <Link href="/dashboard" className="md:hidden text-lg font-bold text-gray-800">
           ERP
         </Link>
+        {/* Phase 6.3: Company switcher (drives X-Company-Id on every request) */}
+        <div className="hidden md:block">
+          <CompanySwitcher />
+        </div>
       </div>
 
       <div className="relative">

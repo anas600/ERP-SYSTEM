@@ -9,7 +9,6 @@ import { formatDate, formatTime } from '@/lib/utils';
 
 interface UserWithRoles {
   id: string;
-  tenantId: string;
   email: string;
   fullName: string;
   isActive: boolean;

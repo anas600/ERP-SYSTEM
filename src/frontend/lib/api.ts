@@ -1,5 +1,11 @@
 // API client للـ ERP-SYSTEM
 // يستخدم localStorage لحفظ الـ token
+//
+// Phase 6.3: Multi-Company model.
+//   - The active company is tracked in localStorage as `currentCompanyId`.
+//   - The X-Company-Id header is sent on every authenticated request.
+//   - The Holding Company is auto-seeded at startup. Register creates the
+//     first user under the Holding (no tenant wizard).
 
 import axios, { AxiosInstance } from 'axios';
 
@@ -19,12 +25,19 @@ export const api: AxiosInstance = axios.create({
   timeout: API_TIMEOUT_MS,
 });
 
-// Request interceptor: أضف JWT token تلقائياً
+// Request interceptor: JWT token + X-Company-Id header تلقائياً
 api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+    // Phase 6.3: send the active company id on every request so the backend's
+    // CompanyContextMiddleware can resolve ICompanyContext. The user may switch
+    // the active company via the <CompanySwitcher /> — see lib/useCompany.ts.
+    const currentCompanyId = localStorage.getItem('currentCompanyId');
+    if (currentCompanyId) {
+      config.headers['X-Company-Id'] = currentCompanyId;
     }
   }
   return config;
@@ -37,7 +50,10 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       if (typeof window !== 'undefined') {
         localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
         localStorage.removeItem('user');
+        localStorage.removeItem('currentCompanyId');
+        localStorage.removeItem('defaultCompanyId');
         window.location.href = '/login';
       }
     }
@@ -47,21 +63,44 @@ api.interceptors.response.use(
 
 // ============ Types ============
 // ملاحظة: الـ contracts تطابق AuthDtos.cs في الـ backend (C#).
-//   - Register: TenantName يُنشئ tenant جديد + Subdomain يُحسب عبر Slugify
-//   - Login:    TenantId (Guid) اختياري للبحث داخل tenant محدد
+//   - Register: creates the first user under the default Holding Company
+//     (no tenant wizard, no subdomain)
+//   - Login:    no tenant field (the user is global; companies are user→company joins)
 
 export interface RegisterRequest {
   email: string;
   password: string;
   fullName: string;
-  tenantName: string;
-  baseCurrency?: string;     // optional, default "LYD"
 }
 
 export interface LoginRequest {
   email: string;
   password: string;
-  tenantId?: string;         // optional (Guid) — إن لم يُرسل، بحث شامل
+}
+
+export interface UserCompanyInfo {
+  companyId: string;
+  code: string;
+  name: string;
+  isDefault: boolean;
+  isHolding: boolean;
+}
+
+export interface GetUserCompaniesResponse {
+  userId: string;
+  defaultCompanyId: string;
+  companies: UserCompanyInfo[];
+}
+
+export interface UserInfo {
+  id: string;
+  email: string;
+  fullName: string;
+  roles: string[];
+  /** Default company (set from user_companies.is_default = true). */
+  defaultCompanyId: string;
+  /** All companies the user has access to. Drives <CompanySwitcher />. */
+  companies: UserCompanyInfo[];
 }
 
 export interface AuthResponse {
@@ -70,22 +109,14 @@ export interface AuthResponse {
   accessTokenExpiresAt: string;
   refreshTokenExpiresAt: string;
   user: UserInfo;
-  holdingCompanyId?: string;
-}
-
-export interface UserInfo {
-  id: string;
-  tenantId: string;
-  email: string;
-  fullName: string;
-  roles: string[];
+  /** The Holding Company this deployment is rooted at. */
+  holdingCompanyId: string;
 }
 
 // ============ Finance ============
 export interface Account {
   id: string;
-  tenantId: string;
-  companyId?: string;
+    companyId?: string;
   code: string;
   name: string;
   description?: string;
@@ -110,8 +141,7 @@ export const ACCOUNT_TYPES: Record<number, string> = {
 // ============ Inventory ============
 export interface Item {
   id: string;
-  tenantId: string;
-  companyId: string;
+    companyId: string;
   sku: string;
   barcode?: string;
   name: string;
@@ -131,8 +161,7 @@ export interface Item {
 // ============ Projects ============
 export interface Project {
   id: string;
-  tenantId: string;
-  companyId: string;
+    companyId: string;
   costCenterId: string;
   code: string;
   name: string;
@@ -174,8 +203,7 @@ export interface TrialBalanceReport {
 
 export interface Vendor {
   id: string;
-  tenantId: string;
-  name: string;
+    name: string;
   email?: string;
   phone?: string;
   address?: string;
@@ -226,8 +254,7 @@ export interface PurchaseOrderLine {
 
 export interface PurchaseOrder {
   id: string;
-  tenantId: string;
-  poNumber: string;
+    poNumber: string;
   vendorId: string;
   vendorName?: string;
   status: number;
@@ -263,8 +290,7 @@ export interface GoodsReceiptLine {
 
 export interface GoodsReceipt {
   id: string;
-  tenantId: string;
-  grNumber: string;
+    grNumber: string;
   purchaseOrderId: string;
   poNumber?: string;
   poStatus?: string;        // DEC-031: enriched
@@ -309,8 +335,7 @@ export interface VendorBillLine {
 
 export interface VendorBill {
   id: string;
-  tenantId: string;
-  billNumber: string;
+    billNumber: string;
   goodsReceiptId: string;
   grNumber?: string;
   vendorId: string;
@@ -359,8 +384,7 @@ export const ATTENDANCE_TYPES: Record<number, string> = {
 
 export interface Department {
   id: string;
-  tenantId: string;
-  name: string;
+    name: string;
   code: string;
   parentId?: string;
   managerId?: string;
@@ -369,8 +393,7 @@ export interface Department {
 
 export interface Employee {
   id: string;
-  tenantId: string;
-  employeeNumber: string;
+    employeeNumber: string;
   fullName: string;
   email: string;
   phone?: string;
@@ -387,8 +410,7 @@ export interface Employee {
 
 export interface AttendanceRecord {
   id: string;
-  tenantId: string;
-  employeeId: string;
+    employeeId: string;
   employeeName?: string;
   type: number; // 1=CheckIn, 2=CheckOut
   timestamp: string;
@@ -397,8 +419,7 @@ export interface AttendanceRecord {
 
 export interface LeaveRequest {
   id: string;
-  tenantId: string;
-  employeeId: string;
+    employeeId: string;
   employeeName?: string;
   leaveType: number;
   startDate: string;
@@ -452,8 +473,7 @@ export const COMPONENT_TYPE_LABELS: Record<number, string> = {
 
 export interface PayrollRun {
   id: string;
-  tenantId: string;
-  periodStart: string;
+    periodStart: string;
   periodEnd: string;
   status: number;
   totalGross: number;
@@ -475,8 +495,7 @@ export interface PayslipComponent {
 
 export interface PayrollItem {
   id: string;
-  tenantId: string;
-  payrollRunId: string;
+    payrollRunId: string;
   employeeId: string;
   employeeNumber?: string;
   employeeName?: string;
@@ -516,8 +535,7 @@ export interface CreatePayrollRunRequest {
 
 export interface Customer {
   id: string;
-  tenantId: string;
-  companyId: string;
+    companyId: string;
   code: string;
   name: string;
   nameEn?: string;
@@ -562,8 +580,7 @@ export const SALES_INVOICE_STATUS_VARIANTS: Record<number, 'neutral' | 'info' | 
 
 export interface SalesInvoice {
   id: string;
-  tenantId: string;
-  customerId: string;
+    customerId: string;
   customerName?: string;
   invoiceNumber: string;
   invoiceDate: string;
@@ -601,8 +618,7 @@ export interface ReceiptAllocation {
 
 export interface Receipt {
   id: string;
-  tenantId: string;
-  customerId: string;
+    customerId: string;
   customerName?: string;
   receiptNumber: string;
   receiptDate: string;
@@ -651,11 +667,11 @@ export const arApi = {
     const r = await api.get<Customer>(`/api/ar/customers/${id}`);
     return r.data;
   },
-  createCustomer: async (data: Omit<Customer, 'id' | 'tenantId' | 'companyId' | 'isActive'>): Promise<Customer> => {
+  createCustomer: async (data: Omit<Customer, 'id' | 'companyId' | 'isActive'>): Promise<Customer> => {
     const r = await api.post<Customer>('/api/ar/customers', data);
     return r.data;
   },
-  updateCustomer: async (id: string, data: Partial<Omit<Customer, 'id' | 'tenantId' | 'companyId'>>): Promise<Customer> => {
+  updateCustomer: async (id: string, data: Partial<Omit<Customer, 'id' | 'companyId'>>): Promise<Customer> => {
     const r = await api.put<Customer>(`/api/ar/customers/${id}`, data);
     return r.data;
   },
@@ -758,6 +774,10 @@ export const authApi = {
       localStorage.setItem('accessToken', r.data.accessToken);
       localStorage.setItem('refreshToken', r.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(r.data.user));
+      // Phase 6.3: persist the user's default + current company so the
+      // <CompanySwitcher /> + X-Company-Id header work across reloads.
+      localStorage.setItem('defaultCompanyId', r.data.user.defaultCompanyId);
+      localStorage.setItem('currentCompanyId', r.data.user.defaultCompanyId);
     }
     return r.data;
   },
@@ -767,6 +787,8 @@ export const authApi = {
       localStorage.setItem('accessToken', r.data.accessToken);
       localStorage.setItem('refreshToken', r.data.refreshToken);
       localStorage.setItem('user', JSON.stringify(r.data.user));
+      localStorage.setItem('defaultCompanyId', r.data.user.defaultCompanyId);
+      localStorage.setItem('currentCompanyId', r.data.user.defaultCompanyId);
     }
     return r.data;
   },
@@ -775,10 +797,25 @@ export const authApi = {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
       localStorage.removeItem('user');
+      localStorage.removeItem('currentCompanyId');
+      localStorage.removeItem('defaultCompanyId');
     }
   },
   me: async (): Promise<UserInfo> => {
     const r = await api.get<UserInfo>('/api/auth/me');
+    if (typeof window !== 'undefined') {
+      // Refresh cached user so defaultCompanyId + companies stay in sync.
+      localStorage.setItem('user', JSON.stringify(r.data));
+      localStorage.setItem('defaultCompanyId', r.data.defaultCompanyId);
+    }
+    return r.data;
+  },
+  /** Phase 6.3: returns the full list of companies the user has access to. */
+  getUserCompanies: async (): Promise<GetUserCompaniesResponse> => {
+    const r = await api.get<GetUserCompaniesResponse>('/api/auth/me/companies');
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('defaultCompanyId', r.data.defaultCompanyId);
+    }
     return r.data;
   },
   getUser: (): UserInfo | null => {
@@ -789,6 +826,21 @@ export const authApi = {
   isLoggedIn: (): boolean => {
     if (typeof window === 'undefined') return false;
     return !!localStorage.getItem('accessToken');
+  },
+  // Phase 6.3: helpers for the <CompanySwitcher /> component. The current
+  // company is the one whose id is sent as `X-Company-Id` on every API call.
+  getCurrentCompanyId: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('currentCompanyId');
+  },
+  setCurrentCompanyId: (id: string) => {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('currentCompanyId', id);
+    }
+  },
+  getDefaultCompanyId: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('defaultCompanyId');
   },
 };
 

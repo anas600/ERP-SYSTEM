@@ -1,12 +1,15 @@
 import { test, expect, request } from '@playwright/test';
 
 /**
- * E2E: Auth flows (DEC-094, 2026-07-24)
+ * E2E: Auth flows (DEC-094, 2026-07-24, refreshed Phase 6.3 2026-07-26).
  *
- * - register.happy: full register flow → JWT cookie set → redirect to /dashboard
- * - register.duplicate: same email twice → 400/409, no orphan tenant
- * - login.happy: register then login → JWT cookie set
- * - atomicity: abort register mid-process → verify NO orphan tenant in DB
+ * Phase 6.3: Multi-Company model.
+ *   - register.happy: full register flow → JWT cookie, holdingCompanyId, user.companies populated
+ *   - register.duplicate: same email twice → 400/409, no orphan user (the failure mode is now
+ *     "no orphan user" — tenants are no longer created at register time)
+ *   - login.happy: register then login → JWT cookie, defaultCompanyId set
+ *   - atomicity: abort register mid-process → verify NO orphan user in DB
+ *     (Phase 6.3 replaces the "no orphan tenant" check with "no orphan user")
  *
  * Backend URL is read from E2E_API_URL (default http://localhost:5000).
  * Frontend URL is from baseURL in playwright.config (http://localhost:3000).
@@ -22,16 +25,13 @@ function uniqueEmail(prefix: string) {
 
 test('register.happy — full flow via API', async () => {
   const ctx = await request.newContext({ baseURL: API_URL });
-  const tenantName = `E2E-Happy-${Date.now()}`;
   const email = uniqueEmail('happy');
 
   const res = await ctx.post('/api/auth/register', {
     data: {
-      tenantName,
       email,
       password: 'E2eTest123!',
       fullName: 'E2E Happy Path',
-      baseCurrency: 'LYD',
     },
   });
 
@@ -40,40 +40,44 @@ test('register.happy — full flow via API', async () => {
   expect(body.accessToken).toBeTruthy();
   expect(body.refreshToken).toBeTruthy();
   expect(body.user.email).toBe(email.toLowerCase());
-  expect(body.user.tenantId).toBeTruthy();
+  // Phase 6.3: multi-company claims in the response
+  expect(body.user.defaultCompanyId).toBeTruthy();
+  expect(Array.isArray(body.user.companies)).toBe(true);
+  expect(body.user.companies.length).toBeGreaterThanOrEqual(1);
+  expect(body.user.companies[0].isHolding).toBe(true);
   expect(body.holdingCompanyId).toBeTruthy();
+  // Sanity: defaultCompanyId is one of the companies
+  expect(body.user.companies.some((c: any) => c.companyId === body.user.defaultCompanyId)).toBe(true);
 
   await ctx.dispose();
 });
 
-test('register.duplicate — same email twice → conflict, no orphan', async () => {
+test('register.duplicate — same email twice → conflict, no orphan user', async () => {
   const ctx = await request.newContext({ baseURL: API_URL });
   const email = uniqueEmail('dupe');
   const payload = {
-    tenantName: `E2E-Dupe-${Date.now()}`,
     email,
     password: 'E2eTest123!',
     fullName: 'E2E Dupe',
-    baseCurrency: 'LYD',
   };
 
   const r1 = await ctx.post('/api/auth/register', { data: payload });
   expect(r1.status()).toBe(200);
   const user1 = (await r1.json()).user;
-  const tenant1 = user1.tenantId;
+  const company1 = user1.defaultCompanyId;
 
   const r2 = await ctx.post('/api/auth/register', { data: payload });
-  // Second register with same email in same tenant should fail with conflict.
+  // Second register with same email should fail with conflict.
   expect([400, 409]).toContain(r2.status());
 
   // Login with the original credentials should still work — proves the FIRST
-  // tenant is still intact (not orphaned) and the second attempt didn't leak rows.
+  // user is still intact (not orphaned) and the second attempt didn't leak rows.
   const loginRes = await ctx.post('/api/auth/login', {
-    data: { email, password: 'E2eTest123!', tenantId: tenant1 },
+    data: { email, password: 'E2eTest123!' },
   });
-  expect(loginRes.status(), 'original tenant should still be login-able').toBe(200);
+  expect(loginRes.status(), 'original user should still be login-able').toBe(200);
   const loginBody = await loginRes.json();
-  expect(loginBody.user.tenantId).toBe(tenant1);
+  expect(loginBody.user.defaultCompanyId).toBe(company1);
 
   await ctx.dispose();
 });
@@ -81,49 +85,52 @@ test('register.duplicate — same email twice → conflict, no orphan', async ()
 test('login.happy — register then login', async () => {
   const ctx = await request.newContext({ baseURL: API_URL });
   const email = uniqueEmail('login');
-  const tenantName = `E2E-Login-${Date.now()}`;
 
   // 1. register
   const reg = await ctx.post('/api/auth/register', {
     data: {
-      tenantName,
       email,
       password: 'E2eTest123!',
       fullName: 'E2E Login',
-      baseCurrency: 'LYD',
     },
   });
   expect(reg.status()).toBe(200);
-  const { user } = await reg.json();
+  const regBody = await reg.json();
+  const user = regBody.user;
 
   // 2. logout (dispose context drops the cookies; new context for login)
   await ctx.dispose();
 
-  // 3. login with the same credentials
+  // 3. login with the same credentials (Phase 6.3: no tenantId in payload)
   const ctx2 = await request.newContext({ baseURL: API_URL });
   const login = await ctx2.post('/api/auth/login', {
-    data: { email, password: 'E2eTest123!', tenantId: user.tenantId },
+    data: { email, password: 'E2eTest123!' },
   });
   expect(login.status()).toBe(200);
   const loginBody = await login.json();
   expect(loginBody.accessToken).toBeTruthy();
   expect(loginBody.user.email).toBe(email.toLowerCase());
+  expect(loginBody.user.defaultCompanyId).toBe(user.defaultCompanyId);
+  // The new token's default_company_id claim should match the user's default.
+  const me = await ctx2.get('/api/auth/me');
+  expect(me.status()).toBe(200);
+  const meBody = await me.json();
+  expect(meBody.defaultCompanyId).toBe(user.defaultCompanyId);
 
   await ctx2.dispose();
 });
 
-test('atomicity — abort register mid-process → NO orphan tenant', async () => {
-  // Strategy: send a register request, then abort the request after 50ms
-  // (before the transaction can complete). Repeat 5x. Then verify each
-  // email address does NOT exist in the system (login with the same email
-  // should return 401/404 because the tenant was rolled back).
+test('atomicity — abort register mid-process → NO orphan user', async () => {
+  // Phase 6.3: tenants are no longer created at register time, so the
+  // old "no orphan tenant" check is now "no orphan user". Same atomicity
+  // guarantee (single conn + single tx in RegisterAsync) — verified by
+  // sending 5 register requests, aborting them mid-process, then asserting
+  // that none of the emails can be logged in (because the user row was
+  // rolled back together with the (now non-existent) tenant).
 
-  const aborts: { email: string; tenantName: string }[] = [];
+  const aborts: { email: string }[] = [];
   for (let i = 0; i < 5; i++) {
-    aborts.push({
-      tenantName: `E2E-Atomic-${Date.now()}-${i}`,
-      email: uniqueEmail(`atomic-${i}`),
-    });
+    aborts.push({ email: uniqueEmail(`atomic-${i}`) });
   }
 
   // Fire all aborts in parallel
@@ -134,7 +141,7 @@ test('atomicity — abort register mid-process → NO orphan tenant', async () =
           const ac = new AbortController();
           const t = setTimeout(() => ac.abort(), 50); // abort 50ms in
           const r = await ctx.post('/api/auth/register', {
-            data: { ...a, password: 'E2eTest123!', fullName: 'Atomic', baseCurrency: 'LYD' },
+            data: { email: a.email, password: 'E2eTest123!', fullName: 'Atomic' },
           });
           clearTimeout(t);
           return { status: r.status(), body: await r.text() };
@@ -147,8 +154,8 @@ test('atomicity — abort register mid-process → NO orphan tenant', async () =
     )
   );
 
-  // Now verify NONE of the aborted emails can login — meaning the tenant was rolled back
-  // and no orphan tenant was created.
+  // Now verify NONE of the aborted emails can login — meaning the user was rolled back
+  // and no orphan user was created.
   for (let i = 0; i < aborts.length; i++) {
     const a = aborts[i];
     const res = results[i];
@@ -161,7 +168,7 @@ test('atomicity — abort register mid-process → NO orphan tenant', async () =
     expect(
       [400, 401, 404],
       `abort ${i} (${a.email}, status=${res.status}) should leave NO loginable user. ` +
-      `Got login status ${login.status()}. This indicates an orphan tenant was created.`
+      `Got login status ${login.status()}. This indicates an orphan user was created.`
     ).toContain(login.status());
 
     await ctx.dispose();
