@@ -14,7 +14,6 @@ import { getErrorMessage } from '@/lib/api';
 
 interface CostCenter {
   id: string;
-  tenantId: string;
   companyId: string;
   code: string;
   name: string;

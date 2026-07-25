@@ -8,7 +8,7 @@ import { api, getErrorMessage } from '@/lib/api';
 
 interface AuditEntry {
   id: number;
-  tenantId?: string;
+  companyId?: string;
   entityType: string;
   entityId?: string;
   action: string;

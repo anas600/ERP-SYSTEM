@@ -9,7 +9,6 @@ import { formatDate } from '@/lib/utils';
 
 interface Company {
   id: string;
-  tenantId: string;
   code: string;
   name: string;
   legalName?: string;

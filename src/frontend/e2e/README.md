@@ -30,10 +30,10 @@ npm run e2e
 
 | Test | Verifies |
 |------|----------|
-| `register.happy` | Full register flow → JWT cookie, user linked to default Holding Company |
-| `register.duplicate` | Same email twice → conflict, original user intact |
-| `login.happy` | Register then login → JWT cookie set |
-| `atomicity` | **DEC-091 proof:** abort 5 register requests mid-process → ZERO orphan users (login with aborted email should fail). Historical: pre-Phase 6, this test protected against 15 orphan tenants in Supabase. |
+| `register.happy` | Full register flow → JWT cookie, user.defaultCompanyId + user.companies populated, holdingCompanyId returned |
+| `register.duplicate` | Same email twice → conflict, original user intact (no orphan user) |
+| `login.happy` | Register then login → JWT cookie set, /api/auth/me echoes the same defaultCompanyId |
+| `atomicity` | **DEC-091 proof:** abort 5 register requests mid-process → ZERO orphan users (login with aborted email should fail). Phase 6.3: the failure mode is now "no orphan user" (tenants are no longer created at register time). |
 
 ## CI integration
 
@@ -48,8 +48,13 @@ A failed E2E blocks merging to `main` (required status check).
 
 ## Why these tests?
 
+<<<<<<< HEAD
 - **Atomicity test (DEC-091)**: pre-Phase 6, the 15 orphan tenants found on HF Space in July 2026 were caused by HF proxy timeouts dropping the connection mid-register. The fix made `RegisterAsync` atomic (single conn + tx). Post-Phase 6, the same atomicity property protects against orphan users (no user without user_companies link). This test proves the fix works by simulating a mid-process abort.
 - **Duplicate test**: Confirms the second register doesn't leak a new partial state if the email is taken.
+=======
+- **Atomicity test (DEC-091)**: The 15 orphan rows found on HF Space in July 2026 (tenants at the time; users now in the multi-company model) were caused by HF proxy timeouts dropping the connection mid-register. The fix made `RegisterAsync` atomic (single conn + tx). This test proves the fix works by simulating a mid-process abort.
+- **Duplicate test**: Confirms the second register doesn't leak a new user if the email is taken.
+>>>>>>> 6062ee7 (refactor(phase6-3): Frontend — Multi-Company model (CompanySwitcher + X-Company-Id))
 - **Login happy**: Smoke test for the JWT issuance + refresh token rotation.
 
 ## Adding new tests
