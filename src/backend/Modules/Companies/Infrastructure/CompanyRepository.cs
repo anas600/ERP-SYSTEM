@@ -39,6 +39,22 @@ public sealed class CompanyRepository : ICompanyRepository
             new { TenantId = tenantId }, cancellationToken: ct));
     }
 
+    // Phase 6.0b (P6-0b): tenant-less lookup used by the bootstrap startup hook
+    // to detect whether the default Holding (code='000', is_group=true, no parent)
+    // already exists. The new companies table has no tenant_id, so we can't filter
+    // by tenant — the Holding is a single global row.
+    public async Task<Guid?> GetHoldingCompanyIdAsync(CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
+            @"SELECT id FROM companies
+              WHERE is_group = true
+                AND parent_company_id IS NULL
+                AND code = '000'
+              LIMIT 1",
+            cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);

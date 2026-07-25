@@ -7,6 +7,7 @@
 using System.Text;
 using System.Text.Json.Serialization;
 using Dapper;
+using ERPSystem.Host.Bootstrap;
 using ERPSystem.Host.Middleware;
 using ERPSystem.Shared.Audit;
 using ERPSystem.Shared.DataTypes;
@@ -353,6 +354,7 @@ builder.Services.AddFluentMigratorCore()
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator runs FIRST to create tables (many C# migrations depend on JSON-created tables)
+builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): creates the default Holding (id=00000000-0000-0000-0000-000000000001) + 47-account CoA + 6 UoMs + 5 categories AFTER tables exist but BEFORE C# migrations. Idempotent.
 builder.Services.AddHostedService<MigrationRunnerHostedService>();
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
