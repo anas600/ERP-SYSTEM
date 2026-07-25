@@ -250,14 +250,14 @@ If the current code uses `AllowAnyHeader()`, leave it — `AllowAnyHeader` alrea
 
 ### Task 5: Add unit tests
 
-Create **`tests/ERPSystem.Tests/Identity/CompanyContextTests.cs`**:
+Create **`src/backend/Tests/ERPSystem.Tests/Auth/CompanyContextTests.cs`** (note: tests live at `src/backend/Tests/ERPSystem.Tests/`, NOT at `tests/`):
 
 ```csharp
 using ERPSystem.Shared.MultiTenancy;
 using FluentAssertions;
 using Xunit;
 
-namespace ERPSystem.Tests.Identity;
+namespace ERPSystem.Tests.Auth;
 
 public class CompanyContextTests
 {
@@ -324,7 +324,7 @@ public class CompanyContextTests
 }
 ```
 
-Check the existing test project structure under `tests/ERPSystem.Tests/Identity/` (e.g. `AuthServiceTests.cs`, `UserRepositoryTests.cs`) and add this file in the same namespace pattern. If `Identity` folder doesn't exist, create it.
+Check the existing test project structure under `src/backend/Tests/ERPSystem.Tests/Auth/` (e.g. `JwtTokenServiceTests.cs`, `RbacP2Tests.cs`) and add this file in the same namespace pattern. Use namespace `ERPSystem.Tests.Auth`.
 
 ## Acceptance Criteria
 
