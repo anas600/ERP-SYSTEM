@@ -44,10 +44,11 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # Get HF-space-style env vars from secrets (if available) or use dummy values
-          # For E2E we use the same Supabase instance as production.
+          # Use envsubst to safely fill in Supabase secrets from a template file.
+          # This avoids YAML literal-block + bash heredoc quoting pitfalls where
+          # ${VAR} is sometimes treated literally instead of expanded.
           # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
-          cat > Host/appsettings.Development.json <<EOF
+          cat > /tmp/appsettings.template.json <<'TEMPLATE_EOF'
           {
             "ConnectionStrings": {
               "Postgres": "Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
@@ -56,7 +57,8 @@ jobs:
               "AutoMigrate": true
             }
           }
-          EOF
+          TEMPLATE_EOF
+          envsubst < /tmp/appsettings.template.json > Host/appsettings.Development.json
           nohup dotnet run --project Host/ERP-SYSTEM.csproj --no-launch-profile --urls http://localhost:5000 > /tmp/backend.log 2>&1 &
           echo "Backend PID: $!"
         env:
