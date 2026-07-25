@@ -10,7 +10,6 @@ namespace ERPSystem.Modules.Notifications.Entities;
 public class Notification
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid UserId { get; set; }                  // target user (broad: tenant-wide if userId = tenant.Admin)
     public string Type { get; set; } = string.Empty; // "LowStock", "JournalPosted", "HighVariance", etc.
     public string Title { get; set; } = string.Empty;

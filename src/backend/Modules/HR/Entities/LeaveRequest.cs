@@ -25,7 +25,6 @@ public enum LeaveStatus
 public class LeaveRequest
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid EmployeeId { get; set; }
     public LeaveType LeaveType { get; set; }
     public DateTime StartDate { get; set; }

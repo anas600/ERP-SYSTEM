@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.HR.Entities;
 public class Employee
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>رقم الموظف التسلسلي (فريد داخل الـ tenant). مثال: "EMP-2026-0001".</summary>
     public string EmployeeNumber { get; set; } = string.Empty;

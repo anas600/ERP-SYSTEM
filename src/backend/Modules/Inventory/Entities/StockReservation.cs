@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.Inventory.Entities;
 public class StockReservation
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }
     public decimal Quantity { get; set; }

@@ -24,7 +24,6 @@ public enum SalaryComponentType
 public class SalaryStructure
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>الاسم المعروض للـ HR (مثال: "هيكل موظف بدوام كامل").</summary>
     public string Name { get; set; } = string.Empty;
@@ -56,7 +55,6 @@ public class SalaryStructure
 public class SalaryStructureLine
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid SalaryStructureId { get; set; }
     public SalaryComponentType Type { get; set; }
     public string Name { get; set; } = string.Empty;

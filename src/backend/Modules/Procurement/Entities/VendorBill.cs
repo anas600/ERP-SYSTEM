@@ -20,7 +20,6 @@ public enum VendorBillStatus
 public class VendorBill
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>رقم فاتورة المورّد (فريد داخل الـ tenant). مثال: "BILL-2026-0001".</summary>
     public string BillNumber { get; set; } = string.Empty;
@@ -55,7 +54,6 @@ public class VendorBill
 public class VendorBillLine
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid VendorId { get; set; }     // denormalized للـ queries السريعة
     public Guid VendorBillId { get; set; }
     public Guid ItemId { get; set; }

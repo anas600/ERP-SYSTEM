@@ -27,7 +27,6 @@ public enum StockMovementStatus
 public class StockMovement
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public string Reference { get; set; } = string.Empty;   // "STOCK-RECV-2026-001"
     public StockMovementType Type { get; set; }

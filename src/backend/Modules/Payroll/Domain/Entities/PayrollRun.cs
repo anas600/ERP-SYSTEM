@@ -40,7 +40,6 @@ public enum PayrollRunStatus
 public class PayrollRun
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }

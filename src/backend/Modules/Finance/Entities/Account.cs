@@ -8,7 +8,6 @@ public enum NormalBalance { Debit = 1, Credit = 2 }
 public class Account
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid? CompanyId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

@@ -8,7 +8,6 @@ namespace ERPSystem.Modules.Projects.Entities;
 public class ResourceAssignment
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid ProjectId { get; set; }
     public Guid TaskId { get; set; }
     public Guid ResourceId { get; set; }

@@ -33,7 +33,6 @@ public enum PayrollItemStatus
 public class PayrollItem
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid PayrollRunId { get; set; }
     public Guid EmployeeId { get; set; }
 
@@ -79,7 +78,6 @@ public class PayrollItem
 public class PayslipComponent
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid PayrollItemId { get; set; }
     public SalaryComponentType ComponentType { get; set; }
     public string Name { get; set; } = string.Empty;

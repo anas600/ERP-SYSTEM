@@ -19,7 +19,6 @@ public enum GoodsReceiptStatus
 public class GoodsReceipt
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>رقم تسلسلي لسند الاستلام. مثال: "GR-2026-0001".</summary>
     public string GrNumber { get; set; } = string.Empty;
@@ -43,7 +42,6 @@ public class GoodsReceipt
 public class GoodsReceiptLine
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid GoodsReceiptId { get; set; }
     public Guid ItemId { get; set; }
     public decimal Quantity { get; set; }

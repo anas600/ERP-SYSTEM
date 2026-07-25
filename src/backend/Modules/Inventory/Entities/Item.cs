@@ -25,7 +25,6 @@ public enum CostingMethod
 public class Item
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
 
     public string Sku { get; set; } = string.Empty;        // "SKU-001" — unique per tenant
