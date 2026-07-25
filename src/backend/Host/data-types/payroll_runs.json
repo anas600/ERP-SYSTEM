@@ -5,8 +5,8 @@
   "module": "Payroll",
   "fields": [
     { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "period_start", "type": "timestamptz", "nullable": false },
     { "name": "period_end", "type": "timestamptz", "nullable": false },
     { "name": "status", "type": "varchar(20)", "nullable": false, "default": "'Draft'" },
@@ -21,8 +21,8 @@
     { "name": "updated_by", "type": "uuid", "nullable": true }
   ],
   "indexes": [
-    { "name": "ix_payroll_runs_tenant_status", "columns": ["tenant_id", "status"] },
-    { "name": "ix_payroll_runs_tenant_period", "columns": ["tenant_id", "period_start"] },
-    { "name": "ix_payroll_runs_tenant_created", "columns": ["tenant_id", "created_at"] }
+    { "name": "ix_payroll_runs_company_status", "columns": ["company_id", "status"] },
+    { "name": "ix_payroll_runs_company_period", "columns": ["company_id", "period_start"] },
+    { "name": "ix_payroll_runs_company_created", "columns": ["company_id", "created_at"] }
   ]
 }

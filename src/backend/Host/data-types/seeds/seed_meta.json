@@ -1,13 +1,12 @@
 {
   "entity": "Meta",
-  "table": "tenants",
-  "tenant_id": "f77dbedd-64ff-41ac-b77a-0731183ff744",
-  "tenant_name": "AlFajr Trading & Contracting",
-  "tenant_subdomain": "alfajr",
-  "admin_email": "admin@alfajr.local",
+  "table": "companies",
+  "holding_company_id": "00000000-0000-0000-0000-000000000001",
+  "holding_name": "Holding Enterprise",
+  "admin_email": "admin@holding.local",
   "admin_password": "Demo1234",
   "base_currency": "LYD",
   "scenario_start": "2024-07-01",
   "scenario_end": "2026-07-01",
-  "_comment": "DEC-086: Meta file. Other seed files reference this tenant_id. To override, set tenant_id per file."
+  "_comment": "Phase 6 — Multi-Company meta. No more tenant_id. The fixed holding_company_id (00000000-0000-0000-0000-000000000001) is the seed Holding that the DefaultHoldingBootstrapHostedService inserts on first startup. Subsidiaries created by register/admin use distinct random UUIDs but share the same parent_company_id = holding_company_id."
 }

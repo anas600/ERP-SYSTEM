@@ -5,8 +5,8 @@
   "module": "Payroll",
   "fields": [
     { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "salary_structure_id", "type": "uuid", "nullable": false,
       "foreign_key": { "table": "salary_structures", "column": "id", "on_delete": "restrict" } },
     { "name": "type", "type": "varchar(20)", "nullable": false },
@@ -16,7 +16,7 @@
     { "name": "sort_order", "type": "integer", "nullable": false, "default": "0" }
   ],
   "indexes": [
-    { "name": "ix_salary_structure_lines_tenant_structure", "columns": ["tenant_id", "salary_structure_id"] },
+    { "name": "ix_salary_structure_lines_company_structure", "columns": ["company_id", "salary_structure_id"] },
     { "name": "ix_salary_structure_lines_structure_order", "columns": ["salary_structure_id", "sort_order"] }
   ]
 }

@@ -5,12 +5,12 @@
   "module": "Shared",
   "fields": [
     { "name": "event_id", "type": "uuid", "nullable": false, "primary_key": true },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": true,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "processed_at", "type": "timestamptz", "nullable": false, "default": "now()" }
   ],
   "indexes": [
-    { "name": "ix_processed_events_tenant", "columns": ["tenant_id"] },
-    { "name": "ix_processed_events_tenant_processed", "columns": ["tenant_id", "processed_at"] }
+    { "name": "ix_processed_events_company", "columns": ["company_id"] },
+    { "name": "ix_processed_events_company_processed", "columns": ["company_id", "processed_at"] }
   ]
 }

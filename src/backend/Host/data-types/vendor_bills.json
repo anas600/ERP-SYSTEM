@@ -5,10 +5,10 @@
   "module": "Procurement",
   "fields": [
     { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
-    { "name": "tenant_id", "type": "uuid", "nullable": false,
-      "foreign_key": { "table": "tenants", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
     { "name": "bill_number", "type": "varchar(50)", "nullable": false },
-    { "name": "goods_receipt_id", "type": "uuid", "nullable": false,
+    { "name": "goods_receipt_id", "type": "uuid", "nullable": true,
       "foreign_key": { "table": "goods_receipts", "column": "id", "on_delete": "restrict" } },
     { "name": "vendor_id", "type": "uuid", "nullable": false,
       "foreign_key": { "table": "vendors", "column": "id", "on_delete": "restrict" } },
@@ -30,8 +30,8 @@
     { "name": "deleted_at", "type": "timestamptz", "nullable": true }
   ],
   "indexes": [
-    { "name": "ix_vendor_bills_tenant_bill_number", "columns": ["tenant_id", "bill_number"], "unique": true },
-    { "name": "ix_vendor_bills_tenant_vendor", "columns": ["tenant_id", "vendor_id"] },
-    { "name": "ix_vendor_bills_tenant_status", "columns": ["tenant_id", "status"] }
+    { "name": "ix_vendor_bills_company_bill_number", "columns": ["company_id", "bill_number"], "unique": true },
+    { "name": "ix_vendor_bills_company_vendor", "columns": ["company_id", "vendor_id"] },
+    { "name": "ix_vendor_bills_company_status", "columns": ["company_id", "status"] }
   ]
 }
