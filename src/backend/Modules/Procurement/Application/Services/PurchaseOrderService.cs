@@ -1,17 +1,18 @@
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.MultiTenancy;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
 
 public interface IPurchaseOrderService
 {
-    Task<ProcurementResult<PurchaseOrderResponse>> CreateAsync(Guid tenantId, Guid userId, CreatePurchaseOrderRequest req, CancellationToken ct);
-    Task<ProcurementResult<PurchaseOrderResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>> ListAsync(Guid tenantId, Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct);
-    Task<ProcurementResult<PurchaseOrderResponse>> ApproveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<ProcurementResult<PurchaseOrderResponse>> SendAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ProcurementResult<PurchaseOrderResponse>> CreateAsync(Guid userId, CreatePurchaseOrderRequest req, CancellationToken ct);
+    Task<ProcurementResult<PurchaseOrderResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>> ListAsync(Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct);
+    Task<ProcurementResult<PurchaseOrderResponse>> ApproveAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<ProcurementResult<PurchaseOrderResponse>> SendAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class PurchaseOrderService : IPurchaseOrderService
@@ -19,22 +20,25 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
     private readonly IPurchaseOrderRepository _pos;
     private readonly IVendorRepository _vendors;
     private readonly IDocumentSequenceRepository _seq;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<PurchaseOrderService> _logger;
 
-    public PurchaseOrderService(IPurchaseOrderRepository pos, IVendorRepository vendors, IDocumentSequenceRepository seq, ILogger<PurchaseOrderService> logger)
-    { _pos = pos; _vendors = vendors; _seq = seq; _logger = logger; }
+    public PurchaseOrderService(IPurchaseOrderRepository pos, IVendorRepository vendors, IDocumentSequenceRepository seq, ICompanyContext companyContext, ILogger<PurchaseOrderService> logger)
+    { _pos = pos; _vendors = vendors; _seq = seq; _companyContext = companyContext; _logger = logger; }
 
-    public async Task<ProcurementResult<PurchaseOrderResponse>> CreateAsync(Guid tenantId, Guid userId, CreatePurchaseOrderRequest req, CancellationToken ct)
+    public async Task<ProcurementResult<PurchaseOrderResponse>> CreateAsync(Guid userId, CreatePurchaseOrderRequest req, CancellationToken ct)
     {
         // التحقق من وجود المورّد
         var vendor = await _vendors.GetByIdAsync(req.VendorId, ct);
-        if (vendor == null || vendor.TenantId != tenantId)
+        if (vendor == null)
             return ProcurementResult<PurchaseOrderResponse>.Fail("المورّد غير موجود.", ProcurementErrorCode.NotFound);
         if (!vendor.IsActive)
             return ProcurementResult<PurchaseOrderResponse>.Fail("المورّد غير نشط.", ProcurementErrorCode.BusinessRuleViolation);
 
         // توليد رقم PO تلقائي
-        var poNumber = await _seq.GetNextNumberAsync(tenantId, "PO", ct);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
+        var poNumber = await _seq.GetNextNumberAsync("PO", ct);
 
         // حساب المبالغ
         decimal subTotal = 0, taxAmount = 0;
@@ -48,7 +52,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
             taxAmount += lineTax;
             lineEntities.Add(new PurchaseOrderLine
             {
-                Id = Guid.NewGuid(), TenantId = tenantId,
+                Id = Guid.NewGuid(),
                 ItemId = l.ItemId, Quantity = l.Quantity, UnitPrice = l.UnitPrice,
                 TaxRate = l.TaxRate, SubTotal = lineSub, LineOrder = i
             });
@@ -58,7 +62,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
         var now = DateTime.UtcNow;
         var po = new PurchaseOrder
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             PoNumber = poNumber, VendorId = req.VendorId,
             Status = PurchaseOrderStatus.Draft,
             OrderDate = req.OrderDate, ExpectedDate = req.ExpectedDate,
@@ -69,32 +73,32 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
         };
 
         await _pos.InsertAsync(po, ct);
-        await _pos.InsertLinesAsync(tenantId, po.Id, lineEntities, ct);
+        await _pos.InsertLinesAsync(po.Id, lineEntities, ct);
         po.Lines = lineEntities;
 
-        _logger.LogInformation("تم إنشاء PO {PoNumber} بقيمة {Total} للمستأجر {TenantId}", poNumber, total, tenantId);
+        _logger.LogInformation("تم إنشاء PO {PoNumber} بقيمة {Total}", poNumber, total);
         return ProcurementResult<PurchaseOrderResponse>.Ok(MapToResponse(po));
     }
 
-    public async Task<ProcurementResult<PurchaseOrderResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<PurchaseOrderResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var po = await _pos.GetByIdAsync(id, ct);
-        if (po == null || po.TenantId != tenantId)
+        if (po == null)
             return ProcurementResult<PurchaseOrderResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         return ProcurementResult<PurchaseOrderResponse>.Ok(MapToResponse(po));
     }
 
-    public async Task<ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>> ListAsync(Guid tenantId, Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>> ListAsync(Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _pos.ListAsync(tenantId, vendorId, status, skip, take, ct);
+        var list = await _pos.ListAsync(vendorId, status, skip, take, ct);
         return ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<ProcurementResult<PurchaseOrderResponse>> ApproveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<PurchaseOrderResponse>> ApproveAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var po = await _pos.GetByIdAsync(id, ct);
-        if (po == null || po.TenantId != tenantId)
+        if (po == null)
             return ProcurementResult<PurchaseOrderResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
 
         // Business rule: يمكن الموافقة فقط من Draft أو Pending
@@ -112,10 +116,10 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
         return ProcurementResult<PurchaseOrderResponse>.Ok(MapToResponse(po));
     }
 
-    public async Task<ProcurementResult<PurchaseOrderResponse>> SendAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<PurchaseOrderResponse>> SendAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var po = await _pos.GetByIdAsync(id, ct);
-        if (po == null || po.TenantId != tenantId)
+        if (po == null)
             return ProcurementResult<PurchaseOrderResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
 
         // Business rule: يمكن الإرسال فقط بعد الموافقة
@@ -134,7 +138,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
 
     private static PurchaseOrderResponse MapToResponse(PurchaseOrder po) => new()
     {
-        Id = po.Id, TenantId = po.TenantId, PoNumber = po.PoNumber, VendorId = po.VendorId,
+        Id = po.Id, PoNumber = po.PoNumber, VendorId = po.VendorId,
         Status = po.Status, OrderDate = po.OrderDate, ExpectedDate = po.ExpectedDate,
         Currency = po.Currency, SubTotal = po.SubTotal, TaxAmount = po.TaxAmount, TotalAmount = po.TotalAmount,
         Notes = po.Notes, ApprovedAt = po.ApprovedAt, ApprovedBy = po.ApprovedBy, SentAt = po.SentAt,

@@ -5,6 +5,8 @@
 > **الغرض:** ملف مرجعي تنافسي يُقارَن لاحقاً مع Daftra و Odoo و ERP-SYSTEM في `gap-analysis.md`.
 > **الترخيص والـ source:** ERPNext صدر تحت **GPL-3.0-only**، مشروع مفتوح المصدر تابع لشركة Frappe Technologies Pvt. Ltd. (الهند)، المصدر على [github.com/frappe/erpnext](https://github.com/frappe/erpnext).
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## جدول المحتويات

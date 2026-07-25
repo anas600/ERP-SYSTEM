@@ -8,7 +8,7 @@ public sealed class ProjectBudgetRepository : IProjectBudgetRepository
 {
     private readonly IDbConnectionFactory _db;
     public ProjectBudgetRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, project_id AS ProjectId, cost_center_id AS CostCenterId,
+    private const string Sel = @"id, project_id AS ProjectId, cost_center_id AS CostCenterId,
         account_id AS AccountId, budget_amount AS BudgetAmount, spent_amount AS SpentAmount,
         committed_amount AS CommittedAmount, last_recalculated_at AS LastRecalculatedAt";
 
@@ -31,9 +31,9 @@ public sealed class ProjectBudgetRepository : IProjectBudgetRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO project_budgets (id, tenant_id, project_id, cost_center_id, account_id,
+            INSERT INTO project_budgets (id, project_id, cost_center_id, account_id,
                                          budget_amount, spent_amount, committed_amount, last_recalculated_at)
-            VALUES (@Id, @TenantId, @ProjectId, @CostCenterId, @AccountId,
+            VALUES (@Id, @ProjectId, @CostCenterId, @AccountId,
                     @BudgetAmount, @SpentAmount, @CommittedAmount, @LastRecalculatedAt)", budget, cancellationToken: ct));
     }
 
@@ -59,13 +59,12 @@ public sealed class ProjectBudgetRepository : IProjectBudgetRepository
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
             WHERE jl.cost_center_id = @CostCenterId
-              AND je.status = 2  -- Posted
-              AND je.tenant_id = @TenantId";
+              AND je.status = 2  -- Posted";
         // Note: projectId not strictly needed; the cost_center mapping is what matters
         var project = await GetByProjectAsync(projectId, ct);
         if (project == null) return 0;
         var spent = await conn.ExecuteScalarAsync<decimal?>(new CommandDefinition(sql,
-            new { CostCenterId = costCenterId, TenantId = project.TenantId }, cancellationToken: ct)) ?? 0;
+            new { CostCenterId = costCenterId }, cancellationToken: ct)) ?? 0;
 
         await conn.ExecuteAsync(new CommandDefinition(
             "UPDATE project_budgets SET spent_amount = @Spent, last_recalculated_at = @Now WHERE id = @Id",

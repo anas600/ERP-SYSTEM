@@ -10,7 +10,7 @@ public sealed class CompanyRepository : ICompanyRepository
     private readonly IDbConnectionFactory _db;
     public CompanyRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelectColumns = @"id, tenant_id AS TenantId, code, name, legal_name AS LegalName,
+    private const string SelectColumns = @"id, code, name, legal_name AS LegalName,
         parent_company_id AS ParentCompanyId, is_group AS IsGroup,
         base_currency AS BaseCurrency, is_active AS IsActive,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
@@ -23,26 +23,18 @@ public sealed class CompanyRepository : ICompanyRepository
             new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<Company?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<Company?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Company>(new CommandDefinition(
-            $"SELECT {SelectColumns} FROM companies WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
-    }
-
-    public async Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct)
-    {
-        using var conn = await _db.CreateOltpConnectionAsync(ct);
-        return await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
-            "SELECT id FROM companies WHERE tenant_id = @TenantId AND is_group = true LIMIT 1",
-            new { TenantId = tenantId }, cancellationToken: ct));
+            $"SELECT {SelectColumns} FROM companies WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
 
     // Phase 6.0b (P6-0b): tenant-less lookup used by the bootstrap startup hook
     // to detect whether the default Holding (code='000', is_group=true, no parent)
-    // already exists. The new companies table has no tenant_id, so we can't filter
-    // by tenant — the Holding is a single global row.
+    // already exists. The companies table is a single global scope (companies are
+    // shared across all users), so no tenant/company filter is needed.
     public async Task<Guid?> GetHoldingCompanyIdAsync(CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -55,12 +47,12 @@ public sealed class CompanyRepository : ICompanyRepository
             cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<IReadOnlyList<Company>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelectColumns} FROM companies WHERE tenant_id = @TenantId"
+        var sql = $"SELECT {SelectColumns} FROM companies WHERE 1=1"
             + (includeInactive ? "" : " AND is_active = true") + " ORDER BY code";
-        var rows = await conn.QueryAsync<Company>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<Company>(new CommandDefinition(sql, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -82,9 +74,9 @@ public sealed class CompanyRepository : ICompanyRepository
     public async Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO companies (id, tenant_id, code, name, legal_name, parent_company_id,
+            INSERT INTO companies (id, code, name, legal_name, parent_company_id,
                                    is_group, base_currency, is_active, created_at, updated_at)
-            VALUES (@Id, @TenantId, @Code, @Name, @LegalName, @ParentCompanyId,
+            VALUES (@Id, @Code, @Name, @LegalName, @ParentCompanyId,
                     @IsGroup, @BaseCurrency, @IsActive, @CreatedAt, @UpdatedAt)",
             company, transaction: tx, cancellationToken: ct));
     }

@@ -54,7 +54,6 @@ public sealed class PaymentAllocationResponse
 public sealed class PaymentResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid? CompanyId { get; set; }
     public string PartyType { get; set; } = string.Empty;
     public Guid PartyId { get; set; }

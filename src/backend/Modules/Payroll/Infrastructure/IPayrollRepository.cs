@@ -6,13 +6,13 @@ namespace ERPSystem.Modules.Payroll.Infrastructure;
 
 /// <summary>
 /// عقد المستودع لهيكل الرواتب (SalaryStructure + Lines).
-/// كل الـ queries مُفلترة بـ tenant_id لتطبيق الـ multi-tenancy.
+/// Phase 6.1b: لا يوجد عزل بين المستخدمين — الهياكل مشتركة.
 /// </summary>
 public interface ISalaryStructureRepository
 {
     Task<SalaryStructure?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<SalaryStructure?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<IReadOnlyList<SalaryStructure>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
+    Task<SalaryStructure?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<IReadOnlyList<SalaryStructure>> ListAsync(bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<SalaryStructureLine>> GetLinesAsync(Guid salaryStructureId, CancellationToken ct);
     Task InsertAsync(SalaryStructure structure, IEnumerable<SalaryStructureLine> lines, CancellationToken ct);
 }
@@ -24,8 +24,8 @@ public interface IPayrollRepository
 {
     // ============ PayrollRun ============
     Task<PayrollRun?> GetRunByIdAsync(Guid id, CancellationToken ct);
-    Task<PayrollRun?> GetRunByIdForTenantAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<IReadOnlyList<PayrollRun>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct);
+    Task<PayrollRun?> GetRunByIdForTenantAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<PayrollRun>> ListRunsAsync(PayrollRunStatus? status, int skip, int take, CancellationToken ct);
     Task InsertRunAsync(PayrollRun run, CancellationToken ct);
     Task UpdateRunAsync(PayrollRun run, CancellationToken ct);
 
@@ -38,5 +38,5 @@ public interface IPayrollRepository
     Task<IReadOnlyList<PayslipComponent>> GetComponentsByItemAsync(Guid payrollItemId, CancellationToken ct);
 
     // ============ SalaryStructure (passthrough for PayrollService) ============
-    Task<SalaryStructure?> GetStructureByCodeAsync(Guid tenantId, string code, CancellationToken ct);
+    Task<SalaryStructure?> GetStructureByCodeAsync(string code, CancellationToken ct);
 }

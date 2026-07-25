@@ -38,7 +38,6 @@ public static class PaymentMethod
 public class SalesInvoice
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public Guid CustomerId { get; set; }
 
@@ -91,7 +90,6 @@ public class SalesInvoice
 public class SalesInvoiceLine
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid SalesInvoiceId { get; set; }
 
     /// <summary>اختياري — ربط بصنف من المخزون (المستقبل).</summary>

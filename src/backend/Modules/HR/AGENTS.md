@@ -24,12 +24,12 @@ HR/
 ## Business Rules
 
 ### Department
-- `code` فريد لكل tenant
+- `code` فريد لكل Holding Company
 - يدعم hierarchy عبر `parent_id` (nullable)
 - soft-delete عبر `is_active = false`
 
 ### Employee
-- `email` فريد لكل tenant
+- `email` فريد لكل Holding Company
 - `base_salary` موجب (Decimal(18,4))
 - `hire_date` لا يمكن أن يكون في المستقبل
 - عند soft-delete: لا تظهر في الـ queries العادية، تبقى في الجدول

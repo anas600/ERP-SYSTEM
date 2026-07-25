@@ -10,7 +10,7 @@ public sealed class CustomerRepository : ICustomerRepository
     private readonly IDbConnectionFactory _db;
     public CustomerRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, tenant_id AS TenantId, company_id AS CompanyId, code, name, name_en AS NameEn,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, name_en AS NameEn,
         tax_id AS TaxId, email, phone, address, credit_limit AS CreditLimit, payment_terms_days AS PaymentTermsDays,
         is_active AS IsActive, created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
@@ -22,22 +22,22 @@ public sealed class CustomerRepository : ICustomerRepository
             new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<Customer?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<Customer?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Customer>(new CommandDefinition(
-            $"SELECT {Sel} FROM customers WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
+            $"SELECT {Sel} FROM customers WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Customer>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<Customer>> ListAsync(bool includeInactive, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {Sel} FROM customers WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {Sel} FROM customers WHERE 1=1";
         if (!includeInactive) sql += " AND is_active = true";
         sql += " ORDER BY code OFFSET @Skip LIMIT @Take";
         var rows = await conn.QueryAsync<Customer>(new CommandDefinition(sql,
-            new { TenantId = tenantId, Skip = skip, Take = take }, cancellationToken: ct));
+            new { Skip = skip, Take = take }, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -45,10 +45,10 @@ public sealed class CustomerRepository : ICustomerRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO customers (id, tenant_id, company_id, code, name, name_en, tax_id, email, phone, address,
+            INSERT INTO customers (id, company_id, code, name, name_en, tax_id, email, phone, address,
                                   credit_limit, payment_terms_days, is_active,
                                   created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @CompanyId, @Code, @Name, @NameEn, @TaxId, @Email, @Phone, @Address,
+            VALUES (@Id, @CompanyId, @Code, @Name, @NameEn, @TaxId, @Email, @Phone, @Address,
                     @CreditLimit, @PaymentTermsDays, @IsActive,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", c, cancellationToken: ct));
     }

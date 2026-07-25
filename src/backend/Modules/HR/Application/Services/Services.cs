@@ -21,11 +21,11 @@ public enum HRErrorCode
 
 public interface IDepartmentService
 {
-    Task<HRResult<DepartmentResponse>> CreateAsync(Guid tenantId, CreateDepartmentRequest req, CancellationToken ct);
-    Task<HRResult<DepartmentResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateDepartmentRequest req, CancellationToken ct);
-    Task<HRResult<DepartmentResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<HRResult<IReadOnlyList<DepartmentResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
-    Task<HRResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<HRResult<DepartmentResponse>> CreateAsync(CreateDepartmentRequest req, CancellationToken ct);
+    Task<HRResult<DepartmentResponse>> UpdateAsync(Guid id, UpdateDepartmentRequest req, CancellationToken ct);
+    Task<HRResult<DepartmentResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<HRResult<IReadOnlyList<DepartmentResponse>>> ListAsync(bool includeInactive, CancellationToken ct);
+    Task<HRResult<bool>> DeactivateAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class DepartmentService : IDepartmentService
@@ -33,20 +33,20 @@ public sealed class DepartmentService : IDepartmentService
     private readonly IDepartmentRepository _repo;
     public DepartmentService(IDepartmentRepository repo) => _repo = repo;
 
-    public async Task<HRResult<DepartmentResponse>> CreateAsync(Guid tenantId, CreateDepartmentRequest req, CancellationToken ct)
+    public async Task<HRResult<DepartmentResponse>> CreateAsync(CreateDepartmentRequest req, CancellationToken ct)
     {
-        if (await _repo.GetByCodeAsync(tenantId, req.Code, ct) != null)
+        if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return HRResult<DepartmentResponse>.Fail("كود القسم مستخدم.", HRErrorCode.AlreadyExists);
         if (req.ParentId.HasValue)
         {
             var parent = await _repo.GetByIdAsync(req.ParentId.Value, ct);
-            if (parent == null || parent.TenantId != tenantId)
+            if (parent == null)
                 return HRResult<DepartmentResponse>.Fail("القسم الأب غير موجود.", HRErrorCode.NotFound);
         }
         var now = DateTime.UtcNow;
         var d = new Department
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             Code = req.Code.Trim(), Name = req.Name.Trim(),
             ParentId = req.ParentId, ManagerId = req.ManagerId,
             IsActive = true, CreatedAt = now, UpdatedAt = now
@@ -55,10 +55,10 @@ public sealed class DepartmentService : IDepartmentService
         return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
     }
 
-    public async Task<HRResult<DepartmentResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateDepartmentRequest req, CancellationToken ct)
+    public async Task<HRResult<DepartmentResponse>> UpdateAsync(Guid id, UpdateDepartmentRequest req, CancellationToken ct)
     {
         var d = await _repo.GetByIdAsync(id, ct);
-        if (d == null || d.TenantId != tenantId)
+        if (d == null)
             return HRResult<DepartmentResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         d.Name = req.Name.Trim();
         d.ParentId = req.ParentId;
@@ -69,24 +69,24 @@ public sealed class DepartmentService : IDepartmentService
         return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
     }
 
-    public async Task<HRResult<DepartmentResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<HRResult<DepartmentResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var d = await _repo.GetByIdAsync(id, ct);
-        if (d == null || d.TenantId != tenantId)
+        if (d == null)
             return HRResult<DepartmentResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
     }
 
-    public async Task<HRResult<IReadOnlyList<DepartmentResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<HRResult<IReadOnlyList<DepartmentResponse>>> ListAsync(bool includeInactive, CancellationToken ct)
     {
-        var list = await _repo.ListAsync(tenantId, includeInactive, ct);
+        var list = await _repo.ListAsync(includeInactive, ct);
         return HRResult<IReadOnlyList<DepartmentResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<HRResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<HRResult<bool>> DeactivateAsync(Guid id, CancellationToken ct)
     {
         var d = await _repo.GetByIdAsync(id, ct);
-        if (d == null || d.TenantId != tenantId)
+        if (d == null)
             return HRResult<bool>.Fail("غير موجود.", HRErrorCode.NotFound);
         d.IsActive = false;
         d.UpdatedAt = DateTime.UtcNow;
@@ -96,18 +96,18 @@ public sealed class DepartmentService : IDepartmentService
 
     private static DepartmentResponse MapToResponse(Department d) => new()
     {
-        Id = d.Id, TenantId = d.TenantId, Code = d.Code, Name = d.Name,
+        Id = d.Id, Code = d.Code, Name = d.Name,
         ParentId = d.ParentId, ManagerId = d.ManagerId, IsActive = d.IsActive
     };
 }
 
 public interface IEmployeeService
 {
-    Task<HRResult<EmployeeResponse>> CreateAsync(Guid tenantId, Guid userId, CreateEmployeeRequest req, CancellationToken ct);
-    Task<HRResult<EmployeeResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateEmployeeRequest req, CancellationToken ct);
-    Task<HRResult<EmployeeResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<HRResult<IReadOnlyList<EmployeeResponse>>> ListAsync(Guid tenantId, Guid? departmentId, bool includeInactive, int skip, int take, CancellationToken ct);
-    Task<HRResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<HRResult<EmployeeResponse>> CreateAsync(Guid userId, CreateEmployeeRequest req, CancellationToken ct);
+    Task<HRResult<EmployeeResponse>> UpdateAsync(Guid userId, Guid id, UpdateEmployeeRequest req, CancellationToken ct);
+    Task<HRResult<EmployeeResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<HRResult<IReadOnlyList<EmployeeResponse>>> ListAsync(Guid? departmentId, bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<HRResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class EmployeeService : IEmployeeService
@@ -116,16 +116,16 @@ public sealed class EmployeeService : IEmployeeService
     private readonly IHRDocumentSequenceRepository _seq;
     public EmployeeService(IEmployeeRepository repo, IHRDocumentSequenceRepository seq) { _repo = repo; _seq = seq; }
 
-    public async Task<HRResult<EmployeeResponse>> CreateAsync(Guid tenantId, Guid userId, CreateEmployeeRequest req, CancellationToken ct)
+    public async Task<HRResult<EmployeeResponse>> CreateAsync(Guid userId, CreateEmployeeRequest req, CancellationToken ct)
     {
-        if (!string.IsNullOrEmpty(req.Email) && await _repo.GetByEmailAsync(tenantId, req.Email, ct) != null)
+        if (!string.IsNullOrEmpty(req.Email) && await _repo.GetByEmailAsync(req.Email, ct) != null)
             return HRResult<EmployeeResponse>.Fail("البريد الإلكتروني مستخدم.", HRErrorCode.AlreadyExists);
 
-        var empNumber = await _seq.GetNextEmployeeNumberAsync(tenantId, ct);
+        var empNumber = await _seq.GetNextEmployeeNumberAsync(ct);
         var now = DateTime.UtcNow;
         var e = new Employee
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             EmployeeNumber = empNumber, FullName = req.FullName.Trim(),
             Email = req.Email, Phone = req.Phone, NationalId = req.NationalId,
             DepartmentId = req.DepartmentId, JobTitle = req.JobTitle,
@@ -136,14 +136,14 @@ public sealed class EmployeeService : IEmployeeService
         return HRResult<EmployeeResponse>.Ok(MapToResponse(e));
     }
 
-    public async Task<HRResult<EmployeeResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateEmployeeRequest req, CancellationToken ct)
+    public async Task<HRResult<EmployeeResponse>> UpdateAsync(Guid userId, Guid id, UpdateEmployeeRequest req, CancellationToken ct)
     {
         var e = await _repo.GetByIdAsync(id, ct);
-        if (e == null || e.TenantId != tenantId)
+        if (e == null)
             return HRResult<EmployeeResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         if (!string.IsNullOrEmpty(req.Email) && !string.Equals(e.Email, req.Email, StringComparison.OrdinalIgnoreCase))
         {
-            if (await _repo.GetByEmailAsync(tenantId, req.Email, ct) != null)
+            if (await _repo.GetByEmailAsync(req.Email, ct) != null)
                 return HRResult<EmployeeResponse>.Fail("البريد الإلكتروني مستخدم.", HRErrorCode.AlreadyExists);
         }
         e.FullName = req.FullName.Trim();
@@ -157,25 +157,25 @@ public sealed class EmployeeService : IEmployeeService
         return HRResult<EmployeeResponse>.Ok(MapToResponse(e));
     }
 
-    public async Task<HRResult<EmployeeResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<HRResult<EmployeeResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var e = await _repo.GetByIdAsync(id, ct);
-        if (e == null || e.TenantId != tenantId)
+        if (e == null)
             return HRResult<EmployeeResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         return HRResult<EmployeeResponse>.Ok(MapToResponse(e));
     }
 
-    public async Task<HRResult<IReadOnlyList<EmployeeResponse>>> ListAsync(Guid tenantId, Guid? departmentId, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<HRResult<IReadOnlyList<EmployeeResponse>>> ListAsync(Guid? departmentId, bool includeInactive, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _repo.ListAsync(tenantId, departmentId, includeInactive, skip, take, ct);
+        var list = await _repo.ListAsync(departmentId, includeInactive, skip, take, ct);
         return HRResult<IReadOnlyList<EmployeeResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<HRResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<HRResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var e = await _repo.GetByIdAsync(id, ct);
-        if (e == null || e.TenantId != tenantId)
+        if (e == null)
             return HRResult<bool>.Fail("غير موجود.", HRErrorCode.NotFound);
         e.IsActive = false;
         e.TerminationDate = e.TerminationDate ?? DateTime.UtcNow;
@@ -186,7 +186,7 @@ public sealed class EmployeeService : IEmployeeService
 
     private static EmployeeResponse MapToResponse(Employee e) => new()
     {
-        Id = e.Id, TenantId = e.TenantId, EmployeeNumber = e.EmployeeNumber, FullName = e.FullName,
+        Id = e.Id, EmployeeNumber = e.EmployeeNumber, FullName = e.FullName,
         Email = e.Email, Phone = e.Phone, NationalId = e.NationalId,
         DepartmentId = e.DepartmentId, JobTitle = e.JobTitle,
         HireDate = e.HireDate, TerminationDate = e.TerminationDate,
@@ -196,9 +196,9 @@ public sealed class EmployeeService : IEmployeeService
 
 public interface IAttendanceService
 {
-    Task<HRResult<AttendanceResponse>> RecordAsync(Guid tenantId, CheckInOutRequest req, string? ipAddress, CancellationToken ct);
-    Task<HRResult<AttendanceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<HRResult<IReadOnlyList<AttendanceResponse>>> ListAsync(Guid tenantId, Guid? employeeId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct);
+    Task<HRResult<AttendanceResponse>> RecordAsync(CheckInOutRequest req, string? ipAddress, CancellationToken ct);
+    Task<HRResult<AttendanceResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<HRResult<IReadOnlyList<AttendanceResponse>>> ListAsync(Guid? employeeId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct);
 }
 
 public sealed class AttendanceService : IAttendanceService
@@ -207,21 +207,21 @@ public sealed class AttendanceService : IAttendanceService
     private readonly IEmployeeRepository _employees;
     public AttendanceService(IAttendanceRepository repo, IEmployeeRepository employees) { _repo = repo; _employees = employees; }
 
-    public async Task<HRResult<AttendanceResponse>> RecordAsync(Guid tenantId, CheckInOutRequest req, string? ipAddress, CancellationToken ct)
+    public async Task<HRResult<AttendanceResponse>> RecordAsync(CheckInOutRequest req, string? ipAddress, CancellationToken ct)
     {
         var emp = await _employees.GetByIdAsync(req.EmployeeId, ct);
-        if (emp == null || emp.TenantId != tenantId)
+        if (emp == null)
             return HRResult<AttendanceResponse>.Fail("الموظف غير موجود.", HRErrorCode.NotFound);
 
         // Business Rule: لا تكرار من نفس النوع متتالياً
-        var last = await _repo.GetLastForEmployeeAsync(tenantId, req.EmployeeId, ct);
+        var last = await _repo.GetLastForEmployeeAsync(req.EmployeeId, ct);
         if (last != null && last.Type == req.Type && (DateTime.UtcNow - last.Timestamp).TotalHours < 12)
             return HRResult<AttendanceResponse>.Fail(
                 $"لا يمكن تسجيل {req.Type} متتالي بدون النوع المعاكس.", HRErrorCode.BusinessRuleViolation);
 
         var att = new Attendance
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, EmployeeId = req.EmployeeId,
+            Id = Guid.NewGuid(), EmployeeId = req.EmployeeId,
             Type = req.Type, Timestamp = DateTime.UtcNow, Notes = req.Notes, IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow
         };
@@ -229,18 +229,18 @@ public sealed class AttendanceService : IAttendanceService
         return HRResult<AttendanceResponse>.Ok(MapToResponse(att));
     }
 
-    public async Task<HRResult<AttendanceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<HRResult<AttendanceResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var a = await _repo.GetByIdAsync(id, ct);
-        if (a == null || a.TenantId != tenantId)
+        if (a == null)
             return HRResult<AttendanceResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         return HRResult<AttendanceResponse>.Ok(MapToResponse(a));
     }
 
-    public async Task<HRResult<IReadOnlyList<AttendanceResponse>>> ListAsync(Guid tenantId, Guid? employeeId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct)
+    public async Task<HRResult<IReadOnlyList<AttendanceResponse>>> ListAsync(Guid? employeeId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _repo.ListAsync(tenantId, employeeId, from, to, skip, take, ct);
+        var list = await _repo.ListAsync(employeeId, from, to, skip, take, ct);
         return HRResult<IReadOnlyList<AttendanceResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
@@ -253,11 +253,11 @@ public sealed class AttendanceService : IAttendanceService
 
 public interface ILeaveRequestService
 {
-    Task<HRResult<LeaveRequestResponse>> CreateAsync(Guid tenantId, Guid userId, CreateLeaveRequestDto req, CancellationToken ct);
-    Task<HRResult<LeaveRequestResponse>> ApproveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<HRResult<LeaveRequestResponse>> RejectAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<HRResult<LeaveRequestResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<HRResult<IReadOnlyList<LeaveRequestResponse>>> ListAsync(Guid tenantId, Guid? employeeId, LeaveStatus? status, int skip, int take, CancellationToken ct);
+    Task<HRResult<LeaveRequestResponse>> CreateAsync(Guid userId, CreateLeaveRequestDto req, CancellationToken ct);
+    Task<HRResult<LeaveRequestResponse>> ApproveAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<HRResult<LeaveRequestResponse>> RejectAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<HRResult<LeaveRequestResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<HRResult<IReadOnlyList<LeaveRequestResponse>>> ListAsync(Guid? employeeId, LeaveStatus? status, int skip, int take, CancellationToken ct);
 }
 
 public sealed class LeaveRequestService : ILeaveRequestService
@@ -266,10 +266,10 @@ public sealed class LeaveRequestService : ILeaveRequestService
     private readonly IEmployeeRepository _employees;
     public LeaveRequestService(ILeaveRequestRepository repo, IEmployeeRepository employees) { _repo = repo; _employees = employees; }
 
-    public async Task<HRResult<LeaveRequestResponse>> CreateAsync(Guid tenantId, Guid userId, CreateLeaveRequestDto req, CancellationToken ct)
+    public async Task<HRResult<LeaveRequestResponse>> CreateAsync(Guid userId, CreateLeaveRequestDto req, CancellationToken ct)
     {
         var emp = await _employees.GetByIdAsync(req.EmployeeId, ct);
-        if (emp == null || emp.TenantId != tenantId)
+        if (emp == null)
             return HRResult<LeaveRequestResponse>.Fail("الموظف غير موجود.", HRErrorCode.NotFound);
 
         // Business Rule: لا تتعارض مع إجازة Approved أخرى
@@ -280,7 +280,7 @@ public sealed class LeaveRequestService : ILeaveRequestService
         var now = DateTime.UtcNow;
         var leave = new LeaveRequest
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, EmployeeId = req.EmployeeId,
+            Id = Guid.NewGuid(), EmployeeId = req.EmployeeId,
             LeaveType = req.LeaveType, StartDate = req.StartDate, EndDate = req.EndDate,
             TotalDays = totalDays, Status = LeaveStatus.Pending,
             Reason = req.Reason, Notes = req.Notes,
@@ -290,10 +290,10 @@ public sealed class LeaveRequestService : ILeaveRequestService
         return HRResult<LeaveRequestResponse>.Ok(MapToResponse(leave));
     }
 
-    public async Task<HRResult<LeaveRequestResponse>> ApproveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<HRResult<LeaveRequestResponse>> ApproveAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var l = await _repo.GetByIdAsync(id, ct);
-        if (l == null || l.TenantId != tenantId)
+        if (l == null)
             return HRResult<LeaveRequestResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         if (l.Status != LeaveStatus.Pending)
             return HRResult<LeaveRequestResponse>.Fail($"لا يمكن الموافقة على إجازة في حالة {l.Status}.", HRErrorCode.InvalidStatusTransition);
@@ -305,10 +305,10 @@ public sealed class LeaveRequestService : ILeaveRequestService
         return HRResult<LeaveRequestResponse>.Ok(MapToResponse(l));
     }
 
-    public async Task<HRResult<LeaveRequestResponse>> RejectAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<HRResult<LeaveRequestResponse>> RejectAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var l = await _repo.GetByIdAsync(id, ct);
-        if (l == null || l.TenantId != tenantId)
+        if (l == null)
             return HRResult<LeaveRequestResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         if (l.Status != LeaveStatus.Pending)
             return HRResult<LeaveRequestResponse>.Fail($"لا يمكن رفض إجازة في حالة {l.Status}.", HRErrorCode.InvalidStatusTransition);
@@ -320,18 +320,18 @@ public sealed class LeaveRequestService : ILeaveRequestService
         return HRResult<LeaveRequestResponse>.Ok(MapToResponse(l));
     }
 
-    public async Task<HRResult<LeaveRequestResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<HRResult<LeaveRequestResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var l = await _repo.GetByIdAsync(id, ct);
-        if (l == null || l.TenantId != tenantId)
+        if (l == null)
             return HRResult<LeaveRequestResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
         return HRResult<LeaveRequestResponse>.Ok(MapToResponse(l));
     }
 
-    public async Task<HRResult<IReadOnlyList<LeaveRequestResponse>>> ListAsync(Guid tenantId, Guid? employeeId, LeaveStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<HRResult<IReadOnlyList<LeaveRequestResponse>>> ListAsync(Guid? employeeId, LeaveStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _repo.ListAsync(tenantId, employeeId, status, skip, take, ct);
+        var list = await _repo.ListAsync(employeeId, status, skip, take, ct);
         return HRResult<IReadOnlyList<LeaveRequestResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 

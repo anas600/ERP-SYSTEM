@@ -12,7 +12,7 @@ public sealed class AccountRepository : IAccountRepository
     public AccountRepository(IDbConnectionFactory db) => _db = db;
 
     private const string SelectColumns = @"
-        id, tenant_id AS TenantId, company_id AS CompanyId, code, name, description, type,
+        id, company_id AS CompanyId, code, name, description, type,
         normal_balance AS NormalBalance, parent_account_id AS ParentAccountId,
         is_postable AS IsPostable, is_active AS IsActive, is_intercompany AS IsIntercompany,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
@@ -23,19 +23,19 @@ public sealed class AccountRepository : IAccountRepository
         return await QueryFirstAsync(conn, "WHERE id = @Id", new { Id = id }, ct);
     }
 
-    public async Task<Account?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<Account?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        return await QueryFirstAsync(conn, "WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code)",
-            new { TenantId = tenantId, Code = code }, ct);
+        return await QueryFirstAsync(conn, "WHERE LOWER(code) = LOWER(@Code)",
+            new { Code = code }, ct);
     }
 
-    public async Task<IReadOnlyList<Account>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<IReadOnlyList<Account>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelectColumns} FROM accounts WHERE tenant_id = @TenantId"
+        var sql = $"SELECT {SelectColumns} FROM accounts WHERE 1=1"
             + (includeInactive ? "" : " AND is_active = true") + " ORDER BY code";
-        var rows = await conn.QueryAsync<Account>(new CommandDefinition(sql, new { TenantId = tenantId }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<Account>(new CommandDefinition(sql, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -48,13 +48,13 @@ public sealed class AccountRepository : IAccountRepository
         return rows.AsList();
     }
 
-    public async Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
+    public async Task<IReadOnlyList<Account>> ListByCompanyAsync(Guid? companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelectColumns} FROM accounts WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {SelectColumns} FROM accounts WHERE 1=1";
         if (companyId.HasValue) sql += " AND company_id = @CompanyId";
         sql += " ORDER BY code";
-        var rows = await conn.QueryAsync<Account>(new CommandDefinition(sql, new { TenantId = tenantId, CompanyId = companyId }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<Account>(new CommandDefinition(sql, new { CompanyId = companyId }, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -67,9 +67,9 @@ public sealed class AccountRepository : IAccountRepository
     public async Task InsertAsync(Account account, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO accounts (id, tenant_id, company_id, code, name, description, type, normal_balance,
+            INSERT INTO accounts (id, company_id, code, name, description, type, normal_balance,
                                   parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
-            VALUES (@Id, @TenantId, @CompanyId, @Code, @Name, @Description, @Type, @NormalBalance,
+            VALUES (@Id, @CompanyId, @Code, @Name, @Description, @Type, @NormalBalance,
                     @ParentAccountId, @IsPostable, @IsActive, @IsIntercompany, @CreatedAt, @UpdatedAt)",
             account, transaction: tx, cancellationToken: ct));
     }
@@ -93,20 +93,20 @@ public sealed class AccountRepository : IAccountRepository
             new { AccountId = accountId }, cancellationToken: ct));
     }
 
-    public async Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, CancellationToken ct)
+    public async Task EnsureDefaultCoAAsync(Guid companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        await EnsureDefaultCoAAsync(tenantId, companyId, conn, null, ct);
+        await EnsureDefaultCoAAsync(companyId, conn, null, ct);
     }
 
-    public async Task EnsureDefaultCoAAsync(Guid tenantId, Guid companyId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    public async Task EnsureDefaultCoAAsync(Guid companyId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         // P1-9: CoA-seeded inside the register-flow transaction. Read uses the same conn so it
         // sees the just-inserted companies row, and the subsequent inserts roll back together
-        // with the tenant/holding insert if anything else fails.
+        // with the company insert if anything else fails.
         var existingCoA = await conn.QueryFirstOrDefaultAsync<Account>(new CommandDefinition(
-            $"SELECT {SelectColumns} FROM accounts WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = "0000" }, transaction: tx, cancellationToken: ct));
+            $"SELECT {SelectColumns} FROM accounts WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = "0000" }, transaction: tx, cancellationToken: ct));
         if (existingCoA != null) return;
 
         // DEC-093 + perf fix: Compute all IDs in-memory (topological), then ONE batched INSERT
@@ -119,7 +119,7 @@ public sealed class AccountRepository : IAccountRepository
         // Pass 1: roots (no parent)
         foreach (var (code, name, type, parentCode, postable, intercompany) in allEntries.Where(e => e.ParentCode == null))
         {
-            var acc = NewAccount(tenantId, companyId, code, name, type, null, postable, intercompany);
+            var acc = NewAccount(companyId, code, name, type, null, postable, intercompany);
             idByCode[code] = acc.Id;
             accountObjects.Add(acc);
         }
@@ -128,7 +128,7 @@ public sealed class AccountRepository : IAccountRepository
         {
             if (!idByCode.TryGetValue(parentCode!, out var parentId))
                 throw new InvalidOperationException($"CoA seed bug: parent code {parentCode} not resolved before child {code}");
-            var acc = NewAccount(tenantId, companyId, code, name, type, parentId, postable, intercompany);
+            var acc = NewAccount(companyId, code, name, type, parentId, postable, intercompany);
             idByCode[code] = acc.Id;
             accountObjects.Add(acc);
         }
@@ -139,9 +139,9 @@ public sealed class AccountRepository : IAccountRepository
         // type + normal_balance are integer columns in Postgres (per accounts.json).
         // We pass int[] instead of text[] + cast to skip the parse step.
         const string batchInsertSql = @"
-            INSERT INTO accounts (id, tenant_id, company_id, code, name, type, normal_balance,
+            INSERT INTO accounts (id, company_id, code, name, type, normal_balance,
                                   parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
-            SELECT u.id, @TenantId, @CompanyId, u.code, u.name, u.type, u.balance,
+            SELECT u.id, @CompanyId, u.code, u.name, u.type, u.balance,
                    u.parent_id, u.postable, true, u.intercompany, now(), now()
             FROM unnest(@Ids::uuid[], @Codes::text[], @Names::text[], @Types::int[], @Balances::int[],
                         @ParentIds::uuid[], @Postables::bool[], @Inters::bool[])
@@ -149,7 +149,6 @@ public sealed class AccountRepository : IAccountRepository
 
         await conn.ExecuteAsync(new CommandDefinition(batchInsertSql, new
         {
-            TenantId = tenantId,
             CompanyId = companyId,
             Ids = accountObjects.Select(a => a.Id).ToArray(),
             Codes = accountObjects.Select(a => a.Code).ToArray(),
@@ -169,14 +168,13 @@ public sealed class AccountRepository : IAccountRepository
             SELECT {SelectColumns} FROM accounts WHERE company_id = @SourceId ORDER BY code",
             new { SourceId = sourceCompanyId }, cancellationToken: ct))).AsList();
         if (sourceAccounts.Count == 0) return;
-        var tenantId = sourceAccounts.First().TenantId;
         var idMapping = new Dictionary<Guid, Guid>();
         foreach (var src in sourceAccounts) idMapping[src.Id] = Guid.NewGuid();
         // Pass 1: roots
         foreach (var src in sourceAccounts.Where(a => a.ParentAccountId == null))
             await InsertAsync(new Account
             {
-                Id = idMapping[src.Id], TenantId = tenantId, CompanyId = targetCompanyId,
+                Id = idMapping[src.Id], CompanyId = targetCompanyId,
                 Code = src.Code, Name = src.Name, Description = src.Description, Type = src.Type,
                 NormalBalance = src.NormalBalance, IsPostable = src.IsPostable, IsActive = src.IsActive,
                 IsIntercompany = src.IsIntercompany, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -187,7 +185,7 @@ public sealed class AccountRepository : IAccountRepository
             Guid? newParentId = src.ParentAccountId.HasValue && idMapping.TryGetValue(src.ParentAccountId.Value, out var mapped) ? mapped : null;
             await InsertAsync(new Account
             {
-                Id = idMapping[src.Id], TenantId = tenantId, CompanyId = targetCompanyId,
+                Id = idMapping[src.Id], CompanyId = targetCompanyId,
                 Code = src.Code, Name = src.Name, Description = src.Description, Type = src.Type,
                 NormalBalance = src.NormalBalance, ParentAccountId = newParentId,
                 IsPostable = src.IsPostable, IsActive = src.IsActive, IsIntercompany = src.IsIntercompany,
@@ -196,12 +194,12 @@ public sealed class AccountRepository : IAccountRepository
         }
     }
 
-    private static Account NewAccount(Guid tenantId, Guid companyId, string code, string name, AccountType type, Guid? parentId, bool postable, bool intercompany)
+    private static Account NewAccount(Guid companyId, string code, string name, AccountType type, Guid? parentId, bool postable, bool intercompany)
     {
         var now = DateTime.UtcNow;
         return new Account
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = companyId, Code = code, Name = name,
+            Id = Guid.NewGuid(), CompanyId = companyId, Code = code, Name = name,
             Type = type,
             NormalBalance = type == AccountType.Asset || type == AccountType.Expense ? NormalBalance.Debit : NormalBalance.Credit,
             ParentAccountId = parentId, IsPostable = postable, IsActive = true, IsIntercompany = intercompany,

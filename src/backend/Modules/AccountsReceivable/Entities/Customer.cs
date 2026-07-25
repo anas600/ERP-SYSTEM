@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.AccountsReceivable.Entities;
 public class Customer
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
 
     /// <summary>كود فريد داخل الـ tenant — يُستخدم في الـ SalesInvoice.</summary>

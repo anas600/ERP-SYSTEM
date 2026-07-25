@@ -23,7 +23,6 @@ public sealed class CreatePayrollRunRequest
 public sealed class PayrollRunResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
     public PayrollRunStatus Status { get; set; }
@@ -40,7 +39,6 @@ public sealed class PayrollRunResponse
 public sealed class PayslipResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid PayrollRunId { get; set; }
     public Guid EmployeeId { get; set; }
     public string? EmployeeNumber { get; set; }

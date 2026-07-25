@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.Projects.Entities;
 public class ProjectBudget
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid ProjectId { get; set; }
     public Guid CostCenterId { get; set; }
     public Guid? AccountId { get; set; }            // 4111-4114 مصروفات

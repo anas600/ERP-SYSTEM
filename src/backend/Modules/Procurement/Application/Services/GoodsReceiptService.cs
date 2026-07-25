@@ -11,10 +11,10 @@ namespace ERPSystem.Modules.Procurement.Application.Services;
 
 public interface IGoodsReceiptService
 {
-    Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct);
-    Task<ProcurementResult<GoodsReceiptResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>> ListAsync(Guid tenantId, Guid? poId, GoodsReceiptStatus? status, int skip, int take, CancellationToken ct);
-    Task<ProcurementResult<GoodsReceiptResponse>> ReceiveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct);
+    Task<ProcurementResult<GoodsReceiptResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>> ListAsync(Guid? poId, GoodsReceiptStatus? status, int skip, int take, CancellationToken ct);
+    Task<ProcurementResult<GoodsReceiptResponse>> ReceiveAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class GoodsReceiptService : IGoodsReceiptService
@@ -34,11 +34,11 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
         ILogger<GoodsReceiptService> logger)
     { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _vendors = vendors; _warehouses = warehouses; _logger = logger; }
 
-    public async Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct)
+    public async Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct)
     {
         // Business rule: GR لا يُنشأ إلا لـ PO في حالة Approved أو Sent
         var po = await _pos.GetByIdAsync(req.PurchaseOrderId, ct);
-        if (po == null || po.TenantId != tenantId)
+        if (po == null)
             return ProcurementResult<GoodsReceiptResponse>.Fail("PO غير موجود.", ProcurementErrorCode.NotFound);
         if (po.Status != PurchaseOrderStatus.Approved && po.Status != PurchaseOrderStatus.Sent)
             return ProcurementResult<GoodsReceiptResponse>.Fail(
@@ -57,7 +57,7 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
                     $"الكمية المُستلمة للصنف {kv.Key} ({kv.Value}) تتجاوز الكمية في PO ({poQty}).", ProcurementErrorCode.BusinessRuleViolation);
         }
 
-        var grNumber = await _seq.GetNextNumberAsync(tenantId, "GR", ct);
+        var grNumber = await _seq.GetNextNumberAsync("GR", ct);
 
         var lineEntities = new List<GoodsReceiptLine>();
         for (int i = 0; i < req.Lines.Count; i++)
@@ -65,7 +65,7 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
             var l = req.Lines[i];
             lineEntities.Add(new GoodsReceiptLine
             {
-                Id = Guid.NewGuid(), TenantId = tenantId,
+                Id = Guid.NewGuid(),
                 ItemId = l.ItemId, Quantity = l.Quantity, UnitCost = l.UnitCost,
                 Notes = l.Notes, LineOrder = i
             });
@@ -74,7 +74,7 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
         var now = DateTime.UtcNow;
         var gr = new GoodsReceipt
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             GrNumber = grNumber, PurchaseOrderId = req.PurchaseOrderId,
             Status = GoodsReceiptStatus.Draft,
             ReceivedDate = req.ReceivedDate, WarehouseId = req.WarehouseId,
@@ -82,23 +82,23 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
             CreatedAt = now, CreatedBy = userId, UpdatedAt = now, UpdatedBy = userId
         };
         await _grs.InsertAsync(gr, ct);
-        await _grs.InsertLinesAsync(tenantId, gr.Id, lineEntities, ct);
+        await _grs.InsertLinesAsync(gr.Id, lineEntities, ct);
         gr.Lines = lineEntities;
         return ProcurementResult<GoodsReceiptResponse>.Ok(MapToResponse(gr));
     }
 
-    public async Task<ProcurementResult<GoodsReceiptResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<GoodsReceiptResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var gr = await _grs.GetByIdAsync(id, ct);
-        if (gr == null || gr.TenantId != tenantId)
+        if (gr == null)
             return ProcurementResult<GoodsReceiptResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         return ProcurementResult<GoodsReceiptResponse>.Ok(await EnrichAsync(gr, ct));
     }
 
-    public async Task<ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>> ListAsync(Guid tenantId, Guid? poId, GoodsReceiptStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>> ListAsync(Guid? poId, GoodsReceiptStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _grs.ListAsync(tenantId, poId, status, skip, take, ct);
+        var list = await _grs.ListAsync(poId, status, skip, take, ct);
         if (list.Count == 0) return ProcurementResult<IReadOnlyList<GoodsReceiptResponse>>.Ok(new List<GoodsReceiptResponse>());
 
         // DEC-031: Batch fetch related entities (avoid N+1)
@@ -145,21 +145,20 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
     /// (يحدّث stock_levels + moving weighted average + StockReceivedEvent → Finance JournalEntry).
     /// وأخيراً PO → Received.
     /// </summary>
-    public async Task<ProcurementResult<GoodsReceiptResponse>> ReceiveAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<GoodsReceiptResponse>> ReceiveAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var gr = await _grs.GetByIdAsync(id, ct);
-        if (gr == null || gr.TenantId != tenantId)
+        if (gr == null)
             return ProcurementResult<GoodsReceiptResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         if (gr.Status != GoodsReceiptStatus.Draft)
             return ProcurementResult<GoodsReceiptResponse>.Fail(
                 $"لا يمكن تأكيد استلام GR في حالة {gr.Status}.", ProcurementErrorCode.InvalidStatusTransition);
 
-        // لكل بند: أنشئ Receive StockMovement ثم Post
-        // الشركة: جلب holding company للمستأجر (مرّة واحدة لكل بند — stock_movements.company_id NOT NULL FK → companies.id)
-        var holdingCompanyId = await _companies.GetHoldingCompanyIdAsync(tenantId, ct);
+        // الشركة: جلب holding company (مرّة واحدة لكل بند — stock_movements.company_id NOT NULL FK → companies.id)
+        var holdingCompanyId = await _companies.GetHoldingCompanyIdAsync(ct);
         if (holdingCompanyId == null)
             return ProcurementResult<GoodsReceiptResponse>.Fail(
-                "لا توجد شركة قابضة (holding) للمستأجر — لا يمكن استلام GR.", ProcurementErrorCode.BusinessRuleViolation);
+                "لا توجد شركة قابضة (holding) — لا يمكن استلام GR.", ProcurementErrorCode.BusinessRuleViolation);
 
         foreach (var line in gr.Lines)
         {
@@ -176,12 +175,12 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
                 SourceId = gr.Id,
                 Notes = gr.Notes
             };
-            var createRes = await _stockService.CreateReceiveAsync(tenantId, userId, receiveReq, ct);
+            var createRes = await _stockService.CreateReceiveAsync(userId, receiveReq, ct);
             if (!createRes.Succeeded)
                 return ProcurementResult<GoodsReceiptResponse>.Fail(
                     $"فشل إنشاء حركة المخزون: {createRes.Error}", ProcurementErrorCode.Internal);
 
-            var postRes = await _stockService.PostAsync(tenantId, userId, createRes.Value!.Id, ct);
+            var postRes = await _stockService.PostAsync(userId, createRes.Value!.Id, ct);
             if (!postRes.Succeeded)
                 return ProcurementResult<GoodsReceiptResponse>.Fail(
                     $"فشل ترحيل حركة المخزون: {postRes.Error}", ProcurementErrorCode.Internal);
@@ -233,7 +232,7 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
 
     private static GoodsReceiptResponse MapToResponse(GoodsReceipt gr) => new()
     {
-        Id = gr.Id, TenantId = gr.TenantId, GrNumber = gr.GrNumber, PurchaseOrderId = gr.PurchaseOrderId,
+        Id = gr.Id, GrNumber = gr.GrNumber, PurchaseOrderId = gr.PurchaseOrderId,
         Status = gr.Status, ReceivedDate = gr.ReceivedDate, WarehouseId = gr.WarehouseId, Notes = gr.Notes,
         CreatedAt = gr.CreatedAt,
         Lines = gr.Lines.Select(l => new GoodsReceiptLineResponse

@@ -13,7 +13,6 @@ namespace ERPSystem.Modules.Inventory.Entities;
 public class StockLevel
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public Guid ItemId { get; set; }
     public Guid WarehouseId { get; set; }

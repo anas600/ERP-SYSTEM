@@ -6,14 +6,13 @@ namespace ERPSystem.Modules.Companies.Infrastructure;
 public interface ICompanyRepository
 {
     Task<Company?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<Company?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<IReadOnlyList<Company>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
+    Task<Company?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<IReadOnlyList<Company>> ListAsync(bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<Company>> ListSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
-    Task<Guid?> GetHoldingCompanyIdAsync(Guid tenantId, CancellationToken ct);
-    // Phase 6.0b (P6-0b): tenant-less overload — the default Holding in the new
-    // Multi-Company schema has no tenant_id. Returns the id of the row where
-    // is_group = true AND parent_company_id IS NULL AND code = '000' (the seed
-    // holding), or null if none exists. Used by DefaultHoldingBootstrapHostedService
+    // Phase 6.0b (P6-0b): scope-less lookup — the default Holding in the new
+    // Multi-Company schema is global (no per-user isolation). Returns the id
+    // of the row where is_group = true AND parent_company_id IS NULL AND code = '000'
+    // (the seed holding), or null if none exists. Used by DefaultHoldingBootstrapHostedService
     // at app startup for the idempotency check.
     Task<Guid?> GetHoldingCompanyIdAsync(CancellationToken ct);
     Task InsertAsync(Company company, CancellationToken ct);
@@ -24,8 +23,8 @@ public interface ICompanyRepository
 public interface ICostCenterRepository
 {
     Task<CostCenter?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<CostCenter?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<IReadOnlyList<CostCenter>> ListAsync(Guid tenantId, Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct);
+    Task<CostCenter?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<IReadOnlyList<CostCenter>> ListAsync(Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<CostCenter>> ListChildrenAsync(Guid parentId, CancellationToken ct);
     Task InsertAsync(CostCenter cc, CancellationToken ct);
     Task UpdateAsync(CostCenter cc, CancellationToken ct);

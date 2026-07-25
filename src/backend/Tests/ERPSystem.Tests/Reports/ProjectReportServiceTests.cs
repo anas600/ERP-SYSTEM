@@ -20,10 +20,10 @@ public class ProjectReportServiceTests
         public Dictionary<Guid, Project> Items { get; } = new();
         public Task<Project?> GetByIdAsync(Guid id, CancellationToken ct) =>
             Task.FromResult(Items.TryGetValue(id, out var p) ? p : null);
-        public Task<Project?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct) =>
-            Task.FromResult(Items.Values.FirstOrDefault(p => p.TenantId == tenantId && p.Code == code));
-        public Task<IReadOnlyList<Project>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct) =>
-            Task.FromResult<IReadOnlyList<Project>>(Items.Values.Where(p => p.TenantId == tenantId).ToList());
+        public Task<Project?> GetByCodeAsync(string code, CancellationToken ct) =>
+            Task.FromResult(Items.Values.FirstOrDefault(p => p.Code == code));
+        public Task<IReadOnlyList<Project>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct) =>
+            Task.FromResult<IReadOnlyList<Project>>(Items.Values.ToList());
         public Task InsertAsync(Project project, CancellationToken ct) { Items[project.Id] = project; return Task.CompletedTask; }
         public Task UpdateAsync(Project project, CancellationToken ct) { Items[project.Id] = project; return Task.CompletedTask; }
     }
@@ -121,11 +121,11 @@ public class ProjectReportServiceTests
         var projectId = Guid.NewGuid();
         projects.Items[projectId] = new Project
         {
-            Id = projectId, TenantId = tenant, CostCenterId = Guid.NewGuid(),
+            Id = projectId, CostCenterId = Guid.NewGuid(),
             Code = "PRJ-001", Name = "مشروع اختبار"
         };
 
-        var pnl = await svc.GetProjectPnLAsync(tenant, projectId,
+        var pnl = await svc.GetProjectPnLAsync(projectId,
             new DateTime(2026, 1, 1), new DateTime(2026, 1, 31), CancellationToken.None);
         pnl.ProjectId.Should().Be(projectId);
     }
@@ -142,16 +142,16 @@ public class ProjectReportServiceTests
         var projectId = Guid.NewGuid();
         projects.Items[projectId] = new Project
         {
-            Id = projectId, TenantId = tenant, CostCenterId = Guid.NewGuid(),
+            Id = projectId, CostCenterId = Guid.NewGuid(),
             Code = "PRJ-A", Name = "مشروع A"
         };
         budgets.Items[Guid.NewGuid()] = new ProjectBudget
         {
-            Id = Guid.NewGuid(), ProjectId = projectId, TenantId = tenant,
+            Id = Guid.NewGuid(), ProjectId = projectId,
             BudgetAmount = 100_000m, SpentAmount = 30_000m, CommittedAmount = 10_000m
         };
 
-        var bva = await svc.GetBudgetVsActualAsync(tenant, projectId, CancellationToken.None);
+        var bva = await svc.GetBudgetVsActualAsync(projectId, CancellationToken.None);
         bva.BudgetAmount.Should().Be(100_000);
     }
 }

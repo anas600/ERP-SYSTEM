@@ -7,7 +7,7 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 
 public interface IBalanceSheetService
 {
-    Task<BalanceSheetResponse> GetAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct);
+    Task<BalanceSheetResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct);
 }
 
 /// <summary>
@@ -25,7 +25,7 @@ public sealed class BalanceSheetService : IBalanceSheetService
     private readonly IDbConnectionFactory _db;
     public BalanceSheetService(IDbConnectionFactory db) => _db = db;
 
-    public async Task<BalanceSheetResponse> GetAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct)
+    public async Task<BalanceSheetResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
@@ -40,8 +40,8 @@ public sealed class BalanceSheetService : IBalanceSheetService
                 ON je.id = jl.journal_entry_id
                 AND je.status = 2
                 AND je.entry_date <= @AsOfDate
-                AND je.tenant_id = @TenantId
-            WHERE a.tenant_id = @TenantId
+                AND je.company_id = @CompanyId
+            WHERE a.company_id = @CompanyId
               AND a.is_postable = true
               AND a.is_active = true
             GROUP BY a.id, a.code, a.name, a.type
@@ -49,7 +49,7 @@ public sealed class BalanceSheetService : IBalanceSheetService
             ORDER BY a.code";
 
         var rows = (await conn.QueryAsync<BsRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, AsOfDate = asOfDate }, cancellationToken: ct))).ToList();
+            new { CompanyId = companyId, AsOfDate = asOfDate }, cancellationToken: ct))).ToList();
 
         var response = new BalanceSheetResponse { AsOfDate = asOfDate };
         var assets = new Dictionary<string, BalanceSheetRow>();

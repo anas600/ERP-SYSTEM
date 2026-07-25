@@ -19,7 +19,7 @@ public sealed class JournalEntryService : IJournalEntryService
         _logger = logger;
     }
 
-    public async Task<FinanceResult<JournalEntryResponse>> CreateDraftAsync(Guid tenantId, Guid userId, PostJournalEntryRequest request, CancellationToken ct)
+    public async Task<FinanceResult<JournalEntryResponse>> CreateDraftAsync(Guid userId, PostJournalEntryRequest request, CancellationToken ct)
     {
         // 1) التحقق من وجود وصحة كل حساب
         var accountIds = request.Lines.Select(l => l.AccountId).Distinct().ToList();
@@ -27,7 +27,7 @@ public sealed class JournalEntryService : IJournalEntryService
         foreach (var aid in accountIds)
         {
             var acc = await _accounts.GetByIdAsync(aid, ct);
-            if (acc == null || acc.TenantId != tenantId)
+            if (acc == null)
             {
                 return FinanceResult<JournalEntryResponse>.Fail($"الحساب {aid} غير موجود.", FinanceErrorCode.NotFound);
             }
@@ -60,7 +60,7 @@ public sealed class JournalEntryService : IJournalEntryService
         }
 
         // 3) توليد رقم القيد
-        var entryNumber = await _entries.GetNextEntryNumberAsync(tenantId, ct);
+        var entryNumber = await _entries.GetNextEntryNumberAsync(ct);
 
         // 4) بناء الـ aggregate
         var now = DateTime.UtcNow;
@@ -68,7 +68,6 @@ public sealed class JournalEntryService : IJournalEntryService
         var entry = new JournalEntry
         {
             Id = entryId,
-            TenantId = tenantId,
             EntryNumber = entryNumber,
             EntryDate = request.EntryDate,
             Description = request.Description.Trim(),
@@ -97,10 +96,10 @@ public sealed class JournalEntryService : IJournalEntryService
         return FinanceResult<JournalEntryResponse>.Ok(await BuildResponseAsync(entry, accounts.Values, ct));
     }
 
-    public async Task<FinanceResult<JournalEntryResponse>> PostAsync(Guid tenantId, Guid userId, Guid entryId, CancellationToken ct)
+    public async Task<FinanceResult<JournalEntryResponse>> PostAsync(Guid userId, Guid entryId, CancellationToken ct)
     {
         var entry = await _entries.GetWithLinesAsync(entryId, ct);
-        if (entry == null || entry.TenantId != tenantId)
+        if (entry == null)
         {
             return FinanceResult<JournalEntryResponse>.Fail("القيد غير موجود.", FinanceErrorCode.NotFound);
         }
@@ -136,10 +135,10 @@ public sealed class JournalEntryService : IJournalEntryService
         return FinanceResult<JournalEntryResponse>.Ok(await BuildResponseAsync(entry, accounts, ct));
     }
 
-    public async Task<FinanceResult<JournalEntryResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<FinanceResult<JournalEntryResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var entry = await _entries.GetWithLinesAsync(id, ct);
-        if (entry == null || entry.TenantId != tenantId)
+        if (entry == null)
         {
             return FinanceResult<JournalEntryResponse>.Fail("القيد غير موجود.", FinanceErrorCode.NotFound);
         }
@@ -152,9 +151,9 @@ public sealed class JournalEntryService : IJournalEntryService
         return FinanceResult<JournalEntryResponse>.Ok(await BuildResponseAsync(entry, accounts, ct));
     }
 
-    public async Task<FinanceResult<IReadOnlyList<JournalEntryResponse>>> ListAsync(Guid tenantId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<FinanceResult<IReadOnlyList<JournalEntryResponse>>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct)
     {
-        var rows = await _entries.ListAsync(tenantId, from, to, status, skip, take, ct);
+        var rows = await _entries.ListAsync(from, to, status, skip, take, ct);
         var result = new List<JournalEntryResponse>();
         foreach (var e in rows)
         {

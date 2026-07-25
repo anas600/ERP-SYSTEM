@@ -22,7 +22,6 @@ public enum PurchaseOrderStatus
 public class PurchaseOrder
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>رقم تسلسلي للـ PO (يُولّد تلقائياً، فريد داخل الـ tenant). مثال: "PO-2026-0001".</summary>
     public string PoNumber { get; set; } = string.Empty;
@@ -57,7 +56,6 @@ public class PurchaseOrder
 public class PurchaseOrderLine
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid PurchaseOrderId { get; set; }
     public Guid ItemId { get; set; }
     public decimal Quantity { get; set; }

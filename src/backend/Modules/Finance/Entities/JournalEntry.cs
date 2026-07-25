@@ -28,7 +28,6 @@ public enum JournalEntryStatus
 public class JournalEntry
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>رقم القيد التسلسلي داخل المستأجر (مثال: "JE-2026-0001")</summary>
     public string EntryNumber { get; set; } = string.Empty;

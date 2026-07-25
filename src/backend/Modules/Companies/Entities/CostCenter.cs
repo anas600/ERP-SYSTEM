@@ -7,7 +7,6 @@ public enum CostCenterType { Project = 1, Department = 2, Branch = 3, ProductLin
 public class CostCenter
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid? CompanyId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

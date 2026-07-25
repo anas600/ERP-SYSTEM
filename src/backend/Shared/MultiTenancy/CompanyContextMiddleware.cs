@@ -8,8 +8,7 @@ namespace ERPSystem.Shared.MultiTenancy;
 ///
 /// لازم يأتي بعد UseAuthentication() و UseAuthorization() في الـ pipeline.
 ///
-/// Phase 6: يحل محل TenantMiddleware. كلا الـ middlewares يتعايشوا في PR-6.1a
-/// ثم TenantMiddleware يُحذف في PR-6.1b.
+/// CompanyContext middleware — extracts active company from X-Company-Id header + JWT user id.
 /// </summary>
 public sealed class CompanyContextMiddleware
 {

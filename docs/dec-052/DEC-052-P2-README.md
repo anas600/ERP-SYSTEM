@@ -4,6 +4,8 @@
 **Status**: P2 complete (5 commits in 1 PR)
 **Defense Layers**: DL-148 to DL-155
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ## What P2 Adds
 
 DEC-052 P2 builds on P1 (which was just cleanup scripts + indexes) with:

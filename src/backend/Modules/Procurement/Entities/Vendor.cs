@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.Procurement.Entities;
 public class Vendor
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
 
     /// <summary>كود فريد داخل الـ tenant — يُستخدم في الـ PO و Bill.</summary>
     public string Code { get; set; } = string.Empty;

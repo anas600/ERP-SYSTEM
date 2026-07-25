@@ -29,7 +29,6 @@ public sealed class UpdateProjectRequest
 public sealed class ProjectResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public Guid CostCenterId { get; set; }
     public string Code { get; set; } = string.Empty;

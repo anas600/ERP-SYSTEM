@@ -4,6 +4,8 @@
 **Status**: P3 complete (4 commits in 1 PR)
 **Defense Layers**: DL-173 to DL-176
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ## What P3 Adds
 
 DEC-052 P3 implements a soft delete pattern for financial tables:

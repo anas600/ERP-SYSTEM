@@ -35,7 +35,6 @@ public sealed class UpdateVendorRequest
 public sealed class VendorResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Email { get; set; }
@@ -82,7 +81,6 @@ public sealed class PurchaseOrderLineResponse
 public sealed class PurchaseOrderResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string PoNumber { get; set; } = string.Empty;
     public Guid VendorId { get; set; }
     public PurchaseOrderStatus Status { get; set; }
@@ -132,7 +130,6 @@ public sealed class GoodsReceiptLineResponse
 public sealed class GoodsReceiptResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string GrNumber { get; set; } = string.Empty;
     public Guid PurchaseOrderId { get; set; }
     public string? PoNumber { get; set; }             // DEC-031: enriched
@@ -184,7 +181,6 @@ public sealed class VendorBillLineResponse
 public sealed class VendorBillResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string BillNumber { get; set; } = string.Empty;
     public Guid GoodsReceiptId { get; set; }
     public Guid VendorId { get; set; }

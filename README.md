@@ -7,12 +7,12 @@ sdk: docker
 app_port: 7860
 pinned: false
 license: mit
-short_description: Multi-tenant ERP (Finance + HR + Payroll)
+short_description: Multi-Company ERP (Finance + HR + Payroll)
 ---
 
 # ERP-SYSTEM
 
-A complete **Multi-Tenant Modular Monolith ERP system** with:
+A complete **Multi-Company Modular Monolith ERP system** with:
 
 - 💰 **Finance**: Chart of Accounts, Journal Entries, General Ledger, Posting Rules
 - 📦 **Inventory**: Items, Warehouses, Stock Movements (CQRS), Low-stock alerts
@@ -22,7 +22,7 @@ A complete **Multi-Tenant Modular Monolith ERP system** with:
 - 🧾 **Accounts Receivable**: Customers, Sales Invoices, Receipts, Aging reports
 - 🛒 **Procurement**: Purchase Orders, Goods Receipts, Vendor Bills
 - 🔄 **Event Sourcing**: Outbox pattern + Postgres LISTEN/NOTIFY (MartenDB event store **planned Sprint-5+**)
-- 🔐 **JWT + Multi-tenancy**: Full isolation per tenant
+- 🔐 **JWT + Multi-Company**: Full isolation per Company (via `company_id`)
 
 ## 🔜 Roadmap: Event Sourcing (Sprint-5+)
 
@@ -101,12 +101,12 @@ When the Space starts, the **MigrationRunnerHostedService** will automatically:
 
 You can then:
 1. Open the Space URL in your browser
-2. Click "Register" to create your first tenant + admin user
+2. Click "Register" to create your first admin user under the default Holding Company
 3. Start using the system!
 
 ## 🔐 Default Test Users
 
-After registering, you can log in with the email/password you created. The first user becomes the **Admin** of a new tenant.
+After registering, you can log in with the email/password you created. The first user becomes the **Admin** of the default Holding Company.
 
 ## 🩺 Health Endpoints (Sprint-4 Day 1)
 
@@ -159,7 +159,7 @@ curl -s https://.../api/admin/seed/status/$JOB \
 
 Every log entry is enriched with:
 - `RequestId` (from `X-Request-ID` header, or auto-generated)
-- `TenantId` (from JWT claim, if authenticated)
+- `CompanyId` (from JWT claim, if authenticated)
 - `UserId` (from JWT claim, if authenticated)
 - `Method`, `Path`, `MachineName`, `ThreadId`, `Application`, `Environment`
 

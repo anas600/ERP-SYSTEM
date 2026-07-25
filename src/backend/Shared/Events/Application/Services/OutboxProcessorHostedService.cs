@@ -105,7 +105,7 @@ public sealed class OutboxProcessorHostedService : BackgroundService
             try
             {
                 await DispatchAsync(evt, scope.ServiceProvider, ct);
-                await processed.MarkProcessedAsync(evt.Id, evt.TenantId, ct);
+                await processed.MarkProcessedAsync(evt.Id, ct);
                 await outbox.MarkProcessedAsync(evt.Id, DateTime.UtcNow, ct);
             }
             catch (Exception ex)
@@ -118,7 +118,7 @@ public sealed class OutboxProcessorHostedService : BackgroundService
                 if (newRetry >= evt.MaxRetries)
                 {
                     _logger.LogError("Outbox event {EventId} hit max retries — marking processed to stop loop", evt.Id);
-                    await processed.MarkProcessedAsync(evt.Id, evt.TenantId, ct);
+                    await processed.MarkProcessedAsync(evt.Id, ct);
                     await outbox.MarkProcessedAsync(evt.Id, DateTime.UtcNow, ct);
                 }
             }

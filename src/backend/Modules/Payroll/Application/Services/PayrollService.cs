@@ -40,26 +40,26 @@ public enum PayrollErrorCode
 /// <summary>عقد خدمة Payroll — إنشاء/معالجة/ترحيل دورة رواتب + استعلام payslips.</summary>
 public interface IPayrollService
 {
-    /// <summary>قائمة دورات الرواتب للـ tenant (مع filter اختياري على الحالة).</summary>
-    Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct);
+    /// <summary>قائمة دورات الرواتب (مع filter اختياري على الحالة).</summary>
+    Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(PayrollRunStatus? status, int skip, int take, CancellationToken ct);
 
     /// <summary>تفاصيل دورة رواتب واحدة (Run header فقط، بدون items).</summary>
-    Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid tenantId, Guid runId, CancellationToken ct);
+    Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid runId, CancellationToken ct);
 
     /// <summary>إنشاء دورة رواتب جديدة في حالة Draft.</summary>
-    Task<PayrollResult<PayrollRunResponse>> CreateRunAsync(Guid tenantId, Guid userId, CreatePayrollRunRequest req, CancellationToken ct);
+    Task<PayrollResult<PayrollRunResponse>> CreateRunAsync(Guid userId, CreatePayrollRunRequest req, CancellationToken ct);
 
     /// <summary>معالجة الدورة: يحسب payslip لكل موظف نشط عبر الـ calculators ويحدّث الحالة إلى Processing.</summary>
-    Task<PayrollResult<PayrollRunResponse>> ProcessRunAsync(Guid tenantId, Guid userId, Guid runId, CancellationToken ct);
+    Task<PayrollResult<PayrollRunResponse>> ProcessRunAsync(Guid userId, Guid runId, CancellationToken ct);
 
     /// <summary>ترحيل الدورة: ينشئ JournalEntry (Dr Salary Expense / Cr Cash) ويحدّث الحالة إلى Posted.</summary>
-    Task<PayrollResult<PayrollRunResponse>> PostRunAsync(Guid tenantId, Guid userId, Guid runId, CancellationToken ct);
+    Task<PayrollResult<PayrollRunResponse>> PostRunAsync(Guid userId, Guid runId, CancellationToken ct);
 
     /// <summary>قائمة payslips الدورة.</summary>
-    Task<PayrollResult<IReadOnlyList<PayslipResponse>>> GetItemsAsync(Guid tenantId, Guid runId, CancellationToken ct);
+    Task<PayrollResult<IReadOnlyList<PayslipResponse>>> GetItemsAsync(Guid runId, CancellationToken ct);
 
     /// <summary>تفاصيل payslip موظف واحد ضمن الدورة.</summary>
-    Task<PayrollResult<PayslipResponse>> GetPayslipAsync(Guid tenantId, Guid runId, Guid employeeId, CancellationToken ct);
+    Task<PayrollResult<PayslipResponse>> GetPayslipAsync(Guid runId, Guid employeeId, CancellationToken ct);
 }
 
 // ============== Service Implementation ==============
@@ -104,9 +104,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- ListRunsAsync ----------
 
-    public async Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<PayrollResult<IReadOnlyList<PayrollRunResponse>>> ListRunsAsync(PayrollRunStatus? status, int skip, int take, CancellationToken ct)
     {
-        var runs = await _runs.ListRunsAsync(tenantId, status, skip, take, ct);
+        var runs = await _runs.ListRunsAsync(status, skip, take, ct);
         var itemsByRun = new Dictionary<Guid, int>();
         foreach (var r in runs)
         {
@@ -119,9 +119,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- GetRunAsync ----------
 
-    public async Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid tenantId, Guid runId, CancellationToken ct)
+    public async Task<PayrollResult<PayrollRunResponse>> GetRunAsync(Guid runId, CancellationToken ct)
     {
-        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        var run = await _runs.GetRunByIdAsync(runId, ct);
         if (run == null)
             return PayrollResult<PayrollRunResponse>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
         var its = await _runs.GetItemsByRunAsync(runId, ct);
@@ -130,14 +130,14 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- CreateRunAsync ----------
 
-    public async Task<PayrollResult<PayrollRunResponse>> CreateRunAsync(Guid tenantId, Guid userId, CreatePayrollRunRequest req, CancellationToken ct)
+    public async Task<PayrollResult<PayrollRunResponse>> CreateRunAsync(Guid userId, CreatePayrollRunRequest req, CancellationToken ct)
     {
         // الـ validator يفحص PeriodEnd >= PeriodStart (لكن defense-in-depth هنا أيضاً).
         if (req.PeriodEnd < req.PeriodStart)
             return PayrollResult<PayrollRunResponse>.Fail("تاريخ النهاية يجب أن يكون >= البداية.", PayrollErrorCode.ValidationError);
 
-        // التحقق من عدم وجود دورة متداخلة (Active) في نفس الفترة لنفس الـ tenant.
-        var existing = await _runs.ListRunsAsync(tenantId, null, 0, 200, ct);
+        // التحقق من عدم وجود دورة متداخلة (Active).
+        var existing = await _runs.ListRunsAsync(null, 0, 200, ct);
         var overlap = existing.FirstOrDefault(r =>
             r.Status != PayrollRunStatus.Cancelled &&
             r.Status != PayrollRunStatus.Posted &&
@@ -150,7 +150,7 @@ public sealed class PayrollService : IPayrollService
         var now = DateTime.UtcNow;
         var run = new PayrollRun
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             PeriodStart = req.PeriodStart.Date,
             PeriodEnd = req.PeriodEnd.Date,
             Status = PayrollRunStatus.Draft,
@@ -166,9 +166,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- ProcessRunAsync ----------
 
-    public async Task<PayrollResult<PayrollRunResponse>> ProcessRunAsync(Guid tenantId, Guid userId, Guid runId, CancellationToken ct)
+    public async Task<PayrollResult<PayrollRunResponse>> ProcessRunAsync(Guid userId, Guid runId, CancellationToken ct)
     {
-        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        var run = await _runs.GetRunByIdAsync(runId, ct);
         if (run == null)
             return PayrollResult<PayrollRunResponse>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
 
@@ -181,8 +181,8 @@ public sealed class PayrollService : IPayrollService
             return PayrollResult<PayrollRunResponse>.Fail(ex.Message, PayrollErrorCode.InvalidStatusTransition);
         }
 
-        // 1) جلب كل الموظفين النشطين للـ tenant (pagination-safe: max 1000 موظف).
-        var employees = await _employees.ListAsync(tenantId, departmentId: null, includeInactive: false, skip: 0, take: 1000, ct);
+        // 1) جلب كل الموظفين النشطين (pagination-safe: max 1000 موظف).
+        var employees = await _employees.ListAsync(departmentId: null, includeInactive: false, skip: 0, take: 1000, ct);
         if (employees.Count == 0)
         {
             // نحدّث الحالة لـ Processing ونرجع — لا items لتوليدها.
@@ -193,7 +193,7 @@ public sealed class PayrollService : IPayrollService
         }
 
         // 2) جلب هيكل الرواتب الافتراضي (إن وُجد) لاستخدام earning/deduction defaults.
-        var defaultStructure = await _runs.GetStructureByCodeAsync(tenantId, "DEFAULT", ct);
+        var defaultStructure = await _runs.GetStructureByCodeAsync("DEFAULT", ct);
         IReadOnlyList<SalaryStructureLine>? structureLines = defaultStructure != null
             ? await _structures.GetLinesAsync(defaultStructure.Id, ct)
             : null;
@@ -222,12 +222,12 @@ public sealed class PayrollService : IPayrollService
             // Payslip components: الأساسي + الضريبة + التأمينات (إن وُجد هيكل، نضيف بقية السطور).
             var components = new List<PayslipComponent>();
             var sort = 0;
-            components.Add(NewComponent(tenantId, SalaryComponentType.Earning, "الراتب الأساسي", baseSalary, sort++));
+            components.Add(NewComponent(SalaryComponentType.Earning, "الراتب الأساسي", baseSalary, sort++));
             if (structureLines != null)
             {
                 foreach (var ln in structureLines.Where(l => l.Type == SalaryComponentType.Earning && !string.Equals(l.Name, "الراتب الأساسي", StringComparison.OrdinalIgnoreCase)))
                 {
-                    components.Add(NewComponent(tenantId, SalaryComponentType.Earning, ln.Name, ln.Amount, sort++));
+                    components.Add(NewComponent(SalaryComponentType.Earning, ln.Name, ln.Amount, sort++));
                     gross += ln.Amount; // البدلات تُضاف للـ Gross
                 }
                 // إعادة احتساب tax/net بعد إضافة البدلات.
@@ -240,18 +240,18 @@ public sealed class PayrollService : IPayrollService
                 // إضافة deductions من الهيكل.
                 foreach (var ln in structureLines.Where(l => l.Type == SalaryComponentType.Deduction))
                 {
-                    components.Add(NewComponent(tenantId, SalaryComponentType.Deduction, ln.Name, ln.Amount, sort++));
+                    components.Add(NewComponent(SalaryComponentType.Deduction, ln.Name, ln.Amount, sort++));
                     net -= ln.Amount;
                 }
             }
-            components.Add(NewComponent(tenantId, SalaryComponentType.Deduction, "ضريبة الدخل (GDT)", tax, sort++));
-            components.Add(NewComponent(tenantId, SalaryComponentType.Deduction, "التأمينات الاجتماعية", siEmp, sort++));
+            components.Add(NewComponent(SalaryComponentType.Deduction, "ضريبة الدخل (GDT)", tax, sort++));
+            components.Add(NewComponent(SalaryComponentType.Deduction, "التأمينات الاجتماعية", siEmp, sort++));
 
             net = Math.Max(0m, net);
 
             var item = new PayrollItem
             {
-                Id = Guid.NewGuid(), TenantId = tenantId, PayrollRunId = run.Id, EmployeeId = emp.Id,
+                Id = Guid.NewGuid(), PayrollRunId = run.Id, EmployeeId = emp.Id,
                 BaseSalary = baseSalary, GrossSalary = gross, TaxAmount = tax,
                 SocialInsuranceEmployee = siEmp, NetSalary = net,
                 Status = PayrollItemStatus.Processed, PaymentDays = 30,
@@ -280,9 +280,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- PostRunAsync ----------
 
-    public async Task<PayrollResult<PayrollRunResponse>> PostRunAsync(Guid tenantId, Guid userId, Guid runId, CancellationToken ct)
+    public async Task<PayrollResult<PayrollRunResponse>> PostRunAsync(Guid userId, Guid runId, CancellationToken ct)
     {
-        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        var run = await _runs.GetRunByIdAsync(runId, ct);
         if (run == null)
             return PayrollResult<PayrollRunResponse>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
 
@@ -307,10 +307,10 @@ public sealed class PayrollService : IPayrollService
         // 2) جلب الحسابات المطلوبة (Salary Expense + Cash) حسب الكود الفعلي في CoA الافتراضي.
         //    CoA الافتراضي (DefaultCoASeed): 4200 G&A Expenses (Salary Expense proxy) + 1210 Cash.
         //    الـ gap-analysis ذكر 5500/1100 لكن الكودين غير postable في الـ CoA الفعلي.
-        var salaryAccount = await _accounts.GetByCodeAsync(tenantId, "4200", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "5500", ct);
-        var cashAccount = await _accounts.GetByCodeAsync(tenantId, "1210", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "1100", ct);
+        var salaryAccount = await _accounts.GetByCodeAsync("4200", ct)
+            ?? await _accounts.GetByCodeAsync("5500", ct);
+        var cashAccount = await _accounts.GetByCodeAsync("1210", ct)
+            ?? await _accounts.GetByCodeAsync("1100", ct);
 
         if (salaryAccount == null || !salaryAccount.IsPostable)
             return PayrollResult<PayrollRunResponse>.Fail("حساب مصروف الرواتب (4200) غير موجود أو غير قابل للترحيل.", PayrollErrorCode.BusinessRuleViolation);
@@ -329,11 +329,11 @@ public sealed class PayrollService : IPayrollService
                 new() { AccountId = cashAccount.Id,   Debit = 0m,     Credit = totalNet, Description = "Cash paid" }
             }
         };
-        var draftRes = await _journalService.CreateDraftAsync(tenantId, userId, jeReq, ct);
+        var draftRes = await _journalService.CreateDraftAsync(userId, jeReq, ct);
         if (!draftRes.Succeeded)
             return PayrollResult<PayrollRunResponse>.Fail($"فشل إنشاء القيد: {draftRes.Error}", PayrollErrorCode.Internal);
 
-        var postRes = await _journalService.PostAsync(tenantId, userId, draftRes.Value!.Id, ct);
+        var postRes = await _journalService.PostAsync(userId, draftRes.Value!.Id, ct);
         if (!postRes.Succeeded)
             return PayrollResult<PayrollRunResponse>.Fail($"فشل ترحيل القيد: {postRes.Error}", PayrollErrorCode.Internal);
 
@@ -350,9 +350,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- GetItemsAsync ----------
 
-    public async Task<PayrollResult<IReadOnlyList<PayslipResponse>>> GetItemsAsync(Guid tenantId, Guid runId, CancellationToken ct)
+    public async Task<PayrollResult<IReadOnlyList<PayslipResponse>>> GetItemsAsync(Guid runId, CancellationToken ct)
     {
-        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        var run = await _runs.GetRunByIdAsync(runId, ct);
         if (run == null)
             return PayrollResult<IReadOnlyList<PayslipResponse>>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
 
@@ -378,9 +378,9 @@ public sealed class PayrollService : IPayrollService
 
     // ---------- GetPayslipAsync ----------
 
-    public async Task<PayrollResult<PayslipResponse>> GetPayslipAsync(Guid tenantId, Guid runId, Guid employeeId, CancellationToken ct)
+    public async Task<PayrollResult<PayslipResponse>> GetPayslipAsync(Guid runId, Guid employeeId, CancellationToken ct)
     {
-        var run = await _runs.GetRunByIdForTenantAsync(tenantId, runId, ct);
+        var run = await _runs.GetRunByIdAsync(runId, ct);
         if (run == null)
             return PayrollResult<PayslipResponse>.Fail("الدورة غير موجودة.", PayrollErrorCode.NotFound);
 
@@ -405,17 +405,17 @@ public sealed class PayrollService : IPayrollService
 
     // ============== Helpers ==============
 
-    private static PayslipComponent NewComponent(Guid tenantId, SalaryComponentType type, string name, decimal amount, int sortOrder)
+    private static PayslipComponent NewComponent(SalaryComponentType type, string name, decimal amount, int sortOrder)
         => new()
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, ComponentType = type,
+            Id = Guid.NewGuid(), ComponentType = type,
             Name = name, Amount = amount, SortOrder = sortOrder
         };
 
     private static PayrollRunResponse MapRunToResponse(PayrollRun r, int itemsCount)
         => new()
         {
-            Id = r.Id, TenantId = r.TenantId,
+            Id = r.Id,
             PeriodStart = r.PeriodStart, PeriodEnd = r.PeriodEnd,
             Status = r.Status, TotalGross = r.TotalGross, TotalNet = r.TotalNet,
             ProcessedAt = r.ProcessedAt, PostedAt = r.PostedAt,
@@ -425,7 +425,7 @@ public sealed class PayrollService : IPayrollService
     private static PayslipResponse MapItemToResponse(PayrollItem i, Employee? emp)
         => new()
         {
-            Id = i.Id, TenantId = i.TenantId, PayrollRunId = i.PayrollRunId, EmployeeId = i.EmployeeId,
+            Id = i.Id, PayrollRunId = i.PayrollRunId, EmployeeId = i.EmployeeId,
             EmployeeNumber = emp?.EmployeeNumber, EmployeeName = emp?.FullName,
             BaseSalary = i.BaseSalary, GrossSalary = i.GrossSalary, TaxAmount = i.TaxAmount,
             SocialInsuranceEmployee = i.SocialInsuranceEmployee, NetSalary = i.NetSalary,

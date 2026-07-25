@@ -48,13 +48,13 @@ Migration: `20260624_100000_CreatePayrollTables.cs`
 
 | Table | الغرض | Indexes |
 |-------|------|---------|
-| `salary_structures` | تكوين الراتب لكل موظف (base + allowances + deductions) | `(tenant_id, employee_id) UNIQUE` |
-| `payroll_runs` | دورة الرواتب الشهرية (period, status, totals) | `(tenant_id, period_start)`, `(status)` |
-| `payroll_items` | حساب كل موظف في run معين | `(tenant_id, run_id)`, `(employee_id)` |
-| `payslip_components` | مكونات الراتب (basic, housing, transport, overtime, tax, social_ins) | `(tenant_id, item_id)` |
-| `employee_eos_balance` | رصيد EOS المتراكم لكل موظف | `(tenant_id, employee_id) UNIQUE` |
+| `salary_structures` | تكوين الراتب لكل موظف (base + allowances + deductions) | `(company_id, employee_id) UNIQUE` |
+| `payroll_runs` | دورة الرواتب الشهرية (period, status, totals) | `(company_id, period_start)`, `(status)` |
+| `payroll_items` | حساب كل موظف في run معين | `(company_id, run_id)`, `(employee_id)` |
+| `payslip_components` | مكونات الراتب (basic, housing, transport, overtime, tax, social_ins) | `(company_id, item_id)` |
+| `employee_eos_balance` | رصيد EOS المتراكم لكل موظف | `(company_id, employee_id) UNIQUE` |
 
-كل الجداول تحتوي `tenant_id` + `created_at` + `updated_at` (multi-tenancy + audit).
+كل الجداول تحتوي `company_id` + `created_at` + `updated_at` (Multi-Company isolation per Constitution Article 3 + audit).
 
 ## 🧮 الـ Calculators (Libya-specific)
 
@@ -105,11 +105,11 @@ Migration: `20260624_100000_CreatePayrollTables.cs`
 
 **Smart fallback pattern:**
 ```csharp
-var expenseAccount = await coaService.GetByCodeAsync(tenantId, "4200", ct)
-    ?? await coaService.GetByCodeAsync(tenantId, "5500", ct);  // fallback
+var expenseAccount = await coaService.GetByCodeAsync(companyId, "4200", ct)
+    ?? await coaService.GetByCodeAsync(companyId, "5500", ct);  // fallback
 ```
 
-هذا يسمح للـ tenants بـ custom CoA (مثل 5500) بدون كسر.
+هذا يسمح للـ Holding Companies بـ custom CoA (مثل 5500) بدون كسر.
 
 ## 📋 الـ DTOs
 
@@ -123,7 +123,7 @@ CreatePayrollRunRequest {
 
 // Output
 PayrollRunDto {
-    id, tenantId, periodStart, periodEnd, status, totalGross,
+    id, companyId, periodStart, periodEnd, status, totalGross,
     totalNet, totalTax, totalSocialIns, itemCount, createdAt, ...
 }
 

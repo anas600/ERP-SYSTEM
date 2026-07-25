@@ -1,6 +1,6 @@
 # DEC-051 P2: Backup Verification Runbook
 
-**Last Updated**: 2026-07-22
+**Last Updated**: 2026-07-25 (Phase 6.1b schema reset — `tenants` table removed; updated to verify `user_companies` join table instead)
 **Status**: P2 complete (DL-170-172)
 
 ## What This Does
@@ -58,9 +58,9 @@ DRY_RUN=1 bash infra/scripts/verify-backup.sh
 | # | Check | Pass Criteria |
 |---|---|---|
 | 1 | Table count | ≥ 30 tables |
-| 2 | Key tables exist | tenants, users, roles, companies, accounts, journal_entries, items |
+| 2 | Key tables exist | users, roles, companies, accounts, journal_entries, items, user_companies (Phase 6.1b) |
 | 3 | Row counts | Sample tables have rows (informational) |
-| 4 | Schema integrity | Key columns exist (users.email, tenants.code, etc.) |
+| 4 | Schema integrity | Key columns exist (users.email, companies.code, items.code, user_companies.user_id, user_companies.company_id) |
 
 ## Output Example
 
@@ -80,24 +80,25 @@ DRY_RUN=1 bash infra/scripts/verify-backup.sh
 [2026-07-22 05:00:00 UTC]   Tables in backup: 35
 [2026-07-22 05:00:00 UTC]   ✅ PASS
 [2026-07-22 05:00:00 UTC] [2/4] Checking key tables exist...
-[2026-07-22 05:00:00 UTC]   ✅ tenants
 [2026-07-22 05:00:00 UTC]   ✅ users
 [2026-07-22 05:00:00 UTC]   ✅ roles
 [2026-07-22 05:00:00 UTC]   ✅ companies
 [2026-07-22 05:00:00 UTC]   ✅ accounts
 [2026-07-22 05:00:00 UTC]   ✅ journal_entries
 [2026-07-22 05:00:00 UTC]   ✅ items
+[2026-07-22 05:00:00 UTC]   ✅ user_companies
 [2026-07-22 05:00:00 UTC] [3/4] Row counts (sanity check)...
-[2026-07-22 05:00:00 UTC]   tenants: 4 rows
 [2026-07-22 05:00:00 UTC]   users: 5 rows
 [2026-07-22 05:00:00 UTC]   companies: 6 rows
 [2026-07-22 05:00:00 UTC]   items: 12 rows
 [2026-07-22 05:00:00 UTC]   roles: 4 rows
+[2026-07-22 05:00:00 UTC]   user_companies: 5 rows
 [2026-07-22 05:00:00 UTC] [4/4] Schema integrity check...
 [2026-07-22 05:00:00 UTC]   ✅ users.email
-[2026-07-22 05:00:00 UTC]   ✅ tenants.code
 [2026-07-22 05:00:00 UTC]   ✅ companies.code
 [2026-07-22 05:00:00 UTC]   ✅ items.code
+[2026-07-22 05:00:00 UTC]   ✅ user_companies.user_id
+[2026-07-22 05:00:00 UTC]   ✅ user_companies.company_id
 [2026-07-22 05:00:00 UTC] Cleaning up: DROP SCHEMA backup_verify_xxx CASCADE
 [2026-07-22 05:00:00 UTC] ============================================
 [2026-07-22 05:00:00 UTC] VERIFICATION SUMMARY

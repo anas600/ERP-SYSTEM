@@ -8,7 +8,7 @@ public sealed class ItemRepository : IItemRepository
 {
     private readonly IDbConnectionFactory _db;
     public ItemRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, company_id AS CompanyId, sku, barcode, name, description,
+    private const string Sel = @"id, company_id AS CompanyId, sku, barcode, name, description,
         category_id AS CategoryId, unit_of_measure_id AS UnitOfMeasureId, item_type AS ItemType,
         costing_method AS CostingMethod, average_cost AS AverageCost, standard_cost AS StandardCost,
         inventory_account_id AS InventoryAccountId, cogs_account_id AS CogsAccountId,
@@ -22,26 +22,25 @@ public sealed class ItemRepository : IItemRepository
         return await conn.QueryFirstOrDefaultAsync<Item>(new CommandDefinition(
             $"SELECT {Sel} FROM items WHERE id = @Id LIMIT 1", new { Id = id }, cancellationToken: ct));
     }
-    public async Task<Item?> GetBySkuAsync(Guid tenantId, string sku, CancellationToken ct)
+    public async Task<Item?> GetBySkuAsync(string sku, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Item>(new CommandDefinition(
-            $"SELECT {Sel} FROM items WHERE tenant_id = @TenantId AND LOWER(sku) = LOWER(@Sku) LIMIT 1",
-            new { TenantId = tenantId, Sku = sku }, cancellationToken: ct));
+            $"SELECT {Sel} FROM items WHERE LOWER(sku) = LOWER(@Sku) LIMIT 1",
+            new { Sku = sku }, cancellationToken: ct));
     }
-    public async Task<Item?> GetByBarcodeAsync(Guid tenantId, string barcode, CancellationToken ct)
+    public async Task<Item?> GetByBarcodeAsync(string barcode, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Item>(new CommandDefinition(
-            $"SELECT {Sel} FROM items WHERE tenant_id = @TenantId AND barcode = @Barcode LIMIT 1",
-            new { TenantId = tenantId, Barcode = barcode }, cancellationToken: ct));
+            $"SELECT {Sel} FROM items WHERE barcode = @Barcode LIMIT 1",
+            new { Barcode = barcode }, cancellationToken: ct));
     }
-    public async Task<IReadOnlyList<Item>> ListAsync(Guid tenantId, Guid? companyId, Guid? categoryId, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<Item>> ListAsync(Guid? companyId, Guid? categoryId, bool includeInactive, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {Sel} FROM items WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {Sel} FROM items WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (companyId.HasValue) { sql += " AND company_id = @CompanyId"; p.Add("CompanyId", companyId.Value); }
         if (categoryId.HasValue) { sql += " AND category_id = @CategoryId"; p.Add("CategoryId", categoryId.Value); }
         if (!includeInactive) sql += " AND is_active = true";
@@ -54,11 +53,11 @@ public sealed class ItemRepository : IItemRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO items (id, tenant_id, company_id, sku, barcode, name, description, category_id, unit_of_measure_id,
+            INSERT INTO items (id, company_id, sku, barcode, name, description, category_id, unit_of_measure_id,
                               item_type, costing_method, average_cost, standard_cost,
                               inventory_account_id, cogs_account_id, sales_account_id,
                               reorder_level, reorder_quantity, is_active, created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @CompanyId, @Sku, @Barcode, @Name, @Description, @CategoryId, @UnitOfMeasureId,
+            VALUES (@Id, @CompanyId, @Sku, @Barcode, @Name, @Description, @CategoryId, @UnitOfMeasureId,
                     @ItemType, @CostingMethod, @AverageCost, @StandardCost,
                     @InventoryAccountId, @CogsAccountId, @SalesAccountId,
                     @ReorderLevel, @ReorderQuantity, @IsActive, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", item, cancellationToken: ct));

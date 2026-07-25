@@ -30,7 +30,7 @@ public class ProjectServiceTests
         var userId = Guid.NewGuid();
         var companyId = Guid.NewGuid();
 
-        var result = await svc.CreateAsync(tenantId, userId, new CreateProjectRequest
+        var result = await svc.CreateAsync(userId, new CreateProjectRequest
         {
             CompanyId = companyId,
             Code = "PRJ-001",
@@ -59,11 +59,11 @@ public class ProjectServiceTests
     {
         var (svc, _, _) = Build();
         var tenantId = Guid.NewGuid();
-        await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PRJ-001", Name = "A", Budget = 100, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
-        var r2 = await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        var r2 = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PRJ-001", Name = "B", Budget = 200, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
@@ -76,11 +76,11 @@ public class ProjectServiceTests
     {
         var (svc, _, _) = Build();
         var tenantId = Guid.NewGuid();
-        var p = await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P1", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
-        var r = await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
+        var r = await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
         r.Succeeded.Should().BeTrue();
         r.Value!.Status.Should().Be(ProjectStatus.Active);
     }
@@ -90,12 +90,12 @@ public class ProjectServiceTests
     {
         var (svc, _, _) = Build();
         var tenantId = Guid.NewGuid();
-        var p = await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
-        await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
-        var r = await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Planning, CancellationToken.None);
+        await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
+        var r = await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Planning, CancellationToken.None);
         r.Succeeded.Should().BeFalse();
         r.ErrorCode.Should().Be(ProjectErrorCode.InvalidStatusTransition);
     }
@@ -105,13 +105,13 @@ public class ProjectServiceTests
     {
         var (svc, _, _) = Build();
         var tenantId = Guid.NewGuid();
-        var p = await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2c", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
-        await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
-        await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Completed, CancellationToken.None);
-        var r = await svc.ChangeStatusAsync(tenantId, Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
+        await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
+        await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Completed, CancellationToken.None);
+        var r = await svc.ChangeStatusAsync(Guid.NewGuid(), p.Value!.Id, ProjectStatus.Active, CancellationToken.None);
         r.Succeeded.Should().BeFalse();
         r.ErrorCode.Should().Be(ProjectErrorCode.InvalidStatusTransition);
     }
@@ -121,25 +121,21 @@ public class ProjectServiceTests
     {
         var (svc, _, _) = Build();
         var tenantId = Guid.NewGuid();
-        var p = await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest
+        var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P3", Name = "X", Budget = 100, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
-        var r = await svc.DeactivateAsync(tenantId, Guid.NewGuid(), p.Value!.Id, CancellationToken.None);
+        var r = await svc.DeactivateAsync(Guid.NewGuid(), p.Value!.Id, CancellationToken.None);
         r.Succeeded.Should().BeTrue();
-        var fetched = await svc.GetByIdAsync(tenantId, p.Value!.Id, CancellationToken.None);
+        var fetched = await svc.GetByIdAsync(p.Value!.Id, CancellationToken.None);
         fetched.Value!.IsActive.Should().BeFalse();
     }
 
     [Fact]
-    public async Task GetById_WrongTenant_Fails()
+    public async Task GetById_NotFound_Fails()
     {
         var (svc, _, _) = Build();
-        var p = await svc.CreateAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateProjectRequest
-        {
-            CompanyId = Guid.NewGuid(), Code = "P4", Name = "X", Budget = 100, StartDate = DateTime.UtcNow
-        }, CancellationToken.None);
-        var r = await svc.GetByIdAsync(Guid.NewGuid(), p.Value!.Id, CancellationToken.None);
+        var r = await svc.GetByIdAsync(Guid.NewGuid(), CancellationToken.None);
         r.Succeeded.Should().BeFalse();
         r.ErrorCode.Should().Be(ProjectErrorCode.NotFound);
     }
@@ -151,10 +147,10 @@ public class ProjectServiceTests
         var tenantId = Guid.NewGuid();
         var comp1 = Guid.NewGuid();
         var comp2 = Guid.NewGuid();
-        await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1A", Name = "A", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1B", Name = "B", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        await svc.CreateAsync(tenantId, Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp2, Code = "C2A", Name = "C", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        var r = await svc.ListAsync(tenantId, comp1, null, true, 0, 50, CancellationToken.None);
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1A", Name = "A", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1B", Name = "B", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp2, Code = "C2A", Name = "C", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+        var r = await svc.ListAsync(comp1, null, true, 0, 50, CancellationToken.None);
         r.Value!.Count.Should().Be(2);
     }
 }
@@ -165,7 +161,7 @@ public class TaskServiceTests
     {
         var ccService = new FakeCostCenterService();
         var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, NullLogger<ProjectService>.Instance);
-        var r = await projectSvc.CreateAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateProjectRequest
+        var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = code, Name = "X", Budget = 100, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
@@ -179,7 +175,7 @@ public class TaskServiceTests
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
         var svc = new TaskService(tasks);
-        var r = await svc.CreateAsync(p.TenantId, new CreateTaskRequest
+        var r = await svc.CreateAsync(new CreateTaskRequest
         {
             ProjectId = p.Id, Name = "مهمة 1", EstimatedHours = 8
         }, CancellationToken.None);
@@ -195,8 +191,8 @@ public class TaskServiceTests
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
         var svc = new TaskService(tasks);
-        var t = await svc.CreateAsync(p.TenantId, new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 4 }, CancellationToken.None);
-        var r = await svc.UpdateAsync(p.TenantId, t.Value!.Id, new UpdateTaskRequest
+        var t = await svc.CreateAsync(new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 4 }, CancellationToken.None);
+        var r = await svc.UpdateAsync(t.Value!.Id, new UpdateTaskRequest
         {
             Name = "T", Status = TaskStatus.InProgress, EstimatedHours = 4, ActualHours = 2, ProgressPercent = 50
         }, CancellationToken.None);
@@ -214,10 +210,10 @@ public class TaskServiceTests
         var p1 = await CreateProjectAsync(projects, "P-A");
         var p2 = await CreateProjectAsync(projects, "P-B");
         var svc = new TaskService(tasks);
-        await svc.CreateAsync(p1.TenantId, new CreateTaskRequest { ProjectId = p1.Id, Name = "T1", EstimatedHours = 1 }, CancellationToken.None);
-        await svc.CreateAsync(p1.TenantId, new CreateTaskRequest { ProjectId = p1.Id, Name = "T2", EstimatedHours = 2 }, CancellationToken.None);
-        await svc.CreateAsync(p2.TenantId, new CreateTaskRequest { ProjectId = p2.Id, Name = "T3", EstimatedHours = 3 }, CancellationToken.None);
-        var r = await svc.ListByProjectAsync(p1.TenantId, p1.Id, CancellationToken.None);
+        await svc.CreateAsync(new CreateTaskRequest { ProjectId = p1.Id, Name = "T1", EstimatedHours = 1 }, CancellationToken.None);
+        await svc.CreateAsync(new CreateTaskRequest { ProjectId = p1.Id, Name = "T2", EstimatedHours = 2 }, CancellationToken.None);
+        await svc.CreateAsync(new CreateTaskRequest { ProjectId = p2.Id, Name = "T3", EstimatedHours = 3 }, CancellationToken.None);
+        var r = await svc.ListByProjectAsync(p1.Id, CancellationToken.None);
         r.Succeeded.Should().BeTrue();
         r.Value!.Count.Should().Be(2);
     }
@@ -229,10 +225,10 @@ public class TaskServiceTests
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
         var svc = new TaskService(tasks);
-        var t = await svc.CreateAsync(p.TenantId, new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 1 }, CancellationToken.None);
-        var r = await svc.DeleteAsync(p.TenantId, t.Value!.Id, CancellationToken.None);
+        var t = await svc.CreateAsync(new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 1 }, CancellationToken.None);
+        var r = await svc.DeleteAsync(t.Value!.Id, CancellationToken.None);
         r.Succeeded.Should().BeTrue();
-        var fetched = await svc.GetByIdAsync(p.TenantId, t.Value!.Id, CancellationToken.None);
+        var fetched = await svc.GetByIdAsync(t.Value!.Id, CancellationToken.None);
         fetched.Succeeded.Should().BeFalse();
     }
 }
@@ -243,7 +239,7 @@ public class ResourceServiceTests
     public async Task Create_DefaultsToActive()
     {
         var svc = new ResourceService(new FakeResourceRepository());
-        var r = await svc.CreateAsync(Guid.NewGuid(), new CreateResourceRequest
+        var r = await svc.CreateAsync(new CreateResourceRequest
         {
             Code = "RES-001", Name = "عامل 1", Type = ResourceType.Labor, HourlyRate = 50
         }, CancellationToken.None);
@@ -257,8 +253,8 @@ public class ResourceServiceTests
         var repo = new FakeResourceRepository();
         var svc = new ResourceService(repo);
         var t = Guid.NewGuid();
-        await svc.CreateAsync(t, new CreateResourceRequest { Code = "R1", Name = "A", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
-        var r = await svc.CreateAsync(t, new CreateResourceRequest { Code = "R1", Name = "B", Type = ResourceType.Labor, HourlyRate = 2 }, CancellationToken.None);
+        await svc.CreateAsync(new CreateResourceRequest { Code = "R1", Name = "A", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
+        var r = await svc.CreateAsync(new CreateResourceRequest { Code = "R1", Name = "B", Type = ResourceType.Labor, HourlyRate = 2 }, CancellationToken.None);
         r.Succeeded.Should().BeFalse();
     }
 
@@ -268,8 +264,8 @@ public class ResourceServiceTests
         var repo = new FakeResourceRepository();
         var svc = new ResourceService(repo);
         var t = Guid.NewGuid();
-        var r = await svc.CreateAsync(t, new CreateResourceRequest { Code = "R-Active", Name = "X", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
-        var u = await svc.UpdateAsync(t, r.Value!.Id, new UpdateResourceRequest
+        var r = await svc.CreateAsync(new CreateResourceRequest { Code = "R-Active", Name = "X", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
+        var u = await svc.UpdateAsync(r.Value!.Id, new UpdateResourceRequest
         {
             Name = "X", Type = ResourceType.Labor, HourlyRate = 1, IsActive = false
         }, CancellationToken.None);
@@ -285,7 +281,7 @@ public class BudgetServiceTests
         var repo = new FakeProjectRepository();
         var ccService = new FakeCostCenterService();
         var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, NullLogger<ProjectService>.Instance);
-        var r = await projectSvc.CreateAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateProjectRequest
+        var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PB", Name = "B", Budget = 1000, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
@@ -300,7 +296,7 @@ public class BudgetServiceTests
         var budgets = new FakeProjectBudgetRepository();
         var ccService = new FakeCostCenterService();
         var projectSvc = new ProjectService(projects, budgets, ccService, NullLogger<ProjectService>.Instance);
-        var r = await projectSvc.CreateAsync(Guid.NewGuid(), Guid.NewGuid(), new CreateProjectRequest
+        var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PB-RC", Name = "B", Budget = 1000, StartDate = DateTime.UtcNow
         }, CancellationToken.None);
@@ -311,7 +307,7 @@ public class BudgetServiceTests
         await budgets.UpdateAsync(budget, CancellationToken.None);
 
         var svc = new BudgetService(budgets);
-        var fetched = await svc.GetByProjectAsync(p.TenantId, p.Id, CancellationToken.None);
+        var fetched = await svc.GetByProjectAsync(p.Id, CancellationToken.None);
         fetched.Succeeded.Should().BeTrue();
         fetched.Value!.SpentAmount.Should().Be(250);
         fetched.Value.UtilizationPercent.Should().Be(25);
@@ -369,12 +365,12 @@ internal class FakeProjectRepository : IProjectRepository
     public Task<Project?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(_items.TryGetValue(id, out var p) ? p : null);
 
-    public Task<Project?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct) =>
-        Task.FromResult(_items.Values.FirstOrDefault(p => p.TenantId == tenantId && p.Code == code));
+    public Task<Project?> GetByCodeAsync(string code, CancellationToken ct) =>
+        Task.FromResult(_items.Values.FirstOrDefault(p => p.Code == code));
 
-    public Task<IReadOnlyList<Project>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct) =>
+    public Task<IReadOnlyList<Project>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Project>>(_items.Values
-            .Where(p => p.TenantId == tenantId && (includeInactive || p.IsActive)
+            .Where(p => (includeInactive || p.IsActive)
                 && (companyId == null || p.CompanyId == companyId)
                 && (status == null || p.Status == status))
             .ToList());
@@ -384,7 +380,7 @@ internal class FakeProjectRepository : IProjectRepository
         _items[project.Id] = project;
         BudgetsByProject[project.Id] = new ProjectBudget
         {
-            Id = Guid.NewGuid(), TenantId = project.TenantId, ProjectId = project.Id,
+            Id = Guid.NewGuid(), ProjectId = project.Id,
             CostCenterId = project.CostCenterId, BudgetAmount = project.Budget,
             SpentAmount = 0, CommittedAmount = 0, LastRecalculatedAt = DateTime.UtcNow
         };
@@ -416,10 +412,10 @@ internal class FakeResourceRepository : IResourceRepository
     private readonly Dictionary<Guid, Resource> _items = new();
     public Task<Resource?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(_items.TryGetValue(id, out var r) ? r : null);
-    public Task<Resource?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct) =>
-        Task.FromResult(_items.Values.FirstOrDefault(r => r.TenantId == tenantId && r.Code == code));
-    public Task<IReadOnlyList<Resource>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Resource>>(_items.Values.Where(r => r.TenantId == tenantId).ToList());
+    public Task<Resource?> GetByCodeAsync(string code, CancellationToken ct) =>
+        Task.FromResult(_items.Values.FirstOrDefault(r => r.Code == code));
+    public Task<IReadOnlyList<Resource>> ListAsync(bool includeInactive, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Resource>>(_items.Values.ToList());
     public Task InsertAsync(Resource r, CancellationToken ct) { _items[r.Id] = r; return Task.CompletedTask; }
     public Task UpdateAsync(Resource r, CancellationToken ct) { _items[r.Id] = r; return Task.CompletedTask; }
 }
@@ -450,11 +446,11 @@ internal class FakeResourceAssignmentRepository : IResourceAssignmentRepository
 internal class FakeCostCenterService : ICostCenterService
 {
     public List<CostCenter> Created { get; } = new();
-    public Task<CostCenterResult<CostCenter>> CreateAsync(Guid tenantId, CreateCostCenterRequest req, CancellationToken ct)
+    public Task<CostCenterResult<CostCenter>> CreateAsync(CreateCostCenterRequest req, CancellationToken ct)
     {
         var cc = new CostCenter
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId, Code = req.Code, Name = req.Name,
+            Id = Guid.NewGuid(), CompanyId = req.CompanyId, Code = req.Code, Name = req.Name,
             Type = req.Type, BudgetAmount = req.BudgetAmount, StartDate = req.StartDate, EndDate = req.EndDate,
             Sku = req.Sku, Location = req.Location, ActivityCategory = req.ActivityCategory,
             IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
@@ -462,14 +458,14 @@ internal class FakeCostCenterService : ICostCenterService
         Created.Add(cc);
         return Task.FromResult(CostCenterResult<CostCenter>.Ok(cc));
     }
-    public Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct) =>
+    public Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(CostCenterResult<CostCenter>.Ok(Created.First(c => c.Id == id)));
-    public Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid tenantId, Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct) =>
+    public Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct) =>
         Task.FromResult(CostCenterResult<IReadOnlyList<CostCenter>>.Ok(Created));
     public Task<CostCenterResult<IReadOnlyList<CostCenter>>> GetChildrenAsync(Guid parentId, CancellationToken ct) =>
         Task.FromResult(CostCenterResult<IReadOnlyList<CostCenter>>.Ok(new List<CostCenter>()));
-    public Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid tenantId, Guid costCenterId, DateTime? asOf, CancellationToken ct) =>
+    public Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid costCenterId, DateTime? asOf, CancellationToken ct) =>
         Task.FromResult(CostCenterResult<CostCenterBudgetStatus>.Ok(new CostCenterBudgetStatus()));
-    public Task<CostCenterResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct) =>
+    public Task<CostCenterResult<bool>> DeactivateAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(CostCenterResult<bool>.Ok(true));
 }

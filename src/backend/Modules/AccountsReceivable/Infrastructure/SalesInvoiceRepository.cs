@@ -10,7 +10,7 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
     private readonly IDbConnectionFactory _db;
     public SalesInvoiceRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelInv = @"id, tenant_id AS TenantId, company_id AS CompanyId, customer_id AS CustomerId,
+    private const string SelInv = @"id, company_id AS CompanyId, customer_id AS CustomerId,
         invoice_number AS InvoiceNumber, invoice_date AS InvoiceDate, due_date AS DueDate,
         currency_code AS CurrencyCode, exchange_rate AS ExchangeRate,
         subtotal, tax_amount AS TaxAmount, total_amount AS TotalAmount, paid_amount AS PaidAmount,
@@ -19,7 +19,7 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
         posted_at AS PostedAt, posted_by AS PostedBy, journal_entry_id AS JournalEntryId,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string SelLine = @"id, tenant_id AS TenantId, sales_invoice_id AS SalesInvoiceId,
+    private const string SelLine = @"id, sales_invoice_id AS SalesInvoiceId,
         item_id AS ItemId, description, line_number AS LineNumber,
         quantity, unit_price AS UnitPrice, tax_rate AS TaxRate, line_total AS LineTotal";
 
@@ -36,20 +36,19 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
         return inv;
     }
 
-    public async Task<SalesInvoice?> GetByInvoiceNumberAsync(Guid tenantId, string invoiceNumber, CancellationToken ct)
+    public async Task<SalesInvoice?> GetByInvoiceNumberAsync(string invoiceNumber, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<SalesInvoice>(new CommandDefinition(
-            $"SELECT {SelInv} FROM sales_invoices WHERE tenant_id = @TenantId AND invoice_number = @InvoiceNumber LIMIT 1",
-            new { TenantId = tenantId, InvoiceNumber = invoiceNumber }, cancellationToken: ct));
+            $"SELECT {SelInv} FROM sales_invoices WHERE invoice_number = @InvoiceNumber LIMIT 1",
+            new { InvoiceNumber = invoiceNumber }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<SalesInvoice>> ListAsync(Guid tenantId, Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<SalesInvoice>> ListAsync(Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelInv} FROM sales_invoices WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {SelInv} FROM sales_invoices WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (customerId.HasValue) { sql += " AND customer_id = @CustomerId"; p.Add("CustomerId", customerId.Value); }
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", status.Value.ToString()); }
         sql += " ORDER BY created_at DESC OFFSET @Skip LIMIT @Take";
@@ -58,29 +57,27 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
         return rows.AsList();
     }
 
-    public async Task<IReadOnlyList<SalesInvoice>> ListOpenByCustomerAsync(Guid tenantId, Guid customerId, CancellationToken ct)
+    public async Task<IReadOnlyList<SalesInvoice>> ListOpenByCustomerAsync(Guid customerId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = $@"SELECT {SelInv} FROM sales_invoices
-                     WHERE tenant_id = @TenantId AND customer_id = @CustomerId
+                     WHERE customer_id = @CustomerId
                        AND status NOT IN ('Cancelled','Paid')
                        AND total_amount > paid_amount
                      ORDER BY invoice_date ASC, invoice_number ASC";
         var rows = await conn.QueryAsync<SalesInvoice>(new CommandDefinition(sql,
-            new { TenantId = tenantId, CustomerId = customerId }, cancellationToken: ct));
+            new { CustomerId = customerId }, cancellationToken: ct));
         return rows.AsList();
     }
 
-    public async Task<IReadOnlyList<SalesInvoice>> ListAllOpenAsync(Guid tenantId, CancellationToken ct)
+    public async Task<IReadOnlyList<SalesInvoice>> ListAllOpenAsync(CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = $@"SELECT {SelInv} FROM sales_invoices
-                     WHERE tenant_id = @TenantId
-                       AND status NOT IN ('Cancelled','Paid')
+                     WHERE status NOT IN ('Cancelled','Paid')
                        AND total_amount > paid_amount
                      ORDER BY customer_id, invoice_date";
-        var rows = await conn.QueryAsync<SalesInvoice>(new CommandDefinition(sql,
-            new { TenantId = tenantId }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<SalesInvoice>(new CommandDefinition(sql, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -88,18 +85,18 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO sales_invoices (id, tenant_id, company_id, customer_id, invoice_number,
+            INSERT INTO sales_invoices (id, company_id, customer_id, invoice_number,
                                         invoice_date, due_date, currency_code, exchange_rate,
                                         subtotal, tax_amount, total_amount, paid_amount, status, notes, project_id,
                                         posted_at, posted_by, journal_entry_id,
                                         created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @CompanyId, @CustomerId, @InvoiceNumber,
+            VALUES (@Id, @CompanyId, @CustomerId, @InvoiceNumber,
                     @InvoiceDate, @DueDate, @CurrencyCode, @ExchangeRate,
                     @Subtotal, @TaxAmount, @TotalAmount, @PaidAmount, @Status, @Notes, @ProjectId,
                     @PostedAt, @PostedBy, @JournalEntryId,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            inv.Id, inv.TenantId, inv.CompanyId, inv.CustomerId, inv.InvoiceNumber,
+            inv.Id, inv.CompanyId, inv.CustomerId, inv.InvoiceNumber,
             inv.InvoiceDate, inv.DueDate, inv.CurrencyCode, inv.ExchangeRate,
             inv.Subtotal, inv.TaxAmount, inv.TotalAmount, inv.PaidAmount,
             Status = inv.Status.ToString(), inv.Notes, inv.ProjectId,
@@ -129,31 +126,31 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
         }, cancellationToken: ct));
     }
 
-    public async Task InsertLinesAsync(Guid tenantId, Guid salesInvoiceId, IEnumerable<SalesInvoiceLine> lines, CancellationToken ct)
+    public async Task InsertLinesAsync(Guid salesInvoiceId, IEnumerable<SalesInvoiceLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         foreach (var l in lines)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO sales_invoice_lines (id, tenant_id, sales_invoice_id, item_id, description, line_number,
+                INSERT INTO sales_invoice_lines (id, sales_invoice_id, item_id, description, line_number,
                                                   quantity, unit_price, tax_rate, line_total)
-                VALUES (@Id, @TenantId, @SalesInvoiceId, @ItemId, @Description, @LineNumber,
+                VALUES (@Id, @SalesInvoiceId, @ItemId, @Description, @LineNumber,
                         @Quantity, @UnitPrice, @TaxRate, @LineTotal)",
                 new
                 {
-                    l.Id, TenantId = tenantId, SalesInvoiceId = salesInvoiceId,
+                    l.Id, SalesInvoiceId = salesInvoiceId,
                     l.ItemId, l.Description, l.LineNumber,
                     l.Quantity, l.UnitPrice, l.TaxRate, l.LineTotal
                 }, cancellationToken: ct));
         }
     }
 
-    public async Task UpdateLinesAsync(Guid tenantId, Guid salesInvoiceId, IEnumerable<SalesInvoiceLine> lines, CancellationToken ct)
+    public async Task UpdateLinesAsync(Guid salesInvoiceId, IEnumerable<SalesInvoiceLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM sales_invoice_lines WHERE sales_invoice_id = @InvId", new { InvId = salesInvoiceId }, cancellationToken: ct));
-        await InsertLinesAsync(tenantId, salesInvoiceId, lines, ct);
+        await InsertLinesAsync(salesInvoiceId, lines, ct);
     }
 
     public async Task<IReadOnlyList<SalesInvoiceLine>> GetLinesAsync(Guid salesInvoiceId, CancellationToken ct)
@@ -165,16 +162,16 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
         return rows.AsList();
     }
 
-    public async Task<decimal> GetTotalAllocatedAsync(Guid tenantId, Guid salesInvoiceId, CancellationToken ct)
+    public async Task<decimal> GetTotalAllocatedAsync(Guid salesInvoiceId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sum = await conn.QueryFirstOrDefaultAsync<decimal?>(new CommandDefinition(@"
             SELECT COALESCE(SUM(ra.amount_applied), 0)
             FROM receipt_allocations ra
             INNER JOIN receipts r ON r.id = ra.receipt_id
-            WHERE ra.tenant_id = @TenantId AND ra.sales_invoice_id = @InvId
+            WHERE ra.sales_invoice_id = @InvId
               AND r.status = 'Posted'",
-            new { TenantId = tenantId, InvId = salesInvoiceId }, cancellationToken: ct));
+            new { InvId = salesInvoiceId }, cancellationToken: ct));
         return sum ?? 0m;
     }
 }

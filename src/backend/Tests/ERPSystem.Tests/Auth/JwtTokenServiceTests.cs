@@ -27,7 +27,7 @@ public class JwtTokenServiceTests
         var user = new User
         {
             Id = Guid.NewGuid(),
-            TenantId = Guid.NewGuid(),
+            
             Email = "user@test.com",
             FullName = "Test User",
         };

@@ -21,7 +21,7 @@
 
 | DEC | Title | Impact |
 |---|---|---|
-| DEC-070 | Safe tenant lookup | Realistic seed uses correct tenant (no more orphans) |
+| DEC-070 | Safe company lookup | Realistic seed uses correct company (no more orphans) |
 | DEC-071 | Per-step error tracking | Visible failures via `/api/debug/seed-status` |
 | DEC-072 v1-v4 | Foundational SQL schema fixes | 5 companies, 15 vendors, 20 customers, 8 projects seeded |
 | DEC-073 | Date distribution | GRs/JEs spread over past 24 months |

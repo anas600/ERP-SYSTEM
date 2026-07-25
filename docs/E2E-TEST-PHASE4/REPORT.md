@@ -7,6 +7,8 @@
 **Frontend:** http://localhost:3000
 **Demo Account:** anas@demo.local / Demo1234 / tenant=democompany
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 🎯 النتيجة الإجمالية: **14/14 PASS** ✅

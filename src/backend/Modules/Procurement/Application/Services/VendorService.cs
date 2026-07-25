@@ -22,11 +22,11 @@ public enum ProcurementErrorCode
 
 public interface IVendorService
 {
-    Task<ProcurementResult<VendorResponse>> CreateAsync(Guid tenantId, Guid userId, CreateVendorRequest req, CancellationToken ct);
-    Task<ProcurementResult<VendorResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateVendorRequest req, CancellationToken ct);
-    Task<ProcurementResult<VendorResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProcurementResult<IReadOnlyList<VendorResponse>>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct);
-    Task<ProcurementResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ProcurementResult<VendorResponse>> CreateAsync(Guid userId, CreateVendorRequest req, CancellationToken ct);
+    Task<ProcurementResult<VendorResponse>> UpdateAsync(Guid userId, Guid id, UpdateVendorRequest req, CancellationToken ct);
+    Task<ProcurementResult<VendorResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProcurementResult<IReadOnlyList<VendorResponse>>> ListAsync(bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<ProcurementResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class VendorService : IVendorService
@@ -34,15 +34,15 @@ public sealed class VendorService : IVendorService
     private readonly IVendorRepository _repo;
     public VendorService(IVendorRepository repo) => _repo = repo;
 
-    public async Task<ProcurementResult<VendorResponse>> CreateAsync(Guid tenantId, Guid userId, CreateVendorRequest req, CancellationToken ct)
+    public async Task<ProcurementResult<VendorResponse>> CreateAsync(Guid userId, CreateVendorRequest req, CancellationToken ct)
     {
-        if (await _repo.GetByCodeAsync(tenantId, req.Code, ct) != null)
+        if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ProcurementResult<VendorResponse>.Fail("كود المورّد مستخدم.", ProcurementErrorCode.AlreadyExists);
 
         var now = DateTime.UtcNow;
         var v = new Vendor
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             Code = req.Code.Trim(), Name = req.Name.Trim(),
             Email = req.Email, Phone = req.Phone, Address = req.Address, TaxNumber = req.TaxNumber,
             Website = req.Website,  // DEC-081c: fix website persistence
@@ -54,10 +54,10 @@ public sealed class VendorService : IVendorService
         return ProcurementResult<VendorResponse>.Ok(MapToResponse(v));
     }
 
-    public async Task<ProcurementResult<VendorResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateVendorRequest req, CancellationToken ct)
+    public async Task<ProcurementResult<VendorResponse>> UpdateAsync(Guid userId, Guid id, UpdateVendorRequest req, CancellationToken ct)
     {
         var v = await _repo.GetByIdAsync(id, ct);
-        if (v == null || v.TenantId != tenantId)
+        if (v == null)
             return ProcurementResult<VendorResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
 
         v.Name = req.Name.Trim();
@@ -72,25 +72,25 @@ public sealed class VendorService : IVendorService
         return ProcurementResult<VendorResponse>.Ok(MapToResponse(v));
     }
 
-    public async Task<ProcurementResult<VendorResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<VendorResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var v = await _repo.GetByIdAsync(id, ct);
-        if (v == null || v.TenantId != tenantId)
+        if (v == null)
             return ProcurementResult<VendorResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         return ProcurementResult<VendorResponse>.Ok(MapToResponse(v));
     }
 
-    public async Task<ProcurementResult<IReadOnlyList<VendorResponse>>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<ProcurementResult<IReadOnlyList<VendorResponse>>> ListAsync(bool includeInactive, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _repo.ListAsync(tenantId, includeInactive, skip, take, ct);
+        var list = await _repo.ListAsync(includeInactive, skip, take, ct);
         return ProcurementResult<IReadOnlyList<VendorResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<ProcurementResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var v = await _repo.GetByIdAsync(id, ct);
-        if (v == null || v.TenantId != tenantId)
+        if (v == null)
             return ProcurementResult<bool>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         v.IsActive = false;
         v.UpdatedAt = DateTime.UtcNow;
@@ -101,7 +101,7 @@ public sealed class VendorService : IVendorService
 
     private static VendorResponse MapToResponse(Vendor v) => new()
     {
-        Id = v.Id, TenantId = v.TenantId, Code = v.Code, Name = v.Name,
+        Id = v.Id, Code = v.Code, Name = v.Name,
         Email = v.Email, Phone = v.Phone, Address = v.Address, TaxNumber = v.TaxNumber,
         Website = v.Website,  // DEC-081c
         Currency = v.Currency, PaymentTerms = v.PaymentTerms, IsActive = v.IsActive

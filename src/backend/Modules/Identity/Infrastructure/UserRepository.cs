@@ -14,7 +14,7 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"SELECT id, tenant_id AS TenantId, email, password_hash AS PasswordHash,
+        const string sql = @"SELECT id, email, password_hash AS PasswordHash,
                                     full_name AS FullName, is_active AS IsActive,
                                     two_factor_enabled AS TwoFactorEnabled,
                                     created_at AS CreatedAt, updated_at AS UpdatedAt, last_login_at AS LastLoginAt
@@ -25,28 +25,12 @@ public sealed class UserRepository : IUserRepository
     public async Task<User?> GetByEmailAsync(string email, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"SELECT id, tenant_id AS TenantId, email, password_hash AS PasswordHash,
+        const string sql = @"SELECT id, email, password_hash AS PasswordHash,
                                     full_name AS FullName, is_active AS IsActive,
                                     two_factor_enabled AS TwoFactorEnabled,
                                     created_at AS CreatedAt, updated_at AS UpdatedAt, last_login_at AS LastLoginAt
                              FROM users WHERE LOWER(email) = LOWER(@Email) LIMIT 1";
         return await conn.QueryFirstOrDefaultAsync<User>(new CommandDefinition(sql, new { Email = email }, cancellationToken: ct));
-    }
-
-    public async Task<User?> GetByEmailAndTenantAsync(string email, Guid tenantId, CancellationToken ct)
-    {
-        using var conn = await _db.CreateOltpConnectionAsync(ct);
-        return await GetByEmailAndTenantAsync(email, tenantId, conn, null, ct);
-    }
-
-    public async Task<User?> GetByEmailAndTenantAsync(string email, Guid tenantId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
-    {
-        const string sql = @"SELECT id, tenant_id AS TenantId, email, password_hash AS PasswordHash,
-                                    full_name AS FullName, is_active AS IsActive,
-                                    two_factor_enabled AS TwoFactorEnabled,
-                                    created_at AS CreatedAt, updated_at AS UpdatedAt, last_login_at AS LastLoginAt
-                             FROM users WHERE LOWER(email) = LOWER(@Email) AND tenant_id = @TenantId LIMIT 1";
-        return await conn.QueryFirstOrDefaultAsync<User>(new CommandDefinition(sql, new { Email = email, TenantId = tenantId }, transaction: tx, cancellationToken: ct));
     }
 
     public async Task<bool> EmailExistsAsync(string email, CancellationToken ct)
@@ -66,8 +50,8 @@ public sealed class UserRepository : IUserRepository
     public async Task InsertAsync(User user, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         const string sql = @"
-            INSERT INTO users (id, tenant_id, email, password_hash, full_name, is_active, two_factor_enabled, created_at, updated_at, last_login_at)
-            VALUES (@Id, @TenantId, @Email, @PasswordHash, @FullName, @IsActive, @TwoFactorEnabled, @CreatedAt, @UpdatedAt, @LastLoginAt)";
+            INSERT INTO users (id, email, password_hash, full_name, is_active, two_factor_enabled, created_at, updated_at, last_login_at)
+            VALUES (@Id, @Email, @PasswordHash, @FullName, @IsActive, @TwoFactorEnabled, @CreatedAt, @UpdatedAt, @LastLoginAt)";
         await conn.ExecuteAsync(new CommandDefinition(sql, user, transaction: tx, cancellationToken: ct));
     }
 
@@ -113,27 +97,26 @@ public sealed class UserRepository : IUserRepository
     }
 
     // DEC-067-C: List users for admin page
-    public async Task<IReadOnlyList<User>> ListAsync(Guid tenantId, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<User>> ListAsync(int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"SELECT id, tenant_id AS TenantId, email, full_name AS FullName,
+        const string sql = @"SELECT id, email, full_name AS FullName,
                              is_active AS IsActive, two_factor_enabled AS TwoFactorEnabled,
                              created_at AS CreatedAt, updated_at AS UpdatedAt, last_login_at AS LastLoginAt
                              FROM users
-                             WHERE tenant_id = @TenantId
                              ORDER BY created_at DESC
                              OFFSET @Skip LIMIT @Take";
         var rows = await conn.QueryAsync<User>(new CommandDefinition(sql,
-            new { TenantId = tenantId, Skip = skip, Take = take }, cancellationToken: ct));
+            new { Skip = skip, Take = take }, cancellationToken: ct));
         return rows.AsList();
     }
 
-    public async Task<int> CountAsync(Guid tenantId, CancellationToken ct)
+    public async Task<int> CountAsync(CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(*)::int FROM users WHERE tenant_id = @TenantId",
-            new { TenantId = tenantId }, cancellationToken: ct));
+            "SELECT COUNT(*)::int FROM users",
+            cancellationToken: ct));
     }
 }

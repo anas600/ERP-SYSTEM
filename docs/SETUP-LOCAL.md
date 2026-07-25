@@ -188,16 +188,15 @@ curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost:3000
    - **الاسم الكامل** (مثلاً: `Admin User`)
    - **البريد الإلكتروني** (مثلاً: `admin@company.com`)
    - **كلمة المرور** (8+ أحرف، يجب أن تحتوي على حرف كبير وصغير ورقم — مثلاً: `Pass1234`)
-   - **اسم الشركة** (مثلاً: `My Company`)
 3. اضغط "تسجيل"
 4. سيتم توجيهك لـ `/dashboard` تلقائياً
 
-**ما يحدث في الخلفية:**
-- الـ backend ينشئ `Tenant` جديد
-- `Subdomain` يُحسب تلقائياً من اسم الشركة عبر `Slugify()` (مثال: `My Company` → `my-company`)
+**ما يحدث في الخلفية (Constitution Article 3.3):**
+- الـ backend يربط الـ first user بالـ default Holding Company (موجودة مسبقاً من `SeedDefaultHoldingAsync`)
 - ينشئ `User` + 4 default roles + يربط `Admin` للمستخدم
-- ينشئ `Holding Company` بنفس العملة الافتراضية `LYD`
-- يخزّن `accessToken` + `refreshToken` + `user` في `localStorage`
+- يضيف user→company في `user_companies` table
+- يخزّن `accessToken` + `refreshToken` + `user` + `defaultCompanyId` في `localStorage`
+- **لا** يُنشئ Tenant جديد، **لا** يُحسب Subdomain — هذه كلها أُزيلت في Phase 6.0/6.1b
 
 **عبر Terminal (للتأكد):**
 
@@ -207,8 +206,7 @@ curl -X POST http://localhost:5000/api/auth/register `
   -d '{
     "email": "admin@company.com",
     "password": "Pass1234",
-    "fullName": "Admin User",
-    "tenantName": "My Company"
+    "fullName": "Admin User"
   }'
 ```
 
@@ -221,12 +219,12 @@ curl -X POST http://localhost:5000/api/auth/register `
   "refreshTokenExpiresAt": "2026-06-30T...",
   "user": {
     "id": "...",
-    "tenantId": "...",
     "email": "admin@company.com",
     "fullName": "Admin User",
     "roles": ["Admin"]
   },
-  "holdingCompanyId": "..."
+  "defaultCompanyId": "...",
+  "companyIds": ["..."]
 }
 ```
 
@@ -427,14 +425,15 @@ Content-Type: application/json
   "email": "user@example.com",      // required, email
   "password": "Pass1234",            // required, ≥8 chars, [A-Z], [a-z], [0-9]
   "fullName": "John Doe",            // required, ≤200 chars
-  "tenantName": "Acme Corp",         // required (لإنشاء tenant جديد)
   "baseCurrency": "LYD"              // optional, default "LYD"
+  // ❌ لا يوجد tenantName / subdomain — Constitution Article 3.3
+  //    Register ينشئ first user تحت الـ default Holding Company فقط.
 }
 ```
 
-**Logic:**
-- إذا `tenantName` موجود → ينشئ `Tenant` جديد + 4 default roles + يربط `Admin` للمستخدم
-- `Subdomain` يُحسب تلقائياً: `Slugify("Acme Corp")` = `"acme-corp"`
+**Logic (Constitution Article 3.3):**
+- الـ user يُربط بالـ default Holding Company (موجودة مسبقاً من `SeedDefaultHoldingAsync`)
+- ينشئ 4 default roles + يربط `Admin` للمستخدم + يضيف user→company في `user_companies`
 
 ### Login
 
@@ -444,8 +443,9 @@ Content-Type: application/json
 
 {
   "email": "user@example.com",
-  "password": "Pass1234",
-  "tenantId": "optional-guid"        // optional، بحث شامل إن لم يُرسل
+  "password": "Pass1234"
+  // ❌ لا يوجد tenantId — Constitution Article 3.
+  //    Login يعتمد على email فقط (الـ user→companies mapping في user_companies).
 }
 ```
 
@@ -459,12 +459,12 @@ Content-Type: application/json
   "refreshTokenExpiresAt": "2026-06-30T...",
   "user": {
     "id": "...",
-    "tenantId": "...",
     "email": "...",
     "fullName": "...",
     "roles": ["Admin"]
   },
-  "holdingCompanyId": "..."
+  "defaultCompanyId": "...",
+  "companyIds": ["..."]
 }
 ```
 

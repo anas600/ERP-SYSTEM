@@ -20,7 +20,7 @@ Notifications/
 - `Title`, `Message`
 - `ReferenceType` + `ReferenceId` (optional): Item, Project, JournalEntry...
 - `IsRead`, `ReadAt`
-- `UserId` (target user — حالياً نستخدم creator، مستقبلياً tenant-wide admin)
+- `UserId` (target user — حالياً نستخدم creator، مستقبلياً Holding-wide admin)
 
 ## Endpoints (3)
 
@@ -34,7 +34,7 @@ Notifications/
 
 - إضافة Type جديد: عدّل `NotificationService.CreateAsync` calls
 - إضافة channel (email, push): أنشئ `IEmailSender` وادعوه من `NotificationService` (PR #8+)
-- تحسين targeting: tenant-wide admin list بدلاً من creator-only
+- تحسين targeting: Holding-wide admin list بدلاً من creator-only
 
 ## مرتبطة بـ
 

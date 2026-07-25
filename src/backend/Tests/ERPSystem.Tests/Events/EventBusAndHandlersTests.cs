@@ -29,7 +29,7 @@ public class EventBusTests
 
         repo.Stored.Count.Should().Be(1);
         var row = repo.Stored[0];
-        row.TenantId.Should().Be(tenantId);
+        row.CompanyId.Should().Be(tenantId);
         row.EventType.Should().Be(nameof(StockReceivedEvent));
         row.AggregateType.Should().Be("StockMovement");
         row.RetryCount.Should().Be(0);
@@ -60,7 +60,7 @@ public class StockReceivedHandlerTests
     {
         var item = new Item
         {
-            Id = Guid.NewGuid(), TenantId = Guid.NewGuid(), Sku = "TEST",
+            Id = Guid.NewGuid(), Sku = "TEST",
             InventoryAccountId = Guid.NewGuid(), IsActive = true,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -69,7 +69,7 @@ public class StockReceivedHandlerTests
         var handler = new StockReceivedEventHandler(rules, itemRepo, NullLogger<StockReceivedEventHandler>.Instance);
 
         var evt = new StockReceivedEvent(
-            EventId: Guid.NewGuid(), TenantId: item.TenantId, StockMovementId: Guid.NewGuid(),
+            EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: Guid.NewGuid(),
             ItemId: item.Id, WarehouseId: Guid.NewGuid(),
             Quantity: 10, UnitCost: 5, PurchaseOrderRef: "PO-1", OccurredAt: DateTime.UtcNow);
         await handler.HandleAsync(evt, CancellationToken.None);
@@ -83,7 +83,7 @@ public class StockReceivedHandlerTests
     {
         var item = new Item
         {
-            Id = Guid.NewGuid(), TenantId = Guid.NewGuid(), Sku = "NOACC",
+            Id = Guid.NewGuid(), Sku = "NOACC",
             InventoryAccountId = null, IsActive = true,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -91,7 +91,7 @@ public class StockReceivedHandlerTests
         var rules = new FakePostingRulesService();
         var handler = new StockReceivedEventHandler(rules, itemRepo, NullLogger<StockReceivedEventHandler>.Instance);
 
-        var evt = new StockReceivedEvent(Guid.NewGuid(), item.TenantId, Guid.NewGuid(), item.Id, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow);
+        var evt = new StockReceivedEvent(Guid.NewGuid(), Guid.Empty, Guid.NewGuid(), item.Id, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow);
         await handler.HandleAsync(evt, CancellationToken.None);
         rules.LastAmount.Should().Be(0, "no InventoryAccountId → skip");
     }
@@ -106,7 +106,7 @@ public class StockIssuedHandlerTests
         var tenantId = Guid.NewGuid();
         var item = new Item
         {
-            Id = itemId, TenantId = tenantId, Sku = "IS",
+            Id = itemId, Sku = "IS",
             CogsAccountId = Guid.NewGuid(), InventoryAccountId = Guid.NewGuid(),
             IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -115,7 +115,7 @@ public class StockIssuedHandlerTests
         var wh = Guid.NewGuid();
         levels.Levels[Guid.NewGuid()] = new StockLevel
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = Guid.NewGuid(),
+            Id = Guid.NewGuid(), CompanyId = Guid.NewGuid(),
             ItemId = itemId, WarehouseId = wh,
             QuantityOnHand = 100, AverageCost = 8, LastMovementAt = DateTime.UtcNow, Version = 1
         };
@@ -140,7 +140,7 @@ public class OutboxProcessorTests
         var tenantId = Guid.NewGuid();
         var item = new Item
         {
-            Id = itemId, TenantId = tenantId, Sku = "P",
+            Id = itemId, Sku = "P",
             InventoryAccountId = Guid.NewGuid(), IsActive = true,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -154,7 +154,7 @@ public class OutboxProcessorTests
             PurchaseOrderRef: null, OccurredAt: DateTime.UtcNow);
         var row = new OutboxEvent
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(), CompanyId = tenantId,
             EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(evt),
@@ -178,7 +178,7 @@ public class OutboxProcessorTests
                 var deserialized = System.Text.Json.JsonSerializer.Deserialize<StockReceivedEvent>(e.Payload,
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 await handler.HandleAsync(deserialized!, CancellationToken.None);
-                await processed.MarkProcessedAsync(e.Id, e.TenantId, CancellationToken.None);
+                await processed.MarkProcessedAsync(e.Id, CancellationToken.None);
                 await outbox.MarkProcessedAsync(e.Id, DateTime.UtcNow, CancellationToken.None);
             }
         }
@@ -197,7 +197,7 @@ public class OutboxProcessorTests
         var tenantId = Guid.NewGuid();
         var item = new Item
         {
-            Id = itemId, TenantId = tenantId, Sku = "IDP",
+            Id = itemId, Sku = "IDP",
             InventoryAccountId = Guid.NewGuid(), IsActive = true,
             CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -208,7 +208,7 @@ public class OutboxProcessorTests
         var evtId = Guid.NewGuid();
         var row = new OutboxEvent
         {
-            Id = evtId, TenantId = tenantId, EventType = nameof(StockReceivedEvent),
+            Id = evtId, EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(new StockReceivedEvent(
                 Guid.NewGuid(), tenantId, Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
@@ -235,7 +235,7 @@ public class OutboxProcessorTests
         var tenantId = Guid.NewGuid();
         var item = new Item
         {
-            Id = itemId, TenantId = tenantId, Sku = "FAIL",
+            Id = itemId, Sku = "FAIL",
             InventoryAccountId = null, // → handler will skip silently (no log)
             IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow, CreatedBy = Guid.NewGuid()
         };
@@ -245,7 +245,7 @@ public class OutboxProcessorTests
 
         var row = new OutboxEvent
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, EventType = nameof(StockReceivedEvent),
+            Id = Guid.NewGuid(), EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(new StockReceivedEvent(
                 Guid.NewGuid(), tenantId, Guid.NewGuid(), itemId, Guid.NewGuid(), 10, 5, null, DateTime.UtcNow)),
@@ -294,11 +294,11 @@ internal class FakeOutboxRepository : IOutboxRepository
         return Task.CompletedTask;
     }
     public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.TenantId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
+        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
     public Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(Stored.FirstOrDefault(e => e.Id == id));
     public Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct) =>
-        Task.FromResult(Stored.Count(e => e.TenantId == tenantId && e.ProcessedAt == null));
+        Task.FromResult(Stored.Count(e => e.CompanyId == tenantId && e.ProcessedAt == null));
     public Task ResetForRetryAsync(Guid id, CancellationToken ct)
     {
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = 0; s.LastError = null; s.ProcessedAt = null; }
@@ -311,7 +311,7 @@ internal class FakeProcessedEventsRepo : IProcessedEventsRepository
     public HashSet<Guid> ProcessedEventIds { get; } = new();
     public Task<bool> IsProcessedAsync(Guid eventId, CancellationToken ct) =>
         Task.FromResult(ProcessedEventIds.Contains(eventId));
-    public Task MarkProcessedAsync(Guid eventId, Guid tenantId, CancellationToken ct)
+    public Task MarkProcessedAsync(Guid eventId, CancellationToken ct)
     {
         ProcessedEventIds.Add(eventId);
         return Task.CompletedTask;
@@ -324,12 +324,12 @@ internal class FakeItemRepo : IItemRepository
     public FakeItemRepo(Dictionary<Guid, Item>? seed = null) => _items = seed ?? new();
     public Task<Item?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(_items.TryGetValue(id, out var i) ? i : null);
-    public Task<Item?> GetBySkuAsync(Guid tenantId, string sku, CancellationToken ct) =>
-        Task.FromResult(_items.Values.FirstOrDefault(i => i.TenantId == tenantId && i.Sku == sku));
-    public Task<Item?> GetByBarcodeAsync(Guid tenantId, string barcode, CancellationToken ct) =>
-        Task.FromResult(barcode == null ? null : _items.Values.FirstOrDefault(i => i.TenantId == tenantId && i.Barcode == barcode));
-    public Task<IReadOnlyList<Item>> ListAsync(Guid tenantId, Guid? companyId, Guid? categoryId, bool includeInactive, int skip, int take, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<Item>>(_items.Values.Where(i => i.TenantId == tenantId).ToList());
+    public Task<Item?> GetBySkuAsync(string sku, CancellationToken ct) =>
+        Task.FromResult(_items.Values.FirstOrDefault(i => i.Sku == sku));
+    public Task<Item?> GetByBarcodeAsync(string barcode, CancellationToken ct) =>
+        Task.FromResult(barcode == null ? null : _items.Values.FirstOrDefault(i => i.Barcode == barcode));
+    public Task<IReadOnlyList<Item>> ListAsync(Guid? companyId, Guid? categoryId, bool includeInactive, int skip, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<Item>>(_items.Values.ToList());
     public Task InsertAsync(Item item, CancellationToken ct) { _items[item.Id] = item; return Task.CompletedTask; }
     public Task UpdateAsync(Item item, CancellationToken ct) { _items[item.Id] = item; return Task.CompletedTask; }
 }
@@ -339,31 +339,31 @@ internal class FakePostingRulesService : IPostingRulesService
     public decimal LastAmount { get; set; }
     public TriggeringEvent LastEventType { get; set; }
     public int ApplyCount { get; set; }
-    public Task<FinanceResult<PostingRule>> CreateAsync(Guid tenantId, CreatePostingRuleRequest request, CancellationToken ct) =>
+    public Task<FinanceResult<PostingRule>> CreateAsync(CreatePostingRuleRequest request, CancellationToken ct) =>
         throw new NotImplementedException();
-    public Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(Guid tenantId, CancellationToken ct) =>
+    public Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(CancellationToken ct) =>
         throw new NotImplementedException();
-    public Task<int> ApplyRulesAsync(Guid tenantId, Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct)
+    public Task<int> ApplyRulesAsync(Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct)
     {
         LastEventType = eventType;
         LastAmount = payload.Amount;
         ApplyCount++;
         return Task.FromResult(1);
     }
-    public Task EnsureDefaultRulesAsync(Guid tenantId, CancellationToken ct) => Task.CompletedTask;
+    public Task EnsureDefaultRulesAsync(CancellationToken ct) => Task.CompletedTask;
 }
 
 internal class FakeStockLevelRepo : IStockLevelRepository
 {
     public Dictionary<Guid, StockLevel> Levels { get; } = new();
-    public Task<StockLevel?> GetAsync(Guid tenantId, Guid itemId, Guid warehouseId, CancellationToken ct) =>
-        Task.FromResult(Levels.Values.FirstOrDefault(l => l.TenantId == tenantId && l.ItemId == itemId && l.WarehouseId == warehouseId));
-    public Task<IReadOnlyList<StockLevel>> GetByItemAsync(Guid tenantId, Guid itemId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.Where(l => l.TenantId == tenantId && l.ItemId == itemId).ToList());
-    public Task<IReadOnlyList<StockLevel>> GetByWarehouseAsync(Guid tenantId, Guid warehouseId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.Where(l => l.TenantId == tenantId && l.WarehouseId == warehouseId).ToList());
-    public Task<IReadOnlyList<StockLevel>> GetLowStockAsync(Guid tenantId, Guid companyId, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.Where(l => l.TenantId == tenantId).ToList());
+    public Task<StockLevel?> GetAsync(Guid itemId, Guid warehouseId, CancellationToken ct) =>
+        Task.FromResult(Levels.Values.FirstOrDefault(l => l.ItemId == itemId && l.WarehouseId == warehouseId));
+    public Task<IReadOnlyList<StockLevel>> GetByItemAsync(Guid itemId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.Where(l => l.ItemId == itemId).ToList());
+    public Task<IReadOnlyList<StockLevel>> GetByWarehouseAsync(Guid warehouseId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.Where(l => l.WarehouseId == warehouseId).ToList());
+    public Task<IReadOnlyList<StockLevel>> GetLowStockAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<StockLevel>>(Levels.Values.ToList());
     public Task UpsertAsync(StockLevel level, int expectedVersion, CancellationToken ct) { Levels[level.Id] = level; return Task.CompletedTask; }
     public Task InsertAsync(StockLevel level, CancellationToken ct) { Levels[level.Id] = level; return Task.CompletedTask; }
 }

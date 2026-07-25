@@ -23,12 +23,12 @@ public enum ProjectErrorCode
 
 public interface IProjectService
 {
-    Task<ProjectResult<ProjectResponse>> CreateAsync(Guid tenantId, Guid userId, CreateProjectRequest req, CancellationToken ct);
-    Task<ProjectResult<ProjectResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateProjectRequest req, CancellationToken ct);
-    Task<ProjectResult<ProjectResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProjectResult<IReadOnlyList<ProjectResponse>>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct);
-    Task<ProjectResult<ProjectResponse>> ChangeStatusAsync(Guid tenantId, Guid userId, Guid id, ProjectStatus newStatus, CancellationToken ct);
-    Task<ProjectResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ProjectResult<ProjectResponse>> CreateAsync(Guid userId, CreateProjectRequest req, CancellationToken ct);
+    Task<ProjectResult<ProjectResponse>> UpdateAsync(Guid userId, Guid id, UpdateProjectRequest req, CancellationToken ct);
+    Task<ProjectResult<ProjectResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProjectResult<IReadOnlyList<ProjectResponse>>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<ProjectResult<ProjectResponse>> ChangeStatusAsync(Guid userId, Guid id, ProjectStatus newStatus, CancellationToken ct);
+    Task<ProjectResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class ProjectService : IProjectService
@@ -43,9 +43,9 @@ public sealed class ProjectService : IProjectService
         _projects = projects; _budgets = budgets; _costCenters = costCenters; _logger = logger;
     }
 
-    public async Task<ProjectResult<ProjectResponse>> CreateAsync(Guid tenantId, Guid userId, CreateProjectRequest req, CancellationToken ct)
+    public async Task<ProjectResult<ProjectResponse>> CreateAsync(Guid userId, CreateProjectRequest req, CancellationToken ct)
     {
-        if (await _projects.GetByCodeAsync(tenantId, req.Code, ct) != null)
+        if (await _projects.GetByCodeAsync(req.Code, ct) != null)
             return ProjectResult<ProjectResponse>.Fail("كود المشروع مستخدم.", ProjectErrorCode.AlreadyExists);
 
         // 1) Auto-create CostCenter (type=Project, code=PRJ code)
@@ -59,7 +59,7 @@ public sealed class ProjectService : IProjectService
             StartDate = req.StartDate,
             EndDate = req.EndDate,
         };
-        var ccResult = await _costCenters.CreateAsync(tenantId, ccReq, ct);
+        var ccResult = await _costCenters.CreateAsync(ccReq, ct);
         if (!ccResult.Succeeded)
             return ProjectResult<ProjectResponse>.Fail($"فشل إنشاء CostCenter: {ccResult.Error}", ProjectErrorCode.Internal);
 
@@ -68,7 +68,6 @@ public sealed class ProjectService : IProjectService
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             CompanyId = req.CompanyId,
             CostCenterId = ccResult.Value!.Id,
             Code = req.Code.Trim(),
@@ -88,7 +87,6 @@ public sealed class ProjectService : IProjectService
         await _budgets.InsertAsync(new ProjectBudget
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             ProjectId = project.Id,
             CostCenterId = project.CostCenterId,
             AccountId = null,   // يمكن ربطه بحساب 4111 لاحقاً
@@ -98,14 +96,14 @@ public sealed class ProjectService : IProjectService
             LastRecalculatedAt = now,
         }, ct);
 
-        _logger.LogInformation("تم إنشاء مشروع {Code} + CostCenter + Budget للمستأجر {TenantId}", req.Code, tenantId);
+        _logger.LogInformation("تم إنشاء مشروع {Code} + CostCenter + Budget", req.Code);
         return ProjectResult<ProjectResponse>.Ok(MapToResponse(project));
     }
 
-    public async Task<ProjectResult<ProjectResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateProjectRequest req, CancellationToken ct)
+    public async Task<ProjectResult<ProjectResponse>> UpdateAsync(Guid userId, Guid id, UpdateProjectRequest req, CancellationToken ct)
     {
         var project = await _projects.GetByIdAsync(id, ct);
-        if (project == null || project.TenantId != tenantId) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (project == null) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
 
         project.Name = req.Name.Trim();
         project.Description = req.Description;
@@ -127,24 +125,24 @@ public sealed class ProjectService : IProjectService
         return ProjectResult<ProjectResponse>.Ok(MapToResponse(project));
     }
 
-    public async Task<ProjectResult<ProjectResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<ProjectResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var p = await _projects.GetByIdAsync(id, ct);
-        if (p == null || p.TenantId != tenantId) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (p == null) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         return ProjectResult<ProjectResponse>.Ok(MapToResponse(p));
     }
 
-    public async Task<ProjectResult<IReadOnlyList<ProjectResponse>>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<ProjectResult<IReadOnlyList<ProjectResponse>>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _projects.ListAsync(tenantId, companyId, status, includeInactive, skip, take, ct);
+        var list = await _projects.ListAsync(companyId, status, includeInactive, skip, take, ct);
         return ProjectResult<IReadOnlyList<ProjectResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<ProjectResult<ProjectResponse>> ChangeStatusAsync(Guid tenantId, Guid userId, Guid id, ProjectStatus newStatus, CancellationToken ct)
+    public async Task<ProjectResult<ProjectResponse>> ChangeStatusAsync(Guid userId, Guid id, ProjectStatus newStatus, CancellationToken ct)
     {
         var p = await _projects.GetByIdAsync(id, ct);
-        if (p == null || p.TenantId != tenantId) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (p == null) return ProjectResult<ProjectResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
 
         // validation: forward-only workflow
         var validTransitions = new Dictionary<ProjectStatus, ProjectStatus[]>
@@ -165,10 +163,10 @@ public sealed class ProjectService : IProjectService
         return ProjectResult<ProjectResponse>.Ok(MapToResponse(p));
     }
 
-    public async Task<ProjectResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var p = await _projects.GetByIdAsync(id, ct);
-        if (p == null || p.TenantId != tenantId) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (p == null) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         p.IsActive = false;
         p.UpdatedAt = DateTime.UtcNow;
         p.UpdatedBy = userId;
@@ -178,7 +176,7 @@ public sealed class ProjectService : IProjectService
 
     private static ProjectResponse MapToResponse(Project p) => new()
     {
-        Id = p.Id, TenantId = p.TenantId, CompanyId = p.CompanyId, CostCenterId = p.CostCenterId,
+        Id = p.Id, CompanyId = p.CompanyId, CostCenterId = p.CostCenterId,
         Code = p.Code, Name = p.Name, Description = p.Description, CustomerId = p.CustomerId,
         Status = p.Status, Budget = p.Budget, StartDate = p.StartDate, EndDate = p.EndDate,
         CreatedAt = p.CreatedAt, UpdatedAt = p.UpdatedAt, IsActive = p.IsActive,

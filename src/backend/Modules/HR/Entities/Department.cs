@@ -9,7 +9,6 @@ namespace ERPSystem.Modules.HR.Entities;
 public class Department
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }

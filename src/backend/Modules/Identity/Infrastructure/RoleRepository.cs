@@ -11,23 +11,23 @@ public sealed class RoleRepository : IRoleRepository
 
     public RoleRepository(IDbConnectionFactory db) => _db = db;
 
-    public async Task<Role?> GetByNameAsync(Guid tenantId, string name, CancellationToken ct)
+    public async Task<Role?> GetByNameAsync(string name, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        return await GetByNameAsync(tenantId, name, conn, null, ct);
+        return await GetByNameAsync(name, conn, null, ct);
     }
 
-    public async Task<Role?> GetByNameAsync(Guid tenantId, string name, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    public async Task<Role?> GetByNameAsync(string name, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
-        const string sql = @"SELECT id, tenant_id AS TenantId, name, description, created_at AS CreatedAt
-                             FROM roles WHERE tenant_id = @TenantId AND LOWER(name) = LOWER(@Name) LIMIT 1";
-        return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { TenantId = tenantId, Name = name }, transaction: tx, cancellationToken: ct));
+        const string sql = @"SELECT id, name, description, created_at AS CreatedAt
+                             FROM roles WHERE LOWER(name) = LOWER(@Name) LIMIT 1";
+        return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { Name = name }, transaction: tx, cancellationToken: ct));
     }
 
     public async Task<Role?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"SELECT id, tenant_id AS TenantId, name, description, created_at AS CreatedAt
+        const string sql = @"SELECT id, name, description, created_at AS CreatedAt
                              FROM roles WHERE id = @Id LIMIT 1";
         return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { Id = id }, cancellationToken: ct));
     }
@@ -40,23 +40,23 @@ public sealed class RoleRepository : IRoleRepository
 
     public async Task InsertAsync(Role role, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
-        const string sql = @"INSERT INTO roles (id, tenant_id, name, description, created_at)
-                             VALUES (@Id, @TenantId, @Name, @Description, @CreatedAt)";
+        const string sql = @"INSERT INTO roles (id, name, description, created_at)
+                             VALUES (@Id, @Name, @Description, @CreatedAt)";
         await conn.ExecuteAsync(new CommandDefinition(sql, role, transaction: tx, cancellationToken: ct));
     }
 
-    public async Task EnsureDefaultRolesAsync(Guid tenantId, CancellationToken ct)
+    public async Task EnsureDefaultRolesAsync(CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        await EnsureDefaultRolesAsync(tenantId, conn, null, ct);
+        await EnsureDefaultRolesAsync(conn, null, ct);
     }
 
-    public async Task EnsureDefaultRolesAsync(Guid tenantId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    public async Task EnsureDefaultRolesAsync(IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
-        // الأدوار الافتراضية لأي مستأجر جديد
+        // الأدوار الافتراضية للنظام (global — لا توجد عزل بين المستأجرين في Phase 6.1b)
         var defaults = new (string Name, string Description)[]
         {
-            ("Admin", "مدير النظام — صلاحيات كاملة داخل المستأجر"),
+            ("Admin", "مدير النظام — صلاحيات كاملة"),
             ("Accountant", "محاسب — يدير القيود والفواتير"),
             ("ProjectManager", "مدير مشاريع"),
             ("Viewer", "صلاحيات قراءة فقط"),
@@ -64,13 +64,12 @@ public sealed class RoleRepository : IRoleRepository
 
         foreach (var (name, desc) in defaults)
         {
-            var existing = await GetByNameAsync(tenantId, name, conn, tx, ct);
+            var existing = await GetByNameAsync(name, conn, tx, ct);
             if (existing == null)
             {
                 await InsertAsync(new Role
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = tenantId,
                     Name = name,
                     Description = desc,
                     CreatedAt = DateTime.UtcNow

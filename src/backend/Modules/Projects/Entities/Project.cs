@@ -17,7 +17,6 @@ public enum ProjectStatus
 public class Project
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public Guid CostCenterId { get; set; }     // يُنشأ تلقائياً عند إنشاء المشروع
 

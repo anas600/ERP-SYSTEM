@@ -7,10 +7,10 @@ namespace ERPSystem.Modules.Reports.Application.Services;
 
 public interface IInventoryReportService
 {
-    Task<List<StockValuation>> GetStockValuationAsync(Guid tenantId, Guid? companyId, Guid? warehouseId, CancellationToken ct);
-    Task<List<StockMovementHistory>> GetMovementHistoryAsync(Guid tenantId, Guid? itemId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct);
-    Task<List<LowStockItem>> GetLowStockAsync(Guid tenantId, Guid? companyId, CancellationToken ct);
-    Task<List<StockAging>> GetStockAgingAsync(Guid tenantId, Guid? companyId, CancellationToken ct);
+    Task<List<StockValuation>> GetStockValuationAsync(Guid companyId, Guid? subCompanyId, Guid? warehouseId, CancellationToken ct);
+    Task<List<StockMovementHistory>> GetMovementHistoryAsync(Guid companyId, Guid? itemId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct);
+    Task<List<LowStockItem>> GetLowStockAsync(Guid companyId, Guid? subCompanyId, CancellationToken ct);
+    Task<List<StockAging>> GetStockAgingAsync(Guid companyId, Guid? subCompanyId, CancellationToken ct);
 }
 
 public sealed class InventoryReportService : IInventoryReportService
@@ -18,7 +18,7 @@ public sealed class InventoryReportService : IInventoryReportService
     private readonly IDbConnectionFactory _db;
     public InventoryReportService(IDbConnectionFactory db) => _db = db;
 
-    public async Task<List<StockValuation>> GetStockValuationAsync(Guid tenantId, Guid? companyId, Guid? warehouseId, CancellationToken ct)
+    public async Task<List<StockValuation>> GetStockValuationAsync(Guid companyId, Guid? subCompanyId, Guid? warehouseId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -28,16 +28,16 @@ public sealed class InventoryReportService : IInventoryReportService
             FROM stock_levels sl
             INNER JOIN items i ON i.id = sl.item_id
             INNER JOIN warehouses w ON w.id = sl.warehouse_id
-            WHERE sl.tenant_id = @TenantId AND sl.quantity_on_hand > 0"
-            + (companyId.HasValue ? " AND sl.company_id = @CompanyId" : "")
+            WHERE sl.company_id = @CompanyId AND sl.quantity_on_hand > 0"
+            + (subCompanyId.HasValue ? " AND sl.company_id = @SubCompanyId" : "")
             + (warehouseId.HasValue ? " AND sl.warehouse_id = @WarehouseId" : "")
             + " ORDER BY i.sku, w.code";
         var rows = await conn.QueryAsync<StockValuation>(new CommandDefinition(sql,
-            new { TenantId = tenantId, CompanyId = companyId, WarehouseId = warehouseId }, cancellationToken: ct));
+            new { CompanyId = companyId, SubCompanyId = subCompanyId, WarehouseId = warehouseId }, cancellationToken: ct));
         return rows.AsList();
     }
 
-    public async Task<List<StockMovementHistory>> GetMovementHistoryAsync(Guid tenantId, Guid? itemId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct)
+    public async Task<List<StockMovementHistory>> GetMovementHistoryAsync(Guid companyId, Guid? itemId, DateTime? from, DateTime? to, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -47,17 +47,17 @@ public sealed class InventoryReportService : IInventoryReportService
                    w.code AS WarehouseCode, sm.notes AS Notes, sm.created_at AS CreatedAt
             FROM stock_movements sm
             INNER JOIN warehouses w ON w.id = sm.warehouse_id
-            WHERE sm.tenant_id = @TenantId"
+            WHERE sm.company_id = @CompanyId"
             + (itemId.HasValue ? " AND sm.item_id = @ItemId" : "")
             + (from.HasValue ? " AND sm.movement_date >= @From" : "")
             + (to.HasValue ? " AND sm.movement_date <= @To" : "")
             + " ORDER BY sm.movement_date DESC, sm.created_at DESC OFFSET @Skip LIMIT @Take";
         var rows = await conn.QueryAsync<StockMovementHistory>(new CommandDefinition(sql,
-            new { TenantId = tenantId, ItemId = itemId, From = from, To = to, Skip = skip, Take = take }, cancellationToken: ct));
+            new { CompanyId = companyId, ItemId = itemId, From = from, To = to, Skip = skip, Take = take }, cancellationToken: ct));
         return rows.AsList();
     }
 
-    public async Task<List<LowStockItem>> GetLowStockAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
+    public async Task<List<LowStockItem>> GetLowStockAsync(Guid companyId, Guid? subCompanyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -68,14 +68,14 @@ public sealed class InventoryReportService : IInventoryReportService
             FROM stock_levels sl
             INNER JOIN items i ON i.id = sl.item_id
             INNER JOIN warehouses w ON w.id = sl.warehouse_id
-            WHERE sl.tenant_id = @TenantId
+            WHERE sl.company_id = @CompanyId
               AND i.is_active = true
               AND i.reorder_level > 0
               AND (sl.quantity_on_hand - sl.quantity_reserved) < i.reorder_level"
-            + (companyId.HasValue ? " AND sl.company_id = @CompanyId" : "")
+            + (subCompanyId.HasValue ? " AND sl.company_id = @SubCompanyId" : "")
             + " ORDER BY (i.reorder_level - (sl.quantity_on_hand - sl.quantity_reserved)) DESC";
         var rows = await conn.QueryAsync<LowStockRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, CompanyId = companyId }, cancellationToken: ct));
+            new { CompanyId = companyId, SubCompanyId = subCompanyId }, cancellationToken: ct));
         return rows.Select(r => new LowStockItem
         {
             ItemId = r.ItemId, ItemSku = r.ItemSku, ItemName = r.ItemName,
@@ -85,7 +85,7 @@ public sealed class InventoryReportService : IInventoryReportService
         }).ToList();
     }
 
-    public async Task<List<StockAging>> GetStockAgingAsync(Guid tenantId, Guid? companyId, CancellationToken ct)
+    public async Task<List<StockAging>> GetStockAgingAsync(Guid companyId, Guid? subCompanyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -95,11 +95,11 @@ public sealed class InventoryReportService : IInventoryReportService
                    EXTRACT(DAY FROM (NOW() - sl.last_movement_at))::int AS DaysInStock
             FROM stock_levels sl
             INNER JOIN items i ON i.id = sl.item_id
-            WHERE sl.tenant_id = @TenantId AND sl.quantity_on_hand > 0"
-            + (companyId.HasValue ? " AND sl.company_id = @CompanyId" : "")
+            WHERE sl.company_id = @CompanyId AND sl.quantity_on_hand > 0"
+            + (subCompanyId.HasValue ? " AND sl.company_id = @SubCompanyId" : "")
             + " ORDER BY DaysInStock DESC";
         var rows = await conn.QueryAsync<StockAgingRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, CompanyId = companyId }, cancellationToken: ct));
+            new { CompanyId = companyId, SubCompanyId = subCompanyId }, cancellationToken: ct));
         return rows.Select(r => new StockAging
         {
             ItemId = r.ItemId, Sku = r.Sku, Name = r.Name, WarehouseId = r.WarehouseId,

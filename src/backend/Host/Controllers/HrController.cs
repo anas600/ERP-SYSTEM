@@ -5,7 +5,6 @@ using ERPSystem.Modules.HR.Entities;
 using ERPSystem.Modules.Payroll.Application;
 using ERPSystem.Modules.Payroll.Application.Services;
 using ERPSystem.Modules.Payroll.Domain.Entities;
-using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -14,7 +13,7 @@ namespace ERPSystem.Host.Controllers;
 
 /// <summary>
 /// HR API — Departments, Employees, Attendance, LeaveRequests.
-/// يتبع نفس النمط الموحّد: TenantId من ITenantContext + Result pattern + FluentValidation.
+/// يتبع نفس النمط الموحّد: Result pattern + FluentValidation.
 /// </summary>
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.HRWrite)]
@@ -24,7 +23,6 @@ public class HrController : ControllerBase
     private readonly IEmployeeService _employees;
     private readonly IAttendanceService _attendance;
     private readonly ILeaveRequestService _leaves;
-    private readonly ITenantContext _tenant;
 
     // ============ Phase 4: Payroll + EOS ============
     private readonly IPayrollService _payroll;
@@ -40,14 +38,13 @@ public class HrController : ControllerBase
 
     public HrController(
         IDepartmentService depts, IEmployeeService employees, IAttendanceService attendance, ILeaveRequestService leaves,
-        ITenantContext tenant,
         IPayrollService payroll, IEosService eos,
         IValidator<CreateDepartmentRequest> createDeptV, IValidator<UpdateDepartmentRequest> updateDeptV,
         IValidator<CreateEmployeeRequest> createEmpV, IValidator<UpdateEmployeeRequest> updateEmpV,
         IValidator<CheckInOutRequest> checkV, IValidator<CreateLeaveRequestDto> createLeaveV,
         IValidator<CreatePayrollRunRequest> createPayrollV)
     {
-        _depts = depts; _employees = employees; _attendance = attendance; _leaves = leaves; _tenant = tenant;
+        _depts = depts; _employees = employees; _attendance = attendance; _leaves = leaves;
         _payroll = payroll; _eos = eos;
         _createDeptV = createDeptV; _updateDeptV = updateDeptV;
         _createEmpV = createEmpV; _updateEmpV = updateEmpV;
@@ -55,7 +52,6 @@ public class HrController : ControllerBase
         _createPayrollV = createPayrollV;
     }
 
-    private Guid TenantId => _tenant.TenantId ?? throw new UnauthorizedAccessException();
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
     private string? ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
 
@@ -64,14 +60,14 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/departments")]
     public async Task<IActionResult> ListDepartments([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
-        var r = await _depts.ListAsync(TenantId, includeInactive, ct);
+        var r = await _depts.ListAsync(includeInactive, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/hr/departments/{id:guid}")]
     public async Task<IActionResult> GetDepartment(Guid id, CancellationToken ct)
     {
-        var r = await _depts.GetByIdAsync(TenantId, id, ct);
+        var r = await _depts.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -80,7 +76,7 @@ public class HrController : ControllerBase
     {
         var v = await _createDeptV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _depts.CreateAsync(TenantId, req, ct);
+        var r = await _depts.CreateAsync(req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetDepartment), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -91,14 +87,14 @@ public class HrController : ControllerBase
     {
         var v = await _updateDeptV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _depts.UpdateAsync(TenantId, id, req, ct);
+        var r = await _depts.UpdateAsync(id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpDelete("api/hr/departments/{id:guid}")]
     public async Task<IActionResult> DeactivateDepartment(Guid id, CancellationToken ct)
     {
-        var r = await _depts.DeactivateAsync(TenantId, id, ct);
+        var r = await _depts.DeactivateAsync(id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 
@@ -110,14 +106,14 @@ public class HrController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _employees.ListAsync(TenantId, departmentId, includeInactive, skip, take, ct);
+        var r = await _employees.ListAsync(departmentId, includeInactive, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/hr/employees/{id:guid}")]
     public async Task<IActionResult> GetEmployee(Guid id, CancellationToken ct)
     {
-        var r = await _employees.GetByIdAsync(TenantId, id, ct);
+        var r = await _employees.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -126,7 +122,7 @@ public class HrController : ControllerBase
     {
         var v = await _createEmpV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _employees.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _employees.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetEmployee), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -137,14 +133,14 @@ public class HrController : ControllerBase
     {
         var v = await _updateEmpV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _employees.UpdateAsync(TenantId, UserId, id, req, ct);
+        var r = await _employees.UpdateAsync(UserId, id, req, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpDelete("api/hr/employees/{id:guid}")]
     public async Task<IActionResult> DeactivateEmployee(Guid id, CancellationToken ct)
     {
-        var r = await _employees.DeactivateAsync(TenantId, UserId, id, ct);
+        var r = await _employees.DeactivateAsync(UserId, id, ct);
         return r.Succeeded ? NoContent() : BadRequest(Problem(r));
     }
 
@@ -157,7 +153,7 @@ public class HrController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _attendance.ListAsync(TenantId, employeeId, from, to, skip, take, ct);
+        var r = await _attendance.ListAsync(employeeId, from, to, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -166,7 +162,7 @@ public class HrController : ControllerBase
     {
         var v = await _checkV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _attendance.RecordAsync(TenantId, req, ClientIp, ct);
+        var r = await _attendance.RecordAsync(req, ClientIp, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetAttendance), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -175,7 +171,7 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/attendance/{id:guid}")]
     public async Task<IActionResult> GetAttendance(Guid id, CancellationToken ct)
     {
-        var r = await _attendance.GetByIdAsync(TenantId, id, ct);
+        var r = await _attendance.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -187,14 +183,14 @@ public class HrController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _leaves.ListAsync(TenantId, employeeId, status, skip, take, ct);
+        var r = await _leaves.ListAsync(employeeId, status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpGet("api/hr/leaves/{id:guid}")]
     public async Task<IActionResult> GetLeave(Guid id, CancellationToken ct)
     {
-        var r = await _leaves.GetByIdAsync(TenantId, id, ct);
+        var r = await _leaves.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
@@ -203,7 +199,7 @@ public class HrController : ControllerBase
     {
         var v = await _createLeaveV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _leaves.CreateAsync(TenantId, UserId, req, ct);
+        var r = await _leaves.CreateAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetLeave), new { id = r.Value!.Id }, r.Value)
             : BadRequest(Problem(r));
@@ -212,14 +208,14 @@ public class HrController : ControllerBase
     [HttpPut("api/hr/leaves/{id:guid}/approve")]
     public async Task<IActionResult> ApproveLeave(Guid id, CancellationToken ct)
     {
-        var r = await _leaves.ApproveAsync(TenantId, UserId, id, ct);
+        var r = await _leaves.ApproveAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
     [HttpPut("api/hr/leaves/{id:guid}/reject")]
     public async Task<IActionResult> RejectLeave(Guid id, CancellationToken ct)
     {
-        var r = await _leaves.RejectAsync(TenantId, UserId, id, ct);
+        var r = await _leaves.RejectAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -232,7 +228,7 @@ public class HrController : ControllerBase
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
         CancellationToken ct = default)
     {
-        var r = await _payroll.ListRunsAsync(TenantId, status, skip, take, ct);
+        var r = await _payroll.ListRunsAsync(status, skip, take, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
     }
 
@@ -240,7 +236,7 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/payroll/runs/{id:guid}")]
     public async Task<IActionResult> GetPayrollRun(Guid id, CancellationToken ct)
     {
-        var r = await _payroll.GetRunAsync(TenantId, id, ct);
+        var r = await _payroll.GetRunAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(PayrollProblem(r));
     }
 
@@ -250,7 +246,7 @@ public class HrController : ControllerBase
     {
         var v = await _createPayrollV.ValidateAsync(req, ct);
         if (!v.IsValid) return BadRequest(ValidationProblem(v));
-        var r = await _payroll.CreateRunAsync(TenantId, UserId, req, ct);
+        var r = await _payroll.CreateRunAsync(UserId, req, ct);
         return r.Succeeded
             ? CreatedAtAction(nameof(GetPayrollRunItems), new { id = r.Value!.Id }, r.Value)
             : BadRequest(PayrollProblem(r));
@@ -260,7 +256,7 @@ public class HrController : ControllerBase
     [HttpPost("api/hr/payroll/runs/{id:guid}/process")]
     public async Task<IActionResult> ProcessPayrollRun(Guid id, CancellationToken ct)
     {
-        var r = await _payroll.ProcessRunAsync(TenantId, UserId, id, ct);
+        var r = await _payroll.ProcessRunAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
     }
 
@@ -268,7 +264,7 @@ public class HrController : ControllerBase
     [HttpPost("api/hr/payroll/runs/{id:guid}/post")]
     public async Task<IActionResult> PostPayrollRun(Guid id, CancellationToken ct)
     {
-        var r = await _payroll.PostRunAsync(TenantId, UserId, id, ct);
+        var r = await _payroll.PostRunAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
     }
 
@@ -276,7 +272,7 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/payroll/runs/{id:guid}/items")]
     public async Task<IActionResult> GetPayrollRunItems(Guid id, CancellationToken ct)
     {
-        var r = await _payroll.GetItemsAsync(TenantId, id, ct);
+        var r = await _payroll.GetItemsAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
     }
 
@@ -284,7 +280,7 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/payroll/runs/{id:guid}/items/{empId:guid}/payslip")]
     public async Task<IActionResult> GetPayrollPayslip(Guid id, Guid empId, CancellationToken ct)
     {
-        var r = await _payroll.GetPayslipAsync(TenantId, id, empId, ct);
+        var r = await _payroll.GetPayslipAsync(id, empId, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(PayrollProblem(r));
     }
 
@@ -292,7 +288,7 @@ public class HrController : ControllerBase
     [HttpGet("api/hr/payroll/eos/{empId:guid}")]
     public async Task<IActionResult> CalculateEos(Guid empId, [FromQuery] DateTime? terminationDate, CancellationToken ct)
     {
-        var r = await _eos.CalculateEosAsync(TenantId, empId, terminationDate, ct);
+        var r = await _eos.CalculateEosAsync(empId, terminationDate, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(PayrollProblem(r));
     }
 

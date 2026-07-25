@@ -11,7 +11,6 @@ namespace ERPSystem.Modules.AccountsReceivable.Entities;
 public class Receipt
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public Guid CustomerId { get; set; }
 
@@ -49,7 +48,6 @@ public class Receipt
 public class ReceiptAllocation
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid ReceiptId { get; set; }
     public Guid SalesInvoiceId { get; set; }
     public decimal AmountApplied { get; set; }

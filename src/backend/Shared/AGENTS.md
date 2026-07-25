@@ -12,9 +12,9 @@ Shared/
 │   ├── IDbConnectionFactory.cs        # عقد اتصالات DB
 │   └── NpgsqlConnectionFactory.cs    # تنفيذ Npgsql
 ├── MultiTenancy/
-│   ├── ITenantContext.cs              # عقد السياق
-│   ├── TenantContext.cs               # تنفيذ AsyncLocal
-│   └── TenantMiddleware.cs            # يلتقط tenant_id من JWT
+│   ├── ICompanyContext.cs             # عقد السياق (Phase 6.1b: الـ abstraction الفعّال الوحيد)
+│   ├── CompanyContext.cs              # تنفيذ AsyncLocal
+│   └── CompanyContextMiddleware.cs    # يلتقط company_id من X-Company-Id header + JWT
 ├── Migrations/                        # FluentMigrator (timestamp-based)
 │   ├── 20260614_120000_CreateIdentityTables.cs
 │   ├── 20260614_180000_CreateFinanceTables.cs
@@ -76,13 +76,19 @@ Shared/
 
 **الهدف:** منع hot-loop ضد Supabase وقت الانقطاع المؤقت (مثل pooler 504s).
 
-### MultiTenancy
+### MultiTenancy (Phase 6.1b)
 
-- `ITenantContext` يحوي `TenantId` و `UserId` فقط
-- `TenantMiddleware` يلتقط من claims `tenant_id` و `sub` بعد `UseAuthentication()`
-- **استخدام في Repositories** (المرحلة القادمة): filter بـ `WHERE tenant_id = @TenantId`
-- **ممنوع** استدعاء DB بدون tenant filter (للمرحلة القادمة)
-- **Phase 6.1a (2026-07-25):** `ICompanyContext` + `CompanyContext` + `CompanyContextMiddleware` أُضيفت بجانب الـ Tenant* (back-compat). الـ `ICompanyContext` يحوي `CompanyId`/`UserId`/`CompanyIds[]`. الـ middleware يقرأ `X-Company-Id` header (أولوية) → JWT `default_company_id` claim → أول company في `company_ids[]`. حذف الـ Tenant* في PR-6.1b.
+- **الـ abstraction الفعّال الوحيد:** `ICompanyContext` (يحوي `CompanyId`, `UserId`, `CompanyIds[]`)
+- **الـ middleware:** `CompanyContextMiddleware` يقرأ `X-Company-Id` header (أولوية) → JWT `default_company_id` claim → أول company في `company_ids[]`
+- **تم حذف** `ITenantContext`, `TenantContext`, `TenantMiddleware` و `TenantCache` (Phase 6.1b-4)
+- **MultiTenancy folder** الآن يحتوي فقط على `ICompanyContext`, `CompanyContext`, `CompanyContextMiddleware`
+- **لا يوجد `tenant_id` في الـ schema** بعد الآن (Phase 6.0 schema reset). الـ user→company mapping في `user_companies` table
+- **الـ entities** لم تعد تحمل `TenantId` property (سقطت من 35 entity في 6.1b-1)
+- **Repos/Services/Controllers:** أُزيل منها `Guid tenantId` parameter (6.1b-2/6.1b-3)
+- **Auth flow (AuthService/JwtTokenService):** يحوي back-compat placeholder `Guid.Empty` لـ `tenant_id` JWT claim — full rewrite في 6.1c
+- **Audit:** `audit_log.company_id` column (was `tenant_id`)
+
+Legacy (Phase 5 وما قبل): كان `ITenantContext` يحوي `TenantId` و `UserId` فقط. الـ `TenantMiddleware` كان يلتقط من claims `tenant_id` و `sub` بعد `UseAuthentication()`.
 
 ### Migrations
 
@@ -96,7 +102,7 @@ Shared/
 
 - `Shared/Events/<Name>Events.cs` يحتوي records فقط
 - اسم الحدث: ماضوي — `StockReceived`, `InvoiceCreated`
-- يحمل: `TenantId`, `OccurredAt`, `EventId`, `Data`
+- يحمل: `CompanyId`, `OccurredAt`, `EventId`, `Data` (per Constitution Article 3 — `TenantId` was removed in Phase 6.1b)
 - الموديولات تنشر/تشترك عبر MartenDB (inline في MVP، Kafka/RabbitMQ مستقبلياً)
 
 ## لما تشتغل هنا

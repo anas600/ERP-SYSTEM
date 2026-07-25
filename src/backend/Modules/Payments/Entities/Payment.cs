@@ -68,7 +68,6 @@ public static class PaymentRefTypes
 public class Payment
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid? CompanyId { get; set; }
 
     /// <summary>نوع الطرف: "Customer" أو "Vendor".</summary>
@@ -113,7 +112,6 @@ public class Payment
 public class PaymentAllocation
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid PaymentId { get; set; }
 
     /// <summary>"SalesInvoice" أو "VendorBill".</summary>

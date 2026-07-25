@@ -7,11 +7,11 @@ namespace ERPSystem.Modules.Projects.Application.Services;
 
 public interface ITaskService
 {
-    Task<ProjectResult<TaskResponse>> CreateAsync(Guid tenantId, CreateTaskRequest req, CancellationToken ct);
-    Task<ProjectResult<TaskResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateTaskRequest req, CancellationToken ct);
-    Task<ProjectResult<TaskResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProjectResult<IReadOnlyList<TaskResponse>>> ListByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct);
-    Task<ProjectResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<ProjectResult<TaskResponse>> CreateAsync(CreateTaskRequest req, CancellationToken ct);
+    Task<ProjectResult<TaskResponse>> UpdateAsync(Guid id, UpdateTaskRequest req, CancellationToken ct);
+    Task<ProjectResult<TaskResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProjectResult<IReadOnlyList<TaskResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<ProjectResult<bool>> DeleteAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class TaskService : ITaskService
@@ -19,12 +19,12 @@ public sealed class TaskService : ITaskService
     private readonly ITaskRepository _repo;
     public TaskService(ITaskRepository repo) => _repo = repo;
 
-    public async Task<ProjectResult<TaskResponse>> CreateAsync(Guid tenantId, CreateTaskRequest req, CancellationToken ct)
+    public async Task<ProjectResult<TaskResponse>> CreateAsync(CreateTaskRequest req, CancellationToken ct)
     {
         var now = DateTime.UtcNow;
         var t = new ProjectTask
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = req.ProjectId,
+            Id = Guid.NewGuid(), ProjectId = req.ProjectId,
             Name = req.Name.Trim(), Description = req.Description,
             Status = TaskStatus.NotStarted, EstimatedHours = req.EstimatedHours, ActualHours = 0,
             StartDate = req.StartDate, EndDate = req.EndDate, ProgressPercent = 0,
@@ -34,10 +34,10 @@ public sealed class TaskService : ITaskService
         return ProjectResult<TaskResponse>.Ok(MapToResponse(t));
     }
 
-    public async Task<ProjectResult<TaskResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateTaskRequest req, CancellationToken ct)
+    public async Task<ProjectResult<TaskResponse>> UpdateAsync(Guid id, UpdateTaskRequest req, CancellationToken ct)
     {
         var t = await _repo.GetByIdAsync(id, ct);
-        if (t == null || t.TenantId != tenantId) return ProjectResult<TaskResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (t == null) return ProjectResult<TaskResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         t.Name = req.Name.Trim();
         t.Description = req.Description;
         t.Status = req.Status;
@@ -51,23 +51,23 @@ public sealed class TaskService : ITaskService
         return ProjectResult<TaskResponse>.Ok(MapToResponse(t));
     }
 
-    public async Task<ProjectResult<TaskResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<TaskResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var t = await _repo.GetByIdAsync(id, ct);
-        if (t == null || t.TenantId != tenantId) return ProjectResult<TaskResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (t == null) return ProjectResult<TaskResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         return ProjectResult<TaskResponse>.Ok(MapToResponse(t));
     }
 
-    public async Task<ProjectResult<IReadOnlyList<TaskResponse>>> ListByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct)
+    public async Task<ProjectResult<IReadOnlyList<TaskResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct)
     {
         var list = await _repo.ListByProjectAsync(projectId, ct);
         return ProjectResult<IReadOnlyList<TaskResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<ProjectResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<bool>> DeleteAsync(Guid id, CancellationToken ct)
     {
         var t = await _repo.GetByIdAsync(id, ct);
-        if (t == null || t.TenantId != tenantId) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (t == null) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         await _repo.DeleteAsync(id, ct);
         return ProjectResult<bool>.Ok(true);
     }
@@ -83,10 +83,10 @@ public sealed class TaskService : ITaskService
 
 public interface IResourceService
 {
-    Task<ProjectResult<ResourceResponse>> CreateAsync(Guid tenantId, CreateResourceRequest req, CancellationToken ct);
-    Task<ProjectResult<ResourceResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateResourceRequest req, CancellationToken ct);
-    Task<ProjectResult<ResourceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProjectResult<IReadOnlyList<ResourceResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
+    Task<ProjectResult<ResourceResponse>> CreateAsync(CreateResourceRequest req, CancellationToken ct);
+    Task<ProjectResult<ResourceResponse>> UpdateAsync(Guid id, UpdateResourceRequest req, CancellationToken ct);
+    Task<ProjectResult<ResourceResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProjectResult<IReadOnlyList<ResourceResponse>>> ListAsync(bool includeInactive, CancellationToken ct);
 }
 
 public sealed class ResourceService : IResourceService
@@ -94,23 +94,23 @@ public sealed class ResourceService : IResourceService
     private readonly IResourceRepository _repo;
     public ResourceService(IResourceRepository r) => _repo = r;
 
-    public async Task<ProjectResult<ResourceResponse>> CreateAsync(Guid tenantId, CreateResourceRequest req, CancellationToken ct)
+    public async Task<ProjectResult<ResourceResponse>> CreateAsync(CreateResourceRequest req, CancellationToken ct)
     {
-        if (await _repo.GetByCodeAsync(tenantId, req.Code, ct) != null)
+        if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ProjectResult<ResourceResponse>.Fail("كود المورد مستخدم.", ProjectErrorCode.AlreadyExists);
         var now = DateTime.UtcNow;
         var r = new Resource
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, Code = req.Code.Trim(), Name = req.Name.Trim(),
+            Id = Guid.NewGuid(), Code = req.Code.Trim(), Name = req.Name.Trim(),
             Type = req.Type, HourlyRate = req.HourlyRate, IsActive = true, CreatedAt = now, UpdatedAt = now
         };
         await _repo.InsertAsync(r, ct);
         return ProjectResult<ResourceResponse>.Ok(MapToResponse(r));
     }
-    public async Task<ProjectResult<ResourceResponse>> UpdateAsync(Guid tenantId, Guid id, UpdateResourceRequest req, CancellationToken ct)
+    public async Task<ProjectResult<ResourceResponse>> UpdateAsync(Guid id, UpdateResourceRequest req, CancellationToken ct)
     {
         var r = await _repo.GetByIdAsync(id, ct);
-        if (r == null || r.TenantId != tenantId) return ProjectResult<ResourceResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (r == null) return ProjectResult<ResourceResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         r.Name = req.Name.Trim();
         r.Type = req.Type;
         r.HourlyRate = req.HourlyRate;
@@ -119,15 +119,15 @@ public sealed class ResourceService : IResourceService
         await _repo.UpdateAsync(r, ct);
         return ProjectResult<ResourceResponse>.Ok(MapToResponse(r));
     }
-    public async Task<ProjectResult<ResourceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<ResourceResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var r = await _repo.GetByIdAsync(id, ct);
-        if (r == null || r.TenantId != tenantId) return ProjectResult<ResourceResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (r == null) return ProjectResult<ResourceResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         return ProjectResult<ResourceResponse>.Ok(MapToResponse(r));
     }
-    public async Task<ProjectResult<IReadOnlyList<ResourceResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<ProjectResult<IReadOnlyList<ResourceResponse>>> ListAsync(bool includeInactive, CancellationToken ct)
     {
-        var list = await _repo.ListAsync(tenantId, includeInactive, ct);
+        var list = await _repo.ListAsync(includeInactive, ct);
         return ProjectResult<IReadOnlyList<ResourceResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
     private static ResourceResponse MapToResponse(Resource r) => new()
@@ -138,8 +138,8 @@ public sealed class ResourceService : IResourceService
 
 public interface IBudgetService
 {
-    Task<ProjectResult<ProjectBudgetResponse>> GetByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct);
-    Task<ProjectResult<ProjectBudgetResponse>> RecalculateSpentAsync(Guid tenantId, Guid projectId, CancellationToken ct);
+    Task<ProjectResult<ProjectBudgetResponse>> GetByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<ProjectResult<ProjectBudgetResponse>> RecalculateSpentAsync(Guid projectId, CancellationToken ct);
 }
 
 public sealed class BudgetService : IBudgetService
@@ -147,17 +147,17 @@ public sealed class BudgetService : IBudgetService
     private readonly IProjectBudgetRepository _repo;
     public BudgetService(IProjectBudgetRepository r) => _repo = r;
 
-    public async Task<ProjectResult<ProjectBudgetResponse>> GetByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct)
+    public async Task<ProjectResult<ProjectBudgetResponse>> GetByProjectAsync(Guid projectId, CancellationToken ct)
     {
         var b = await _repo.GetByProjectAsync(projectId, ct);
-        if (b == null || b.TenantId != tenantId) return ProjectResult<ProjectBudgetResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (b == null) return ProjectResult<ProjectBudgetResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         return ProjectResult<ProjectBudgetResponse>.Ok(MapToResponse(b));
     }
 
-    public async Task<ProjectResult<ProjectBudgetResponse>> RecalculateSpentAsync(Guid tenantId, Guid projectId, CancellationToken ct)
+    public async Task<ProjectResult<ProjectBudgetResponse>> RecalculateSpentAsync(Guid projectId, CancellationToken ct)
     {
         var b = await _repo.GetByProjectAsync(projectId, ct);
-        if (b == null || b.TenantId != tenantId) return ProjectResult<ProjectBudgetResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (b == null) return ProjectResult<ProjectBudgetResponse>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         await _repo.RecalculateSpentAsync(projectId, b.CostCenterId, ct);
         var updated = await _repo.GetByProjectAsync(projectId, ct);
         return ProjectResult<ProjectBudgetResponse>.Ok(MapToResponse(updated!));
@@ -174,9 +174,9 @@ public sealed class BudgetService : IBudgetService
 
 public interface IResourceAssignmentService
 {
-    Task<ProjectResult<AssignmentResponse>> CreateAsync(Guid tenantId, CreateAssignmentRequest req, CancellationToken ct);
-    Task<ProjectResult<IReadOnlyList<AssignmentResponse>>> ListByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct);
-    Task<ProjectResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<ProjectResult<AssignmentResponse>> CreateAsync(CreateAssignmentRequest req, CancellationToken ct);
+    Task<ProjectResult<IReadOnlyList<AssignmentResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<ProjectResult<bool>> DeleteAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class ResourceAssignmentService : IResourceAssignmentService
@@ -185,14 +185,14 @@ public sealed class ResourceAssignmentService : IResourceAssignmentService
     private readonly IResourceRepository _resources;
     public ResourceAssignmentService(IResourceAssignmentRepository r, IResourceRepository res) { _repo = r; _resources = res; }
 
-    public async Task<ProjectResult<AssignmentResponse>> CreateAsync(Guid tenantId, CreateAssignmentRequest req, CancellationToken ct)
+    public async Task<ProjectResult<AssignmentResponse>> CreateAsync(CreateAssignmentRequest req, CancellationToken ct)
     {
         var resource = await _resources.GetByIdAsync(req.ResourceId, ct);
-        if (resource == null || resource.TenantId != tenantId)
+        if (resource == null)
             return ProjectResult<AssignmentResponse>.Fail("المورد غير موجود.", ProjectErrorCode.NotFound);
         var a = new ResourceAssignment
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, ProjectId = req.ProjectId, TaskId = req.TaskId,
+            Id = Guid.NewGuid(), ProjectId = req.ProjectId, TaskId = req.TaskId,
             ResourceId = req.ResourceId, UserId = req.UserId, From = req.From, To = req.To,
             HourlyRate = resource.HourlyRate,  // snapshot
             CreatedAt = DateTime.UtcNow
@@ -200,15 +200,15 @@ public sealed class ResourceAssignmentService : IResourceAssignmentService
         await _repo.InsertAsync(a, ct);
         return ProjectResult<AssignmentResponse>.Ok(MapToResponse(a));
     }
-    public async Task<ProjectResult<IReadOnlyList<AssignmentResponse>>> ListByProjectAsync(Guid tenantId, Guid projectId, CancellationToken ct)
+    public async Task<ProjectResult<IReadOnlyList<AssignmentResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct)
     {
         var list = await _repo.ListByProjectAsync(projectId, ct);
         return ProjectResult<IReadOnlyList<AssignmentResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
-    public async Task<ProjectResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProjectResult<bool>> DeleteAsync(Guid id, CancellationToken ct)
     {
         var a = await _repo.GetByIdAsync(id, ct);
-        if (a == null || a.TenantId != tenantId) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
+        if (a == null) return ProjectResult<bool>.Fail("غير موجود.", ProjectErrorCode.NotFound);
         await _repo.DeleteAsync(id, ct);
         return ProjectResult<bool>.Ok(true);
     }

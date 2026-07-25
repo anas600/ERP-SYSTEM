@@ -167,7 +167,7 @@ The AlBurj incident is **architecturally impossible** to recur.
 
 - **Structured logs**: Serilog JSON in production (Console + Sentry optional)
 - **X-Request-ID**: Every request gets one (header + log context)
-- **TenantId/UserId enrichers**: Multi-tenant filtering
+- **CompanyId/UserId enrichers**: Multi-Company filtering (per `company_id`)
 - **Sentry** (optional): Set `Sentry__Dsn` env var to enable
 
 To check a specific request across logs:

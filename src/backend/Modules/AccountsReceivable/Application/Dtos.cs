@@ -35,7 +35,6 @@ public sealed class UpdateCustomerRequest
 public sealed class CustomerResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
@@ -99,7 +98,6 @@ public sealed class SalesInvoiceLineResponse
 public sealed class SalesInvoiceResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string InvoiceNumber { get; set; } = string.Empty;
@@ -155,7 +153,6 @@ public sealed class ReceiptAllocationResponse
 public sealed class ReceiptResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CustomerId { get; set; }
     public string? CustomerName { get; set; }
     public string ReceiptNumber { get; set; } = string.Empty;

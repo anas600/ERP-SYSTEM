@@ -10,13 +10,13 @@ public sealed class VendorBillRepository : IVendorBillRepository
     private readonly IDbConnectionFactory _db;
     public VendorBillRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelVb = @"id, tenant_id AS TenantId, bill_number AS BillNumber, goods_receipt_id AS GoodsReceiptId,
+    private const string SelVb = @"id, bill_number AS BillNumber, goods_receipt_id AS GoodsReceiptId,
         vendor_id AS VendorId, status, bill_date AS BillDate, due_date AS DueDate, currency,
         sub_total AS SubTotal, tax_amount AS TaxAmount, total_amount AS TotalAmount, notes,
         journal_entry_id AS JournalEntryId, posted_at AS PostedAt,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string SelLine = @"id, tenant_id AS TenantId, vendor_bill_id AS VendorBillId,
+    private const string SelLine = @"id, vendor_bill_id AS VendorBillId,
         item_id AS ItemId, quantity, unit_price AS UnitPrice, tax_rate AS TaxRate, sub_total AS SubTotal, line_order AS LineOrder";
 
     public async Task<VendorBill?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -29,20 +29,19 @@ public sealed class VendorBillRepository : IVendorBillRepository
         return bill;
     }
 
-    public async Task<VendorBill?> GetByBillNumberAsync(Guid tenantId, string billNumber, CancellationToken ct)
+    public async Task<VendorBill?> GetByBillNumberAsync(string billNumber, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<VendorBill>(new CommandDefinition(
-            $"SELECT {SelVb} FROM vendor_bills WHERE tenant_id = @TenantId AND bill_number = @BillNumber LIMIT 1",
-            new { TenantId = tenantId, BillNumber = billNumber }, cancellationToken: ct));
+            $"SELECT {SelVb} FROM vendor_bills WHERE bill_number = @BillNumber LIMIT 1",
+            new { BillNumber = billNumber }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<VendorBill>> ListAsync(Guid tenantId, Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<VendorBill>> ListAsync(Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelVb} FROM vendor_bills WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {SelVb} FROM vendor_bills WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (vendorId.HasValue) { sql += " AND vendor_id = @VendorId"; p.Add("VendorId", vendorId.Value); }
         if (grId.HasValue) { sql += " AND goods_receipt_id = @GrId"; p.Add("GrId", grId.Value); }
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", status.Value.ToString()); }
@@ -72,16 +71,16 @@ public sealed class VendorBillRepository : IVendorBillRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO vendor_bills (id, tenant_id, bill_number, goods_receipt_id, vendor_id, status, bill_date, due_date,
+            INSERT INTO vendor_bills (id, bill_number, goods_receipt_id, vendor_id, status, bill_date, due_date,
                                       currency, sub_total, tax_amount, total_amount, notes,
                                       journal_entry_id, posted_at,
                                       created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @BillNumber, @GoodsReceiptId, @VendorId, @Status, @BillDate, @DueDate,
+            VALUES (@Id, @BillNumber, @GoodsReceiptId, @VendorId, @Status, @BillDate, @DueDate,
                     @Currency, @SubTotal, @TaxAmount, @TotalAmount, @Notes,
                     @JournalEntryId, @PostedAt,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            bill.Id, bill.TenantId, bill.BillNumber, bill.GoodsReceiptId, bill.VendorId,
+            bill.Id, bill.BillNumber, bill.GoodsReceiptId, bill.VendorId,
             Status = bill.Status.ToString(),
             bill.BillDate, bill.DueDate, bill.Currency,
             bill.SubTotal, bill.TaxAmount, bill.TotalAmount, bill.Notes,
@@ -108,17 +107,17 @@ public sealed class VendorBillRepository : IVendorBillRepository
         }, cancellationToken: ct));
     }
 
-    public async Task InsertLinesAsync(Guid tenantId, Guid billId, IEnumerable<VendorBillLine> lines, CancellationToken ct)
+    public async Task InsertLinesAsync(Guid billId, IEnumerable<VendorBillLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         foreach (var l in lines)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO vendor_bill_lines (id, tenant_id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
-                VALUES (@Id, @TenantId, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
+                INSERT INTO vendor_bill_lines (id, vendor_bill_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
+                VALUES (@Id, @VendorBillId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
                 new
                 {
-                    l.Id, TenantId = tenantId, VendorBillId = billId,
+                    l.Id, VendorBillId = billId,
                     l.ItemId, l.Quantity, l.UnitPrice, l.TaxRate, l.SubTotal, l.LineOrder
                 }, cancellationToken: ct));
         }

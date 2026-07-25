@@ -8,7 +8,7 @@ public sealed class TaskRepository : ITaskRepository
 {
     private readonly IDbConnectionFactory _db;
     public TaskRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, project_id AS ProjectId, name, description, status,
+    private const string Sel = @"id, project_id AS ProjectId, name, description, status,
         estimated_hours AS EstimatedHours, actual_hours AS ActualHours,
         start_date AS StartDate, end_date AS EndDate, progress_percent AS ProgressPercent,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
@@ -32,9 +32,9 @@ public sealed class TaskRepository : ITaskRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO project_tasks (id, tenant_id, project_id, name, description, status, estimated_hours, actual_hours,
+            INSERT INTO project_tasks (id, project_id, name, description, status, estimated_hours, actual_hours,
                                         start_date, end_date, progress_percent, created_at, updated_at)
-            VALUES (@Id, @TenantId, @ProjectId, @Name, @Description, @Status, @EstimatedHours, @ActualHours,
+            VALUES (@Id, @ProjectId, @Name, @Description, @Status, @EstimatedHours, @ActualHours,
                     @StartDate, @EndDate, @ProgressPercent, @CreatedAt, @UpdatedAt)", task, cancellationToken: ct));
     }
 
