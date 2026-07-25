@@ -69,18 +69,18 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
 
     private readonly IConfiguration _config;
     private readonly IDbConnectionFactory _db;
-    private readonly ICompanyRepository _companies;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ILogger<DefaultHoldingBootstrapHostedService> _logger;
 
     public DefaultHoldingBootstrapHostedService(
         IConfiguration config,
         IDbConnectionFactory db,
-        ICompanyRepository companies,
+        IServiceScopeFactory scopeFactory,
         ILogger<DefaultHoldingBootstrapHostedService> logger)
     {
         _config = config;
         _db = db;
-        _companies = companies;
+        _scopeFactory = scopeFactory;
         _logger = logger;
     }
 
@@ -98,7 +98,10 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         {
             // 1) Idempotency check — هل الـ Holding موجود فعلاً؟
             //    الشركة القابضة = code='000' AND is_group=true AND parent_company_id IS NULL.
-            var existing = await _companies.GetHoldingCompanyIdAsync(cancellationToken);
+            //    ICompanyRepository is Scoped — resolve it via a scope (hosted service itself is Singleton).
+            using var scope = _scopeFactory.CreateScope();
+            var companies = scope.ServiceProvider.GetRequiredService<ICompanyRepository>();
+            var existing = await companies.GetHoldingCompanyIdAsync(cancellationToken);
             if (existing.HasValue)
             {
                 _logger.LogInformation(
