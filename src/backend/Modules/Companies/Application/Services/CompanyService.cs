@@ -10,14 +10,14 @@ namespace ERPSystem.Modules.Companies.Application.Services;
 
 public interface ICompanyService
 {
-    Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, CancellationToken ct);
-    Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
-    Task<CompanyResult<Company>> AddSubsidiaryAsync(Guid tenantId, Guid parentCompanyId, string code, string name, string? legalName, CancellationToken ct);
-    Task<CompanyResult<Company>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<CompanyResult<IReadOnlyList<Company>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
+    Task<CompanyResult<Company>> CreateHoldingAsync(string code, string name, string legalName, string baseCurrency, CancellationToken ct);
+    Task<CompanyResult<Company>> CreateHoldingAsync(string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
+    Task<CompanyResult<Company>> AddSubsidiaryAsync(Guid parentCompanyId, string code, string name, string? legalName, CancellationToken ct);
+    Task<CompanyResult<Company>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<CompanyResult<IReadOnlyList<Company>>> ListAsync(bool includeInactive, CancellationToken ct);
     Task<CompanyResult<IReadOnlyList<Company>>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
-    Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(Guid tenantId, CancellationToken ct);
-    Task<CompanyResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(CancellationToken ct);
+    Task<CompanyResult<bool>> DeactivateAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class CompanyTreeNode { public Company Company { get; set; } = null!; public List<CompanyTreeNode> Children { get; set; } = new(); }
@@ -35,11 +35,12 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
     public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct)
     {
         // Back-compat path used by Login/Refresh: own connection per repo call, no shared tx.
-        var existing = (await _companies.ListAsync(tenantId, true, ct)).FirstOrDefault(c => c.IsGroup);
+        // tenantId kept for ITenantBootstrap contract but unused — companies are global.
+        var existing = (await _companies.ListAsync(true, ct)).FirstOrDefault(c => c.IsGroup);
         if (existing != null) return existing.Id;
-        existing = await _companies.GetByCodeAsync(tenantId, "000", ct);
+        existing = await _companies.GetByCodeAsync("000", ct);
         if (existing != null) return existing.Id;
-        var r = await CreateHoldingAsync(tenantId, "000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, ct);
+        var r = await CreateHoldingAsync("000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, ct);
         if (r.Succeeded)
         {
             // Phase 2.2: seed UoMs and Categories for new tenant
@@ -55,11 +56,11 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
         // because for a brand-new tenant there cannot be a pre-existing holding; the
         // insert path goes through the caller-supplied connection so it rolls back
         // together with the tenant insert if anything else fails.
-        var existing = (await _companies.ListAsync(tenantId, true, ct)).FirstOrDefault(c => c.IsGroup);
+        var existing = (await _companies.ListAsync(true, ct)).FirstOrDefault(c => c.IsGroup);
         if (existing != null) return existing.Id;
-        existing = await _companies.GetByCodeAsync(tenantId, "000", ct);
+        existing = await _companies.GetByCodeAsync("000", ct);
         if (existing != null) return existing.Id;
-        var r = await CreateHoldingAsync(tenantId, "000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, conn, tx, ct);
+        var r = await CreateHoldingAsync("000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, conn, tx, ct);
         if (r.Succeeded)
         {
             // Phase 2.2: seed UoMs and Categories for new tenant (inside same tx)
@@ -69,63 +70,63 @@ public sealed class CompanyService : ICompanyService, ITenantBootstrap
         return r.Succeeded ? r.Value!.Id : Guid.Empty;
     }
 
-    public async Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, CancellationToken ct)
+    public async Task<CompanyResult<Company>> CreateHoldingAsync(string code, string name, string legalName, string baseCurrency, CancellationToken ct)
     {
-        if (await _companies.GetByCodeAsync(tenantId, code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
+        if (await _companies.GetByCodeAsync(code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
         var now = DateTime.UtcNow;
-        var c = new Company { Id = Guid.NewGuid(), TenantId = tenantId, Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
+        var c = new Company { Id = Guid.NewGuid(), Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
         await _companies.InsertAsync(c, ct);
-        await _accounts.EnsureDefaultCoAAsync(tenantId, c.Id, ct);
+        await _accounts.EnsureDefaultCoAAsync(c.Id, ct);
         return CompanyResult<Company>.Ok(c);
     }
 
-    public async Task<CompanyResult<Company>> CreateHoldingAsync(Guid tenantId, string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    public async Task<CompanyResult<Company>> CreateHoldingAsync(string code, string name, string legalName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         // P1-9: Tx-aware path. The GetByCodeAsync uniqueness check is on a non-tx
         // connection (safe — for a brand-new tenant the code does not exist), and
         // both the company insert and the CoA seed go through the caller-supplied
         // connection so they roll back together with the tenant insert.
-        if (await _companies.GetByCodeAsync(tenantId, code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
+        if (await _companies.GetByCodeAsync(code, ct) != null) return CompanyResult<Company>.Fail("كود الشركة مستخدم.", CompanyErrorCode.AlreadyExists);
         var now = DateTime.UtcNow;
-        var c = new Company { Id = Guid.NewGuid(), TenantId = tenantId, Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
+        var c = new Company { Id = Guid.NewGuid(), Code = code.Trim(), Name = name.Trim(), LegalName = legalName, IsGroup = true, BaseCurrency = baseCurrency.ToUpperInvariant(), IsActive = true, CreatedAt = now, UpdatedAt = now };
         await _companies.InsertAsync(c, conn, tx, ct);
-        await _accounts.EnsureDefaultCoAAsync(tenantId, c.Id, conn, tx, ct);
+        await _accounts.EnsureDefaultCoAAsync(c.Id, conn, tx, ct);
         return CompanyResult<Company>.Ok(c);
     }
 
-    public async Task<CompanyResult<Company>> AddSubsidiaryAsync(Guid tenantId, Guid parentCompanyId, string code, string name, string? legalName, CancellationToken ct)
+    public async Task<CompanyResult<Company>> AddSubsidiaryAsync(Guid parentCompanyId, string code, string name, string? legalName, CancellationToken ct)
     {
         var parent = await _companies.GetByIdAsync(parentCompanyId, ct);
-        if (parent == null || parent.TenantId != tenantId) return CompanyResult<Company>.Fail("الشركة الأم غير موجودة.", CompanyErrorCode.NotFound);
+        if (parent == null) return CompanyResult<Company>.Fail("الشركة الأم غير موجودة.", CompanyErrorCode.NotFound);
         if (!parent.IsGroup) return CompanyResult<Company>.Fail("ليست Holding.", CompanyErrorCode.ValidationError);
-        if (await _companies.GetByCodeAsync(tenantId, code, ct) != null) return CompanyResult<Company>.Fail("كود مستخدم.", CompanyErrorCode.AlreadyExists);
+        if (await _companies.GetByCodeAsync(code, ct) != null) return CompanyResult<Company>.Fail("كود مستخدم.", CompanyErrorCode.AlreadyExists);
         var now = DateTime.UtcNow;
-        var sub = new Company { Id = Guid.NewGuid(), TenantId = tenantId, Code = code.Trim(), Name = name.Trim(), LegalName = legalName, ParentCompanyId = parent.Id, IsGroup = false, BaseCurrency = parent.BaseCurrency, IsActive = true, CreatedAt = now, UpdatedAt = now };
+        var sub = new Company { Id = Guid.NewGuid(), Code = code.Trim(), Name = name.Trim(), LegalName = legalName, ParentCompanyId = parent.Id, IsGroup = false, BaseCurrency = parent.BaseCurrency, IsActive = true, CreatedAt = now, UpdatedAt = now };
         await _companies.InsertAsync(sub, ct);
         await _accounts.CloneCoAFromCompanyAsync(sub.Id, parent.Id, ct);
         return CompanyResult<Company>.Ok(sub);
     }
 
-    public async Task<CompanyResult<Company>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<CompanyResult<Company>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var c = await _companies.GetByIdAsync(id, ct);
-        if (c == null || c.TenantId != tenantId) return CompanyResult<Company>.Fail("غير موجودة.", CompanyErrorCode.NotFound);
+        if (c == null) return CompanyResult<Company>.Fail("غير موجودة.", CompanyErrorCode.NotFound);
         return CompanyResult<Company>.Ok(c);
     }
-    public async Task<CompanyResult<IReadOnlyList<Company>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct) =>
-        CompanyResult<IReadOnlyList<Company>>.Ok(await _companies.ListAsync(tenantId, includeInactive, ct));
+    public async Task<CompanyResult<IReadOnlyList<Company>>> ListAsync(bool includeInactive, CancellationToken ct) =>
+        CompanyResult<IReadOnlyList<Company>>.Ok(await _companies.ListAsync(includeInactive, ct));
     public async Task<CompanyResult<IReadOnlyList<Company>>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct) =>
         CompanyResult<IReadOnlyList<Company>>.Ok(await _companies.ListSubsidiariesAsync(parentCompanyId, ct));
-    public async Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(Guid tenantId, CancellationToken ct)
+    public async Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(CancellationToken ct)
     {
-        var all = await _companies.ListAsync(tenantId, true, ct);
+        var all = await _companies.ListAsync(true, ct);
         var tree = all.Where(c => c.ParentCompanyId == null).Select(r => BuildTree(r, all)).ToList();
         return CompanyResult<CompanyTreeNode>.Ok(new CompanyTreeNode { Children = tree });
     }
-    public async Task<CompanyResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<CompanyResult<bool>> DeactivateAsync(Guid id, CancellationToken ct)
     {
         var c = await _companies.GetByIdAsync(id, ct);
-        if (c == null || c.TenantId != tenantId) return CompanyResult<bool>.Fail("غير موجودة.", CompanyErrorCode.NotFound);
+        if (c == null) return CompanyResult<bool>.Fail("غير موجودة.", CompanyErrorCode.NotFound);
         c.IsActive = false; c.UpdatedAt = DateTime.UtcNow;
         await _companies.UpdateAsync(c, ct);
         return CompanyResult<bool>.Ok(true);

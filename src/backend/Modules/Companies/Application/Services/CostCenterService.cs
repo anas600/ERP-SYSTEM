@@ -31,46 +31,46 @@ public sealed class CostCenterBudgetStatus
 
 public interface ICostCenterService
 {
-    Task<CostCenterResult<CostCenter>> CreateAsync(Guid tenantId, CreateCostCenterRequest req, CancellationToken ct);
-    Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid tenantId, Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct);
+    Task<CostCenterResult<CostCenter>> CreateAsync(CreateCostCenterRequest req, CancellationToken ct);
+    Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct);
     Task<CostCenterResult<IReadOnlyList<CostCenter>>> GetChildrenAsync(Guid parentId, CancellationToken ct);
-    Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid tenantId, Guid costCenterId, DateTime? asOf, CancellationToken ct);
-    Task<CostCenterResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid costCenterId, DateTime? asOf, CancellationToken ct);
+    Task<CostCenterResult<bool>> DeactivateAsync(Guid id, CancellationToken ct);
 }
 
 public sealed class CostCenterService : ICostCenterService
 {
     private readonly ICostCenterRepository _repo;
     public CostCenterService(ICostCenterRepository r) => _repo = r;
-    public async Task<CostCenterResult<CostCenter>> CreateAsync(Guid tenantId, CreateCostCenterRequest req, CancellationToken ct)
+    public async Task<CostCenterResult<CostCenter>> CreateAsync(CreateCostCenterRequest req, CancellationToken ct)
     {
-        if (await _repo.GetByCodeAsync(tenantId, req.Code, ct) != null) return CostCenterResult<CostCenter>.Fail("كود مستخدم.", CostCenterErrorCode.AlreadyExists);
+        if (await _repo.GetByCodeAsync(req.Code, ct) != null) return CostCenterResult<CostCenter>.Fail("كود مستخدم.", CostCenterErrorCode.AlreadyExists);
         var now = DateTime.UtcNow;
-        var cc = new CostCenter { Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId, Code = req.Code.Trim(), Name = req.Name.Trim(), Type = req.Type, ParentId = req.ParentId, BudgetAmount = req.BudgetAmount, StartDate = req.StartDate, EndDate = req.EndDate, Sku = req.Sku, Location = req.Location, ActivityCategory = req.ActivityCategory, IsActive = true, CreatedAt = now, UpdatedAt = now };
+        var cc = new CostCenter { Id = Guid.NewGuid(), CompanyId = req.CompanyId, Code = req.Code.Trim(), Name = req.Name.Trim(), Type = req.Type, ParentId = req.ParentId, BudgetAmount = req.BudgetAmount, StartDate = req.StartDate, EndDate = req.EndDate, Sku = req.Sku, Location = req.Location, ActivityCategory = req.ActivityCategory, IsActive = true, CreatedAt = now, UpdatedAt = now };
         await _repo.InsertAsync(cc, ct);
         return CostCenterResult<CostCenter>.Ok(cc);
     }
-    public async Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<CostCenterResult<CostCenter>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var cc = await _repo.GetByIdAsync(id, ct);
-        if (cc == null || cc.TenantId != tenantId) return CostCenterResult<CostCenter>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
+        if (cc == null) return CostCenterResult<CostCenter>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
         return CostCenterResult<CostCenter>.Ok(cc);
     }
-    public async Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid tenantId, Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct) =>
-        CostCenterResult<IReadOnlyList<CostCenter>>.Ok(await _repo.ListAsync(tenantId, companyId, type, includeInactive, ct));
+    public async Task<CostCenterResult<IReadOnlyList<CostCenter>>> ListAsync(Guid? companyId, CostCenterType? type, bool includeInactive, CancellationToken ct) =>
+        CostCenterResult<IReadOnlyList<CostCenter>>.Ok(await _repo.ListAsync(companyId, type, includeInactive, ct));
     public async Task<CostCenterResult<IReadOnlyList<CostCenter>>> GetChildrenAsync(Guid parentId, CancellationToken ct) =>
         CostCenterResult<IReadOnlyList<CostCenter>>.Ok(await _repo.ListChildrenAsync(parentId, ct));
-    public async Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid tenantId, Guid costCenterId, DateTime? asOf, CancellationToken ct)
+    public async Task<CostCenterResult<CostCenterBudgetStatus>> GetBudgetStatusAsync(Guid costCenterId, DateTime? asOf, CancellationToken ct)
     {
         var cc = await _repo.GetByIdAsync(costCenterId, ct);
-        if (cc == null || cc.TenantId != tenantId) return CostCenterResult<CostCenterBudgetStatus>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
+        if (cc == null) return CostCenterResult<CostCenterBudgetStatus>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
         return CostCenterResult<CostCenterBudgetStatus>.Ok(new CostCenterBudgetStatus { CostCenterId = cc.Id, Code = cc.Code, Name = cc.Name, BudgetAmount = cc.BudgetAmount, SpentAmount = 0 });
     }
-    public async Task<CostCenterResult<bool>> DeactivateAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<CostCenterResult<bool>> DeactivateAsync(Guid id, CancellationToken ct)
     {
         var cc = await _repo.GetByIdAsync(id, ct);
-        if (cc == null || cc.TenantId != tenantId) return CostCenterResult<bool>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
+        if (cc == null) return CostCenterResult<bool>.Fail("غير موجود.", CostCenterErrorCode.NotFound);
         cc.IsActive = false; cc.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(cc, ct);
         return CostCenterResult<bool>.Ok(true);

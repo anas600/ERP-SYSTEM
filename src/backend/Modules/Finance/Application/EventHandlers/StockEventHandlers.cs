@@ -27,10 +27,10 @@ public sealed class StockReceivedEventHandler : IIntegrationEventHandler<StockRe
     public async Task HandleAsync(StockReceivedEvent @event, CancellationToken ct)
     {
         var item = await _items.GetByIdAsync(@event.ItemId, ct);
-        if (item == null || item.TenantId != @event.TenantId)
+        if (item == null)
         {
-            _logger.LogWarning("StockReceived event {EventId} skipped: item {ItemId} not found in tenant {TenantId}",
-                @event.EventId, @event.ItemId, @event.TenantId);
+            _logger.LogWarning("StockReceived event {EventId} skipped: item {ItemId} not found",
+                @event.EventId, @event.ItemId);
             return;
         }
         if (item.InventoryAccountId == null)
@@ -46,7 +46,7 @@ public sealed class StockReceivedEventHandler : IIntegrationEventHandler<StockRe
 
         var userId = Guid.Empty; // system-generated
         var payload = new EventPayload { Amount = amount, Description = $"استلام بضاعة {item.Sku} × {@event.Quantity}", Reference = @event.PurchaseOrderRef };
-        var count = await _rules.ApplyRulesAsync(@event.TenantId, userId, TriggeringEvent.StockReceived, payload, ct);
+        var count = await _rules.ApplyRulesAsync(userId, TriggeringEvent.StockReceived, payload, ct);
         _logger.LogInformation("StockReceived {EventId}: applied {Count} posting rule(s), amount={Amount}",
             @event.EventId, count, amount);
     }
@@ -73,17 +73,17 @@ public sealed class StockIssuedEventHandler : IIntegrationEventHandler<StockIssu
     public async Task HandleAsync(StockIssuedEvent @event, CancellationToken ct)
     {
         var item = await _items.GetByIdAsync(@event.ItemId, ct);
-        if (item == null || item.TenantId != @event.TenantId) return;
+        if (item == null) return;
         if (item.CogsAccountId == null || item.InventoryAccountId == null) return;
 
-        var level = await _levels.GetAsync(@event.TenantId, @event.ItemId, @event.WarehouseId, ct);
+        var level = await _levels.GetAsync(@event.ItemId, @event.WarehouseId, ct);
         var unitCost = level?.AverageCost ?? 0;
         var amount = Math.Abs(@event.Quantity) * unitCost;
         if (amount <= 0) return;
 
         var userId = Guid.Empty;
         var payload = new EventPayload { Amount = amount, Description = $"صرف بضاعة {item.Sku} × {Math.Abs(@event.Quantity)}", Reference = @event.ReferenceType };
-        var count = await _rules.ApplyRulesAsync(@event.TenantId, userId, TriggeringEvent.StockIssued, payload, ct);
+        var count = await _rules.ApplyRulesAsync(userId, TriggeringEvent.StockIssued, payload, ct);
         _logger.LogInformation("StockIssued {EventId}: applied {Count} rule(s), amount={Amount}", @event.EventId, count, amount);
     }
 }

@@ -11,10 +11,10 @@ namespace ERPSystem.Modules.Procurement.Application.Services;
 
 public interface IVendorBillService
 {
-    Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid tenantId, Guid userId, CreateVendorBillRequest req, CancellationToken ct);
-    Task<ProcurementResult<VendorBillResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ProcurementResult<IReadOnlyList<VendorBillResponse>>> ListAsync(Guid tenantId, Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct);
-    Task<ProcurementResult<VendorBillResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid userId, CreateVendorBillRequest req, CancellationToken ct);
+    Task<ProcurementResult<VendorBillResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ProcurementResult<IReadOnlyList<VendorBillResponse>>> ListAsync(Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct);
+    Task<ProcurementResult<VendorBillResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class VendorBillService : IVendorBillService
@@ -35,11 +35,11 @@ public sealed class VendorBillService : IVendorBillService
         _journalSvc = journalSvc; _db = db; _logger = logger;
     }
 
-    public async Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid tenantId, Guid userId, CreateVendorBillRequest req, CancellationToken ct)
+    public async Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid userId, CreateVendorBillRequest req, CancellationToken ct)
     {
         // Business rule: Bill لا يُنشأ إلا لـ GR في حالة Received
         var gr = await _grs.GetByIdAsync(req.GoodsReceiptId, ct);
-        if (gr == null || gr.TenantId != tenantId)
+        if (gr == null)
             return ProcurementResult<VendorBillResponse>.Fail("GR غير موجود.", ProcurementErrorCode.NotFound);
         if (gr.Status != GoodsReceiptStatus.Received)
             return ProcurementResult<VendorBillResponse>.Fail(
@@ -49,7 +49,7 @@ public sealed class VendorBillService : IVendorBillService
         var po = await _pos.GetByIdAsync(gr.PurchaseOrderId, ct);
         var vendorId = po?.VendorId ?? Guid.Empty;
 
-        var billNumber = await _seq.GetNextNumberAsync(tenantId, "BILL", ct);
+        var billNumber = await _seq.GetNextNumberAsync("BILL", ct);
 
         decimal subTotal = 0, taxAmount = 0;
         var lineEntities = new List<VendorBillLine>();
@@ -61,7 +61,7 @@ public sealed class VendorBillService : IVendorBillService
             subTotal += lineSub; taxAmount += lineTax;
             lineEntities.Add(new VendorBillLine
             {
-                Id = Guid.NewGuid(), TenantId = tenantId, VendorId = vendorId,
+                Id = Guid.NewGuid(), VendorId = vendorId,
                 ItemId = l.ItemId, Quantity = l.Quantity, UnitPrice = l.UnitPrice,
                 TaxRate = l.TaxRate, SubTotal = lineSub, LineOrder = i
             });
@@ -71,7 +71,7 @@ public sealed class VendorBillService : IVendorBillService
         var now = DateTime.UtcNow;
         var bill = new VendorBill
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(),
             BillNumber = billNumber, GoodsReceiptId = gr.Id, VendorId = vendorId,
             Status = VendorBillStatus.Draft,
             BillDate = req.BillDate, DueDate = req.DueDate,
@@ -81,23 +81,23 @@ public sealed class VendorBillService : IVendorBillService
             CreatedAt = now, CreatedBy = userId, UpdatedAt = now, UpdatedBy = userId
         };
         await _bills.InsertAsync(bill, ct);
-        await _bills.InsertLinesAsync(tenantId, bill.Id, lineEntities, ct);
+        await _bills.InsertLinesAsync(bill.Id, lineEntities, ct);
         bill.Lines = lineEntities;
         return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(bill));
     }
 
-    public async Task<ProcurementResult<VendorBillResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<VendorBillResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var b = await _bills.GetByIdAsync(id, ct);
-        if (b == null || b.TenantId != tenantId)
+        if (b == null)
             return ProcurementResult<VendorBillResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
     }
 
-    public async Task<ProcurementResult<IReadOnlyList<VendorBillResponse>>> ListAsync(Guid tenantId, Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<ProcurementResult<IReadOnlyList<VendorBillResponse>>> ListAsync(Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _bills.ListAsync(tenantId, vendorId, grId, status, skip, take, ct);
+        var list = await _bills.ListAsync(vendorId, grId, status, skip, take, ct);
         return ProcurementResult<IReadOnlyList<VendorBillResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
@@ -105,10 +105,10 @@ public sealed class VendorBillService : IVendorBillService
     /// ترحيل Bill (Draft → Posted) — DEC-075: الآن ينشئ JournalEntry تلقائياً.
     /// Dr Inventory (1240) / Cr Accounts Payable (2210)
     /// </summary>
-    public async Task<ProcurementResult<VendorBillResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ProcurementResult<VendorBillResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var b = await _bills.GetByIdAsync(id, ct);
-        if (b == null || b.TenantId != tenantId)
+        if (b == null)
             return ProcurementResult<VendorBillResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
         if (b.Status != VendorBillStatus.Draft)
             return ProcurementResult<VendorBillResponse>.Fail(
@@ -127,8 +127,8 @@ public sealed class VendorBillService : IVendorBillService
         {
             using var conn = await _db.CreateOltpConnectionAsync(ct);
             var accts = await conn.QueryAsync<(string Code, Guid AcctId)>(new CommandDefinition(
-                "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1240', '2210')",
-                new { T = tenantId }, cancellationToken: ct));
+                "SELECT code, id FROM accounts WHERE code IN ('1240', '2210')",
+                cancellationToken: ct));
             foreach (var (code, acctId) in accts)
             {
                 if (code == "1240") inventoryAcctId = acctId;
@@ -154,7 +154,7 @@ public sealed class VendorBillService : IVendorBillService
         }
 
         // DEC-075: Create JournalEntry — Dr Inventory, Cr AP
-        var je = await _journalSvc.CreateDraftAsync(tenantId, userId, new PostJournalEntryRequest
+        var je = await _journalSvc.CreateDraftAsync(userId, new PostJournalEntryRequest
         {
             EntryDate = b.BillDate,
             Description = $"Vendor Bill {b.BillNumber}",
@@ -176,7 +176,7 @@ public sealed class VendorBillService : IVendorBillService
         }
 
         // Post the JE
-        var postJe = await _journalSvc.PostAsync(tenantId, userId, je.Value!.Id, ct);
+        var postJe = await _journalSvc.PostAsync(userId, je.Value!.Id, ct);
         if (!postJe.Succeeded)
         {
             _logger.LogError("DEC-075: JE post failed for bill {N}: {Err}", b.BillNumber, postJe.Error);
@@ -199,7 +199,7 @@ public sealed class VendorBillService : IVendorBillService
 
     private static VendorBillResponse MapToResponse(VendorBill b) => new()
     {
-        Id = b.Id, TenantId = b.TenantId, BillNumber = b.BillNumber, GoodsReceiptId = b.GoodsReceiptId,
+        Id = b.Id, BillNumber = b.BillNumber, GoodsReceiptId = b.GoodsReceiptId,
         VendorId = b.VendorId, Status = b.Status, BillDate = b.BillDate, DueDate = b.DueDate,
         Currency = b.Currency, SubTotal = b.SubTotal, TaxAmount = b.TaxAmount, TotalAmount = b.TotalAmount,
         Notes = b.Notes, JournalEntryId = b.JournalEntryId, PostedAt = b.PostedAt, CreatedAt = b.CreatedAt,

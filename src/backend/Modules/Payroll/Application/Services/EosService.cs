@@ -12,7 +12,7 @@ namespace ERPSystem.Modules.Payroll.Application.Services;
 public interface IEosService
 {
     /// <summary>يحسب EOS لموظف بناءً على تاريخ تركه للخدمة (أو اليوم).</summary>
-    Task<PayrollResult<EosResponse>> CalculateEosAsync(Guid tenantId, Guid employeeId, DateTime? terminationDate, CancellationToken ct);
+    Task<PayrollResult<EosResponse>> CalculateEosAsync(Guid employeeId, DateTime? terminationDate, CancellationToken ct);
 }
 
 /// <summary>
@@ -28,10 +28,10 @@ public sealed class EosService : IEosService
         _employees = employees; _calculator = calculator;
     }
 
-    public async Task<PayrollResult<EosResponse>> CalculateEosAsync(Guid tenantId, Guid employeeId, DateTime? terminationDate, CancellationToken ct)
+    public async Task<PayrollResult<EosResponse>> CalculateEosAsync(Guid employeeId, DateTime? terminationDate, CancellationToken ct)
     {
         var emp = await _employees.GetByIdAsync(employeeId, ct);
-        if (emp == null || emp.TenantId != tenantId)
+        if (emp == null)
             return PayrollResult<EosResponse>.Fail("الموظف غير موجود.", PayrollErrorCode.NotFound);
 
         var termDate = terminationDate ?? DateTime.UtcNow;

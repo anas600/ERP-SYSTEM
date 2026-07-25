@@ -25,11 +25,11 @@ public enum ArErrorCode
 
 public interface ICustomerService
 {
-    Task<ArResult<CustomerResponse>> CreateAsync(Guid tenantId, Guid userId, CreateCustomerRequest req, CancellationToken ct);
-    Task<ArResult<CustomerResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateCustomerRequest req, CancellationToken ct);
-    Task<ArResult<CustomerResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ArResult<IReadOnlyList<CustomerResponse>>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct);
-    Task<ArResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ArResult<CustomerResponse>> CreateAsync(Guid userId, CreateCustomerRequest req, CancellationToken ct);
+    Task<ArResult<CustomerResponse>> UpdateAsync(Guid userId, Guid id, UpdateCustomerRequest req, CancellationToken ct);
+    Task<ArResult<CustomerResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ArResult<IReadOnlyList<CustomerResponse>>> ListAsync(bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<ArResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class CustomerService : ICustomerService
@@ -38,16 +38,15 @@ public sealed class CustomerService : ICustomerService
     private readonly ILogger<CustomerService> _logger;
     public CustomerService(ICustomerRepository repo, ILogger<CustomerService> logger) { _repo = repo; _logger = logger; }
 
-    public async Task<ArResult<CustomerResponse>> CreateAsync(Guid tenantId, Guid userId, CreateCustomerRequest req, CancellationToken ct)
+    public async Task<ArResult<CustomerResponse>> CreateAsync(Guid userId, CreateCustomerRequest req, CancellationToken ct)
     {
-        if (await _repo.GetByCodeAsync(tenantId, req.Code, ct) != null)
+        if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ArResult<CustomerResponse>.Fail("كود العميل مستخدم.", ArErrorCode.AlreadyExists);
 
         var now = DateTime.UtcNow;
         var c = new Customer
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             CompanyId = Guid.Empty, // MVP: نُبقي CompanyId فارغاً (single-company per tenant)
             Code = req.Code.Trim(),
             Name = req.Name.Trim(),
@@ -63,14 +62,14 @@ public sealed class CustomerService : ICustomerService
             UpdatedAt = now, UpdatedBy = userId,
         };
         await _repo.InsertAsync(c, ct);
-        _logger.LogInformation("تم إنشاء العميل {Code} ({Name}) للمستأجر {TenantId}", c.Code, c.Name, tenantId);
+        _logger.LogInformation("تم إنشاء العميل {Code} ({Name})", c.Code, c.Name);
         return ArResult<CustomerResponse>.Ok(MapToResponse(c));
     }
 
-    public async Task<ArResult<CustomerResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateCustomerRequest req, CancellationToken ct)
+    public async Task<ArResult<CustomerResponse>> UpdateAsync(Guid userId, Guid id, UpdateCustomerRequest req, CancellationToken ct)
     {
         var c = await _repo.GetByIdAsync(id, ct);
-        if (c == null || c.TenantId != tenantId)
+        if (c == null)
             return ArResult<CustomerResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
 
         c.Name = req.Name.Trim();
@@ -88,25 +87,25 @@ public sealed class CustomerService : ICustomerService
         return ArResult<CustomerResponse>.Ok(MapToResponse(c));
     }
 
-    public async Task<ArResult<CustomerResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ArResult<CustomerResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var c = await _repo.GetByIdAsync(id, ct);
-        if (c == null || c.TenantId != tenantId)
+        if (c == null)
             return ArResult<CustomerResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         return ArResult<CustomerResponse>.Ok(MapToResponse(c));
     }
 
-    public async Task<ArResult<IReadOnlyList<CustomerResponse>>> ListAsync(Guid tenantId, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<ArResult<IReadOnlyList<CustomerResponse>>> ListAsync(bool includeInactive, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _repo.ListAsync(tenantId, includeInactive, skip, take, ct);
+        var list = await _repo.ListAsync(includeInactive, skip, take, ct);
         return ArResult<IReadOnlyList<CustomerResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<ArResult<bool>> DeactivateAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ArResult<bool>> DeactivateAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var c = await _repo.GetByIdAsync(id, ct);
-        if (c == null || c.TenantId != tenantId)
+        if (c == null)
             return ArResult<bool>.Fail("غير موجود.", ArErrorCode.NotFound);
         c.IsActive = false;
         c.UpdatedAt = DateTime.UtcNow;
@@ -117,7 +116,7 @@ public sealed class CustomerService : ICustomerService
 
     private static CustomerResponse MapToResponse(Customer c) => new()
     {
-        Id = c.Id, TenantId = c.TenantId, CompanyId = c.CompanyId,
+        Id = c.Id, CompanyId = c.CompanyId,
         Code = c.Code, Name = c.Name, NameEn = c.NameEn, TaxId = c.TaxId,
         Email = c.Email, Phone = c.Phone, Address = c.Address,
         CreditLimit = c.CreditLimit, PaymentTermsDays = c.PaymentTermsDays, IsActive = c.IsActive,

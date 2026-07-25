@@ -9,7 +9,7 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 public interface IGeneralLedgerReportService
 {
     Task<FinanceResult<GeneralLedgerReportResponse>> GetAccountLedgerAsync(
-        Guid tenantId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
+        Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
 }
 
 /// <summary>
@@ -33,10 +33,10 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     }
 
     public async Task<FinanceResult<GeneralLedgerReportResponse>> GetAccountLedgerAsync(
-        Guid tenantId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
+        Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
     {
         var account = await _accounts.GetByIdAsync(accountId, ct);
-        if (account == null || account.TenantId != tenantId)
+        if (account == null)
             return FinanceResult<GeneralLedgerReportResponse>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -49,16 +49,15 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                 SELECT COALESCE(SUM(jl.debit), 0) AS Dr, COALESCE(SUM(jl.credit), 0) AS Cr
                 FROM journal_lines jl
                 INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
-                WHERE jl.account_id = @AccountId AND je.tenant_id = @TenantId
+                WHERE jl.account_id = @AccountId
                   AND je.status = 2 AND je.entry_date < @From";
             var opRow = await conn.QueryFirstOrDefaultAsync<(decimal Dr, decimal Cr)>(
-                new CommandDefinition(openingSql, new { AccountId = accountId, TenantId = tenantId, From = from.Value }, cancellationToken: ct));
+                new CommandDefinition(openingSql, new { AccountId = accountId, From = from.Value }, cancellationToken: ct));
             opening = account.NormalBalance == NormalBalance.Debit ? (opRow.Dr - opRow.Cr) : (opRow.Cr - opRow.Dr);
         }
 
         // 2) Period lines
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         p.Add("AccountId", accountId);
         var sql = @"
             SELECT je.entry_date AS EntryDate, je.entry_number AS EntryNumber, je.id AS JournalEntryId,
@@ -66,7 +65,7 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                    jl.debit AS Debit, jl.credit AS Credit
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
-            WHERE je.tenant_id = @TenantId AND jl.account_id = @AccountId AND je.status = 2";
+            WHERE jl.account_id = @AccountId AND je.status = 2";
         if (from.HasValue) { sql += " AND je.entry_date >= @From"; p.Add("From", from.Value); }
         if (to.HasValue) { sql += " AND je.entry_date <= @To"; p.Add("To", to.Value); }
         sql += " ORDER BY je.entry_date, je.entry_number, jl.line_number";

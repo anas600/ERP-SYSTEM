@@ -1,4 +1,4 @@
-using System.Data;
+﻿using System.Data;
 using Dapper;
 using ERPSystem.Host.Utilities;
 using ERPSystem.Modules.Finance.Application;
@@ -136,7 +136,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         }
 
         if (result != null && result.Succeeded)
-            return (result.Response!.User.TenantId, result.Response.User.Id);
+            return (Guid.Empty, result.Response.User.Id);
 
         if (result != null && !result.Succeeded)
             _logger.LogWarning("Register failed ({Error}), trying login", result.Error);
@@ -148,8 +148,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
             return (Guid.Empty, Guid.Empty);
         }
         var users = services.GetRequiredService<IUserRepository>();
-        var user = await users.GetByEmailAndTenantAsync(TenantEmail, login.Response!.User.TenantId, ct);
-        return (login.Response.User.TenantId, user!.Id);
+        var user = await users.GetByEmailAsync(TenantEmail, ct);
+        return (Guid.Empty, user!.Id);
     }
 
     // ============================================================
@@ -161,8 +161,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         var holding = await conn.QueryFirstOrDefaultAsync(
             new CommandDefinition(
-                "SELECT id FROM companies WHERE tenant_id = @T AND is_group = true LIMIT 1",
-                new { T = tenantId }, cancellationToken: ct));
+                "SELECT id FROM companies WHERE is_group = true AND code = '000' LIMIT 1",
+                new { }, cancellationToken: ct));
 
         if (holding == null) { _logger.LogWarning("No holding company found for tenant"); return; }
 
@@ -171,8 +171,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
         // Lookup parent account IDs by code (existing CoA accounts)
         var parentCodes = new[] { "1100", "2200", "4100", "5100" };
         var parentIds = (await conn.QueryAsync<(string code, Guid id)>(new CommandDefinition(
-            "SELECT code, id FROM accounts WHERE tenant_id = @T AND code = ANY(@Codes)",
-            new { T = tenantId, Codes = parentCodes }, cancellationToken: ct))).ToDictionary(x => x.code, x => x.id);
+            "SELECT code, id FROM accounts WHERE code = ANY(@Codes)",
+            new { Codes = parentCodes }, cancellationToken: ct))).ToDictionary(x => x.code, x => x.id);
 
         var now = DateTime.UtcNow;
 
@@ -201,8 +201,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
         {
             var existing = await conn.QueryFirstOrDefaultAsync(
                 new CommandDefinition(
-                    "SELECT id FROM accounts WHERE tenant_id = @T AND code = @C",
-                    new { T = tenantId, C = acc.Code }, cancellationToken: ct));
+                    "SELECT id FROM accounts WHERE code = @C",
+                    new { C = acc.Code }, cancellationToken: ct));
             if (existing != null) continue;
 
             Guid? parentId = null;
@@ -211,10 +211,10 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
             var nb = acc.Type == AccountType.Asset || acc.Type == AccountType.Expense ? NormalBalance.Debit : NormalBalance.Credit;
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO accounts (id, tenant_id, company_id, code, name, type, normal_balance,
+                INSERT INTO accounts (id, company_id, code, name, type, normal_balance,
                     parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
                 VALUES (gen_random_uuid(), @T, @CompId, @Code, @Name, @Type, @Nb, @ParentId, @IsPostable, true, false, @Now, @Now)",
-                new { T = tenantId, CompId = holdingId, Code = acc.Code, Name = acc.Name, Type = (int)acc.Type, Nb = (int)nb, ParentId = parentId, IsPostable = acc.IsPostable, Now = now },
+                new { CompId = holdingId, Code = acc.Code, Name = acc.Name, Type = (int)acc.Type, Nb = (int)nb, ParentId = parentId, IsPostable = acc.IsPostable, Now = now },
                 cancellationToken: ct));
         }
         _logger.LogInformation("  ✅ Extra CoA accounts seeded ({N})", extraAccounts.Length);
@@ -235,7 +235,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             ("DEPT-ENG", "الهندسة والمشاريع"),
         };
         foreach (var d in deptData)
-            await deptSvc.CreateAsync(tenantId, new CreateDepartmentRequest { Code = d.Code, Name = d.Name }, ct);
+            await deptSvc.CreateAsync(new CreateDepartmentRequest { Code = d.Code, Name = d.Name }, ct);
         _logger.LogInformation("  ✅ Departments seeded ({N})", deptData.Length);
     }
 
@@ -243,8 +243,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
     {
         await using var conn = await OpenConnectionAsync(services, ct);
         var rows = await conn.QueryAsync(
-            new CommandDefinition("SELECT code, id FROM departments WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT code, id FROM departments",
+                new { }, cancellationToken: ct));
         return rows.ToDictionary(r => (string)r.code, r => (Guid)r.id);
     }
 
@@ -256,7 +256,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         var empSvc = services.GetRequiredService<IEmployeeService>();
 
         // Idempotency: if employees exist, return their IDs (for re-runs)
-        var existing = await empSvc.ListAsync(tenantId, null, true, 0, 200, ct);
+        var existing = await empSvc.ListAsync(null, true, 0, 200, ct);
         if (existing.Succeeded && existing.Value!.Count >= 12)
         {
             _logger.LogInformation("  ⏭ Employees already seeded ({N})", existing.Value.Count);
@@ -285,7 +285,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         foreach (var e in employees)
         {
             var hireDate = hiredate2024.AddDays(Random.Shared.Next(0, 200));
-            var r = await empSvc.CreateAsync(tenantId, adminUserId, new CreateEmployeeRequest
+            var r = await empSvc.CreateAsync(adminUserId, new CreateEmployeeRequest
             {
                 FullName = e.FullName, Email = e.Email, Phone = e.Phone, NationalId = e.NationalId,
                 DepartmentId = deptIds.GetValueOrDefault(e.DeptCode), JobTitle = e.JobTitle,
@@ -306,17 +306,17 @@ public sealed class ScenarioSeederHostedService : IHostedService
         var now = DateTime.UtcNow;
 
         var emps = (await conn.QueryAsync<Employee>(
-            new CommandDefinition("SELECT * FROM employees WHERE tenant_id = @T AND is_active = true",
-                new { T = tenantId }, cancellationToken: ct))).ToList();
+            new CommandDefinition("SELECT * FROM employees WHERE is_active = true",
+                new { }, cancellationToken: ct))).ToList();
 
         foreach (var emp in emps)
         {
             var structId = Guid.NewGuid();
             var structCode = $"EMP-{structId:N}"[..20];
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO salary_structures (id, tenant_id, name, code, currency, is_active, created_at, updated_at, created_by, updated_by)
+                INSERT INTO salary_structures (id, name, code, currency, is_active, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @Name, @Code, 'LYD', true, @Now, @Now, @By, @By)",
-                new { Id = structId, T = tenantId, Name = $"هيكلة {emp.FullName}", Code = structCode, By = adminUserId, Now = now },
+                new { Id = structId, Name = $"هيكلة {emp.FullName}", Code = structCode, By = adminUserId, Now = now },
                 cancellationToken: ct));
 
             var lines = new (SalaryComponentType Type, string Name, decimal Amount, int Sort)[]
@@ -330,9 +330,9 @@ public sealed class ScenarioSeederHostedService : IHostedService
             foreach (var ln in lines)
             {
                 await conn.ExecuteAsync(new CommandDefinition(@"
-                    INSERT INTO salary_structure_lines (id, tenant_id, salary_structure_id, type, name, amount, sort_order)
+                    INSERT INTO salary_structure_lines (id, salary_structure_id, type, name, amount, sort_order)
                     VALUES (gen_random_uuid(), @T, @SID, @Type, @Name, @Amt, @Sort)",
-                    new { T = tenantId, SID = structId, Type = ln.Type.ToString(), Name = ln.Name, Amt = ln.Amount, Sort = ln.Sort },
+                    new { SID = structId, Type = ln.Type.ToString(), Name = ln.Name, Amt = ln.Amount, Sort = ln.Sort },
                     cancellationToken: ct));
             }
         }
@@ -352,8 +352,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
                 await using var conn = await OpenConnectionAsync(services, retryCt);
 
                 var existing = await conn.ExecuteScalarAsync<int>(
-                    new CommandDefinition("SELECT COUNT(*) FROM attendance WHERE tenant_id = @T",
-                        new { T = tenantId }, cancellationToken: retryCt));
+                    new CommandDefinition("SELECT COUNT(*) FROM attendance",
+                        new { }, cancellationToken: retryCt));
                 if (existing > 0) { _logger.LogInformation("  ⏭ Attendance already seeded ({N} records)", existing); return; }
 
                 var totalRecords = 0;
@@ -379,14 +379,14 @@ public sealed class ScenarioSeederHostedService : IHostedService
                             var now = DateTime.UtcNow;
 
                             await conn.ExecuteAsync(new CommandDefinition(@"
-                                INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
+                                INSERT INTO attendance (id, employee_id, type, timestamp, notes, ip_address, created_at)
                                 VALUES (gen_random_uuid(), @T, @EID, @TypeIn, @TS, NULL, '127.0.0.1', @Now)",
-                                new { T = tenantId, EID = empId, TypeIn = AttendanceType.CheckIn.ToString(), TS = checkIn, Now = now }, cancellationToken: retryCt));
+                                new { EID = empId, TypeIn = AttendanceType.CheckIn.ToString(), TS = checkIn, Now = now }, cancellationToken: retryCt));
 
                             await conn.ExecuteAsync(new CommandDefinition(@"
-                                INSERT INTO attendance (id, tenant_id, employee_id, type, timestamp, notes, ip_address, created_at)
+                                INSERT INTO attendance (id, employee_id, type, timestamp, notes, ip_address, created_at)
                                 VALUES (gen_random_uuid(), @T, @EID, @TypeOut, @TS, NULL, '127.0.0.1', @Now)",
-                                new { T = tenantId, EID = empId, TypeOut = AttendanceType.CheckOut.ToString(), TS = checkOut, Now = now }, cancellationToken: retryCt));
+                                new { EID = empId, TypeOut = AttendanceType.CheckOut.ToString(), TS = checkOut, Now = now }, cancellationToken: retryCt));
 
                             totalRecords += 2;
                         }
@@ -426,14 +426,14 @@ public sealed class ScenarioSeederHostedService : IHostedService
         foreach (var l in leaves)
         {
             if (l.EmpIdx >= empIds.Count) continue;
-            var r = await leaveSvc.CreateAsync(tenantId, adminUserId, new CreateLeaveRequestDto
+            var r = await leaveSvc.CreateAsync(adminUserId, new CreateLeaveRequestDto
             {
                 EmployeeId = empIds[l.EmpIdx], LeaveType = l.Type,
                 StartDate = new DateTime(2026, l.StartM, l.StartD),
                 EndDate = new DateTime(2026, l.EndM, l.EndD),
                 Reason = l.Reason
             }, ct);
-            if (r.Succeeded) await leaveSvc.ApproveAsync(tenantId, adminUserId, r.Value!.Id, ct);
+            if (r.Succeeded) await leaveSvc.ApproveAsync(adminUserId, r.Value!.Id, ct);
         }
         _logger.LogInformation("  ✅ Leave requests seeded ({N})", leaves.Length);
     }
@@ -452,7 +452,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             ("V-004", "شركة النظافة الخضراء", "info@greenclean.ly", "0914334411", "طرابلس - سوق الجمعة", "TAX-004"),
         };
         foreach (var v in vendors)
-            await vendorSvc.CreateAsync(tenantId, Guid.Empty, new CreateVendorRequest
+            await vendorSvc.CreateAsync(Guid.Empty, new CreateVendorRequest
             {
                 Code = v.Code, Name = v.Name, Email = v.Email, Phone = v.Phone,
                 Address = v.Address, TaxNumber = v.TaxId, Currency = "LYD", PaymentTerms = "Net30"
@@ -464,8 +464,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
     {
         await using var conn = await OpenConnectionAsync(services, ct);
         var rows = await conn.QueryAsync(
-            new CommandDefinition("SELECT code, id FROM vendors WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT code, id FROM vendors",
+                new { }, cancellationToken: ct));
         return rows.ToDictionary(r => (string)r.code, r => (Guid)r.id);
     }
 
@@ -478,16 +478,16 @@ public sealed class ScenarioSeederHostedService : IHostedService
         var now = DateTime.UtcNow;
 
         var holding = await conn.QueryFirstOrDefaultAsync<dynamic>(
-            new CommandDefinition("SELECT id FROM companies WHERE tenant_id = @T AND is_group = true",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT id FROM companies WHERE is_group = true AND code = '000'",
+                new { }, cancellationToken: ct));
         var companyId = holding == null ? Guid.Empty : (Guid)holding.id;
 
         var wh1Id = Guid.NewGuid(); var wh2Id = Guid.NewGuid();
 
         // Idempotency: check if warehouses exist
         var existingWh = await conn.ExecuteScalarAsync<int>(
-            new CommandDefinition("SELECT COUNT(*) FROM warehouses WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT COUNT(*) FROM warehouses",
+                new { }, cancellationToken: ct));
         if (existingWh >= 2)
         {
             _logger.LogInformation("  ⏭ Warehouses already seeded ({N})", existingWh);
@@ -495,26 +495,26 @@ public sealed class ScenarioSeederHostedService : IHostedService
         else
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO warehouses (id, tenant_id, company_id, code, name, location, is_active, created_at, updated_at, created_by, updated_by)
+                INSERT INTO warehouses (id, company_id, code, name, location, is_active, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @CID, 'WH-001', 'مستودع المواد الرئيسية', 'طرابلس - المنطقة الصناعية', true, @Now, @Now, @By, @By)",
-                new { Id = wh1Id, T = tenantId, CID = companyId, By = adminUserId, Now = now }, cancellationToken: ct));
+                new { Id = wh1Id, CID = companyId, By = adminUserId, Now = now }, cancellationToken: ct));
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO warehouses (id, tenant_id, company_id, code, name, location, is_active, created_at, updated_at, created_by, updated_by)
+                INSERT INTO warehouses (id, company_id, code, name, location, is_active, created_at, updated_at, created_by, updated_by)
                 VALUES (@Id, @T, @CID, 'WH-002', 'مستودع القرطاسية والمكتبات', 'طرابلس - المقر الإداري', true, @Now, @Now, @By, @By)",
-                new { Id = wh2Id, T = tenantId, CID = companyId, By = adminUserId, Now = now }, cancellationToken: ct));
+                new { Id = wh2Id, CID = companyId, By = adminUserId, Now = now }, cancellationToken: ct));
         }
 
         var uoms = (await conn.QueryAsync<(string Code, Guid Id)>(
-            new CommandDefinition("SELECT code, id FROM units_of_measure WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
+            new CommandDefinition("SELECT code, id FROM units_of_measure",
+                new { }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
         var cats = (await conn.QueryAsync<(string Code, Guid Id)>(
-            new CommandDefinition("SELECT code, id FROM item_categories WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
+            new CommandDefinition("SELECT code, id FROM item_categories",
+                new { }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
 
         // Idempotency: skip items if already seeded
         var existingItems = await conn.ExecuteScalarAsync<int>(
-            new CommandDefinition("SELECT COUNT(*) FROM items WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT COUNT(*) FROM items",
+                new { }, cancellationToken: ct));
         if (existingItems >= 15)
         {
             _logger.LogInformation("  ⏭ Items already seeded ({N})", existingItems);
@@ -543,12 +543,12 @@ public sealed class ScenarioSeederHostedService : IHostedService
         foreach (var it in items)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO items (id, tenant_id, company_id, sku, name, item_type, costing_method,
+                INSERT INTO items (id, company_id, sku, name, item_type, costing_method,
                     average_cost, standard_cost, category_id, unit_of_measure_id,
                     reorder_level, reorder_quantity, is_active, created_at, updated_at, created_by, updated_by)
                 VALUES (gen_random_uuid(), @T, @CID, @Sku, @Name, @Type, 3, @Cost, @Cost, @CatId, @UoMId,
                     @Reorder, 0, true, @Now, @Now, @By, @By)",
-                new { T = tenantId, CID = companyId, Sku = it.Sku, Name = it.Name, Type = (int)it.Type,
+                new { CID = companyId, Sku = it.Sku, Name = it.Name, Type = (int)it.Type,
                     Cost = it.Cost, CatId = cats.GetValueOrDefault(it.Cat), UoMId = uoms.GetValueOrDefault(it.UoM),
                     Reorder = it.Reorder, By = adminUserId, Now = now },
                 cancellationToken: ct));
@@ -560,11 +560,11 @@ public sealed class ScenarioSeederHostedService : IHostedService
     {
         await using var conn = await OpenConnectionAsync(services, ct);
         var items = (await conn.QueryAsync<Guid>(
-            new CommandDefinition("SELECT id FROM items WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct))).ToList();
+            new CommandDefinition("SELECT id FROM items",
+                new { }, cancellationToken: ct))).ToList();
         var warehouses = (await conn.QueryAsync<Guid>(
-            new CommandDefinition("SELECT id FROM warehouses WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct))).ToList();
+            new CommandDefinition("SELECT id FROM warehouses",
+                new { }, cancellationToken: ct))).ToList();
         return (items, warehouses);
     }
 
@@ -627,7 +627,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
             if (lines.Count == 0) continue;
 
-            var r = await poSvc.CreateAsync(tenantId, adminUserId, new CreatePurchaseOrderRequest
+            var r = await poSvc.CreateAsync(adminUserId, new CreatePurchaseOrderRequest
             {
                 VendorId = vendorList[po.VendorIdx],
                 OrderDate = orderDate,
@@ -639,8 +639,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
             if (r.Succeeded)
             {
-                await poSvc.ApproveAsync(tenantId, adminUserId, r.Value!.Id, ct);
-                await poSvc.SendAsync(tenantId, adminUserId, r.Value!.Id, ct);
+                await poSvc.ApproveAsync(adminUserId, r.Value!.Id, ct);
+                await poSvc.SendAsync(adminUserId, r.Value!.Id, ct);
                 created++;
             }
         }
@@ -660,12 +660,12 @@ public sealed class ScenarioSeederHostedService : IHostedService
         // DEC-073: Select order_date too so GR dates can be spread realistically
         var pos = (await conn.QueryAsync<dynamic>(
             new CommandDefinition(
-                "SELECT id, vendor_id, order_date FROM purchase_orders WHERE tenant_id = @T AND status = 'Sent' ORDER BY created_at LIMIT 20",
-                new { T = tenantId }, cancellationToken: ct))).ToList();
+                "SELECT id, vendor_id, order_date FROM purchase_orders WHERE status = 'Sent' ORDER BY created_at LIMIT 20",
+                new { }, cancellationToken: ct))).ToList();
 
         var wh = await conn.QueryFirstOrDefaultAsync<Guid>(
-            new CommandDefinition("SELECT id FROM warehouses WHERE tenant_id = @T LIMIT 1",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT id FROM warehouses LIMIT 1",
+                new { }, cancellationToken: ct));
 
         var grCount = 0; var billCount = 0;
         foreach (var po in pos)
@@ -690,7 +690,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
                 UnitCost = (decimal)l.unit_price
             }).ToList();
 
-            var gr = await grSvc.CreateAsync(tenantId, adminUserId, new CreateGoodsReceiptRequest
+            var gr = await grSvc.CreateAsync(adminUserId, new CreateGoodsReceiptRequest
             {
                 PurchaseOrderId = poId,
                 ReceivedDate = grDate,  // DEC-073: spread over past, anchored to PO date
@@ -701,7 +701,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             if (!gr.Succeeded) continue;
             try
             {
-                await grSvc.ReceiveAsync(tenantId, adminUserId, gr.Value!.Id, ct);
+                await grSvc.ReceiveAsync(adminUserId, gr.Value!.Id, ct);
                 grCount++;
             }
             catch (Exception ex)
@@ -720,7 +720,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
                 // DEC-073: Bill date 1-30 days after GR (realistic vendor billing cycle)
                 var billDate = grDate.AddDays(Random.Shared.Next(1, 30));
                 if (billDate > DateTime.UtcNow) billDate = DateTime.UtcNow.AddDays(-Random.Shared.Next(1, 7));
-                var bill = await billSvc.CreateAsync(tenantId, adminUserId, new CreateVendorBillRequest
+                var bill = await billSvc.CreateAsync(adminUserId, new CreateVendorBillRequest
                 {
                     GoodsReceiptId = gr.Value!.Id,
                     BillDate = billDate,
@@ -731,7 +731,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
                 if (bill.Succeeded && Random.Shared.NextDouble() > 0.20) // 80% post
                 {
-                    try { await billSvc.PostAsync(tenantId, adminUserId, bill.Value!.Id, ct); billCount++; }
+                    try { await billSvc.PostAsync(adminUserId, bill.Value!.Id, ct); billCount++; }
                     catch (Exception ex) { _logger.LogWarning("  ⚠️  Bill Post failed: {Msg}", ex.Message); }
                 }
             }
@@ -747,7 +747,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         var payrollSvc = services.GetRequiredService<IPayrollService>();
 
         // Idempotency: لو في 12 دورة رواتب موجودة بالفعل، نتخطى الخطوة (آمن لإعادة التشغيل)
-        var existingRuns = await payrollSvc.ListRunsAsync(tenantId, null, 0, 50, ct);
+        var existingRuns = await payrollSvc.ListRunsAsync(null, 0, 50, ct);
         if (existingRuns.Succeeded && existingRuns.Value!.Count >= 12)
         {
             _logger.LogInformation("  ⏭ Payroll runs already seeded ({N} runs)", existingRuns.Value.Count);
@@ -774,23 +774,23 @@ public sealed class ScenarioSeederHostedService : IHostedService
             await using var conn = await OpenConnectionAsync(services, ct);
             var existingForMonth = await conn.ExecuteScalarAsync<int>(
                 new CommandDefinition(
-                    "SELECT COUNT(*) FROM payroll_runs WHERE tenant_id = @T AND period_start::date = @PS::date",
-                    new { T = tenantId, PS = start }, cancellationToken: ct));
+                    "SELECT COUNT(*) FROM payroll_runs WHERE period_start::date = @PS::date",
+                    new { PS = start }, cancellationToken: ct));
             if (existingForMonth > 0)
             {
                 _logger.LogInformation("  ⏭ Payroll for {M}/{Y} already exists, skipping", month, 2026);
                 continue;
             }
 
-            var createR = await payrollSvc.CreateRunAsync(tenantId, adminUserId, new CreatePayrollRunRequest
+            var createR = await payrollSvc.CreateRunAsync(adminUserId, new CreatePayrollRunRequest
             {
                 PeriodStart = start, PeriodEnd = end, Notes = note
             }, ct);
 
             if (!createR.Succeeded) { _logger.LogWarning("Payroll create failed {M}: {Err}", month, createR.Error); continue; }
-            if (!payrollSvc.ProcessRunAsync(tenantId, adminUserId, createR.Value!.Id, ct).Result.Succeeded)
+            if (!payrollSvc.ProcessRunAsync(adminUserId, createR.Value!.Id, ct).Result.Succeeded)
                 { _logger.LogWarning("Payroll process failed {M}", month); continue; }
-            if (!payrollSvc.PostRunAsync(tenantId, adminUserId, createR.Value!.Id, ct).Result.Succeeded)
+            if (!payrollSvc.PostRunAsync(adminUserId, createR.Value!.Id, ct).Result.Succeeded)
                 { _logger.LogWarning("Payroll post failed {M}", month); continue; }
 
             processed++;
@@ -812,8 +812,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         // Idempotency: skip if opening balance already exists
         var existingOpening = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM journal_entries WHERE tenant_id = @T AND reference = 'OPENING-BALANCE'",
-            new { T = tenantId }, cancellationToken: ct));
+            "SELECT COUNT(*) FROM journal_entries WHERE reference = 'OPENING-BALANCE'",
+            new { }, cancellationToken: ct));
         if (existingOpening > 0)
         {
             _logger.LogInformation("  ⏭ Opening balance already exists, skipping");
@@ -822,8 +822,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         // Look up Cash (1210) and Capital (3100) account IDs
         var accts = await conn.QueryAsync<(string Code, Guid Id)>(new CommandDefinition(
-            "SELECT code, id FROM accounts WHERE tenant_id = @T AND code IN ('1210', '3100')",
-            new { T = tenantId }, cancellationToken: ct));
+            "SELECT code, id FROM accounts WHERE code IN ('1210', '3100')",
+            new { }, cancellationToken: ct));
         Guid? cashId = null, capitalId = null;
         foreach (var (code, id) in accts)
         {
@@ -839,7 +839,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         }
 
         const decimal openingAmount = 5_000_000m;  // 5M LYD starting capital
-        var draft = await journalSvc.CreateDraftAsync(tenantId, adminUserId, new ERPSystem.Modules.Finance.Application.PostJournalEntryRequest
+        var draft = await journalSvc.CreateDraftAsync(adminUserId, new ERPSystem.Modules.Finance.Application.PostJournalEntryRequest
         {
             EntryDate = new DateTime(2024, 1, 1),  // opening of business
             Description = "Opening Balance — Owner's Capital Investment",
@@ -859,7 +859,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             return;
         }
 
-        var post = await journalSvc.PostAsync(tenantId, adminUserId, draft.Value!.Id, ct);
+        var post = await journalSvc.PostAsync(adminUserId, draft.Value!.Id, ct);
         if (post.Succeeded)
             _logger.LogInformation("  ✅ Opening balance JE created ({N} LYD)", openingAmount);
         else
@@ -875,8 +875,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         await using var conn = await OpenConnectionAsync(services, ct);
         var accountMap = (await conn.QueryAsync<(string Code, Guid Id)>(
-            new CommandDefinition("SELECT code, id FROM accounts WHERE tenant_id = @T",
-                new { T = tenantId }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
+            new CommandDefinition("SELECT code, id FROM accounts",
+                new { }, cancellationToken: ct))).ToDictionary(r => r.Code, r => r.Id);
 
         var entries = new (int Month, int Day, string Desc, string Ref, (string Code, decimal Dr, decimal Cr)[] Lines)[]
         {
@@ -948,7 +948,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             var year = e.Month >= 7 ? 2024 : 2025;
             var yearSuffix = year % 100;
 
-            var r = await journalSvc.CreateDraftAsync(tenantId, adminUserId, new PostJournalEntryRequest
+            var r = await journalSvc.CreateDraftAsync(adminUserId, new PostJournalEntryRequest
             {
                 EntryDate = new DateTime(year, e.Month, e.Day),
                 Description = e.Desc,
@@ -956,7 +956,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
                 Lines = journalLines
             }, ct);
 
-            if (r.Succeeded) { await journalSvc.PostAsync(tenantId, adminUserId, r.Value!.Id, ct); created++; }
+            if (r.Succeeded) { await journalSvc.PostAsync(adminUserId, r.Value!.Id, ct); created++; }
             else _logger.LogWarning("JE failed: {Desc} — {Err}", e.Desc, r.Error);
         }
         _logger.LogInformation("  ✅ Manual Journal Entries seeded ({N})", created);
@@ -971,8 +971,8 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         await using var conn = await OpenConnectionAsync(services, ct);
         var company = await conn.QueryFirstOrDefaultAsync<dynamic>(
-            new CommandDefinition("SELECT id FROM companies WHERE tenant_id = @T LIMIT 1",
-                new { T = tenantId }, cancellationToken: ct));
+            new CommandDefinition("SELECT id FROM companies WHERE is_group = true AND code = '000' LIMIT 1",
+                new { }, cancellationToken: ct));
         var companyId = company == null ? (Guid?)null : (Guid)company.id;
 
         var projects = new (string Code, string Name, decimal Budget, DateTime Start, DateTime End, string Desc)[]
@@ -993,14 +993,14 @@ public sealed class ScenarioSeederHostedService : IHostedService
 
         foreach (var p in projects)
         {
-            var r = await projectSvc.CreateAsync(tenantId, adminUserId, new CreateProjectRequest
+            var r = await projectSvc.CreateAsync(adminUserId, new CreateProjectRequest
             {
                 Code = p.Code, Name = p.Name, Budget = p.Budget,
                 Description = p.Desc, StartDate = p.Start, EndDate = p.End, CompanyId = companyId!.Value
             }, ct);
             // Activate first two projects
             if (r.Succeeded && (p.Code == "P-2026-001" || p.Code == "P-2026-002"))
-                await projectSvc.ChangeStatusAsync(tenantId, adminUserId, r.Value!.Id, ProjectStatus.Active, ct);
+                await projectSvc.ChangeStatusAsync(adminUserId, r.Value!.Id, ProjectStatus.Active, ct);
         }
         _logger.LogInformation("  ✅ Projects seeded ({N})", projects.Length);
     }

@@ -5,19 +5,20 @@ using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.MultiTenancy;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.AccountsReceivable.Application.Services;
 
 public interface ISalesInvoiceService
 {
-    Task<ArResult<SalesInvoiceResponse>> CreateAsync(Guid tenantId, Guid userId, CreateSalesInvoiceRequest req, CancellationToken ct);
-    Task<ArResult<SalesInvoiceResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateSalesInvoiceRequest req, CancellationToken ct);
-    Task<ArResult<SalesInvoiceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ArResult<IReadOnlyList<SalesInvoiceResponse>>> ListAsync(Guid tenantId, Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct);
-    Task<ArResult<SalesInvoiceResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<ArResult<SalesInvoiceResponse>> CancelAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<ArResult<ArAgingReport>> GetAgingReportAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct);
+    Task<ArResult<SalesInvoiceResponse>> CreateAsync(Guid userId, CreateSalesInvoiceRequest req, CancellationToken ct);
+    Task<ArResult<SalesInvoiceResponse>> UpdateAsync(Guid userId, Guid id, UpdateSalesInvoiceRequest req, CancellationToken ct);
+    Task<ArResult<SalesInvoiceResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ArResult<IReadOnlyList<SalesInvoiceResponse>>> ListAsync(Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct);
+    Task<ArResult<SalesInvoiceResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<ArResult<SalesInvoiceResponse>> CancelAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<ArResult<ArAgingReport>> GetAgingReportAsync(DateTime asOfDate, CancellationToken ct);
 }
 
 /// <summary>
@@ -34,6 +35,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly IArDocumentSequenceRepository _seq;
     private readonly IJournalEntryService _journalEntries;
     private readonly IAccountRepository _accounts;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<SalesInvoiceService> _logger;
 
     public SalesInvoiceService(
@@ -42,16 +44,19 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         IArDocumentSequenceRepository seq,
         IJournalEntryService journalEntries,
         IAccountRepository accounts,
+        ICompanyContext companyContext,
         ILogger<SalesInvoiceService> logger)
     {
         _invoices = invoices; _customers = customers; _seq = seq;
-        _journalEntries = journalEntries; _accounts = accounts; _logger = logger;
+        _journalEntries = journalEntries; _accounts = accounts;
+        _companyContext = companyContext;
+        _logger = logger;
     }
 
-    public async Task<ArResult<SalesInvoiceResponse>> CreateAsync(Guid tenantId, Guid userId, CreateSalesInvoiceRequest req, CancellationToken ct)
+    public async Task<ArResult<SalesInvoiceResponse>> CreateAsync(Guid userId, CreateSalesInvoiceRequest req, CancellationToken ct)
     {
         var customer = await _customers.GetByIdAsync(req.CustomerId, ct);
-        if (customer == null || customer.TenantId != tenantId)
+        if (customer == null)
             return ArResult<SalesInvoiceResponse>.Fail("العميل غير موجود.", ArErrorCode.NotFound);
         if (!customer.IsActive)
             return ArResult<SalesInvoiceResponse>.Fail("العميل غير نشط.", ArErrorCode.BusinessRuleViolation);
@@ -59,7 +64,9 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             return ArResult<SalesInvoiceResponse>.Fail("الفاتورة يجب أن تحتوي على بند واحد على الأقل.", ArErrorCode.ValidationError);
 
         // توليد رقم فاتورة تلقائي
-        var invoiceNumber = await _seq.GetNextNumberAsync(tenantId, "SI", ct);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
+        var invoiceNumber = await _seq.GetNextNumberAsync(companyId, "SI", ct);
 
         // حساب الـ totals
         decimal subtotal = 0, taxAmount = 0;
@@ -74,7 +81,6 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             lineEntities.Add(new SalesInvoiceLine
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantId,
                 ItemId = l.ItemId,
                 Description = l.Description.Trim(),
                 LineNumber = i + 1,
@@ -93,7 +99,6 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         var inv = new SalesInvoice
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             CompanyId = Guid.Empty,
             CustomerId = req.CustomerId,
             InvoiceNumber = invoiceNumber,
@@ -114,12 +119,12 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             Lines = lineEntities,
         };
         await _invoices.InsertAsync(inv, ct);
-        await _invoices.InsertLinesAsync(tenantId, inv.Id, lineEntities, ct);
+        await _invoices.InsertLinesAsync(inv.Id, lineEntities, ct);
         _logger.LogInformation("تم إنشاء فاتورة {Inv} للعميل {Customer} بقيمة {Total}", invoiceNumber, customer.Code, total);
 
         if (req.PostImmediately)
         {
-            var postResult = await PostInternalAsync(tenantId, userId, inv, ct);
+            var postResult = await PostInternalAsync(userId, inv, ct);
             if (!postResult.Succeeded)
                 return ArResult<SalesInvoiceResponse>.Fail($"تم إنشاء الفاتورة لكن فشل الترحيل: {postResult.Error}", postResult.ErrorCode ?? ArErrorCode.Internal);
             return postResult;
@@ -127,10 +132,10 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, customer.Name));
     }
 
-    public async Task<ArResult<SalesInvoiceResponse>> UpdateAsync(Guid tenantId, Guid userId, Guid id, UpdateSalesInvoiceRequest req, CancellationToken ct)
+    public async Task<ArResult<SalesInvoiceResponse>> UpdateAsync(Guid userId, Guid id, UpdateSalesInvoiceRequest req, CancellationToken ct)
     {
         var inv = await _invoices.GetByIdAsync(id, ct);
-        if (inv == null || inv.TenantId != tenantId)
+        if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         if (inv.Status != SalesInvoiceStatus.Draft)
             return ArResult<SalesInvoiceResponse>.Fail("لا يمكن تعديل فاتورة غير مسودة.", ArErrorCode.InvalidStatusTransition);
@@ -148,7 +153,6 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             newLines.Add(new SalesInvoiceLine
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantId,
                 SalesInvoiceId = inv.Id,
                 ItemId = l.ItemId,
                 Description = l.Description.Trim(),
@@ -173,24 +177,24 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         inv.UpdatedAt = DateTime.UtcNow;
         inv.UpdatedBy = userId;
         await _invoices.UpdateAsync(inv, ct);
-        await _invoices.UpdateLinesAsync(tenantId, inv.Id, newLines, ct);
+        await _invoices.UpdateLinesAsync(inv.Id, newLines, ct);
         inv.Lines = newLines;
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, null));
     }
 
-    public async Task<ArResult<SalesInvoiceResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ArResult<SalesInvoiceResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var inv = await _invoices.GetByIdAsync(id, ct);
-        if (inv == null || inv.TenantId != tenantId)
+        if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         var customer = await _customers.GetByIdAsync(inv.CustomerId, ct);
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, customer?.Name));
     }
 
-    public async Task<ArResult<IReadOnlyList<SalesInvoiceResponse>>> ListAsync(Guid tenantId, Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<ArResult<IReadOnlyList<SalesInvoiceResponse>>> ListAsync(Guid? customerId, SalesInvoiceStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _invoices.ListAsync(tenantId, customerId, status, skip, take, ct);
+        var list = await _invoices.ListAsync(customerId, status, skip, take, ct);
         // جلب أسماء العملاء (دفعة واحدة)
         var customerIds = list.Select(i => i.CustomerId).Distinct().ToList();
         var customerMap = new Dictionary<Guid, string>();
@@ -203,26 +207,26 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             list.Select(i => MapToResponse(i, customerMap.GetValueOrDefault(i.CustomerId))).ToList());
     }
 
-    public async Task<ArResult<SalesInvoiceResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ArResult<SalesInvoiceResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var inv = await _invoices.GetByIdAsync(id, ct);
-        if (inv == null || inv.TenantId != tenantId)
+        if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         if (inv.Status != SalesInvoiceStatus.Draft)
             return ArResult<SalesInvoiceResponse>.Fail(
                 $"لا يمكن ترحيل فاتورة في حالة {inv.Status}.", ArErrorCode.InvalidStatusTransition);
 
-        return await PostInternalAsync(tenantId, userId, inv, ct);
+        return await PostInternalAsync(userId, inv, ct);
     }
 
     /// <summary>المنطق الداخلي للترحيل: ينشئ القيد (Dr 1230 / Cr 5110) ويرفع الحالة إلى Sent.</summary>
-    private async Task<ArResult<SalesInvoiceResponse>> PostInternalAsync(Guid tenantId, Guid userId, SalesInvoice inv, CancellationToken ct)
+    private async Task<ArResult<SalesInvoiceResponse>> PostInternalAsync(Guid userId, SalesInvoice inv, CancellationToken ct)
     {
         // جلب الحسابات (fallback chain)
-        var arAccount = await _accounts.GetByCodeAsync(tenantId, "1230", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "1220", ct);
-        var revenueAccount = await _accounts.GetByCodeAsync(tenantId, "5110", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "4100", ct);
+        var arAccount = await _accounts.GetByCodeAsync("1230", ct)
+            ?? await _accounts.GetByCodeAsync("1220", ct);
+        var revenueAccount = await _accounts.GetByCodeAsync("5110", ct)
+            ?? await _accounts.GetByCodeAsync("4100", ct);
 
         if (arAccount == null)
             return ArResult<SalesInvoiceResponse>.Fail("حساب الذمم المدينة (1230) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
@@ -243,12 +247,12 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
                 new() { AccountId = revenueAccount.Id, Debit = 0, Credit = inv.TotalAmount, Description = "دائن - إيرادات" },
             }
         };
-        var draft = await _journalEntries.CreateDraftAsync(tenantId, userId, journalReq, ct);
+        var draft = await _journalEntries.CreateDraftAsync(userId, journalReq, ct);
         if (!draft.Succeeded)
             return ArResult<SalesInvoiceResponse>.Fail($"فشل إنشاء القيد: {draft.Error}", draft.ErrorCode == FinanceErrorCode.NotFound ? ArErrorCode.NotFound : ArErrorCode.Internal);
 
         // ترحيل القيد
-        var posted = await _journalEntries.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+        var posted = await _journalEntries.PostAsync(userId, draft.Value!.Id, ct);
         if (!posted.Succeeded)
             return ArResult<SalesInvoiceResponse>.Fail($"فشل ترحيل القيد: {posted.Error}", ArErrorCode.Internal);
 
@@ -268,10 +272,10 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, customer?.Name));
     }
 
-    public async Task<ArResult<SalesInvoiceResponse>> CancelAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ArResult<SalesInvoiceResponse>> CancelAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var inv = await _invoices.GetByIdAsync(id, ct);
-        if (inv == null || inv.TenantId != tenantId)
+        if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         if (inv.Status == SalesInvoiceStatus.Cancelled)
             return ArResult<SalesInvoiceResponse>.Fail("الفاتورة ملغاة بالفعل.", ArErrorCode.InvalidStatusTransition);
@@ -285,9 +289,9 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, null));
     }
 
-    public async Task<ArResult<ArAgingReport>> GetAgingReportAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct)
+    public async Task<ArResult<ArAgingReport>> GetAgingReportAsync(DateTime asOfDate, CancellationToken ct)
     {
-        var openInvoices = await _invoices.ListAllOpenAsync(tenantId, ct);
+        var openInvoices = await _invoices.ListAllOpenAsync(ct);
         var rows = new Dictionary<Guid, ArAgingRow>();
         foreach (var inv in openInvoices)
         {
@@ -356,7 +360,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
 
     private static SalesInvoiceResponse MapToResponse(SalesInvoice inv, string? customerName) => new()
     {
-        Id = inv.Id, TenantId = inv.TenantId, CustomerId = inv.CustomerId, CustomerName = customerName,
+        Id = inv.Id, CustomerId = inv.CustomerId, CustomerName = customerName,
         InvoiceNumber = inv.InvoiceNumber, InvoiceDate = inv.InvoiceDate, DueDate = inv.DueDate,
         CurrencyCode = inv.CurrencyCode, ExchangeRate = inv.ExchangeRate,
         Subtotal = inv.Subtotal, TaxAmount = inv.TaxAmount, TotalAmount = inv.TotalAmount,

@@ -5,17 +5,17 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 public interface IPostingRulesService
 {
     /// <summary>إنشاء قاعدة جديدة</summary>
-    Task<FinanceResult<PostingRule>> CreateAsync(Guid tenantId, CreatePostingRuleRequest request, CancellationToken ct);
+    Task<FinanceResult<PostingRule>> CreateAsync(CreatePostingRuleRequest request, CancellationToken ct);
 
-    /// <summary>قائمة القواعد للمستأجر</summary>
-    Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(Guid tenantId, CancellationToken ct);
+    /// <summary>قائمة القواعد</summary>
+    Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(CancellationToken ct);
 
-    /// <summary>تطبيق كل القواعد النشطة لحدث معين على Tenant معطى</summary>
+    /// <summary>تطبيق كل القواعد النشطة لحدث معين</summary>
     /// <returns>عدد القيود المُنشأة</returns>
-    Task<int> ApplyRulesAsync(Guid tenantId, Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct);
+    Task<int> ApplyRulesAsync(Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct);
 
-    /// <summary>Seed القواعد الافتراضية عند إنشاء tenant جديد</summary>
-    Task EnsureDefaultRulesAsync(Guid tenantId, CancellationToken ct);
+    /// <summary>Seed القواعد الافتراضية</summary>
+    Task EnsureDefaultRulesAsync(CancellationToken ct);
 }
 
 /// <summary>البيانات المحمولة في الحدث (event payload) — تُمرَّر لـ template</summary>

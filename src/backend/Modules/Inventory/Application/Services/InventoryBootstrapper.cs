@@ -31,16 +31,16 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
     {
         // Back-compat path: each underlying repo call opens its own connection.
         // Preserved exactly as before so non-register callers (e.g. seed scripts) are untouched.
-        // UoMs
-        if (await _uoms.GetByCodeAsync(tenantId, "pcs", ct) == null)
+        // UoMs are global reference data (no per-company scope) — phase 6.0b.
+        if (await _uoms.GetByCodeAsync("pcs", ct) == null)
         {
             foreach (var (code, name, symbol) in DefaultInventorySeed.DefaultUoMs)
             {
-                if (await _uoms.GetByCodeAsync(tenantId, code, ct) == null)
+                if (await _uoms.GetByCodeAsync(code, ct) == null)
                 {
                     await _uoms.InsertAsync(new UnitOfMeasure
                     {
-                        Id = Guid.NewGuid(), TenantId = tenantId, Code = code, Name = name, Symbol = symbol,
+                        Id = Guid.NewGuid(), Code = code, Name = name, Symbol = symbol,
                         IsActive = true, CreatedAt = DateTime.UtcNow
                     }, ct);
                 }
@@ -49,7 +49,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         }
 
         // Categories
-        if (await _categories.GetByCodeAsync(tenantId, "RM", ct) == null)
+        if (await _categories.GetByCodeAsync("RM", ct) == null)
         {
             // Phase 1: roots
             var idByCode = new Dictionary<string, Guid>();
@@ -58,7 +58,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                 var id = Guid.NewGuid();
                 await _categories.InsertAsync(new ItemCategory
                 {
-                    Id = id, TenantId = tenantId, Code = code, Name = name, ParentId = null,
+                    Id = id, Code = code, Name = name, ParentId = null,
                     IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
                 }, ct);
                 idByCode[code] = id;
@@ -75,16 +75,16 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         // those reads always return null. The inserts go through the caller-supplied
         // connection so they roll back together with the tenant/holding insert.
 
-        // UoMs
-        if (await _uoms.GetByCodeAsync(tenantId, "pcs", ct) == null)
+        // UoMs (global reference data)
+        if (await _uoms.GetByCodeAsync("pcs", ct) == null)
         {
             foreach (var (code, name, symbol) in DefaultInventorySeed.DefaultUoMs)
             {
-                if (await _uoms.GetByCodeAsync(tenantId, code, ct) == null)
+                if (await _uoms.GetByCodeAsync(code, ct) == null)
                 {
                     await _uoms.InsertAsync(new UnitOfMeasure
                     {
-                        Id = Guid.NewGuid(), TenantId = tenantId, Code = code, Name = name, Symbol = symbol,
+                        Id = Guid.NewGuid(), Code = code, Name = name, Symbol = symbol,
                         IsActive = true, CreatedAt = DateTime.UtcNow
                     }, conn, tx, ct);
                 }
@@ -93,7 +93,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         }
 
         // Categories
-        if (await _categories.GetByCodeAsync(tenantId, "RM", ct) == null)
+        if (await _categories.GetByCodeAsync("RM", ct) == null)
         {
             // Phase 1: roots
             var idByCode = new Dictionary<string, Guid>();
@@ -102,7 +102,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                 var id = Guid.NewGuid();
                 await _categories.InsertAsync(new ItemCategory
                 {
-                    Id = id, TenantId = tenantId, Code = code, Name = name, ParentId = null,
+                    Id = id, Code = code, Name = name, ParentId = null,
                     IsActive = true, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
                 }, conn, tx, ct);
                 idByCode[code] = id;

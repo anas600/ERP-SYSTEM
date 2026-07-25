@@ -5,17 +5,18 @@ using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.MultiTenancy;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.AccountsReceivable.Application.Services;
 
 public interface IReceiptService
 {
-    Task<ArResult<ReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateReceiptRequest req, CancellationToken ct);
-    Task<ArResult<ReceiptResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<ArResult<IReadOnlyList<ReceiptResponse>>> ListAsync(Guid tenantId, Guid? customerId, int skip, int take, CancellationToken ct);
-    Task<ArResult<ReceiptResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<ArResult<ReceiptResponse>> ReverseAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task<ArResult<ReceiptResponse>> CreateAsync(Guid userId, CreateReceiptRequest req, CancellationToken ct);
+    Task<ArResult<ReceiptResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<ArResult<IReadOnlyList<ReceiptResponse>>> ListAsync(Guid? customerId, int skip, int take, CancellationToken ct);
+    Task<ArResult<ReceiptResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<ArResult<ReceiptResponse>> ReverseAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 /// <summary>
@@ -31,6 +32,7 @@ public sealed class ReceiptService : IReceiptService
     private readonly IArDocumentSequenceRepository _seq;
     private readonly IJournalEntryService _journalEntries;
     private readonly IAccountRepository _accounts;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<ReceiptService> _logger;
 
     public ReceiptService(
@@ -40,16 +42,19 @@ public sealed class ReceiptService : IReceiptService
         IArDocumentSequenceRepository seq,
         IJournalEntryService journalEntries,
         IAccountRepository accounts,
+        ICompanyContext companyContext,
         ILogger<ReceiptService> logger)
     {
         _receipts = receipts; _customers = customers; _invoices = invoices;
-        _seq = seq; _journalEntries = journalEntries; _accounts = accounts; _logger = logger;
+        _seq = seq; _journalEntries = journalEntries; _accounts = accounts;
+        _companyContext = companyContext;
+        _logger = logger;
     }
 
-    public async Task<ArResult<ReceiptResponse>> CreateAsync(Guid tenantId, Guid userId, CreateReceiptRequest req, CancellationToken ct)
+    public async Task<ArResult<ReceiptResponse>> CreateAsync(Guid userId, CreateReceiptRequest req, CancellationToken ct)
     {
         var customer = await _customers.GetByIdAsync(req.CustomerId, ct);
-        if (customer == null || customer.TenantId != tenantId)
+        if (customer == null)
             return ArResult<ReceiptResponse>.Fail("العميل غير موجود.", ArErrorCode.NotFound);
         if (!customer.IsActive)
             return ArResult<ReceiptResponse>.Fail("العميل غير نشط.", ArErrorCode.BusinessRuleViolation);
@@ -67,7 +72,7 @@ public sealed class ReceiptService : IReceiptService
             foreach (var a in req.Allocations)
             {
                 var inv = await _invoices.GetByIdAsync(a.SalesInvoiceId, ct);
-                if (inv == null || inv.TenantId != tenantId)
+                if (inv == null)
                     return ArResult<ReceiptResponse>.Fail($"الفاتورة {a.SalesInvoiceId} غير موجودة.", ArErrorCode.NotFound);
                 if (inv.CustomerId != req.CustomerId)
                     return ArResult<ReceiptResponse>.Fail($"الفاتورة {inv.InvoiceNumber} لا تخص هذا العميل.", ArErrorCode.BusinessRuleViolation);
@@ -83,7 +88,6 @@ public sealed class ReceiptService : IReceiptService
                 allocations.Add(new ReceiptAllocation
                 {
                     Id = Guid.NewGuid(),
-                    TenantId = tenantId,
                     SalesInvoiceId = a.SalesInvoiceId,
                     AmountApplied = a.AmountApplied,
                 });
@@ -94,12 +98,13 @@ public sealed class ReceiptService : IReceiptService
         if (!string.IsNullOrWhiteSpace(req.PaymentMethod) && !PaymentMethod.All.Contains(req.PaymentMethod))
             return ArResult<ReceiptResponse>.Fail($"PaymentMethod غير صالح.", ArErrorCode.ValidationError);
 
-        var receiptNumber = await _seq.GetNextNumberAsync(tenantId, "RC", ct);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
+        var receiptNumber = await _seq.GetNextNumberAsync(companyId, "RC", ct);
         var now = DateTime.UtcNow;
         var receipt = new Receipt
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             CompanyId = Guid.Empty,
             CustomerId = req.CustomerId,
             ReceiptNumber = receiptNumber,
@@ -113,13 +118,13 @@ public sealed class ReceiptService : IReceiptService
             Allocations = allocations,
         };
         await _receipts.InsertAsync(receipt, ct);
-        await _receipts.InsertAllocationsAsync(tenantId, receipt.Id, allocations, ct);
+        await _receipts.InsertAllocationsAsync(receipt.Id, allocations, ct);
 
         _logger.LogInformation("تم إنشاء سند قبض {Rc} للعميل {Customer} بقيمة {Amount}", receiptNumber, customer.Code, req.Amount);
 
         if (req.PostImmediately)
         {
-            var postResult = await PostInternalAsync(tenantId, userId, receipt, allocations, ct);
+            var postResult = await PostInternalAsync(userId, receipt, allocations, ct);
             if (!postResult.Succeeded)
                 return ArResult<ReceiptResponse>.Fail($"تم إنشاء السند لكن فشل الترحيل: {postResult.Error}", postResult.ErrorCode ?? ArErrorCode.Internal);
             return postResult;
@@ -127,19 +132,19 @@ public sealed class ReceiptService : IReceiptService
         return ArResult<ReceiptResponse>.Ok(MapToResponse(receipt, customer.Name));
     }
 
-    public async Task<ArResult<ReceiptResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<ArResult<ReceiptResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var r = await _receipts.GetByIdAsync(id, ct);
-        if (r == null || r.TenantId != tenantId)
+        if (r == null)
             return ArResult<ReceiptResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         var customer = await _customers.GetByIdAsync(r.CustomerId, ct);
         return ArResult<ReceiptResponse>.Ok(MapToResponse(r, customer?.Name));
     }
 
-    public async Task<ArResult<IReadOnlyList<ReceiptResponse>>> ListAsync(Guid tenantId, Guid? customerId, int skip, int take, CancellationToken ct)
+    public async Task<ArResult<IReadOnlyList<ReceiptResponse>>> ListAsync(Guid? customerId, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _receipts.ListAsync(tenantId, customerId, skip, take, ct);
+        var list = await _receipts.ListAsync(customerId, skip, take, ct);
         var customerMap = new Dictionary<Guid, string>();
         foreach (var r in list)
         {
@@ -153,23 +158,23 @@ public sealed class ReceiptService : IReceiptService
             list.Select(r => MapToResponse(r, customerMap.GetValueOrDefault(r.CustomerId))).ToList());
     }
 
-    public async Task<ArResult<ReceiptResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ArResult<ReceiptResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var receipt = await _receipts.GetByIdAsync(id, ct);
-        if (receipt == null || receipt.TenantId != tenantId)
+        if (receipt == null)
             return ArResult<ReceiptResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         if (receipt.PostedAt != null)
             return ArResult<ReceiptResponse>.Fail("السند مُرحّل بالفعل.", ArErrorCode.InvalidStatusTransition);
 
-        return await PostInternalAsync(tenantId, userId, receipt, receipt.Allocations, ct);
+        return await PostInternalAsync(userId, receipt, receipt.Allocations, ct);
     }
 
     /// <summary>المنطق الداخلي للترحيل: ينشئ القيد (Dr 1210 / Cr 1230) ويحدّث حالة الفواتير.</summary>
-    private async Task<ArResult<ReceiptResponse>> PostInternalAsync(Guid tenantId, Guid userId, Receipt receipt, List<ReceiptAllocation> allocations, CancellationToken ct)
+    private async Task<ArResult<ReceiptResponse>> PostInternalAsync(Guid userId, Receipt receipt, List<ReceiptAllocation> allocations, CancellationToken ct)
     {
-        var cashAccount = await _accounts.GetByCodeAsync(tenantId, "1210", ct);
-        var arAccount = await _accounts.GetByCodeAsync(tenantId, "1230", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "1220", ct);
+        var cashAccount = await _accounts.GetByCodeAsync("1210", ct);
+        var arAccount = await _accounts.GetByCodeAsync("1230", ct)
+            ?? await _accounts.GetByCodeAsync("1220", ct);
         if (cashAccount == null)
             return ArResult<ReceiptResponse>.Fail("حساب النقدية (1210) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
         if (arAccount == null)
@@ -189,11 +194,11 @@ public sealed class ReceiptService : IReceiptService
                 new() { AccountId = arAccount.Id, Debit = 0, Credit = receipt.Amount, Description = "دائن - ذمم مدينة" },
             }
         };
-        var draft = await _journalEntries.CreateDraftAsync(tenantId, userId, journalReq, ct);
+        var draft = await _journalEntries.CreateDraftAsync(userId, journalReq, ct);
         if (!draft.Succeeded)
             return ArResult<ReceiptResponse>.Fail($"فشل إنشاء القيد: {draft.Error}", ArErrorCode.Internal);
 
-        var posted = await _journalEntries.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+        var posted = await _journalEntries.PostAsync(userId, draft.Value!.Id, ct);
         if (!posted.Succeeded)
             return ArResult<ReceiptResponse>.Fail($"فشل ترحيل القيد: {posted.Error}", ArErrorCode.Internal);
 
@@ -228,18 +233,18 @@ public sealed class ReceiptService : IReceiptService
         return ArResult<ReceiptResponse>.Ok(MapToResponse(receipt, customer?.Name));
     }
 
-    public async Task<ArResult<ReceiptResponse>> ReverseAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<ArResult<ReceiptResponse>> ReverseAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var receipt = await _receipts.GetByIdAsync(id, ct);
-        if (receipt == null || receipt.TenantId != tenantId)
+        if (receipt == null)
             return ArResult<ReceiptResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
         if (receipt.PostedAt == null)
             return ArResult<ReceiptResponse>.Fail("لا يمكن عكس سند غير مُرحّل.", ArErrorCode.InvalidStatusTransition);
 
         // إنشاء قيد عكسي: Dr 1230 / Cr 1210 (نفس المبلغ)
-        var cashAccount = await _accounts.GetByCodeAsync(tenantId, "1210", ct);
-        var arAccount = await _accounts.GetByCodeAsync(tenantId, "1230", ct)
-            ?? await _accounts.GetByCodeAsync(tenantId, "1220", ct);
+        var cashAccount = await _accounts.GetByCodeAsync("1210", ct);
+        var arAccount = await _accounts.GetByCodeAsync("1230", ct)
+            ?? await _accounts.GetByCodeAsync("1220", ct);
         if (cashAccount == null || arAccount == null)
             return ArResult<ReceiptResponse>.Fail("الحسابات النقدية أو الذمم غير موجودة.", ArErrorCode.BusinessRuleViolation);
 
@@ -254,10 +259,10 @@ public sealed class ReceiptService : IReceiptService
                 new() { AccountId = cashAccount.Id, Debit = 0, Credit = receipt.Amount, Description = "عكس - نقدية" },
             }
         };
-        var draft = await _journalEntries.CreateDraftAsync(tenantId, userId, journalReq, ct);
+        var draft = await _journalEntries.CreateDraftAsync(userId, journalReq, ct);
         if (!draft.Succeeded)
             return ArResult<ReceiptResponse>.Fail($"فشل إنشاء القيد العكسي: {draft.Error}", ArErrorCode.Internal);
-        var posted = await _journalEntries.PostAsync(tenantId, userId, draft.Value!.Id, ct);
+        var posted = await _journalEntries.PostAsync(userId, draft.Value!.Id, ct);
         if (!posted.Succeeded)
             return ArResult<ReceiptResponse>.Fail($"فشل ترحيل القيد العكسي: {posted.Error}", ArErrorCode.Internal);
 
@@ -292,7 +297,7 @@ public sealed class ReceiptService : IReceiptService
 
     private static ReceiptResponse MapToResponse(Receipt r, string? customerName) => new()
     {
-        Id = r.Id, TenantId = r.TenantId, CustomerId = r.CustomerId, CustomerName = customerName,
+        Id = r.Id, CustomerId = r.CustomerId, CustomerName = customerName,
         ReceiptNumber = r.ReceiptNumber, ReceiptDate = r.ReceiptDate, Amount = r.Amount,
         CurrencyCode = r.CurrencyCode, PaymentMethod = r.PaymentMethod, Notes = r.Notes,
         PostedAt = r.PostedAt, PostedBy = r.PostedBy, JournalEntryId = r.JournalEntryId,

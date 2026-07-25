@@ -23,12 +23,12 @@ public sealed class PostingRulesService : IPostingRulesService
         _logger = logger;
     }
 
-    public async Task<FinanceResult<PostingRule>> CreateAsync(Guid tenantId, CreatePostingRuleRequest request, CancellationToken ct)
+    public async Task<FinanceResult<PostingRule>> CreateAsync(CreatePostingRuleRequest request, CancellationToken ct)
     {
         // التحقق من صحة كل account code في الـ template
         foreach (var line in request.Template.Lines)
         {
-            var acc = await _accounts.GetByCodeAsync(tenantId, line.AccountCode, ct);
+            var acc = await _accounts.GetByCodeAsync(line.AccountCode, ct);
             if (acc == null)
             {
                 return FinanceResult<PostingRule>.Fail(
@@ -47,7 +47,6 @@ public sealed class PostingRulesService : IPostingRulesService
         var rule = new PostingRule
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             Name = request.Name,
             Description = request.Description,
             EventType = request.EventType,
@@ -61,18 +60,18 @@ public sealed class PostingRulesService : IPostingRulesService
         return FinanceResult<PostingRule>.Ok(rule);
     }
 
-    public async Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(Guid tenantId, CancellationToken ct)
+    public async Task<FinanceResult<IReadOnlyList<PostingRule>>> ListAsync(CancellationToken ct)
     {
-        var list = await _rules.ListAsync(tenantId, ct);
+        var list = await _rules.ListAsync(ct);
         return FinanceResult<IReadOnlyList<PostingRule>>.Ok(list);
     }
 
-    public async Task<int> ApplyRulesAsync(Guid tenantId, Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct)
+    public async Task<int> ApplyRulesAsync(Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct)
     {
-        var rules = await _rules.ListActiveByEventAsync(tenantId, eventType, ct);
+        var rules = await _rules.ListActiveByEventAsync(eventType, ct);
         if (rules.Count == 0)
         {
-            _logger.LogDebug("لا توجد قواعد نشطة لـ {EventType} للمستأجر {TenantId}", eventType, tenantId);
+            _logger.LogDebug("لا توجد قواعد نشطة لـ {EventType}", eventType);
             return 0;
         }
 
@@ -104,7 +103,7 @@ public sealed class PostingRulesService : IPostingRulesService
             decimal totalDebit = 0, totalCredit = 0;
             foreach (var line in template.Lines)
             {
-                var acc = await _accounts.GetByCodeAsync(tenantId, line.AccountCode, ct);
+                var acc = await _accounts.GetByCodeAsync(line.AccountCode, ct);
                 if (acc == null)
                 {
                     _logger.LogWarning("تخطي سطر: الحساب {Code} غير موجود", line.AccountCode);
@@ -130,7 +129,7 @@ public sealed class PostingRulesService : IPostingRulesService
                 continue;
             }
 
-            var result = await _journalService.CreateDraftAsync(tenantId, userId, req, ct);
+            var result = await _journalService.CreateDraftAsync(userId, req, ct);
             if (!result.Succeeded)
             {
                 _logger.LogError("فشل إنشاء القيد من القاعدة {RuleId}: {Error}", rule.Id, result.Error);
@@ -138,7 +137,7 @@ public sealed class PostingRulesService : IPostingRulesService
             }
 
             // ترحيل فوري
-            var post = await _journalService.PostAsync(tenantId, userId, result.Value!.Id, ct);
+            var post = await _journalService.PostAsync(userId, result.Value!.Id, ct);
             if (post.Succeeded)
             {
                 posted++;
@@ -149,17 +148,16 @@ public sealed class PostingRulesService : IPostingRulesService
         return posted;
     }
 
-    public async Task EnsureDefaultRulesAsync(Guid tenantId, CancellationToken ct)
+    public async Task EnsureDefaultRulesAsync(CancellationToken ct)
     {
         // ====== StockReceived → Inventory Debit / Accounts Payable Credit ======
-        var existingStock = (await _rules.ListActiveByEventAsync(tenantId, TriggeringEvent.StockReceived, ct))
+        var existingStock = (await _rules.ListActiveByEventAsync(TriggeringEvent.StockReceived, ct))
             .FirstOrDefault();
         if (existingStock == null)
         {
             var stockRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantId,
                 Name = "استلام بضاعة (افتراضي)",
                 Description = "عند استلام بضاعة، مدين المخزون ودائن الدائنون",
                 EventType = TriggeringEvent.StockReceived,

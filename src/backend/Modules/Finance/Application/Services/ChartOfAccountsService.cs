@@ -14,12 +14,12 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
         _logger = logger;
     }
 
-    public async Task<FinanceResult<AccountResponse>> CreateAsync(Guid tenantId, CreateAccountRequest request, CancellationToken ct)
+    public async Task<FinanceResult<AccountResponse>> CreateAsync(CreateAccountRequest request, CancellationToken ct)
     {
-        if (await _accounts.GetByCodeAsync(tenantId, request.Code, ct) != null)
+        if (await _accounts.GetByCodeAsync(request.Code, ct) != null)
         {
             return FinanceResult<AccountResponse>.Fail(
-                $"كود الحساب '{request.Code}' مستخدم بالفعل داخل هذا المستأجر.",
+                $"كود الحساب '{request.Code}' مستخدم بالفعل.",
                 FinanceErrorCode.AlreadyExists);
         }
 
@@ -27,7 +27,7 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
         if (request.ParentAccountId.HasValue)
         {
             var parent = await _accounts.GetByIdAsync(request.ParentAccountId.Value, ct);
-            if (parent == null || parent.TenantId != tenantId)
+            if (parent == null)
             {
                 return FinanceResult<AccountResponse>.Fail("الحساب الأب غير موجود.", FinanceErrorCode.NotFound);
             }
@@ -38,7 +38,6 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
         var acc = new Account
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             Code = request.Code.Trim(),
             Name = request.Name.Trim(),
             Description = request.Description,
@@ -55,37 +54,37 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
             UpdatedAt = now
         };
         await _accounts.InsertAsync(acc, ct);
-        _logger.LogInformation("تم إنشاء حساب جديد {Code} للمستأجر {TenantId}", acc.Code, tenantId);
+        _logger.LogInformation("تم إنشاء حساب جديد {Code}", acc.Code);
         return FinanceResult<AccountResponse>.Ok(MapToResponse(acc));
     }
 
-    public async Task<FinanceResult<AccountResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<FinanceResult<AccountResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var acc = await _accounts.GetByIdAsync(id, ct);
-        if (acc == null || acc.TenantId != tenantId)
+        if (acc == null)
         {
             return FinanceResult<AccountResponse>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
         }
         return FinanceResult<AccountResponse>.Ok(MapToResponse(acc));
     }
 
-    public async Task<FinanceResult<AccountResponse>> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<FinanceResult<AccountResponse>> GetByCodeAsync(string code, CancellationToken ct)
     {
-        var acc = await _accounts.GetByCodeAsync(tenantId, code, ct);
+        var acc = await _accounts.GetByCodeAsync(code, ct);
         if (acc == null) return FinanceResult<AccountResponse>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
         return FinanceResult<AccountResponse>.Ok(MapToResponse(acc));
     }
 
-    public async Task<FinanceResult<IReadOnlyList<AccountResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<FinanceResult<IReadOnlyList<AccountResponse>>> ListAsync(bool includeInactive, CancellationToken ct)
     {
-        var list = await _accounts.ListAsync(tenantId, includeInactive, ct);
+        var list = await _accounts.ListAsync(includeInactive, ct);
         return FinanceResult<IReadOnlyList<AccountResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<FinanceResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<FinanceResult<bool>> DeleteAsync(Guid id, CancellationToken ct)
     {
         var acc = await _accounts.GetByIdAsync(id, ct);
-        if (acc == null || acc.TenantId != tenantId)
+        if (acc == null)
         {
             return FinanceResult<bool>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
         }
@@ -115,7 +114,6 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
     private static AccountResponse MapToResponse(Account a) => new()
     {
         Id = a.Id,
-        TenantId = a.TenantId,
         Code = a.Code,
         Name = a.Name,
         Description = a.Description,

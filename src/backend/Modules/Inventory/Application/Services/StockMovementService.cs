@@ -26,14 +26,14 @@ public enum StockErrorCode
 
 public interface IStockMovementService
 {
-    Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid tenantId, Guid userId, ReceiveStockRequest req, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> CreateIssueAsync(Guid tenantId, Guid userId, IssueStockRequest req, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> CreateTransferAsync(Guid tenantId, Guid userId, TransferStockRequest req, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> CreateAdjustAsync(Guid tenantId, Guid userId, AdjustStockRequest req, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> PostAsync(Guid tenantId, Guid userId, Guid movementId, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> ReverseAsync(Guid tenantId, Guid userId, Guid movementId, string? reason, CancellationToken ct);
-    Task<StockMovementResult<StockMovementResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<StockMovementResult<IReadOnlyList<StockMovementResponse>>> ListAsync(Guid tenantId, Guid? companyId, StockMovementType? type, StockMovementStatus? status, int skip, int take, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid userId, ReceiveStockRequest req, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> CreateIssueAsync(Guid userId, IssueStockRequest req, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> CreateTransferAsync(Guid userId, TransferStockRequest req, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> CreateAdjustAsync(Guid userId, AdjustStockRequest req, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> PostAsync(Guid userId, Guid movementId, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> ReverseAsync(Guid userId, Guid movementId, string? reason, CancellationToken ct);
+    Task<StockMovementResult<StockMovementResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<StockMovementResult<IReadOnlyList<StockMovementResponse>>> ListAsync(Guid? companyId, StockMovementType? type, StockMovementStatus? status, int skip, int take, CancellationToken ct);
 }
 
 public sealed class StockMovementService : IStockMovementService
@@ -59,15 +59,15 @@ public sealed class StockMovementService : IStockMovementService
         _notifications = notifications; _eventBus = eventBus; _logger = logger;
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid tenantId, Guid userId, ReceiveStockRequest req, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid userId, ReceiveStockRequest req, CancellationToken ct)
     {
-        if (await _movements.GetByReferenceAsync(tenantId, req.Reference, ct) != null)
+        if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
         var item = await _items.GetByIdAsync(req.ItemId, ct);
-        if (item == null || item.TenantId != tenantId) return StockMovementResult<StockMovementResponse>.Fail("الصنف غير موجود.", StockErrorCode.NotFound);
+        if (item == null) return StockMovementResult<StockMovementResponse>.Fail("الصنف غير موجود.", StockErrorCode.NotFound);
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
             Reference = req.Reference, Type = StockMovementType.Receive, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId, Quantity = req.Quantity, UnitCost = req.UnitCost,
             ProjectId = req.ProjectId, CostCenterId = req.CostCenterId,
@@ -78,20 +78,20 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> CreateIssueAsync(Guid tenantId, Guid userId, IssueStockRequest req, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> CreateIssueAsync(Guid userId, IssueStockRequest req, CancellationToken ct)
     {
         // Pre-check: sufficient stock? (post-validation is the real check, but pre-check is friendly)
-        var level = await _levels.GetAsync(tenantId, req.ItemId, req.WarehouseId, ct);
+        var level = await _levels.GetAsync(req.ItemId, req.WarehouseId, ct);
         if (level != null && level.QuantityAvailable < req.Quantity)
             return StockMovementResult<StockMovementResponse>.Fail(
                 $"المخزون غير كافٍ. المتاح: {level.QuantityAvailable}, المطلوب: {req.Quantity}", StockErrorCode.InsufficientStock);
 
-        if (await _movements.GetByReferenceAsync(tenantId, req.Reference, ct) != null)
+        if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
 
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
             Reference = req.Reference, Type = StockMovementType.Issue, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId, Quantity = -req.Quantity, UnitCost = 0,
             ProjectId = req.ProjectId, CostCenterId = req.CostCenterId,
@@ -102,17 +102,17 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> CreateTransferAsync(Guid tenantId, Guid userId, TransferStockRequest req, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> CreateTransferAsync(Guid userId, TransferStockRequest req, CancellationToken ct)
     {
-        var level = await _levels.GetAsync(tenantId, req.ItemId, req.SourceWarehouseId, ct);
+        var level = await _levels.GetAsync(req.ItemId, req.SourceWarehouseId, ct);
         if (level != null && level.QuantityAvailable < req.Quantity)
             return StockMovementResult<StockMovementResponse>.Fail(
                 $"المخزون غير كافٍ في المصدر. المتاح: {level.QuantityAvailable}, المطلوب: {req.Quantity}", StockErrorCode.InsufficientStock);
-        if (await _movements.GetByReferenceAsync(tenantId, req.Reference, ct) != null)
+        if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
             Reference = req.Reference, Type = StockMovementType.Transfer, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.SourceWarehouseId,
             DestinationWarehouseId = req.DestinationWarehouseId,
@@ -124,13 +124,13 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> CreateAdjustAsync(Guid tenantId, Guid userId, AdjustStockRequest req, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> CreateAdjustAsync(Guid userId, AdjustStockRequest req, CancellationToken ct)
     {
-        if (await _movements.GetByReferenceAsync(tenantId, req.Reference, ct) != null)
+        if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
             Reference = req.Reference, Type = StockMovementType.Adjust, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId,
             Quantity = req.Quantity, UnitCost = req.UnitCost, Notes = req.Notes,
@@ -140,10 +140,10 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> PostAsync(Guid tenantId, Guid userId, Guid movementId, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> PostAsync(Guid userId, Guid movementId, CancellationToken ct)
     {
         var movement = await _movements.GetByIdAsync(movementId, ct);
-        if (movement == null || movement.TenantId != tenantId) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
+        if (movement == null) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
         if (movement.Status != StockMovementStatus.Draft)
             return StockMovementResult<StockMovementResponse>.Fail("القيد ليس في حالة Draft.", StockErrorCode.ValidationError);
 
@@ -158,7 +158,7 @@ public sealed class StockMovementService : IStockMovementService
                 var inbound = new StockMovement
                 {
                     // virtual inbound for level update — quantity positive, source=destination
-                    Id = Guid.NewGuid(), TenantId = movement.TenantId, CompanyId = movement.CompanyId,
+                    Id = Guid.NewGuid(), CompanyId = movement.CompanyId,
                     Reference = movement.Reference + "-IN", Type = StockMovementType.Transfer,
                     MovementDate = movement.MovementDate,
                     ItemId = movement.ItemId, WarehouseId = movement.DestinationWarehouseId.Value,
@@ -184,11 +184,11 @@ public sealed class StockMovementService : IStockMovementService
         var item = await _items.GetByIdAsync(movement.ItemId, ct);
         if (item != null && item.ReorderLevel > 0)
         {
-            var level = await _levels.GetAsync(tenantId, movement.ItemId, movement.WarehouseId, ct);
+            var level = await _levels.GetAsync(movement.ItemId, movement.WarehouseId, ct);
             if (level != null && level.QuantityAvailable < item.ReorderLevel)
             {
                 // target user = creator (in real life: all admins in tenant — but here we just use the actor)
-                await _notifications.CreateAsync(tenantId, userId, "LowStock",
+                await _notifications.CreateAsync(userId, "LowStock",
                     "تنبيه نقص المخزون",
                     $"{item.Name} وصل إلى {level.QuantityAvailable} (الحد الأدنى: {item.ReorderLevel})",
                     "Item", item.Id);
@@ -199,7 +199,7 @@ public sealed class StockMovementService : IStockMovementService
         if (movement.Type == StockMovementType.Receive)
         {
             var receiveEvt = new StockReceivedEvent(
-                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
                 PurchaseOrderRef: movement.SourceId?.ToString(), OccurredAt: DateTime.UtcNow);
@@ -208,7 +208,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Issue)
         {
             var issueEvt = new StockIssuedEvent(
-                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 Quantity: Math.Abs(movement.Quantity),
                 ReferenceType: movement.SourceType, ReferenceId: movement.SourceId,
@@ -218,7 +218,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Transfer && movement.DestinationWarehouseId.HasValue)
         {
             var transferEvt = new StockTransferredEvent(
-                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
                 ItemId: movement.ItemId, FromWarehouseId: movement.WarehouseId,
                 ToWarehouseId: movement.DestinationWarehouseId.Value,
                 Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
@@ -228,7 +228,7 @@ public sealed class StockMovementService : IStockMovementService
         else if (movement.Type == StockMovementType.Adjust)
         {
             var adjEvt = new StockAdjustedEvent(
-                EventId: Guid.NewGuid(), TenantId: tenantId, StockMovementId: movement.Id,
+                EventId: Guid.NewGuid(), TenantId: Guid.Empty, StockMovementId: movement.Id,
                 ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
                 QuantityDelta: movement.Quantity, UnitCost: movement.UnitCost,
                 Reason: movement.Notes, OccurredAt: DateTime.UtcNow);
@@ -238,17 +238,17 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> ReverseAsync(Guid tenantId, Guid userId, Guid movementId, string? reason, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> ReverseAsync(Guid userId, Guid movementId, string? reason, CancellationToken ct)
     {
         var movement = await _movements.GetByIdAsync(movementId, ct);
-        if (movement == null || movement.TenantId != tenantId) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
+        if (movement == null) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
         if (movement.Status != StockMovementStatus.Posted)
             return StockMovementResult<StockMovementResponse>.Fail("لا يمكن عكس قيد غير مُرحّل.", StockErrorCode.ValidationError);
 
         // Create opposite movement
         var opposite = new StockMovement
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, CompanyId = movement.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = movement.CompanyId,
             Reference = movement.Reference + "-REV", Type = movement.Type, MovementDate = DateTime.UtcNow,
             ItemId = movement.ItemId, WarehouseId = movement.WarehouseId,
             DestinationWarehouseId = movement.DestinationWarehouseId,
@@ -269,17 +269,17 @@ public sealed class StockMovementService : IStockMovementService
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(opposite));
     }
 
-    public async Task<StockMovementResult<StockMovementResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<StockMovementResult<StockMovementResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var m = await _movements.GetByIdAsync(id, ct);
-        if (m == null || m.TenantId != tenantId) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
+        if (m == null) return StockMovementResult<StockMovementResponse>.Fail("غير موجود.", StockErrorCode.NotFound);
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(m));
     }
 
-    public async Task<StockMovementResult<IReadOnlyList<StockMovementResponse>>> ListAsync(Guid tenantId, Guid? companyId, StockMovementType? type, StockMovementStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<StockMovementResult<IReadOnlyList<StockMovementResponse>>> ListAsync(Guid? companyId, StockMovementType? type, StockMovementStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _movements.ListAsync(tenantId, companyId, type, status, skip, take, ct);
+        var list = await _movements.ListAsync(companyId, type, status, skip, take, ct);
         return StockMovementResult<IReadOnlyList<StockMovementResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
@@ -289,7 +289,7 @@ public sealed class StockMovementService : IStockMovementService
     /// </summary>
     private async Task ApplyToStockLevelAsync(StockMovement m, CancellationToken ct)
     {
-        var existing = await _levels.GetAsync(m.TenantId, m.ItemId, m.WarehouseId, ct);
+        var existing = await _levels.GetAsync(m.ItemId, m.WarehouseId, ct);
         var oldQty = existing?.QuantityOnHand ?? 0;
         var oldAvg = existing?.AverageCost ?? 0;
         var newQty = oldQty + m.Quantity;
@@ -310,7 +310,7 @@ public sealed class StockMovementService : IStockMovementService
         var level = new StockLevel
         {
             Id = existing?.Id ?? Guid.NewGuid(),
-            TenantId = m.TenantId, CompanyId = m.CompanyId,
+            CompanyId = m.CompanyId,
             ItemId = m.ItemId, WarehouseId = m.WarehouseId,
             QuantityOnHand = newQty,
             QuantityReserved = existing?.QuantityReserved ?? 0,

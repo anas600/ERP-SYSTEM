@@ -6,10 +6,10 @@ namespace ERPSystem.Modules.Notifications.Application.Services;
 
 public interface INotificationService
 {
-    Task CreateAsync(Guid tenantId, Guid userId, string type, string title, string message, string? referenceType = null, Guid? referenceId = null);
-    Task<IReadOnlyList<Notification>> ListAsync(Guid tenantId, Guid userId, bool unreadOnly, int skip, int take, CancellationToken ct);
-    Task<int> CountUnreadAsync(Guid tenantId, Guid userId, CancellationToken ct);
-    Task MarkReadAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
+    Task CreateAsync(Guid userId, string type, string title, string message, string? referenceType = null, Guid? referenceId = null);
+    Task<IReadOnlyList<Notification>> ListAsync(Guid userId, bool unreadOnly, int skip, int take, CancellationToken ct);
+    Task<int> CountUnreadAsync(Guid userId, CancellationToken ct);
+    Task MarkReadAsync(Guid userId, Guid id, CancellationToken ct);
 }
 
 public sealed class NotificationService : INotificationService
@@ -21,32 +21,32 @@ public sealed class NotificationService : INotificationService
         _repo = repo; _logger = logger;
     }
 
-    public async Task CreateAsync(Guid tenantId, Guid userId, string type, string title, string message, string? referenceType = null, Guid? referenceId = null)
+    public async Task CreateAsync(Guid userId, string type, string title, string message, string? referenceType = null, Guid? referenceId = null)
     {
         var n = new Notification
         {
-            Id = Guid.NewGuid(), TenantId = tenantId, UserId = userId,
+            Id = Guid.NewGuid(), UserId = userId,
             Type = type, Title = title, Message = message,
             ReferenceType = referenceType, ReferenceId = referenceId,
             IsRead = false, CreatedAt = DateTime.UtcNow
         };
         await _repo.InsertAsync(n, CancellationToken.None);
-        _logger.LogInformation("Created notification {Type} for user {UserId} in tenant {TenantId}", type, userId, tenantId);
+        _logger.LogInformation("Created notification {Type} for user {UserId}", type, userId);
     }
 
-    public async Task<IReadOnlyList<Notification>> ListAsync(Guid tenantId, Guid userId, bool unreadOnly, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<Notification>> ListAsync(Guid userId, bool unreadOnly, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        return await _repo.ListAsync(tenantId, userId, unreadOnly, skip, take, ct);
+        return await _repo.ListAsync(userId, unreadOnly, skip, take, ct);
     }
 
-    public async Task<int> CountUnreadAsync(Guid tenantId, Guid userId, CancellationToken ct) =>
-        await _repo.CountUnreadAsync(tenantId, userId, ct);
+    public async Task<int> CountUnreadAsync(Guid userId, CancellationToken ct) =>
+        await _repo.CountUnreadAsync(userId, ct);
 
-    public async Task MarkReadAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task MarkReadAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var n = await _repo.GetByIdAsync(id, ct);
-        if (n == null || n.TenantId != tenantId || n.UserId != userId) return;
+        if (n == null || n.UserId != userId) return;
         await _repo.MarkReadAsync(id, DateTime.UtcNow, ct);
     }
 }

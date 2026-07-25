@@ -4,11 +4,11 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 
 public interface IChartOfAccountsService
 {
-    Task<FinanceResult<AccountResponse>> CreateAsync(Guid tenantId, CreateAccountRequest request, CancellationToken ct);
-    Task<FinanceResult<AccountResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
-    Task<FinanceResult<AccountResponse>> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<FinanceResult<IReadOnlyList<AccountResponse>>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
-    Task<FinanceResult<bool>> DeleteAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<FinanceResult<AccountResponse>> CreateAsync(CreateAccountRequest request, CancellationToken ct);
+    Task<FinanceResult<AccountResponse>> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<FinanceResult<AccountResponse>> GetByCodeAsync(string code, CancellationToken ct);
+    Task<FinanceResult<IReadOnlyList<AccountResponse>>> ListAsync(bool includeInactive, CancellationToken ct);
+    Task<FinanceResult<bool>> DeleteAsync(Guid id, CancellationToken ct);
 }
 
 /// <summary>نتيجة موحّدة لعمليات Finance</summary>

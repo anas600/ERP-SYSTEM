@@ -12,12 +12,12 @@ namespace ERPSystem.Modules.Payments.Application.Services;
 
 public interface IPaymentService
 {
-    Task<PaymentResult<PaymentResponse>> CreateAsync(Guid tenantId, Guid userId, CreatePaymentRequest req, CancellationToken ct);
-    Task<PaymentResult<PaymentResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct);
+    Task<PaymentResult<PaymentResponse>> CreateAsync(Guid userId, CreatePaymentRequest req, CancellationToken ct);
+    Task<PaymentResult<PaymentResponse>> GetByIdAsync(Guid id, CancellationToken ct);
     Task<PaymentResult<IReadOnlyList<PaymentResponse>>> ListAsync(
-        Guid tenantId, string? partyType, Guid? partyId, PaymentStatus? status, int skip, int take, CancellationToken ct);
-    Task<PaymentResult<PaymentResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct);
-    Task<PaymentResult<PaymentResponse>> AllocateAsync(Guid tenantId, Guid userId, Guid id, AllocatePaymentRequest req, CancellationToken ct);
+        string? partyType, Guid? partyId, PaymentStatus? status, int skip, int take, CancellationToken ct);
+    Task<PaymentResult<PaymentResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct);
+    Task<PaymentResult<PaymentResponse>> AllocateAsync(Guid userId, Guid id, AllocatePaymentRequest req, CancellationToken ct);
 }
 
 /// <summary>
@@ -55,13 +55,13 @@ public sealed class PaymentService : IPaymentService
         _accounts = accounts; _entries = entries; _db = db; _logger = logger;
     }
 
-    public async Task<PaymentResult<PaymentResponse>> CreateAsync(Guid tenantId, Guid userId, CreatePaymentRequest req, CancellationToken ct)
+    public async Task<PaymentResult<PaymentResponse>> CreateAsync(Guid userId, CreatePaymentRequest req, CancellationToken ct)
     {
         // 1) تحقق من وجود الـ Party (Vendor حالياً — Customer مستقبلي)
         if (req.PartyType == PaymentPartyTypes.Vendor)
         {
             var vendor = await _vendors.GetByIdAsync(req.PartyId, ct);
-            if (vendor == null || vendor.TenantId != tenantId)
+            if (vendor == null)
                 return PaymentResult<PaymentResponse>.Fail("المورّد غير موجود.", PaymentErrorCode.NotFoundParty);
         }
         else
@@ -85,7 +85,7 @@ public sealed class PaymentService : IPaymentService
         // 3) Validation للـ Refs — VendorBills يجب أن تكون موجودة وفي حالة Posted
         foreach (var a in req.Allocations.Where(x => x.RefType == PaymentRefTypes.VendorBill))
         {
-            var ok = await ValidateVendorBillRefAsync(tenantId, a.RefId, a.AmountApplied, ct);
+            var ok = await ValidateVendorBillRefAsync(a.RefId, a.AmountApplied, ct);
             if (!ok.Succeeded) return PaymentResult<PaymentResponse>.Fail(ok.Error!, ok.ErrorCode ?? PaymentErrorCode.NotFoundRef);
         }
 
@@ -94,10 +94,9 @@ public sealed class PaymentService : IPaymentService
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             PartyType = req.PartyType,
             PartyId = req.PartyId,
-            PaymentNumber = await _seq.GetNextPaymentNumberAsync(tenantId, ct),
+            PaymentNumber = await _seq.GetNextPaymentNumberAsync(ct),
             PaymentDate = req.PaymentDate,
             Amount = req.Amount,
             CurrencyCode = req.CurrencyCode.ToUpperInvariant(),
@@ -112,7 +111,6 @@ public sealed class PaymentService : IPaymentService
             Allocations = req.Allocations.Select(a => new PaymentAllocation
             {
                 Id = Guid.NewGuid(),
-                TenantId = tenantId,
                 PaymentId = Guid.Empty, // يُملأ بعد Insert
                 RefType = a.RefType,
                 RefId = a.RefId,
@@ -123,38 +121,38 @@ public sealed class PaymentService : IPaymentService
 
         await _payments.InsertAsync(payment, ct);
         if (payment.Allocations.Count > 0)
-            await _payments.InsertAllocationsAsync(tenantId, payment.Id, payment.Allocations, ct);
+            await _payments.InsertAllocationsAsync(payment.Id, payment.Allocations, ct);
 
-        _logger.LogInformation("تم إنشاء Payment {Number} ({PartyType}/{Amount} {Currency}) لـ tenant {TenantId}",
-            payment.PaymentNumber, payment.PartyType, payment.Amount, payment.CurrencyCode, tenantId);
+        _logger.LogInformation("تم إنشاء Payment {Number} ({PartyType}/{Amount} {Currency})",
+            payment.PaymentNumber, payment.PartyType, payment.Amount, payment.CurrencyCode);
 
         return PaymentResult<PaymentResponse>.Ok(MapToResponse(payment));
     }
 
-    public async Task<PaymentResult<PaymentResponse>> GetByIdAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<PaymentResult<PaymentResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
         var p = await _payments.GetByIdAsync(id, ct);
-        if (p == null || p.TenantId != tenantId)
+        if (p == null)
             return PaymentResult<PaymentResponse>.Fail("السند غير موجود.", PaymentErrorCode.NotFound);
         return PaymentResult<PaymentResponse>.Ok(MapToResponse(p));
     }
 
     public async Task<PaymentResult<IReadOnlyList<PaymentResponse>>> ListAsync(
-        Guid tenantId, string? partyType, Guid? partyId, PaymentStatus? status,
+        string? partyType, Guid? partyId, PaymentStatus? status,
         int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
-        var list = await _payments.ListAsync(tenantId, partyType, partyId, status, skip, take, ct);
+        var list = await _payments.ListAsync(partyType, partyId, status, skip, take, ct);
         // تجنّب N+1 — نحمل allocations دفعة واحدة
         foreach (var p in list)
             p.Allocations = (await _payments.GetAllocationsAsync(p.Id, ct)).ToList();
         return PaymentResult<IReadOnlyList<PaymentResponse>>.Ok(list.Select(MapToResponse).ToList());
     }
 
-    public async Task<PaymentResult<PaymentResponse>> PostAsync(Guid tenantId, Guid userId, Guid id, CancellationToken ct)
+    public async Task<PaymentResult<PaymentResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct)
     {
         var payment = await _payments.GetByIdAsync(id, ct);
-        if (payment == null || payment.TenantId != tenantId)
+        if (payment == null)
             return PaymentResult<PaymentResponse>.Fail("السند غير موجود.", PaymentErrorCode.NotFound);
         if (payment.Status != PaymentStatus.Draft)
             return PaymentResult<PaymentResponse>.Fail(
@@ -166,8 +164,8 @@ public sealed class PaymentService : IPaymentService
         string drCode = payment.PartyType == PaymentPartyTypes.Vendor ? "2210" : "1210";
         string crCode = payment.PartyType == PaymentPartyTypes.Vendor ? "1210" : "1230";
 
-        var drAccount = await _accounts.GetByCodeAsync(tenantId, drCode, ct);
-        var crAccount = await _accounts.GetByCodeAsync(tenantId, crCode, ct);
+        var drAccount = await _accounts.GetByCodeAsync(drCode, ct);
+        var crAccount = await _accounts.GetByCodeAsync(crCode, ct);
         if (drAccount == null || crAccount == null)
             return PaymentResult<PaymentResponse>.Fail(
                 $"حساب محاسبي مفقود (Dr={drCode} أو Cr={crCode}) — تأكد من تطبيق Default CoA.",
@@ -179,12 +177,11 @@ public sealed class PaymentService : IPaymentService
                 PaymentErrorCode.ValidationError);
 
         // 2) أنشئ القيد
-        var entryNumber = await _entries.GetNextEntryNumberAsync(tenantId, ct);
+        var entryNumber = await _entries.GetNextEntryNumberAsync(ct);
         var now = DateTime.UtcNow;
         var entry = new JournalEntry
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             EntryNumber = entryNumber,
             EntryDate = payment.PaymentDate,
             Description = $"سند دفع {payment.PaymentNumber} ({payment.PartyType})",
@@ -220,10 +217,10 @@ public sealed class PaymentService : IPaymentService
         return PaymentResult<PaymentResponse>.Ok(MapToResponse(payment));
     }
 
-    public async Task<PaymentResult<PaymentResponse>> AllocateAsync(Guid tenantId, Guid userId, Guid id, AllocatePaymentRequest req, CancellationToken ct)
+    public async Task<PaymentResult<PaymentResponse>> AllocateAsync(Guid userId, Guid id, AllocatePaymentRequest req, CancellationToken ct)
     {
         var payment = await _payments.GetByIdAsync(id, ct);
-        if (payment == null || payment.TenantId != tenantId)
+        if (payment == null)
             return PaymentResult<PaymentResponse>.Fail("السند غير موجود.", PaymentErrorCode.NotFound);
         if (payment.Status != PaymentStatus.Posted)
             return PaymentResult<PaymentResponse>.Fail(
@@ -240,21 +237,20 @@ public sealed class PaymentService : IPaymentService
         // تحقق من Refs
         foreach (var a in req.Allocations.Where(x => x.RefType == PaymentRefTypes.VendorBill))
         {
-            var ok = await ValidateVendorBillRefAsync(tenantId, a.RefId, a.AmountApplied, ct);
+            var ok = await ValidateVendorBillRefAsync(a.RefId, a.AmountApplied, ct);
             if (!ok.Succeeded) return PaymentResult<PaymentResponse>.Fail(ok.Error!, ok.ErrorCode ?? PaymentErrorCode.NotFoundRef);
         }
 
         var newAllocs = req.Allocations.Select(a => new PaymentAllocation
         {
             Id = Guid.NewGuid(),
-            TenantId = tenantId,
             PaymentId = payment.Id,
             RefType = a.RefType,
             RefId = a.RefId,
             AmountApplied = a.AmountApplied
         }).ToList();
 
-        await _payments.InsertAllocationsAsync(tenantId, payment.Id, newAllocs, ct);
+        await _payments.InsertAllocationsAsync(payment.Id, newAllocs, ct);
         payment.Allocations.AddRange(newAllocs);
 
         _logger.LogInformation("أُضيف {Count} تخصيص(ات) على Payment {Number} (إجمالي {Total:N4}/{Amount:N4})",
@@ -266,20 +262,20 @@ public sealed class PaymentService : IPaymentService
     // ============ Helpers ============
 
     /// <summary>يتحقق أن الفاتورة موجودة + في حالة Posted + لم يُسدَّد كاملاً.</summary>
-    private async Task<PaymentResult<bool>> ValidateVendorBillRefAsync(Guid tenantId, Guid billId, decimal amountToApply, CancellationToken ct)
+    private async Task<PaymentResult<bool>> ValidateVendorBillRefAsync(Guid billId, decimal amountToApply, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var bill = await conn.QueryFirstOrDefaultAsync<(decimal TotalAmount, string Status, string BillNumber)?>(new CommandDefinition(@"
             SELECT total_amount AS TotalAmount, status AS Status, bill_number AS BillNumber
-            FROM vendor_bills WHERE id = @Id AND tenant_id = @TenantId LIMIT 1",
-            new { Id = billId, TenantId = tenantId }, cancellationToken: ct));
+            FROM vendor_bills WHERE id = @Id LIMIT 1",
+            new { Id = billId }, cancellationToken: ct));
 
         if (bill == null)
             return PaymentResult<bool>.Fail("فاتورة المورّد غير موجودة.", PaymentErrorCode.NotFoundRef);
         if (bill.Value.Status != "Posted")
             return PaymentResult<bool>.Fail($"الفاتورة {bill.Value.BillNumber} ليست مُرحَّلة.", PaymentErrorCode.NotFoundRef);
 
-        var alreadyApplied = await _payments.SumAllocationsForRefAsync(tenantId, PaymentRefTypes.VendorBill, billId, ct);
+        var alreadyApplied = await _payments.SumAllocationsForRefAsync(PaymentRefTypes.VendorBill, billId, ct);
         var outstanding = bill.Value.TotalAmount - alreadyApplied;
         if (amountToApply > outstanding + 0.0001m)
             return PaymentResult<bool>.Fail(
@@ -292,7 +288,6 @@ public sealed class PaymentService : IPaymentService
     private static PaymentResponse MapToResponse(Payment p) => new()
     {
         Id = p.Id,
-        TenantId = p.TenantId,
         CompanyId = p.CompanyId,
         PartyType = p.PartyType,
         PartyId = p.PartyId,

@@ -211,7 +211,9 @@ public class AuthController : ControllerBase
             new
             {
                 Id = Guid.NewGuid(),
-                TenantId = user.TenantId,
+                // Phase 6.1b: User entity no longer has TenantId — using Guid.Empty placeholder.
+                // TODO(6.1c): JWT still carries the tenant_id claim so the column is removable in a follow-up.
+                TenantId = Guid.Empty,
                 UserId = user.Id,
                 TokenHash = tokenHash,
                 ExpiresAt = expiresAt,
