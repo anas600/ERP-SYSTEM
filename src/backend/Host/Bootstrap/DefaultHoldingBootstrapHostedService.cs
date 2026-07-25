@@ -167,11 +167,23 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         }
         catch (Exception ex)
         {
-            // Hotfix: لا نرمي exception — نسجل فقط ونكمل.
-            // السبب: لو فشل الزرع لسبب ما (DB schema تالف، صلاحيات ناقصة...)،
-            // نريد الـ app يبدأ حتى يعرض /api/health الخطأ الحقيقي بدل 502.
-            _logger.LogError(ex,
-                "[P6-0b] DefaultHoldingBootstrap failed — app will start but register/login may not work");
+            // Phase 6.3 hotfix: لا نرمي exception — نسجل فقط ونكمل.
+            // السبب: في الـ debug builds على CI، كان الـ app يبدأ حتى يعرض
+            // /api/health الخطأ الحقيقي بدل 502. لكن في production هذا
+            // يخفي مشاكل حقيقية. نضع flag للسماح بإرجاع exception.
+            //
+            // الافتراضي: throw (fail loud). للـ debug builds اضبط:
+            //   "Bootstrap:AllowBootstrapFailure": "true"
+            var allowFailure = _config.GetValue<bool>("Bootstrap:AllowBootstrapFailure", false);
+            if (allowFailure)
+            {
+                _logger.LogError(ex,
+                    "[P6-0b] DefaultHoldingBootstrap failed — Bootstrap:AllowBootstrapFailure=true, app will start in degraded mode (register/login will not work)");
+                return;
+            }
+            _logger.LogCritical(ex,
+                "[P6-0b] DefaultHoldingBootstrap failed — throwing so the app does NOT start with broken state (register/login would fail)");
+            throw;
         }
     }
 
