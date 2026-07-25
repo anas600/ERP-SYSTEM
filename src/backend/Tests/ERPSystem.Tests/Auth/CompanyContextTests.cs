@@ -44,26 +44,28 @@ public class CompanyContextTests
     }
 
     [Fact]
-    public void AsyncLocal_DoesNotLeakAcrossTasks()
+    public async Task AsyncLocal_DoesNotLeakAcrossTasks()
     {
         var ctx = new CompanyContext();
-        var task1Set = false;
-        var task2Set = false;
+        var company1 = Guid.NewGuid();
+        var company2 = Guid.NewGuid();
+        Guid? t1Read = null;
+        Guid? t2Read = null;
 
         var t1 = Task.Run(() =>
         {
-            ctx.Set(Guid.NewGuid(), Guid.NewGuid(), new[] { Guid.NewGuid() });
-            task1Set = true;
+            ctx.Set(company1, Guid.NewGuid(), new[] { company1 });
+            t1Read = ctx.CompanyId;   // must see its own value, not t2's
         });
         var t2 = Task.Run(() =>
         {
-            ctx.Set(Guid.NewGuid(), Guid.NewGuid(), new[] { Guid.NewGuid() });
-            task2Set = true;
+            ctx.Set(company2, Guid.NewGuid(), new[] { company2 });
+            t2Read = ctx.CompanyId;
         });
 
-        Task.WaitAll(t1, t2);
-        task1Set.Should().BeTrue();
-        task2Set.Should().BeTrue();
-        // Each task's ctx is scoped — they don't see each other's values
+        await Task.WhenAll(t1, t2);
+        t1Read.Should().Be(company1);
+        t2Read.Should().Be(company2);
+        ctx.CompanyId.Should().BeNull();   // main thread unaffected by either task
     }
 }
