@@ -44,16 +44,17 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # Strip any trailing whitespace/newlines from secrets. The Supabase
-          # secrets were set with `gh secret set` from a file, which added a
-          # trailing newline that survives into the env var. .NET's connection
-          # string parser then chokes on "6543\n" when it tries to parse the
-          # Port as an integer.
-          SUPABASE_HOST=$(echo -n "${SUPABASE_HOST}" | tr -d '[:space:]')
-          SUPABASE_PORT=$(echo -n "${SUPABASE_PORT}" | tr -d '[:space:]')
-          SUPABASE_DB=$(echo -n "${SUPABASE_DB}" | tr -d '[:space:]')
-          SUPABASE_USER=$(echo -n "${SUPABASE_USER}" | tr -d '[:space:]')
-          SUPABASE_PASSWORD=$(echo -n "${SUPABASE_PASSWORD}" | tr -d '[:space:]')
+          # Sanitize secrets before use. The Supabase secrets were set with
+          # `gh secret set` from a file, which corrupted them with trailing
+          # characters (newlines, literal `\n`, spaces, etc.). .NET's
+          # connection string parser then chokes on invalid Port values.
+          # We use python here because it handles URL-decoding AND digit-only
+          # filtering in one pass, which tr/sed can't do robustly.
+          SUPABASE_HOST=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_HOST}")
+          SUPABASE_PORT=$(python3 -c "import sys,urllib.parse; v=urllib.parse.unquote(sys.argv[1].strip()); print(''.join(c for c in v if c.isdigit()))" "${SUPABASE_PORT}")
+          SUPABASE_DB=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_DB}")
+          SUPABASE_USER=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_USER}")
+          SUPABASE_PASSWORD=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_PASSWORD}")
           # URL-encode the password for safe inclusion in the connection string
           # (Npgsql treats &, #, !, and other special chars literally in the
           # password field). python3's urllib.quote is the standard encoder.
