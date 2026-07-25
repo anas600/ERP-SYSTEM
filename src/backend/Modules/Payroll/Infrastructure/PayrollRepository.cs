@@ -10,8 +10,7 @@ namespace ERPSystem.Modules.Payroll.Infrastructure;
 /// Conventions:
 /// - كل الـ queries تستخدم snake_case AS Pascal لتطابق Dapper column mapping.
 /// - استخدام IDbConnectionFactory.CreateOltpConnectionAsync.
-/// - كل الـ INSERT/UPDATE تأخذ الـ TenantId من الـ entity (لا من الـ context — للدفاع متعدد الطبقات).
-/// - Multi-tenancy: كل الـ reads المفهرسة بـ tenant_id.
+/// - Phase 6.1b: لا يوجد tenant_id filter — الهياكل والرواتب مشتركة بين كل المستخدمين.
 /// - ON DELETE RESTRICT على payroll_items → employees و runs (SOX: لا نحذف تاريخ).
 /// </summary>
 public sealed class SalaryStructureRepository : ISalaryStructureRepository
@@ -19,7 +18,7 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
     private readonly IDbConnectionFactory _db;
     public SalaryStructureRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string StructureSel = @"id, tenant_id AS TenantId, name, code, currency,
+    private const string StructureSel = @"id, name, code, currency,
         is_active AS IsActive, created_at AS CreatedAt, created_by AS CreatedBy,
         updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
@@ -31,29 +30,29 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
             new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<SalaryStructure?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<SalaryStructure?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<SalaryStructure>(new CommandDefinition(
-            $"SELECT {StructureSel} FROM salary_structures WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
+            $"SELECT {StructureSel} FROM salary_structures WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<SalaryStructure>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct)
+    public async Task<IReadOnlyList<SalaryStructure>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {StructureSel} FROM salary_structures WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {StructureSel} FROM salary_structures WHERE 1=1";
         if (!includeInactive) sql += " AND is_active = true";
         sql += " ORDER BY code";
         var rows = await conn.QueryAsync<SalaryStructure>(new CommandDefinition(
-            sql, new { TenantId = tenantId }, cancellationToken: ct));
+            sql, cancellationToken: ct));
         return rows.AsList();
     }
 
     public async Task<IReadOnlyList<SalaryStructureLine>> GetLinesAsync(Guid salaryStructureId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = @"id, tenant_id AS TenantId, salary_structure_id AS SalaryStructureId,
+        var sql = @"id, salary_structure_id AS SalaryStructureId,
             type, name, formula, amount, sort_order AS SortOrder
             FROM salary_structure_lines
             WHERE salary_structure_id = @SalaryStructureId
@@ -67,12 +66,12 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO salary_structures (id, tenant_id, name, code, currency, is_active,
+            INSERT INTO salary_structures (id, name, code, currency, is_active,
                                            created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @Name, @Code, @Currency, @IsActive,
+            VALUES (@Id, @Name, @Code, @Currency, @IsActive,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            s.Id, s.TenantId, s.Name, s.Code, s.Currency, s.IsActive,
+            s.Id, s.Name, s.Code, s.Currency, s.IsActive,
             s.CreatedAt, s.CreatedBy, s.UpdatedAt, s.UpdatedBy
         }, cancellationToken: ct));
 
@@ -80,13 +79,13 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
         if (linesArr.Count == 0) return;
 
         const string lineSql = @"
-            INSERT INTO salary_structure_lines (id, tenant_id, salary_structure_id, type, name, formula, amount, sort_order)
-            VALUES (@Id, @TenantId, @SalaryStructureId, @Type, @Name, @Formula, @Amount, @SortOrder)";
+            INSERT INTO salary_structure_lines (id, salary_structure_id, type, name, formula, amount, sort_order)
+            VALUES (@Id, @SalaryStructureId, @Type, @Name, @Formula, @Amount, @SortOrder)";
         foreach (var ln in linesArr)
         {
             await conn.ExecuteAsync(new CommandDefinition(lineSql, new
             {
-                ln.Id, ln.TenantId, ln.SalaryStructureId,
+                ln.Id, ln.SalaryStructureId,
                 Type = ln.Type.ToString(),
                 ln.Name, ln.Formula, ln.Amount, ln.SortOrder
             }, cancellationToken: ct));
@@ -102,18 +101,18 @@ public sealed class PayrollRepository : IPayrollRepository
     private readonly IDbConnectionFactory _db;
     public PayrollRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string RunSel = @"id, tenant_id AS TenantId, period_start AS PeriodStart, period_end AS PeriodEnd,
+    private const string RunSel = @"id, period_start AS PeriodStart, period_end AS PeriodEnd,
         status, total_gross AS TotalGross, total_net AS TotalNet,
         processed_at AS ProcessedAt, posted_at AS PostedAt, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string ItemSel = @"id, tenant_id AS TenantId, payroll_run_id AS PayrollRunId,
+    private const string ItemSel = @"id, payroll_run_id AS PayrollRunId,
         employee_id AS EmployeeId, base_salary AS BaseSalary, gross_salary AS GrossSalary,
         tax_amount AS TaxAmount, social_insurance_employee AS SocialInsuranceEmployee,
         net_salary AS NetSalary, status, payment_days AS PaymentDays, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt";
 
-    private const string ComponentSel = @"id, tenant_id AS TenantId, payroll_item_id AS PayrollItemId,
+    private const string ComponentSel = @"id, payroll_item_id AS PayrollItemId,
         component_type AS ComponentType, name, amount, sort_order AS SortOrder";
 
     // =================== PayrollRun ===================
@@ -126,20 +125,21 @@ public sealed class PayrollRepository : IPayrollRepository
             new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<PayrollRun?> GetRunByIdForTenantAsync(Guid tenantId, Guid id, CancellationToken ct)
+    public async Task<PayrollRun?> GetRunByIdForTenantAsync(Guid id, CancellationToken ct)
     {
+        // Phase 6.1b: tenantId parameter removed from signature; runs are global.
+        // Method name retained for API compat with PayrollService callers.
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<PayrollRun>(new CommandDefinition(
-            $"SELECT {RunSel} FROM payroll_runs WHERE tenant_id = @TenantId AND id = @Id LIMIT 1",
-            new { TenantId = tenantId, Id = id }, cancellationToken: ct));
+            $"SELECT {RunSel} FROM payroll_runs WHERE id = @Id LIMIT 1",
+            new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<PayrollRun>> ListRunsAsync(Guid tenantId, PayrollRunStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<PayrollRun>> ListRunsAsync(PayrollRunStatus? status, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {RunSel} FROM payroll_runs WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {RunSel} FROM payroll_runs WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (status.HasValue)
         {
             sql += " AND status = @Status";
@@ -155,14 +155,14 @@ public sealed class PayrollRepository : IPayrollRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO payroll_runs (id, tenant_id, period_start, period_end, status,
+            INSERT INTO payroll_runs (id, period_start, period_end, status,
                                       total_gross, total_net, processed_at, posted_at, notes,
                                       created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @PeriodStart, @PeriodEnd, @Status,
+            VALUES (@Id, @PeriodStart, @PeriodEnd, @Status,
                     @TotalGross, @TotalNet, @ProcessedAt, @PostedAt, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            r.Id, r.TenantId, r.PeriodStart, r.PeriodEnd,
+            r.Id, r.PeriodStart, r.PeriodEnd,
             Status = r.Status.ToString(),
             r.TotalGross, r.TotalNet, r.ProcessedAt, r.PostedAt, r.Notes,
             r.CreatedAt, r.CreatedBy, r.UpdatedAt, r.UpdatedBy
@@ -207,16 +207,16 @@ public sealed class PayrollRepository : IPayrollRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO payroll_items (id, tenant_id, payroll_run_id, employee_id,
+            INSERT INTO payroll_items (id, payroll_run_id, employee_id,
                                        base_salary, gross_salary, tax_amount, social_insurance_employee,
                                        net_salary, status, payment_days, notes,
                                        created_at, created_by, updated_at)
-            VALUES (@Id, @TenantId, @PayrollRunId, @EmployeeId,
+            VALUES (@Id, @PayrollRunId, @EmployeeId,
                     @BaseSalary, @GrossSalary, @TaxAmount, @SocialInsuranceEmployee,
                     @NetSalary, @Status, @PaymentDays, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt)", new
         {
-            item.Id, item.TenantId, item.PayrollRunId, item.EmployeeId,
+            item.Id, item.PayrollRunId, item.EmployeeId,
             item.BaseSalary, item.GrossSalary, item.TaxAmount, item.SocialInsuranceEmployee,
             item.NetSalary, Status = item.Status.ToString(),
             item.PaymentDays, item.Notes,
@@ -227,13 +227,13 @@ public sealed class PayrollRepository : IPayrollRepository
         if (compArr.Count == 0) return;
 
         const string compSql = @"
-            INSERT INTO payslip_components (id, tenant_id, payroll_item_id, component_type, name, amount, sort_order)
-            VALUES (@Id, @TenantId, @PayrollItemId, @ComponentType, @Name, @Amount, @SortOrder)";
+            INSERT INTO payslip_components (id, payroll_item_id, component_type, name, amount, sort_order)
+            VALUES (@Id, @PayrollItemId, @ComponentType, @Name, @Amount, @SortOrder)";
         foreach (var c in compArr)
         {
             await conn.ExecuteAsync(new CommandDefinition(compSql, new
             {
-                c.Id, c.TenantId, c.PayrollItemId,
+                c.Id, c.PayrollItemId,
                 ComponentType = c.ComponentType.ToString(),
                 c.Name, c.Amount, c.SortOrder
             }, cancellationToken: ct));
@@ -245,7 +245,7 @@ public sealed class PayrollRepository : IPayrollRepository
     public async Task<IReadOnlyList<PayslipComponent>> GetComponentsByItemAsync(Guid payrollItemId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = @"id, tenant_id AS TenantId, payroll_item_id AS PayrollItemId,
+        const string sql = @"id, payroll_item_id AS PayrollItemId,
             component_type AS ComponentType, name, amount, sort_order AS SortOrder
             FROM payslip_components
             WHERE payroll_item_id = @PayrollItemId
@@ -257,15 +257,15 @@ public sealed class PayrollRepository : IPayrollRepository
 
     // =================== SalaryStructure passthrough ===================
 
-    private const string StructureSel = @"id, tenant_id AS TenantId, name, code, currency,
+    private const string StructureSel = @"id, name, code, currency,
         is_active AS IsActive, created_at AS CreatedAt, created_by AS CreatedBy,
         updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    public async Task<SalaryStructure?> GetStructureByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<SalaryStructure?> GetStructureByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<SalaryStructure>(new CommandDefinition(
-            $"SELECT {StructureSel} FROM salary_structures WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
+            $"SELECT {StructureSel} FROM salary_structures WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
 }

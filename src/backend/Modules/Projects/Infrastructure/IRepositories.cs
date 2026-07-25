@@ -5,8 +5,8 @@ namespace ERPSystem.Modules.Projects.Infrastructure;
 public interface IProjectRepository
 {
     Task<Project?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<Project?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<IReadOnlyList<Project>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct);
+    Task<Project?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<IReadOnlyList<Project>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct);
     Task InsertAsync(Project project, CancellationToken ct);
     Task UpdateAsync(Project project, CancellationToken ct);
 }
@@ -23,8 +23,8 @@ public interface ITaskRepository
 public interface IResourceRepository
 {
     Task<Resource?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<Resource?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct);
-    Task<IReadOnlyList<Resource>> ListAsync(Guid tenantId, bool includeInactive, CancellationToken ct);
+    Task<Resource?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<IReadOnlyList<Resource>> ListAsync(bool includeInactive, CancellationToken ct);
     Task InsertAsync(Resource resource, CancellationToken ct);
     Task UpdateAsync(Resource resource, CancellationToken ct);
 }

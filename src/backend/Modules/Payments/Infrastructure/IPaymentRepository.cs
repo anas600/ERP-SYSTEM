@@ -9,11 +9,11 @@ namespace ERPSystem.Modules.Payments.Infrastructure;
 public interface IPaymentRepository
 {
     Task<Payment?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<Payment?> GetByPaymentNumberAsync(Guid tenantId, string paymentNumber, CancellationToken ct);
-    Task<IReadOnlyList<Payment>> ListAsync(Guid tenantId, string? partyType, Guid? partyId, PaymentStatus? status, int skip, int take, CancellationToken ct);
+    Task<Payment?> GetByPaymentNumberAsync(string paymentNumber, CancellationToken ct);
+    Task<IReadOnlyList<Payment>> ListAsync(string? partyType, Guid? partyId, PaymentStatus? status, int skip, int take, CancellationToken ct);
     Task InsertAsync(Payment payment, CancellationToken ct);
     Task UpdateAsync(Payment payment, CancellationToken ct);
-    Task InsertAllocationsAsync(Guid tenantId, Guid paymentId, IEnumerable<PaymentAllocation> allocations, CancellationToken ct);
+    Task InsertAllocationsAsync(Guid paymentId, IEnumerable<PaymentAllocation> allocations, CancellationToken ct);
     Task<IReadOnlyList<PaymentAllocation>> GetAllocationsAsync(Guid paymentId, CancellationToken ct);
-    Task<decimal> SumAllocationsForRefAsync(Guid tenantId, string refType, Guid refId, CancellationToken ct);
+    Task<decimal> SumAllocationsForRefAsync(string refType, Guid refId, CancellationToken ct);
 }

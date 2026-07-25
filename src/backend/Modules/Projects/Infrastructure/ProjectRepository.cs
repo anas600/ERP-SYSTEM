@@ -8,7 +8,7 @@ public sealed class ProjectRepository : IProjectRepository
 {
     private readonly IDbConnectionFactory _db;
     public ProjectRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, company_id AS CompanyId, cost_center_id AS CostCenterId,
+    private const string Sel = @"id, company_id AS CompanyId, cost_center_id AS CostCenterId,
         code, name, description, customer_id AS CustomerId, status, budget, start_date AS StartDate, end_date AS EndDate,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy, is_active AS IsActive";
 
@@ -19,20 +19,19 @@ public sealed class ProjectRepository : IProjectRepository
             $"SELECT {Sel} FROM projects WHERE id = @Id LIMIT 1", new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<Project?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<Project?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Project>(new CommandDefinition(
-            $"SELECT {Sel} FROM projects WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
+            $"SELECT {Sel} FROM projects WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<Project>> ListAsync(Guid tenantId, Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<Project>> ListAsync(Guid? companyId, ProjectStatus? status, bool includeInactive, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {Sel} FROM projects WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {Sel} FROM projects WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (companyId.HasValue) { sql += " AND company_id = @CompanyId"; p.Add("CompanyId", companyId.Value); }
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", (int)status.Value); }
         if (!includeInactive) sql += " AND is_active = true";
@@ -46,9 +45,9 @@ public sealed class ProjectRepository : IProjectRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO projects (id, tenant_id, company_id, cost_center_id, code, name, description, customer_id,
+            INSERT INTO projects (id, company_id, cost_center_id, code, name, description, customer_id,
                                   status, budget, start_date, end_date, created_at, created_by, updated_at, updated_by, is_active)
-            VALUES (@Id, @TenantId, @CompanyId, @CostCenterId, @Code, @Name, @Description, @CustomerId,
+            VALUES (@Id, @CompanyId, @CostCenterId, @Code, @Name, @Description, @CustomerId,
                     @Status, @Budget, @StartDate, @EndDate, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy, @IsActive)",
             project, cancellationToken: ct));
     }

@@ -10,13 +10,13 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     private readonly IDbConnectionFactory _db;
     public PurchaseOrderRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelPo = @"id, tenant_id AS TenantId, po_number AS PoNumber, vendor_id AS VendorId,
+    private const string SelPo = @"id, po_number AS PoNumber, vendor_id AS VendorId,
         status, order_date AS OrderDate, expected_date AS ExpectedDate, currency,
         sub_total AS SubTotal, tax_amount AS TaxAmount, total_amount AS TotalAmount, notes,
         approved_at AS ApprovedAt, approved_by AS ApprovedBy, sent_at AS SentAt,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string SelLine = @"id, tenant_id AS TenantId, purchase_order_id AS PurchaseOrderId,
+    private const string SelLine = @"id, purchase_order_id AS PurchaseOrderId,
         item_id AS ItemId, quantity, unit_price AS UnitPrice, tax_rate AS TaxRate, sub_total AS SubTotal, line_order AS LineOrder";
 
     public async Task<PurchaseOrder?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -32,20 +32,19 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         return po;
     }
 
-    public async Task<PurchaseOrder?> GetByPoNumberAsync(Guid tenantId, string poNumber, CancellationToken ct)
+    public async Task<PurchaseOrder?> GetByPoNumberAsync(string poNumber, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<PurchaseOrder>(new CommandDefinition(
-            $"SELECT {SelPo} FROM purchase_orders WHERE tenant_id = @TenantId AND po_number = @PoNumber LIMIT 1",
-            new { TenantId = tenantId, PoNumber = poNumber }, cancellationToken: ct));
+            $"SELECT {SelPo} FROM purchase_orders WHERE po_number = @PoNumber LIMIT 1",
+            new { PoNumber = poNumber }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<PurchaseOrder>> ListAsync(Guid tenantId, Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<PurchaseOrder>> ListAsync(Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {SelPo} FROM purchase_orders WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {SelPo} FROM purchase_orders WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (vendorId.HasValue) { sql += " AND vendor_id = @VendorId"; p.Add("VendorId", vendorId.Value); }
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", status.Value.ToString()); }
         sql += " ORDER BY created_at DESC OFFSET @Skip LIMIT @Take";
@@ -68,16 +67,16 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO purchase_orders (id, tenant_id, po_number, vendor_id, status, order_date, expected_date,
+            INSERT INTO purchase_orders (id, po_number, vendor_id, status, order_date, expected_date,
                                          currency, sub_total, tax_amount, total_amount, notes,
                                          approved_at, approved_by, sent_at,
                                          created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @PoNumber, @VendorId, @Status, @OrderDate, @ExpectedDate,
+            VALUES (@Id, @PoNumber, @VendorId, @Status, @OrderDate, @ExpectedDate,
                     @Currency, @SubTotal, @TaxAmount, @TotalAmount, @Notes,
                     @ApprovedAt, @ApprovedBy, @SentAt,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            po.Id, po.TenantId, po.PoNumber, po.VendorId,
+            po.Id, po.PoNumber, po.VendorId,
             Status = po.Status.ToString(),
             po.OrderDate, po.ExpectedDate, po.Currency,
             po.SubTotal, po.TaxAmount, po.TotalAmount, po.Notes,
@@ -105,28 +104,28 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
         }, cancellationToken: ct));
     }
 
-    public async Task InsertLinesAsync(Guid tenantId, Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct)
+    public async Task InsertLinesAsync(Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         foreach (var l in lines)
         {
             await conn.ExecuteAsync(new CommandDefinition(@"
-                INSERT INTO purchase_order_lines (id, tenant_id, purchase_order_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
-                VALUES (@Id, @TenantId, @PurchaseOrderId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
+                INSERT INTO purchase_order_lines (id, purchase_order_id, item_id, quantity, unit_price, tax_rate, sub_total, line_order)
+                VALUES (@Id, @PurchaseOrderId, @ItemId, @Quantity, @UnitPrice, @TaxRate, @SubTotal, @LineOrder)",
                 new
                 {
-                    l.Id, TenantId = tenantId, PurchaseOrderId = poId,
+                    l.Id, PurchaseOrderId = poId,
                     l.ItemId, l.Quantity, l.UnitPrice, l.TaxRate, l.SubTotal, l.LineOrder
                 }, cancellationToken: ct));
         }
     }
 
-    public async Task UpdateLinesAsync(Guid tenantId, Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct)
+    public async Task UpdateLinesAsync(Guid poId, IEnumerable<PurchaseOrderLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(
             "DELETE FROM purchase_order_lines WHERE purchase_order_id = @PoId", new { PoId = poId }, cancellationToken: ct));
-        await InsertLinesAsync(tenantId, poId, lines, ct);
+        await InsertLinesAsync(poId, lines, ct);
     }
 
     public async Task<IReadOnlyList<PurchaseOrderLine>> GetLinesAsync(Guid poId, CancellationToken ct)

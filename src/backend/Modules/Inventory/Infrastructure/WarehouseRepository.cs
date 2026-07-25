@@ -8,7 +8,7 @@ public sealed class WarehouseRepository : IWarehouseRepository
 {
     private readonly IDbConnectionFactory _db;
     public WarehouseRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, company_id AS CompanyId, code, name, location,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, location,
         manager_user_id AS ManagerUserId, is_active AS IsActive, created_at AS CreatedAt,
         created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
@@ -18,19 +18,18 @@ public sealed class WarehouseRepository : IWarehouseRepository
         return await conn.QueryFirstOrDefaultAsync<Warehouse>(new CommandDefinition(
             $"SELECT {Sel} FROM warehouses WHERE id = @Id LIMIT 1", new { Id = id }, cancellationToken: ct));
     }
-    public async Task<Warehouse?> GetByCodeAsync(Guid tenantId, string code, CancellationToken ct)
+    public async Task<Warehouse?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<Warehouse>(new CommandDefinition(
-            $"SELECT {Sel} FROM warehouses WHERE tenant_id = @TenantId AND LOWER(code) = LOWER(@Code) LIMIT 1",
-            new { TenantId = tenantId, Code = code }, cancellationToken: ct));
+            $"SELECT {Sel} FROM warehouses WHERE LOWER(code) = LOWER(@Code) LIMIT 1",
+            new { Code = code }, cancellationToken: ct));
     }
-    public async Task<IReadOnlyList<Warehouse>> ListAsync(Guid tenantId, Guid? companyId, bool includeInactive, CancellationToken ct)
+    public async Task<IReadOnlyList<Warehouse>> ListAsync(Guid? companyId, bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {Sel} FROM warehouses WHERE tenant_id = @TenantId";
+        var sql = $"SELECT {Sel} FROM warehouses WHERE 1=1";
         var p = new DynamicParameters();
-        p.Add("TenantId", tenantId);
         if (companyId.HasValue) { sql += " AND company_id = @CompanyId"; p.Add("CompanyId", companyId.Value); }
         if (!includeInactive) sql += " AND is_active = true";
         sql += " ORDER BY code";
@@ -51,8 +50,8 @@ public sealed class WarehouseRepository : IWarehouseRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO warehouses (id, tenant_id, company_id, code, name, location, manager_user_id, is_active, created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @TenantId, @CompanyId, @Code, @Name, @Location, @ManagerUserId, @IsActive, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
+            INSERT INTO warehouses (id, company_id, code, name, location, manager_user_id, is_active, created_at, created_by, updated_at, updated_by)
+            VALUES (@Id, @CompanyId, @Code, @Name, @Location, @ManagerUserId, @IsActive, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
             w, cancellationToken: ct));
     }
     public async Task UpdateAsync(Warehouse w, CancellationToken ct)
