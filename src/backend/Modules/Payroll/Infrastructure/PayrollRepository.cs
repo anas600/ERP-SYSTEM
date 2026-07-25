@@ -127,7 +127,7 @@ public sealed class PayrollRepository : IPayrollRepository
 
     public async Task<PayrollRun?> GetRunByIdForTenantAsync(Guid id, CancellationToken ct)
     {
-        // Phase 6.1b: tenantId parameter removed from signature; runs are global.
+        // Phase 6.1b: companyId scoping removed from signature; runs are global.
         // Method name retained for API compat with PayrollService callers.
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.QueryFirstOrDefaultAsync<PayrollRun>(new CommandDefinition(

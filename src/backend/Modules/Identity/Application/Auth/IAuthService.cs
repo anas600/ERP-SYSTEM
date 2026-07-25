@@ -3,7 +3,7 @@ using System.Data;
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
 /// <summary>
-/// Phase 6.1c: Multi-Company model — <c>ITenantBootstrap</c> is REMOVED.
+/// Phase 6.1c: Multi-Company model — legacy bootstrap interface is REMOVED.
 /// The Holding Company is auto-seeded at startup by
 /// <c>DefaultHoldingBootstrapHostedService</c>. The new register flow links the
 /// new user to the Holding via the <c>user_companies</c> join table directly.
@@ -18,8 +18,7 @@ public interface IAuthService
 
     /// <summary>
     /// Returns the list of companies the user has access to (used by the
-    /// frontend's company switcher). Replaces the legacy
-    /// <c>ITenantContext</c>/<c>tenant_id</c> approach.
+    /// frontend's company switcher). Replaces the legacy multi-tenant approach.
     /// </summary>
     Task<GetUserCompaniesResponse> GetUserCompaniesAsync(Guid userId, CancellationToken ct);
 }

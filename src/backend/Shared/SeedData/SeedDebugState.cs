@@ -15,7 +15,8 @@ public static class SeedDebugState
     public static bool ExecuteAsyncCalled { get; set; }
     public static bool SeedEnabled { get; set; }
     public static bool ConnectivityCheckPassed { get; set; }
-    public static Guid? TenantId { get; set; }
+    /// <summary>Phase 6.1c: renamed to <c>HoldingCompanyId</c> (was <c>TenantId</c>).</summary>
+    public static Guid? HoldingCompanyId { get; set; }
     public static string CurrentStep { get; set; } = "(none)";
     public static DateTime? StartedAt { get; set; }
     public static DateTime? CompletedAt { get; set; }

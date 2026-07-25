@@ -14,7 +14,7 @@ namespace ERPSystem.Tests.Reports;
 /// </summary>
 public class InventoryReportServiceTests
 {
-    private static (InventoryReportService svc, FakeDbConnectionFactory db, Guid tenantId) Build()
+    private static (InventoryReportService svc, FakeDbConnectionFactory db, Guid companyId) Build()
     {
         var tenant = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();

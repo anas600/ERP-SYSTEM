@@ -5,7 +5,7 @@ namespace ERPSystem.Tests.Auth;
 
 /// <summary>
 /// Phase 6.1c: Multi-Company model. The RegisterRequest no longer has
-/// TenantId/TenantName fields (the Holding Company is auto-seeded and
+/// companyId/TenantName fields (the Holding Company is auto-seeded and
 /// the new user is auto-linked). The validator now only checks the
 /// email/password/fullName fields.
 /// </summary>

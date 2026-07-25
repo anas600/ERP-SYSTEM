@@ -21,7 +21,7 @@ public class JournalEntryServiceUnitTests
     [Fact]
     public async Task CreateDraft_BalancedEntry_Succeeds()
     {
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var cashId = Guid.NewGuid();
         var revenueId = Guid.NewGuid();
 
@@ -56,7 +56,7 @@ public class JournalEntryServiceUnitTests
     [Fact]
     public async Task CreateDraft_UnbalancedEntry_Fails()
     {
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var cashId = Guid.NewGuid();
         var revenueId = Guid.NewGuid();
 
@@ -87,7 +87,7 @@ public class JournalEntryServiceUnitTests
     [Fact]
     public async Task CreateDraft_NonPostableAccount_Fails()
     {
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var parentId = Guid.NewGuid();
         var cashId = Guid.NewGuid();
 
@@ -118,7 +118,7 @@ public class JournalEntryServiceUnitTests
     [Fact]
     public async Task Post_DraftToPosted_Succeeds()
     {
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var cashId = Guid.NewGuid();
         var revenueId = Guid.NewGuid();
         var userId = Guid.NewGuid();

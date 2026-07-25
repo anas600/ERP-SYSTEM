@@ -9,7 +9,7 @@ namespace ERPSystem.Tests.E2E.TestFixtures;
 /// <summary>
 /// Generates JWTs for E2E tests. Phase 6.1c: Multi-Company model.
 /// Tokens carry <c>default_company_id</c> + <c>company_ids</c> instead of
-/// the legacy <c>tenantId</c> / <c>tid</c> claims.
+/// the legacy <c>companyId</c> / <c>tid</c> claims.
 /// </summary>
 public static class TestJwtGenerator
 {

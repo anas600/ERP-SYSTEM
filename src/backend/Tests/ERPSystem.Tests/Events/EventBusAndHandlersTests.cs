@@ -101,7 +101,7 @@ public class StockIssuedHandlerTests
     public async Task StockIssued_AppliesPostingRule_WithAmountQtyTimesAverageCost()
     {
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "IS",
@@ -135,7 +135,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "P",
@@ -152,7 +152,7 @@ public class OutboxProcessorTests
             PurchaseOrderRef: null, OccurredAt: DateTime.UtcNow);
         var row = new OutboxEvent
         {
-            Id = Guid.NewGuid(), CompanyId = tenantId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(evt),
@@ -192,7 +192,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "IDP",
@@ -230,7 +230,7 @@ public class OutboxProcessorTests
         var outbox = new FakeOutboxRepository();
         var processed = new FakeProcessedEventsRepo();
         var itemId = Guid.NewGuid();
-        var tenantId = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var item = new Item
         {
             Id = itemId, Sku = "FAIL",
@@ -291,12 +291,12 @@ internal class FakeOutboxRepository : IOutboxRepository
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = retryCount; s.LastError = error; }
         return Task.CompletedTask;
     }
-    public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
+    public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid companyId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
+        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == companyId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
     public Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(Stored.FirstOrDefault(e => e.Id == id));
-    public Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct) =>
-        Task.FromResult(Stored.Count(e => e.CompanyId == tenantId && e.ProcessedAt == null));
+    public Task<int> CountPendingAsync(Guid companyId, CancellationToken ct) =>
+        Task.FromResult(Stored.Count(e => e.CompanyId == companyId && e.ProcessedAt == null));
     public Task ResetForRetryAsync(Guid id, CancellationToken ct)
     {
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = 0; s.LastError = null; s.ProcessedAt = null; }

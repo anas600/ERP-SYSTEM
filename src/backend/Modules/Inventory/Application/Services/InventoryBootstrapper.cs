@@ -8,8 +8,8 @@ namespace ERPSystem.Modules.Inventory.Application.Services;
 
 /// <summary>
 /// Phase 6.1c: Multi-Company model. UoMs and Categories are global reference
-/// data — they don't need a tenantId. Called once at startup (or by tests
-/// / re-seed scripts).
+/// data — no per-company scope. Called once at startup (or by tests /
+/// re-seed scripts).
 /// </summary>
 public interface IInventoryBootstrapper
 {

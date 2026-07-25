@@ -15,7 +15,7 @@ public class StockMovementServiceTests
     // Single test fixture: tenant + item pre-wired for that tenant
     private sealed class Fixture
     {
-        public Guid TenantId { get; } = Guid.NewGuid();
+        public Guid companyId { get; } = Guid.NewGuid();
         public FakeItemRepo Items { get; } = new();
         public FakeStockMovementRepo Movements { get; } = new();
         public FakeStockLevelRepo Levels { get; } = new();

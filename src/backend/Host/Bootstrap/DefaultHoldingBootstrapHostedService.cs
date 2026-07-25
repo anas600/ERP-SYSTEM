@@ -15,9 +15,8 @@
 // Holding; if it already exists, the whole bootstrap is a no-op.
 //
 // All SQL is hand-written via Dapper on a fresh OLTP connection. The C# entities /
-// repos still carry `TenantId` (Phase 6.1 will refactor them to company_id), so
-// the entity-based INSERT paths would fail against the new schema. Raw SQL keeps
-// this file tenant_id-free and aligned with the Phase 6 spirit.
+// repos were refactored in Phase 6.1c to drop their legacy multi-tenant fields.
+// Raw SQL keeps this file aligned with the Phase 6 multi-company spirit.
 
 using Dapper;
 using ERPSystem.Modules.Companies.Infrastructure;
@@ -111,10 +110,9 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             }
 
             // 2) أنشئ صف الـ Holding في companies عبر raw SQL.
-            //    السبب: Company entity لا يزال يحتوي على TenantId (non-nullable) بينما
-            //    الجدول في الـ schema الجديد بلا tenant_id. الـ INSERT عبر الـ entity
-            //    سيرمي SqlException: column tenant_id does not exist. الـ raw SQL
-            //    يلتزم بمتطلبات الـ schema الجديدة (CONSTITUTION.md §3).
+            //    السبب: في الـ multi-company model، لا يوجد عمود قديم للتأجير في الـ schema.
+            //    الـ INSERT عبر الـ entity سيرمي SqlException: column قديم غير موجود.
+            //    الـ raw SQL يلتزم بمتطلبات الـ schema الجديدة (CONSTITUTION.md §3).
             using (var conn = await _db.CreateOltpConnectionAsync(cancellationToken))
             {
                 var now = DateTime.UtcNow;
