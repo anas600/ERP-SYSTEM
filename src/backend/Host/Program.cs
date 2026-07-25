@@ -211,7 +211,10 @@ builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository
 builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
 // ============ Multi-tenancy ============
+// Phase 6.1a: ITenantContext stays registered (back-compat for PR-6.1b consumers).
+// ICompanyContext is the new abstraction; deleted ITenantContext in PR-6.1b.
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddScoped<ICompanyContext, CompanyContext>();
 
 // ============ Audit (Sprint-4.5 / DEC-056) ============
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
@@ -520,6 +523,9 @@ app.UseHttpsRedirection();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<TenantMiddleware>();
+// Phase 6.1a: CompanyContextMiddleware runs alongside TenantMiddleware (back-compat).
+// TenantMiddleware is removed in PR-6.1b.
+app.UseMiddleware<CompanyContextMiddleware>();
 app.MapControllers();
 
 app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }));

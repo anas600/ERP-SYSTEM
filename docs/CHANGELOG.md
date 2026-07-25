@@ -4,6 +4,15 @@
 
 ---
 
+## [Unreleased] - 2026-07-25
+### Added (Phase 6.1a — CompanyContext Foundation)
+- `ICompanyContext` + `CompanyContext` (AsyncLocal) — new abstraction for active company
+- `CompanyContextMiddleware` — reads X-Company-Id header + JWT company_ids[] claim
+- CORS updated to allow X-Company-Id header
+- Unit tests for CompanyContext (4 tests)
+### Back-Compat
+- ITenantContext + TenantMiddleware remain active (deleted in PR-6.1b)
+
 ## 2026-07-24c — Phase 5.B Sprint 3: Migration Fix + Timeout Sync + CoA Batch Insert 🆕
 
 ### 🎯 الهدف

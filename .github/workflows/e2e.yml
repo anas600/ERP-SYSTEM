@@ -44,19 +44,37 @@ jobs:
       - name: Start backend (background)
         working-directory: src/backend
         run: |
-          # Get HF-space-style env vars from secrets (if available) or use dummy values
-          # For E2E we use the same Supabase instance as production.
+          # Sanitize secrets before use. The Supabase secrets were set with
+          # `gh secret set` from a file, which corrupted them with trailing
+          # characters (newlines, literal `\n`, spaces, etc.). .NET's
+          # connection string parser then chokes on invalid Port values.
+          # We use python here because it handles URL-decoding AND digit-only
+          # filtering in one pass, which tr/sed can't do robustly.
+          SUPABASE_HOST=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_HOST}")
+          SUPABASE_PORT=$(python3 -c "import sys,urllib.parse; v=urllib.parse.unquote(sys.argv[1].strip()); print(''.join(c for c in v if c.isdigit()))" "${SUPABASE_PORT}")
+          SUPABASE_DB=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_DB}")
+          SUPABASE_USER=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_USER}")
+          SUPABASE_PASSWORD=$(python3 -c "import sys,urllib.parse; print(urllib.parse.unquote(sys.argv[1].strip()))" "${SUPABASE_PASSWORD}")
+          # DEBUG: print sanitized values (length only, since GitHub redacts the actual content)
+          echo "DEBUG_SANITIZED_HOST_LEN=${#SUPABASE_HOST} _FIRST5=${SUPABASE_HOST:0:5} _LAST5=${SUPABASE_HOST: -5}"
+          echo "DEBUG_SANITIZED_PORT_LEN=${#SUPABASE_PORT}"
+          echo "DEBUG_SANITIZED_DB_LEN=${#SUPABASE_DB} _FIRST5=${SUPABASE_DB:0:5} _LAST5=${SUPABASE_DB: -5}"
+          echo "DEBUG_SANITIZED_USER_LEN=${#SUPABASE_USER} _FIRST5=${SUPABASE_USER:0:5} _LAST5=${SUPABASE_USER: -5}"
+          echo "DEBUG_SANITIZED_PASSWORD_LEN=${#SUPABASE_PASSWORD} _FIRST3=${SUPABASE_PASSWORD:0:3} _LAST3=${SUPABASE_PASSWORD: -3}"
+          # URL-encode the password for safe inclusion in the connection string
+          # (Npgsql treats &, #, !, and other special chars literally in the
+          # password field). python3's urllib.quote is the standard encoder.
+          SUPABASE_PASSWORD_ENC=$(python3 -c "import urllib.parse,sys;print(urllib.parse.quote(sys.argv[1], safe=''))" "${SUPABASE_PASSWORD}")
+          # Pass the connection string as an env var directly to dotnet run.
+          # .NET's IConfiguration reads ConnectionStrings__Postgres from env,
+          # so we skip writing a JSON file entirely (avoids heredoc + escaping
+          # + envsubst brittleness).
           # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
-          cat > Host/appsettings.Development.json <<EOF
-          {
-            "ConnectionStrings": {
-              "Postgres": "Host=\${SUPABASE_HOST};Port=\${SUPABASE_PORT};Database=\${SUPABASE_DB};User Id=\${SUPABASE_USER};Password=\${SUPABASE_PASSWORD};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
-            },
-            "Database": {
-              "AutoMigrate": true
-            }
-          }
-          EOF
+          export ConnectionStrings__Postgres="Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD_ENC};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
+          export Database__AutoMigrate=true
+          # Also write a minimal appsettings.Development.json so DataTypeHostedService
+          # doesn't bail looking for the dev config file (it expects one even if empty).
+          echo '{}' > Host/appsettings.Development.json
           nohup dotnet run --project Host/ERP-SYSTEM.csproj --no-launch-profile --urls http://localhost:5000 > /tmp/backend.log 2>&1 &
           echo "Backend PID: $!"
         env:
