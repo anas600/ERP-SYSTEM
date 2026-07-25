@@ -194,8 +194,7 @@ public class InventoryBootstrapperTests
         var catRepo = new FakeItemCategoryRepository();
         var logger = new Microsoft.Extensions.Logging.Abstractions.NullLogger<InventoryBootstrapper>();
         var boot = new InventoryBootstrapper(uomRepo, catRepo, logger);
-        var t = Guid.NewGuid();
-        await boot.EnsureDefaultUoMsAndCategoriesAsync(t, CancellationToken.None);
+        await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
         var uoms = await uomRepo.ListAsync(true, CancellationToken.None);
         var cats = await catRepo.ListAsync(true, CancellationToken.None);
         uoms.Count.Should().Be(6, "pcs, kg, m, m², m³, liter");
@@ -210,9 +209,8 @@ public class InventoryBootstrapperTests
         var uomRepo = new FakeUnitOfMeasureRepository();
         var catRepo = new FakeItemCategoryRepository();
         var boot = new InventoryBootstrapper(uomRepo, catRepo, new Microsoft.Extensions.Logging.Abstractions.NullLogger<InventoryBootstrapper>());
-        var t = Guid.NewGuid();
-        await boot.EnsureDefaultUoMsAndCategoriesAsync(t, CancellationToken.None);
-        await boot.EnsureDefaultUoMsAndCategoriesAsync(t, CancellationToken.None);
+        await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
+        await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
         var uoms = await uomRepo.ListAsync(true, CancellationToken.None);
         uoms.Count.Should().Be(6, "لا يجب أن يضيف مكررات");
     }

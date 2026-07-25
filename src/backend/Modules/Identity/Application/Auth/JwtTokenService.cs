@@ -8,6 +8,16 @@ using Microsoft.IdentityModel.Tokens;
 
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
+/// <summary>
+/// Phase 6.1c: Multi-Company JWT model. Tokens carry:
+/// <list type="bullet">
+///   <item><c>default_company_id</c> — the user's default company (single guid)</item>
+///   <item><c>company_ids</c> — all company ids the user has access to (multi-valued claim)</item>
+/// </list>
+/// The legacy <c>tenant_id</c> claim is REMOVED entirely. Downstream code should
+/// rely on <see cref="System.Security.Claims.ClaimTypes"/> or the two new
+/// claims above — never <c>tenant_id</c>.
+/// </summary>
 public sealed class JwtTokenService : IJwtTokenService
 {
     private readonly JwtSettings _settings;
@@ -22,7 +32,7 @@ public sealed class JwtTokenService : IJwtTokenService
         }
     }
 
-    public (string token, DateTime expiresAt) GenerateAccessToken(User user, IEnumerable<string> roles)
+    public (string token, DateTime expiresAt) GenerateAccessToken(User user, IEnumerable<string> roles, Guid defaultCompanyId, IReadOnlyList<Guid> companyIds)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_settings.Secret));
         var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -33,14 +43,21 @@ public sealed class JwtTokenService : IJwtTokenService
             new(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
             new(JwtRegisteredClaimNames.Email, user.Email),
             new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            // Phase 6.1b: User.TenantId removed (multi-company model). tenant_id JWT claim is
-            // kept for backward compat with the Phase 6.1c rewrite (which will introduce
-            // default_company_id + company_ids[]). Value is Guid.Empty placeholder for now.
-            new("tenant_id", Guid.Empty.ToString()),
             new("full_name", user.FullName),
+            // Phase 6.1c: multi-company claims. CompanyContextMiddleware (Host/Middleware)
+            // reads these on each request to populate ICompanyContext.
+            new("default_company_id", defaultCompanyId == Guid.Empty ? string.Empty : defaultCompanyId.ToString()),
         };
 
-        // إضافة كل دور كـ claim من نوع Role
+        // One company_ids claim per company id (multi-valued JWT claim).
+        // Empty / single-company users still get at least the default.
+        var distinctIds = (companyIds ?? Array.Empty<Guid>())
+            .Concat(defaultCompanyId == Guid.Empty ? Array.Empty<Guid>() : new[] { defaultCompanyId })
+            .Distinct()
+            .ToList();
+        foreach (var cid in distinctIds)
+            claims.Add(new Claim("company_ids", cid.ToString()));
+
         foreach (var role in roles)
         {
             claims.Add(new Claim(ClaimTypes.Role, role));

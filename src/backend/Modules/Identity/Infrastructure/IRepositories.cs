@@ -18,6 +18,27 @@ public interface IUserRepository
     Task AssignRoleAsync(Guid userId, Guid roleId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task<IReadOnlyList<User>> ListAsync(int skip, int take, CancellationToken ct); // DEC-067-C
     Task<int> CountAsync(CancellationToken ct); // DEC-067-C
+
+    // Phase 6.1c: user → companies mapping (multi-company model).
+    Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct);
+    Task<UserCompanyLink?> GetDefaultCompanyAsync(Guid userId, CancellationToken ct);
+    Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, CancellationToken ct);
+    Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, IDbConnection conn, IDbTransaction? tx, CancellationToken ct);
+}
+
+/// <summary>
+/// Joined record for a (user, company, default flag) row in <c>user_companies</c>.
+/// Phase 6.1c: multi-company model — a user can belong to multiple companies.
+/// </summary>
+public sealed class UserCompanyLink
+{
+    public Guid UserId { get; set; }
+    public Guid CompanyId { get; set; }
+    public string CompanyCode { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
+    public bool IsDefault { get; set; }
+    public bool IsHolding { get; set; }
+    public DateTime AssignedAt { get; set; }
 }
 
 public interface IRoleRepository
@@ -29,15 +50,6 @@ public interface IRoleRepository
     Task InsertAsync(Role role, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload (called by EnsureDefaultRolesAsync inside the tx)
     Task EnsureDefaultRolesAsync(CancellationToken ct);
     Task EnsureDefaultRolesAsync(IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
-}
-
-public interface ITenantRepository
-{
-    Task<Tenant?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<Tenant?> GetBySubdomainAsync(string subdomain, CancellationToken ct);
-    Task<bool> ExistsAsync(Guid id, CancellationToken ct);
-    Task InsertAsync(Tenant tenant, CancellationToken ct);
-    Task InsertAsync(Tenant tenant, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
 }
 
 public interface IRefreshTokenRepository

@@ -1,69 +1,96 @@
 using System.Data;
 using System.Security.Claims;
+using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 
 namespace ERPSystem.Modules.Identity.Application.Auth;
 
+/// <summary>
+/// Phase 6.1c: Multi-Company model. Register creates the first user under the
+/// default Holding Company (which is auto-seeded at startup by
+/// <c>DefaultHoldingBootstrapHostedService</c>). The user is linked to the
+/// Holding via the <c>user_companies</c> join table with <c>is_default = true</c>.
+///
+/// Atomicity: the entire register flow runs inside a single connection +
+/// single transaction (DEC-091). Any step failure (or HF Space proxy timeout
+/// that drops the connection) triggers automatic rollback, so the database
+/// never ends up with orphan users. (The failure mode is now "no orphan
+/// users" — not "no orphan tenants" — because tenants are no longer
+/// created at register time.)
+/// </summary>
 public sealed class AuthService : IAuthService
 {
     private readonly IUserRepository _users;
     private readonly IRoleRepository _roles;
-    private readonly ITenantRepository _tenants;
     private readonly IRefreshTokenRepository _refreshTokens;
     private readonly IJwtTokenService _jwt;
-    private readonly ITenantBootstrap _bootstrap;
+    private readonly ICompanyRepository _companies;
     private readonly ILogger<AuthService> _logger;
     private readonly IDbConnectionFactory _db; // P1-9: needed for the single-conn register tx
-    public AuthService(IUserRepository u, IRoleRepository r, ITenantRepository t, IRefreshTokenRepository rt, IJwtTokenService j, ITenantBootstrap b, ILogger<AuthService> l, IDbConnectionFactory db)
-    { _users = u; _roles = r; _tenants = t; _refreshTokens = rt; _jwt = j; _bootstrap = b; _logger = l; _db = db; }
+    private readonly Guid _holdingCompanyId;
 
-    // P1-9: Register flow is now atomic — single connection + single transaction.
-    // Any step failure (or HF Space proxy timeout that drops the connection) triggers
-    // automatic rollback, so the database never ends up with orphan tenants.
+    public AuthService(
+        IUserRepository u,
+        IRoleRepository r,
+        IRefreshTokenRepository rt,
+        IJwtTokenService j,
+        ICompanyRepository companies,
+        ILogger<AuthService> l,
+        IDbConnectionFactory db,
+        IConfiguration config)
+    {
+        _users = u; _roles = r; _refreshTokens = rt; _jwt = j;
+        _companies = companies; _logger = l; _db = db;
+        // Phase 6.1c: Holding Company is fixed per deployment (single Holding).
+        // Read from config (appsettings.json) — defaulting to the canonical
+        // Phase 6.0 fixed UUID if not set.
+        _holdingCompanyId = Guid.Parse(
+            config["MultiCompany:HoldingCompanyId"]
+            ?? "00000000-0000-0000-0000-000000000001");
+    }
+
     public async Task<AuthResult> RegisterAsync(RegisterRequest req, string? ip, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         using var tx = conn.BeginTransaction();
         try
         {
-            Tenant tenant;
-            var isNewTenant = false;
-            Guid holdingId;
-            if (req.TenantId != Guid.Empty)
-            {
-                // Existing-tenant path: tenant row is already committed, read on its own conn is fine.
-                tenant = (await _tenants.GetByIdAsync(req.TenantId, ct))!;
-                if (tenant == null) return AuthResult.Fail("المستأجر غير موجود.", AuthErrorCode.TenantNotFound);
-                if (!tenant.IsActive) return AuthResult.Fail("المستأجر موقوف.", AuthErrorCode.TenantInactive);
-                holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, "LYD", conn, tx, ct);
-            }
-            else
-            {
-                tenant = new Tenant { Id = Guid.NewGuid(), Name = req.TenantName!, Subdomain = Slugify(req.TenantName!), IsActive = true, CreatedAt = DateTime.UtcNow };
-                await _tenants.InsertAsync(tenant, conn, tx, ct);
-                isNewTenant = true;
-                holdingId = await _bootstrap.OnTenantCreatedAsync(tenant.Id, tenant.Name, req.BaseCurrency, conn, tx, ct);
-            }
+            // 1. Validate email is not already taken
             if (await _users.GetByEmailAsync(req.Email, ct) != null)
                 return AuthResult.Fail("البريد مستخدم.", AuthErrorCode.UserAlreadyExists);
-            var now = DateTime.UtcNow;
-            // Phase 6.1b: User.TenantId removed (multi-company). Bootstrap method still accepts
-            // tenantId for back-compat but the user is global. The Holding bootstrap manages the
-            // user→company mapping via user_companies table.
-            var user = new User { Id = Guid.NewGuid(), Email = req.Email.Trim().ToLowerInvariant(), PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, 12), FullName = req.FullName.Trim(), IsActive = true, CreatedAt = now, UpdatedAt = now };
-            await _users.InsertAsync(user, conn, tx, ct);
-            await _roles.EnsureDefaultRolesAsync(conn, tx, ct);
-            if (isNewTenant)
-            {
-                var admin = await _roles.GetByNameAsync("Admin", conn, tx, ct);
-                if (admin != null) await _users.AssignRoleAsync(user.Id, admin.Id, conn, tx, ct);
-            }
-            var roles = await _users.GetRoleNamesAsync(user.Id, conn, tx, ct);
 
-            // Build response also goes inside the transaction (the refresh token insert too)
-            var response = await BuildAsync(user, roles, holdingId, ip, conn, tx, ct);
+            // 2. Verify the Holding Company exists (seeded by DefaultHoldingBootstrapHostedService)
+            var holding = await _companies.GetByIdAsync(_holdingCompanyId, ct);
+            if (holding == null)
+                return AuthResult.Fail("الشركة القابضة غير مهيأة. حاول مرة أخرى بعد قليل.", AuthErrorCode.InternalError);
+
+            // 3. Create the user
+            var now = DateTime.UtcNow;
+            var user = new User
+            {
+                Id = Guid.NewGuid(),
+                Email = req.Email.Trim().ToLowerInvariant(),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, 12),
+                FullName = req.FullName.Trim(),
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            await _users.InsertAsync(user, conn, tx, ct);
+
+            // 4. Ensure default roles exist + assign Admin
+            await _roles.EnsureDefaultRolesAsync(conn, tx, ct);
+            var admin = await _roles.GetByNameAsync("Admin", conn, tx, ct);
+            if (admin != null)
+                await _users.AssignRoleAsync(user.Id, admin.Id, conn, tx, ct);
+
+            // 5. Link user to the Holding (default company)
+            await _users.AssignUserToCompanyAsync(user.Id, _holdingCompanyId, isDefault: true, conn, tx, ct);
+
+            // 6. Build the response (also inside the tx — refresh token rolls back if anything throws)
+            var response = await BuildAsync(user, _holdingCompanyId, ip, conn, tx, ct);
             tx.Commit();
             return AuthResult.Ok(response);
         }
@@ -76,26 +103,16 @@ public sealed class AuthService : IAuthService
 
     public async Task<AuthResult> LoginAsync(LoginRequest req, string? ip, CancellationToken ct)
     {
-        User? user = null;
-        if (req.TenantId.HasValue && req.TenantId.Value != Guid.Empty)
-        {
-            var tenant = await _tenants.GetByIdAsync(req.TenantId.Value, ct);
-            if (tenant == null) return AuthResult.Fail("المستأجر غير موجود.", AuthErrorCode.TenantNotFound);
-            if (!tenant.IsActive) return AuthResult.Fail("المستأجر موقوف.", AuthErrorCode.TenantInactive);
-            // Phase 6.1b: users are global, no tenant filter. The UserInfo.TenantId is set
-            // from req.TenantId for back-compat with the 6.1c JWT refactor.
-            user = await _users.GetByEmailAsync(req.Email, ct);
-        }
-        else user = await _users.GetByEmailAsync(req.Email, ct);
+        var user = await _users.GetByEmailAsync(req.Email, ct);
         if (user == null || !user.IsActive || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
             return AuthResult.Fail("بيانات الدخول غير صحيحة.", AuthErrorCode.InvalidCredentials);
-        var now = DateTime.UtcNow;
-        await _users.UpdateLastLoginAsync(user.Id, now, ct);
-        // Phase 6.1b: User.TenantId removed. Bootstrap still uses tenantId arg for back-compat
-        // — pass Guid.Empty since users are now global.
-        var holdingId = await _bootstrap.OnTenantCreatedAsync(Guid.Empty, "", "LYD", ct);
-        var roles = await _users.GetRoleNamesAsync(user.Id, ct);
-        return AuthResult.Ok(await BuildAsync(user, roles, holdingId, ip, ct));
+
+        var defaultCompany = await _users.GetDefaultCompanyAsync(user.Id, ct);
+        if (defaultCompany == null)
+            return AuthResult.Fail("المستخدم غير مربوط بأي شركة. تواصل مع الإدارة.", AuthErrorCode.NoCompaniesAssigned);
+
+        await _users.UpdateLastLoginAsync(user.Id, DateTime.UtcNow, ct);
+        return AuthResult.Ok(await BuildAsync(user, _holdingCompanyId, ip, ct));
     }
 
     public async Task<AuthResult> RefreshAsync(RefreshTokenRequest req, string? ip, CancellationToken ct)
@@ -110,13 +127,20 @@ public sealed class AuthService : IAuthService
         if (stored.IsExpired) return AuthResult.Fail("Refresh Token منتهي.", AuthErrorCode.RefreshTokenExpired);
         var user = await _users.GetByIdAsync(userId, ct);
         if (user == null || !user.IsActive) return AuthResult.Fail("المستخدم غير مفعّل.", AuthErrorCode.UserInactive);
+
         var (newRt, newRtHash, newRtExp) = _jwt.GenerateRefreshToken();
         await _refreshTokens.RevokeAsync(stored, "Rotated", newRtHash, ip, ct);
-        var (at, atExp) = _jwt.GenerateAccessToken(user, await _users.GetRoleNamesAsync(user.Id, ct));
-        await _refreshTokens.InsertAsync(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = newRtHash, ExpiresAt = newRtExp, CreatedAt = DateTime.UtcNow, CreatedByIp = ip }, ct);
-        // Phase 6.1b: User.TenantId removed — pass Guid.Empty for back-compat with bootstrap signature.
-        var holdingId = await _bootstrap.OnTenantCreatedAsync(Guid.Empty, "", "LYD", ct);
-        return AuthResult.Ok(new AuthResponse { AccessToken = at, RefreshToken = newRt, AccessTokenExpiresAt = atExp, RefreshTokenExpiresAt = newRtExp, User = new UserInfo { Id = user.Id, TenantId = Guid.Empty, Email = user.Email, FullName = user.FullName, Roles = await _users.GetRoleNamesAsync(user.Id, ct) }, HoldingCompanyId = holdingId });
+        await _refreshTokens.InsertAsync(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = newRtHash,
+            ExpiresAt = newRtExp,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = ip
+        }, ct);
+
+        return AuthResult.Ok(await BuildAsync(user, _holdingCompanyId, ip, ct));
     }
 
     public async Task RevokeAsync(Guid userId, string refreshToken, string? ip, CancellationToken ct)
@@ -126,26 +150,111 @@ public sealed class AuthService : IAuthService
             await _refreshTokens.RevokeAsync(stored, "User logout", null, ip, ct);
     }
 
+    public async Task<GetUserCompaniesResponse> GetUserCompaniesAsync(Guid userId, CancellationToken ct)
+    {
+        var links = await _users.GetUserCompaniesAsync(userId, ct);
+        if (links.Count == 0)
+            return new GetUserCompaniesResponse { UserId = userId, DefaultCompanyId = Guid.Empty, Companies = Array.Empty<UserCompanyInfo>() };
+        var defaultId = links.FirstOrDefault(l => l.IsDefault)?.CompanyId ?? links[0].CompanyId;
+        return new GetUserCompaniesResponse
+        {
+            UserId = userId,
+            DefaultCompanyId = defaultId,
+            Companies = links.Select(l => new UserCompanyInfo
+            {
+                CompanyId = l.CompanyId,
+                Code = l.CompanyCode,
+                Name = l.CompanyName,
+                IsDefault = l.IsDefault,
+                IsHolding = l.IsHolding
+            }).ToList()
+        };
+    }
+
+    // Tx-aware BuildAsync for the register flow — refresh token insert rolls back
+    // together with the user/company insert if anything later throws.
+    private async Task<AuthResponse> BuildAsync(User user, Guid holdingId, string? ip, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        var roles = await _users.GetRoleNamesAsync(user.Id, conn, tx, ct);
+        var links = await _users.GetUserCompaniesAsync(user.Id, ct);
+        var defaultLink = links.FirstOrDefault(l => l.IsDefault) ?? links[0];
+        var (at, atExp) = _jwt.GenerateAccessToken(user, roles, defaultLink.CompanyId, links.Select(l => l.CompanyId).ToList());
+        var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();
+        await _refreshTokens.InsertAsync(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = rtHash,
+            ExpiresAt = rtExp,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = ip
+        }, conn, tx, ct);
+        return new AuthResponse
+        {
+            AccessToken = at,
+            RefreshToken = rt,
+            AccessTokenExpiresAt = atExp,
+            RefreshTokenExpiresAt = rtExp,
+            User = new UserInfo
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                Roles = roles,
+                DefaultCompanyId = defaultLink.CompanyId,
+                Companies = links.Select(l => new UserCompanyInfo
+                {
+                    CompanyId = l.CompanyId,
+                    Code = l.CompanyCode,
+                    Name = l.CompanyName,
+                    IsDefault = l.IsDefault,
+                    IsHolding = l.IsHolding
+                }).ToList()
+            },
+            HoldingCompanyId = holdingId
+        };
+    }
+
     // Back-compat BuildAsync for Login/Refresh (no shared conn).
-    private async Task<AuthResponse> BuildAsync(User user, IReadOnlyList<string> roles, Guid holdingId, string? ip, CancellationToken ct)
+    private async Task<AuthResponse> BuildAsync(User user, Guid holdingId, string? ip, CancellationToken ct)
     {
-        var (at, atExp) = _jwt.GenerateAccessToken(user, roles);
+        var roles = await _users.GetRoleNamesAsync(user.Id, ct);
+        var links = await _users.GetUserCompaniesAsync(user.Id, ct);
+        var defaultLink = links.FirstOrDefault(l => l.IsDefault) ?? links[0];
+        var (at, atExp) = _jwt.GenerateAccessToken(user, roles, defaultLink.CompanyId, links.Select(l => l.CompanyId).ToList());
         var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();
-        await _refreshTokens.InsertAsync(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = rtHash, ExpiresAt = rtExp, CreatedAt = DateTime.UtcNow, CreatedByIp = ip }, ct);
-        // Phase 6.1b: User.TenantId removed — UserInfo.TenantId is set to Guid.Empty placeholder.
-        // The Phase 6.1c refactor will source it from user_companies.
-        return new AuthResponse { AccessToken = at, RefreshToken = rt, AccessTokenExpiresAt = atExp, RefreshTokenExpiresAt = rtExp, User = new UserInfo { Id = user.Id, TenantId = Guid.Empty, Email = user.Email, FullName = user.FullName, Roles = roles }, HoldingCompanyId = holdingId };
+        await _refreshTokens.InsertAsync(new RefreshToken
+        {
+            Id = Guid.NewGuid(),
+            UserId = user.Id,
+            TokenHash = rtHash,
+            ExpiresAt = rtExp,
+            CreatedAt = DateTime.UtcNow,
+            CreatedByIp = ip
+        }, ct);
+        return new AuthResponse
+        {
+            AccessToken = at,
+            RefreshToken = rt,
+            AccessTokenExpiresAt = atExp,
+            RefreshTokenExpiresAt = rtExp,
+            User = new UserInfo
+            {
+                Id = user.Id,
+                Email = user.Email,
+                FullName = user.FullName,
+                Roles = roles,
+                DefaultCompanyId = defaultLink.CompanyId,
+                Companies = links.Select(l => new UserCompanyInfo
+                {
+                    CompanyId = l.CompanyId,
+                    Code = l.CompanyCode,
+                    Name = l.CompanyName,
+                    IsDefault = l.IsDefault,
+                    IsHolding = l.IsHolding
+                }).ToList()
+            },
+            HoldingCompanyId = holdingId
+        };
     }
-
-    // P1-9: Tx-aware BuildAsync for the register flow — refresh token insert rolls back
-    // together with the user/tenant insert if anything later throws.
-    private async Task<AuthResponse> BuildAsync(User user, IReadOnlyList<string> roles, Guid holdingId, string? ip, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
-    {
-        var (at, atExp) = _jwt.GenerateAccessToken(user, roles);
-        var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();
-        await _refreshTokens.InsertAsync(new RefreshToken { Id = Guid.NewGuid(), UserId = user.Id, TokenHash = rtHash, ExpiresAt = rtExp, CreatedAt = DateTime.UtcNow, CreatedByIp = ip }, conn, tx, ct);
-        return new AuthResponse { AccessToken = at, RefreshToken = rt, AccessTokenExpiresAt = atExp, RefreshTokenExpiresAt = rtExp, User = new UserInfo { Id = user.Id, TenantId = Guid.Empty, Email = user.Email, FullName = user.FullName, Roles = roles }, HoldingCompanyId = holdingId };
-    }
-
-    private static string Slugify(string s) { var arr = s.ToLowerInvariant().ToCharArray(); for (var i = 0; i < arr.Length; i++) if (!char.IsLetterOrDigit(arr[i])) arr[i] = '-'; return new string(arr).Trim('-'); }
 }

@@ -3,6 +3,12 @@ using FluentAssertions;
 
 namespace ERPSystem.Tests.Auth;
 
+/// <summary>
+/// Phase 6.1c: Multi-Company model. The RegisterRequest no longer has
+/// TenantId/TenantName fields (the Holding Company is auto-seeded and
+/// the new user is auto-linked). The validator now only checks the
+/// email/password/fullName fields.
+/// </summary>
 public class RegisterRequestValidatorTests
 {
     private readonly RegisterRequestValidator _validator = new();
@@ -12,25 +18,9 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            
             Email = "user@example.com",
             Password = "Strong1Pass",
             FullName = "Test User"
-        };
-        var result = _validator.Validate(req);
-        result.IsValid.Should().BeTrue();
-    }
-
-    [Fact]
-    public void NewTenantName_IsAccepted_WhenNoTenantId()
-    {
-        var req = new RegisterRequest
-        {
-            TenantId = Guid.Empty,
-            TenantName = "Acme Co",
-            Email = "founder@acme.com",
-            Password = "Strong1Pass",
-            FullName = "Founder"
         };
         var result = _validator.Validate(req);
         result.IsValid.Should().BeTrue();
@@ -44,7 +34,6 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            
             Email = email,
             Password = "Strong1Pass",
             FullName = "Test"
@@ -61,7 +50,6 @@ public class RegisterRequestValidatorTests
     {
         var req = new RegisterRequest
         {
-            
             Email = "user@example.com",
             Password = password,
             FullName = "Test"
@@ -70,13 +58,11 @@ public class RegisterRequestValidatorTests
     }
 
     [Fact]
-    public void MissingBothTenantIdAndName_FailsValidation()
+    public void MissingEmail_FailsValidation()
     {
         var req = new RegisterRequest
         {
-            TenantId = Guid.Empty,
-            TenantName = null,
-            Email = "user@example.com",
+            Email = "",
             Password = "Strong1Pass",
             FullName = "Test"
         };

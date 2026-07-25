@@ -110,18 +110,17 @@ public sealed class ScenarioSeederHostedService : IHostedService
     }
 
     // ============================================================
-    // STEP 1: Register Tenant + Admin
+    // STEP 1: Register the first user (becomes Admin under the Holding)
+    // Phase 6.1c: no tenant concept. The Holding is auto-seeded.
     // ============================================================
     private async Task<(Guid tenantId, Guid adminUserId)> RegisterTenantAsync(IServiceProvider services, CancellationToken ct)
     {
         var auth = services.GetRequiredService<IAuthService>();
         var req = new RegisterRequest
         {
-            TenantName = "AlFajr Trading & Contracting",
             Email = TenantEmail,
             Password = TenantPassword,
-            FullName = "محمد أحمد Franco — المدير العام",
-            BaseCurrency = "LYD"
+            FullName = "محمد أحمد Franco — المدير العام"
         };
         AuthResult? result = null;
         try
@@ -130,7 +129,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
         }
         catch (Npgsql.PostgresException ex) when (ex.SqlState == "23505")
         {
-            // Duplicate key (tenant subdomain or email) — fall back to login
+            // Duplicate key (email) — fall back to login
             _logger.LogWarning("Register hit duplicate key ({Msg}), falling back to login", ex.MessageText);
             result = null;
         }

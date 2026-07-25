@@ -119,4 +119,67 @@ public sealed class UserRepository : IUserRepository
             "SELECT COUNT(*)::int FROM users",
             cancellationToken: ct));
     }
+
+    // ============ Phase 6.1c: user → companies (multi-company model) ============
+
+    public async Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // is_holding = (parent_company_id IS NULL AND is_group = true)
+        const string sql = @"SELECT uc.user_id AS UserId, uc.company_id AS CompanyId,
+                                    c.code AS CompanyCode, c.name AS CompanyName,
+                                    uc.is_default AS IsDefault,
+                                    (c.parent_company_id IS NULL AND c.is_group = true) AS IsHolding,
+                                    uc.assigned_at AS AssignedAt
+                             FROM user_companies uc
+                             INNER JOIN companies c ON c.id = uc.company_id
+                             WHERE uc.user_id = @UserId
+                             ORDER BY uc.is_default DESC, c.code";
+        var rows = await conn.QueryAsync<UserCompanyLink>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task<UserCompanyLink?> GetDefaultCompanyAsync(Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = @"SELECT uc.user_id AS UserId, uc.company_id AS CompanyId,
+                                    c.code AS CompanyCode, c.name AS CompanyName,
+                                    uc.is_default AS IsDefault,
+                                    (c.parent_company_id IS NULL AND c.is_group = true) AS IsHolding,
+                                    uc.assigned_at AS AssignedAt
+                             FROM user_companies uc
+                             INNER JOIN companies c ON c.id = uc.company_id
+                             WHERE uc.user_id = @UserId
+                             ORDER BY uc.is_default DESC
+                             LIMIT 1";
+        return await conn.QueryFirstOrDefaultAsync<UserCompanyLink>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: ct));
+    }
+
+    public async Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        await AssignUserToCompanyAsync(userId, companyId, isDefault, conn, null, ct);
+    }
+
+    public async Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
+        // Idempotent insert. If is_default = true, demote any prior default to false first.
+        if (isDefault)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(
+                "UPDATE user_companies SET is_default = false WHERE user_id = @UserId",
+                new { UserId = userId }, transaction: tx, cancellationToken: ct));
+        }
+        await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO user_companies (user_id, company_id, is_default, assigned_at)
+            VALUES (@UserId, @CompanyId, @IsDefault, @AssignedAt)
+            ON CONFLICT (user_id, company_id) DO UPDATE SET is_default = EXCLUDED.is_default",
+            new
+            {
+                UserId = userId,
+                CompanyId = companyId,
+                IsDefault = isDefault,
+                AssignedAt = DateTime.UtcNow
+            }, transaction: tx, cancellationToken: ct));
+    }
 }

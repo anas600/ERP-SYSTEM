@@ -40,7 +40,7 @@ public class AuthController : ControllerBase
         _logger = logger;
     }
 
-    /// <summary>تسجيل مستخدم جديد (داخل tenant موجود أو إنشاء tenant جديد)</summary>
+    /// <summary>تسجيل مستخدم جديد (يُنشأ تلقائياً تحت الشركة القابضة الافتراضية)</summary>
     [HttpPost("register")]
     [AllowAnonymous]
     [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
@@ -159,21 +159,38 @@ public class AuthController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>معلومات المستخدم الحالي (للـ client)</summary>
+    /// <summary>معلومات المستخدم الحالي (للـ client) — Phase 6.1c: multi-company model</summary>
     [HttpGet("me")]
     [Authorize]
     [ProducesResponseType(typeof(UserInfo), StatusCodes.Status200OK)]
-    public IActionResult Me()
+    public async Task<IActionResult> Me(CancellationToken ct)
     {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                          ?? User.FindFirst("sub")!.Value;
+        var userId = Guid.Parse(userIdClaim);
+        var companies = await _authService.GetUserCompaniesAsync(userId, ct);
         return Ok(new UserInfo
         {
-            Id = Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                            ?? User.FindFirst("sub")!.Value),
-            TenantId = Guid.Parse(User.FindFirst("tenant_id")!.Value),
+            Id = userId,
             Email = User.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email)?.Value ?? string.Empty,
             FullName = User.FindFirst("full_name")?.Value ?? string.Empty,
             Roles = User.FindAll(ClaimTypes.Role).Select(c => c.Value).ToList(),
+            DefaultCompanyId = companies.DefaultCompanyId,
+            Companies = companies.Companies,
         });
+    }
+
+    /// <summary>قائمة الشركات المتاحة للمستخدم (للـ company switcher في الـ frontend) — Phase 6.1c</summary>
+    [HttpGet("me/companies")]
+    [Authorize]
+    [ProducesResponseType(typeof(GetUserCompaniesResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMyCompanies(CancellationToken ct)
+    {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
+                          ?? User.FindFirst("sub")!.Value;
+        var userId = Guid.Parse(userIdClaim);
+        var response = await _authService.GetUserCompaniesAsync(userId, ct);
+        return Ok(response);
     }
 
     // ============ DL 70: Password Reset ============

@@ -2,8 +2,6 @@ using System.Data;
 using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Infrastructure;
-using ERPSystem.Modules.Identity.Application.Auth;
-using ERPSystem.Modules.Inventory.Application.Services;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Companies.Application.Services;
@@ -24,51 +22,12 @@ public sealed class CompanyTreeNode { public Company Company { get; set; } = nul
 public sealed class CompanyResult<T> { public bool Succeeded { get; init; } public T? Value { get; init; } public string? Error { get; init; } public CompanyErrorCode? ErrorCode { get; init; } public static CompanyResult<T> Ok(T v) => new() { Succeeded = true, Value = v }; public static CompanyResult<T> Fail(string e, CompanyErrorCode c) => new() { Succeeded = false, Error = e, ErrorCode = c }; }
 public enum CompanyErrorCode { NotFound, AlreadyExists, ValidationError, InUse, Internal }
 
-public sealed class CompanyService : ICompanyService, ITenantBootstrap
+public sealed class CompanyService : ICompanyService
 {
     private readonly ICompanyRepository _companies;
     private readonly IAccountRepository _accounts;
     private readonly ILogger<CompanyService> _logger;
-    private readonly IInventoryBootstrapper _inventoryBootstrap;
-    public CompanyService(ICompanyRepository c, IAccountRepository a, IInventoryBootstrapper ib, ILogger<CompanyService> l) { _companies = c; _accounts = a; _inventoryBootstrap = ib; _logger = l; }
-
-    public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, CancellationToken ct)
-    {
-        // Back-compat path used by Login/Refresh: own connection per repo call, no shared tx.
-        // tenantId kept for ITenantBootstrap contract but unused — companies are global.
-        var existing = (await _companies.ListAsync(true, ct)).FirstOrDefault(c => c.IsGroup);
-        if (existing != null) return existing.Id;
-        existing = await _companies.GetByCodeAsync("000", ct);
-        if (existing != null) return existing.Id;
-        var r = await CreateHoldingAsync("000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, ct);
-        if (r.Succeeded)
-        {
-            // Phase 2.2: seed UoMs and Categories for new tenant
-            try { await _inventoryBootstrap.EnsureDefaultUoMsAndCategoriesAsync(tenantId, ct); }
-            catch (Exception ex) { _logger.LogWarning(ex, "فشل زرع UoMs/Categories للمستأجر {TenantId}", tenantId); }
-        }
-        return r.Succeeded ? r.Value!.Id : Guid.Empty;
-    }
-
-    public async Task<Guid> OnTenantCreatedAsync(Guid tenantId, string tenantName, string baseCurrency, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
-    {
-        // P1-9: Tx-aware path used by Register. Read-checks use the non-tx overload
-        // because for a brand-new tenant there cannot be a pre-existing holding; the
-        // insert path goes through the caller-supplied connection so it rolls back
-        // together with the tenant insert if anything else fails.
-        var existing = (await _companies.ListAsync(true, ct)).FirstOrDefault(c => c.IsGroup);
-        if (existing != null) return existing.Id;
-        existing = await _companies.GetByCodeAsync("000", ct);
-        if (existing != null) return existing.Id;
-        var r = await CreateHoldingAsync("000", string.IsNullOrEmpty(tenantName) ? "Holding" : $"{tenantName} (Holding)", tenantName, baseCurrency, conn, tx, ct);
-        if (r.Succeeded)
-        {
-            // Phase 2.2: seed UoMs and Categories for new tenant (inside same tx)
-            try { await _inventoryBootstrap.EnsureDefaultUoMsAndCategoriesAsync(tenantId, conn, tx, ct); }
-            catch (Exception ex) { _logger.LogWarning(ex, "فشل زرع UoMs/Categories للمستأجر {TenantId}", tenantId); }
-        }
-        return r.Succeeded ? r.Value!.Id : Guid.Empty;
-    }
+    public CompanyService(ICompanyRepository c, IAccountRepository a, ILogger<CompanyService> l) { _companies = c; _accounts = a; _logger = l; }
 
     public async Task<CompanyResult<Company>> CreateHoldingAsync(string code, string name, string legalName, string baseCurrency, CancellationToken ct)
     {

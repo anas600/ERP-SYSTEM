@@ -4,8 +4,9 @@ using System.Collections.Generic;
 namespace ERPSystem.Modules.Identity.Entities;
 
 /// <summary>
-/// User entity - represents a system user within a tenant
-/// Phase 0: Foundation + Identity Module
+/// User entity — Phase 6.1c: Multi-Company model.
+/// A user is global; their company access is tracked in the <c>user_companies</c>
+/// join table (via <see cref="IUserRepository.GetUserCompaniesAsync"/>).
 /// </summary>
 public class User
 {
@@ -20,7 +21,6 @@ public class User
     public DateTime? LastLoginAt { get; set; }
 
     // Navigation
-    public Tenant? Tenant { get; set; }
     public ICollection<UserRole> UserRoles { get; set; } = new List<UserRole>();
     public ICollection<RefreshToken> RefreshTokens { get; set; } = new List<RefreshToken>();
 }
