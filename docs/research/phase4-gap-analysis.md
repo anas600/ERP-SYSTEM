@@ -3,6 +3,8 @@
 > **التاريخ:** 2026-06-24 · **Author:** Mavis (Owner) · **Scope:** Phase 4 of ERP-SYSTEM
 > **الـ Source:** تكامل من docs/research/{daftra,erpnext,odoo}-features.md + docs/research/gap-analysis.md (Phase 3)
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 1. Executive Summary

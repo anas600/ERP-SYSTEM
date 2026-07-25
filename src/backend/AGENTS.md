@@ -22,7 +22,7 @@ backend/
 │   └── AccountsReceivable/ # ✅ Phase 5 Sprint 1 (مكتمل — Customer + SalesInvoice + Receipt + Aging)
 ├── Shared/                # كود مشترك بين الموديولات
 │   ├── Infrastructure/    # DbConnectionFactory
-│   ├── MultiTenancy/      # TenantContext + Middleware
+│   ├── MultiTenancy/      # ~~Removed in Phase 6.1b~~ (see `Shared/CompanyContext`)
 │   ├── Migrations/        # FluentMigrator migrations
 │   └── Events/            # Event contracts
 ├── Tests/                 # xUnit test projects
@@ -41,7 +41,7 @@ backend/
   - **السبب**: مرحلة Phase 0. لاحقاً (عند استقرار الـ boundaries) نحوّلها إلى csproj مستقل
 - لا يوجد access بين الـ modules إلا عبر:
   - `Shared/Events` (Pub/Sub)
-  - `Shared/MultiTenancy` (Tenant context)
+  - `Shared/CompanyContext` (`ICompanyContext` per Constitution Article 3)
   - Direct interface call (للحالات النادرة، موثّقة)
 
 ### Dapper + FluentMigrator + MartenDB
@@ -52,12 +52,13 @@ backend/
 - **MartenDB** للـ Event Store — schema منفصل `mt_events` (قاعدة منفصلة حالياً)
 - **استخدم snake_case** في SQL و الـ DTO mappings (`AsName()` في Dapper)
 
-### Multi-tenancy
+### Multi-Company (per Constitution Article 3)
 
-- كل entity يجب أن يحتوي `TenantId`
-- الـ `TenantContext` يحوي `TenantId` و `UserId` للـ request الحالي
-- الـ `TenantMiddleware` يلتقطها من JWT claims
-- **قاعدة لاحقة**: أي repository query يفلتر بـ `tenant_id` (Audit log)
+- كل business entity يجب أن يحتوي `CompanyId` (FK → `companies.id`)
+- الـ `ICompanyContext` يحوي `CompanyId` و `UserId` و `CompanyIds[]` للـ request الحالي
+- الـ `CompanyContextMiddleware` يلتقطها من JWT claims / `X-Company-Id` header
+- **قاعدة**: أي repository query يفلتر بـ `company_id` (NOT `tenant_id`)
+- لا يوجد `Tenant` entity ولا `tenants` table ولا `[TenantAuthorize]` (Phase 6.1b)
 
 ### Auth
 

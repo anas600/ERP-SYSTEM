@@ -102,7 +102,7 @@ Legacy (Phase 5 وما قبل): كان `ITenantContext` يحوي `TenantId` و `
 
 - `Shared/Events/<Name>Events.cs` يحتوي records فقط
 - اسم الحدث: ماضوي — `StockReceived`, `InvoiceCreated`
-- يحمل: `TenantId`, `OccurredAt`, `EventId`, `Data`
+- يحمل: `CompanyId`, `OccurredAt`, `EventId`, `Data` (per Constitution Article 3 — `TenantId` was removed in Phase 6.1b)
 - الموديولات تنشر/تشترك عبر MartenDB (inline في MVP، Kafka/RabbitMQ مستقبلياً)
 
 ## لما تشتغل هنا

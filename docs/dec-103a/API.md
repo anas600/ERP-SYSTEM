@@ -6,6 +6,8 @@
 
 **Auth**: Bearer JWT (60min) + Refresh Token (14 days). See [Authentication](#authentication).
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 📋 Quick Reference

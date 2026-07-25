@@ -25,7 +25,7 @@ Inventory/
 │       ├── InventoryServices.cs             # Item, Warehouse, UoM, Category
 │       ├── StockMovementService.cs          # CQRS-lite: PostAsync updates stock_levels
 │       ├── SupportingStockServices.cs       # Level, Reservation
-│       └── InventoryBootstrapper.cs         # seeds on tenant create
+│       └── InventoryBootstrapper.cs         # seeds on Holding Company create (per Constitution Article 3)
 └── Infrastructure/
     ├── IRepositories.cs
     ├── ItemRepository.cs

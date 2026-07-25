@@ -6,7 +6,7 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 
 public interface IAPAgingService
 {
-    Task<APAgingReportResponse> GetAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct);
+    Task<APAgingReportResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct);
 }
 
 /// <summary>
@@ -29,7 +29,7 @@ public sealed class APAgingService : IAPAgingService
     private readonly IDbConnectionFactory _db;
     public APAgingService(IDbConnectionFactory db) => _db = db;
 
-    public async Task<APAgingReportResponse> GetAsync(Guid tenantId, DateTime asOfDate, CancellationToken ct)
+    public async Task<APAgingReportResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
@@ -43,20 +43,20 @@ public sealed class APAgingService : IAPAgingService
                        SELECT SUM(pa.amount_applied)
                        FROM payment_allocations pa
                        INNER JOIN payments p ON p.id = pa.payment_id
-                       WHERE p.tenant_id = vb.tenant_id
+                       WHERE p.company_id = vb.company_id
                          AND p.status::text = @PostedStatus
                          AND pa.ref_type = 'VendorBill'
                          AND pa.ref_id = vb.id
                    ), 0) AS PaidAmount
             FROM vendor_bills vb
             INNER JOIN vendors v ON v.id = vb.vendor_id
-            WHERE vb.tenant_id = @TenantId
+            WHERE vb.company_id = @CompanyId
               AND vb.status::text = @PostedStatus
               AND vb.total_amount > 0
             ORDER BY v.code, vb.bill_number";
 
         var rows = (await conn.QueryAsync<AgingRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, AsOfDate = asOfDate, PostedStatus = "Posted" }, cancellationToken: ct))).ToList();
+            new { CompanyId = companyId, AsOfDate = asOfDate, PostedStatus = "Posted" }, cancellationToken: ct))).ToList();
 
         // تجميع per vendor
         var byVendor = new Dictionary<Guid, APAgingVendorBucket>();

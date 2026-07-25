@@ -45,7 +45,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                     }, ct);
                 }
             }
-            _logger.LogInformation("تم زرع 6 UoMs افتراضية للمستأجر {TenantId}", tenantId);
+            _logger.LogInformation("تم زرع 6 UoMs افتراضية (global reference data)");
         }
 
         // Categories
@@ -63,7 +63,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                 }, ct);
                 idByCode[code] = id;
             }
-            _logger.LogInformation("تم زرع 5 تصنيفات افتراضية للمستأجر {TenantId}", tenantId);
+            _logger.LogInformation("تم زرع 5 تصنيفات افتراضية (global reference data)");
         }
     }
 
@@ -74,6 +74,8 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
         // creating a brand-new tenant with no pre-existing UoMs / categories —
         // those reads always return null. The inserts go through the caller-supplied
         // connection so they roll back together with the tenant/holding insert.
+        // Phase 6.1b: tenantId parameter kept for back-compat with ITenantBootstrap
+        // (out of scope for 6.1b, will be removed in 6.1c). UoMs/Categories are global.
 
         // UoMs (global reference data)
         if (await _uoms.GetByCodeAsync("pcs", ct) == null)
@@ -89,7 +91,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                     }, conn, tx, ct);
                 }
             }
-            _logger.LogInformation("تم زرع 6 UoMs افتراضية للمستأجر {TenantId}", tenantId);
+            _logger.LogInformation("تم زرع 6 UoMs افتراضية (global reference data)");
         }
 
         // Categories
@@ -107,7 +109,7 @@ public sealed class InventoryBootstrapper : IInventoryBootstrapper
                 }, conn, tx, ct);
                 idByCode[code] = id;
             }
-            _logger.LogInformation("تم زرع 5 تصنيفات افتراضية للمستأجر {TenantId}", tenantId);
+            _logger.LogInformation("تم زرع 5 تصنيفات افتراضية (global reference data)");
         }
     }
 }

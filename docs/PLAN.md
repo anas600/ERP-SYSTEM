@@ -4,7 +4,7 @@
 > **التاريخ:** 2026-07-24
 > **الحالة:** Phase 0 → 5.B Sprint 1 مكتملة ✅ (Release v5.0.1, PR #132, commit `52e8c26`) · Phase 5 Mobile + Phase 6 Reports قادمين
 > **المنهجية:** Agile (Scrum) + Iterative MVP + GitFlow
-> **الهدف:** نظام ERP متعدد المستأجرين، Modular Monolith، قابل للإنتاج
+> **الهدف:** نظام ERP متعدد الشركات (Multi-Company)، Modular Monolith، قابل للإنتاج (per Constitution Article 3)
 
 ---
 
@@ -33,7 +33,7 @@
 
 | Module | الوصف | الحالة | الـ PR |
 |--------|-------|--------|------|
-| **Identity** | Users, Tenants, RBAC, JWT, BCrypt | ✅ Phase 0 | #1 |
+| **Identity** | Users, RBAC, JWT, BCrypt (Tenant entity removed in Phase 6.1b) | ✅ Phase 0 | #1 |
 | **Companies** | Holding, Subsidiaries, Cost Centers | ✅ Phase 1.5 | #3 |
 | **Finance** | CoA, Journal, Ledger, Posting Rules | ✅ Phase 1 | #2 |
 | **Projects** | Project, Task, Resource, Budget | ✅ Phase 2.1 | #4 |
@@ -41,7 +41,7 @@
 | **Reports** | Trial Balance, Stock Status, Project Profitability | ✅ Phase 2.5 | #8 |
 | **Notifications** | In-app, Low-stock alerts | ✅ Phase 2.4 | #7 |
 | **Shared/Events** | Event Bus + Outbox pattern | ✅ Phase 2.4 | #7 |
-| **Shared/MultiTenancy** | Tenant isolation | ✅ Phase 0 | — |
+| **Shared/MultiTenancy** | ~~Tenant isolation (Phase 6.1b)~~ — now `ICompanyContext` only (Constitution Article 3) | ✅ Phase 0 → 6.1b | — |
 | **Shared/Migrations** | FluentMigrator runner | ✅ Phase 0 | — |
 | **Shared/Infrastructure** | DbConnectionFactory, BaseRepository | ✅ Phase 0 | — |
 
@@ -90,7 +90,7 @@
 **الـ PR #1** · `feature/phase-0-identity` → `main`
 - Monorepo setup (Host, Shared, Modules)
 - Identity Module (BCrypt, JWT, Refresh tokens)
-- MultiTenancy (ITenantContext, TenantMiddleware)
+- MultiTenancy (`ITenantContext`, `TenantMiddleware`) — **replaced by `ICompanyContext` + `CompanyContextMiddleware` in Phase 6.1a/b** (Constitution Article 3)
 - Infrastructure (DbConnectionFactory, BaseRepository)
 - DOX documentation (AGENTS.md)
 
@@ -178,7 +178,7 @@
 **المدة:** 1 يوم
 - `AuthService.RegisterAsync` صار atomic عبر Dapper `IDbTransaction` (PR #131, merged to develop → PR #132, merged to main, commit `52e8c26`)
 - 16 ملف معدّل: 9 repos مع overloads `(IDbConnection, IDbTransaction?, ct)`، CompanyService + InventoryBootstrapper threaded
-- 15 orphan tenants تم تنظيفها من Supabase قبل الـ fix
+- 15 orphan tenants تم تنظيفها من Supabase قبل الـ fix (pre-Phase 6)
 - Fresh Build Mode يحافظ على DB نظيفة (لا seeders)
 
 ### 🔜 Phase 6: Advanced Reporting
@@ -282,7 +282,7 @@ git push origin feature/new-feature
 
 ### أمان
 6. ✅ **JWT + BCrypt + Refresh tokens** (60min + 14days)
-7. ✅ **tenant_id في كل صف** (Repository pattern)
+7. ✅ **`company_id` في كل صف** (Repository pattern — replaced `tenant_id` per Phase 6.1a, Constitution Article 3)
 8. ✅ **DTO computed properties** (read-only)
 9. ✅ **FluentValidation** على Create operations
 

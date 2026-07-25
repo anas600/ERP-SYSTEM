@@ -29,7 +29,7 @@ public class EventBusTests
 
         repo.Stored.Count.Should().Be(1);
         var row = repo.Stored[0];
-        row.TenantId.Should().Be(tenantId);
+        row.CompanyId.Should().Be(tenantId);
         row.EventType.Should().Be(nameof(StockReceivedEvent));
         row.AggregateType.Should().Be("StockMovement");
         row.RetryCount.Should().Be(0);
@@ -154,7 +154,7 @@ public class OutboxProcessorTests
             PurchaseOrderRef: null, OccurredAt: DateTime.UtcNow);
         var row = new OutboxEvent
         {
-            Id = Guid.NewGuid(), TenantId = tenantId,
+            Id = Guid.NewGuid(), CompanyId = tenantId,
             EventType = nameof(StockReceivedEvent),
             AggregateId = Guid.NewGuid(), AggregateType = "StockMovement",
             Payload = System.Text.Json.JsonSerializer.Serialize(evt),
@@ -178,7 +178,7 @@ public class OutboxProcessorTests
                 var deserialized = System.Text.Json.JsonSerializer.Deserialize<StockReceivedEvent>(e.Payload,
                     new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
                 await handler.HandleAsync(deserialized!, CancellationToken.None);
-                await processed.MarkProcessedAsync(e.Id, e.TenantId, CancellationToken.None);
+                await processed.MarkProcessedAsync(e.Id, CancellationToken.None);
                 await outbox.MarkProcessedAsync(e.Id, DateTime.UtcNow, CancellationToken.None);
             }
         }
@@ -294,11 +294,11 @@ internal class FakeOutboxRepository : IOutboxRepository
         return Task.CompletedTask;
     }
     public Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.TenantId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
+        Task.FromResult<IReadOnlyList<OutboxEvent>>(Stored.Where(e => e.CompanyId == tenantId && (!unprocessedOnly || e.ProcessedAt == null)).ToList());
     public Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct) =>
         Task.FromResult(Stored.FirstOrDefault(e => e.Id == id));
     public Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct) =>
-        Task.FromResult(Stored.Count(e => e.TenantId == tenantId && e.ProcessedAt == null));
+        Task.FromResult(Stored.Count(e => e.CompanyId == tenantId && e.ProcessedAt == null));
     public Task ResetForRetryAsync(Guid id, CancellationToken ct)
     {
         var s = Stored.FirstOrDefault(e => e.Id == id); if (s != null) { s.RetryCount = 0; s.LastError = null; s.ProcessedAt = null; }
@@ -311,7 +311,7 @@ internal class FakeProcessedEventsRepo : IProcessedEventsRepository
     public HashSet<Guid> ProcessedEventIds { get; } = new();
     public Task<bool> IsProcessedAsync(Guid eventId, CancellationToken ct) =>
         Task.FromResult(ProcessedEventIds.Contains(eventId));
-    public Task MarkProcessedAsync(Guid eventId, Guid tenantId, CancellationToken ct)
+    public Task MarkProcessedAsync(Guid eventId, CancellationToken ct)
     {
         ProcessedEventIds.Add(eventId);
         return Task.CompletedTask;

@@ -47,7 +47,7 @@ public class EventsController : ControllerBase
     public async Task<IActionResult> Retry(Guid id, CancellationToken ct)
     {
         var evt = await _outbox.GetByIdAsync(id, ct);
-        if (evt == null || evt.TenantId != CompanyId) return NotFound();
+        if (evt == null || evt.CompanyId != CompanyId) return NotFound();
         await _outbox.ResetForRetryAsync(id, ct);
         return NoContent();
     }

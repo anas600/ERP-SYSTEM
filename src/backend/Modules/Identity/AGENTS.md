@@ -11,8 +11,9 @@ Identity/
 ├── Entities/
 │   ├── User.cs            # User entity + navigations
 │   ├── Role.cs            # Role + UserRole join
-│   ├── Tenant.cs          # Tenant (multi-tenancy root)
 │   └── RefreshToken.cs    # JWT refresh token (rotation + reuse detection)
+│
+│   > Note: `Tenant.cs` was removed in Phase 6.1b (Constitution Article 3 — Multi-Company, NOT Multi-Tenant). The tenant root is now the `Holding Company` row in the `companies` table.
 ├── Application/
 │   └── Auth/
 │       ├── AuthDtos.cs         # RegisterRequest, LoginRequest, AuthResponse, UserInfo
@@ -26,26 +27,21 @@ Identity/
     ├── IRepositories.cs        # All repository contracts
     ├── UserRepository.cs       # Dapper queries
     ├── RoleRepository.cs       # + EnsureDefaultRolesAsync
-    ├── TenantRepository.cs
     └── RefreshTokenRepository.cs
 ```
 
+> Note: `TenantRepository.cs` was removed in Phase 6.1b. Company access goes via `UserCompanyRepository` (in the Companies module) — users → companies is a many-to-many via `user_companies`.
+
 ## Domain Model
 
-### Tenant
-- معرّف منفصل لكل مستأجر (شركة / مؤسسة)
-- `subdomain` فريد للتمييز — **يُحسب تلقائياً من TenantName عبر `Slugify()` عند إنشاء tenant جديد** (لا يُرسل من الـ client)
-- `IsActive` للـ soft-disable
-- `SubscriptionExpiresAt` للـ SaaS billing لاحقاً
-
 ### User
-- `TenantId` — كل user مرتبط بمستأجر واحد
-- `Email` فريد **داخل المستأجر** (يمكن تكراره عبر tenants)
+- مرتبط بـ **شركة أو أكثر** عبر `user_companies` (Constitution Article 3.1)
+- `Email` فريد **عبر النظام كله** (one global email per user — no per-tenant duplicate)
 - `PasswordHash` — BCrypt، workFactor 12
 - `IsActive`, `TwoFactorEnabled` (للمرحلة القادمة)
 
 ### Role
-- 4 أدوار افتراضية تُنشأ تلقائياً لكل tenant جديد:
+- 4 أدوار افتراضية تُنشأ تلقائياً عند أول user (under the default Holding Company):
   - **Admin** — كامل الصلاحيات
   - **Accountant** — Finance فقط
   - **ProjectManager** — Projects فقط
@@ -62,11 +58,11 @@ Identity/
 
 ### 1. Register
 
+> **Per Constitution Article 3.3:** "Register = create the first user under the default Holding Company (no tenant creation wizard)."
+
 ```
 POST /api/auth/register
 Body: {
-  tenantId?: Guid,        // لربط بـ tenant موجود
-  tenantName?: string,    // لإنشاء tenant جديد (يُحسب Subdomain من هذا الحقل)
   email: string,
   password: string,       // ≥8 chars, [A-Z], [a-z], [0-9]
   fullName: string,
@@ -74,11 +70,10 @@ Body: {
 }
 ```
 
-- **Validation:** يجب أن يكون `TenantId != Guid.Empty` أو `TenantName` غير فارغ
-- إذا `tenantId` موجود: ربط بـ tenant موجود
-- إذا `tenantName` موجود: إنشاء tenant جديد (Subdomain = Slugify(TenantName)) + Admin role للمستخدم الجديد
-- `EnsureDefaultRolesAsync(tenantId)` يضمن وجود الأدوار الأربعة
-- `BaseCurrency` يُمرر لـ `ITenantBootstrap.OnTenantCreatedAsync` (لإنشاء الـ holding company بنفس العملة)
+- **Behavior:** ينشئ first user + يعيّنه Admin في الـ default Holding Company (الموجود مسبقاً من `SeedDefaultHoldingAsync`)
+- **لا** إنشاء tenant، **لا** `tenantName` field، **لا** `subdomain` (كل هذه أُزيلت في Phase 6.0/6.1b)
+- `EnsureDefaultRolesAsync(companyId)` يضمن وجود الأدوار الأربعة تحت الـ Holding
+- `BaseCurrency` يُمرر لـ `ICompanyBootstrap.OnCompanyCreatedAsync` (لإنشاء الـ default CoA بنفس العملة)
 
 #### 🛡️ Atomicity (DEC-091, Release v5.0.1)
 
@@ -89,13 +84,12 @@ using var conn = await _db.CreateOltpConnectionAsync(ct);
 using var tx = conn.BeginTransaction();
 try
 {
-    // 1. tenant insert (إذا جديد)
-    // 2. OnTenantCreatedAsync (HoldingCompany + CoA)
-    // 3. user insert
-    // 4. EnsureDefaultRolesAsync (4 default roles)
-    // 5. admin role assign
-    // 6. GetRoleNamesAsync
-    // 7. BuildAsync → refresh token insert
+    // 1. user insert
+    // 2. EnsureDefaultRolesAsync (4 default roles — under default Holding)
+    // 3. admin role assign
+    // 4. user_companies link (user → default Holding)
+    // 5. GetRoleNamesAsync
+    // 6. BuildAsync → refresh token insert
     tx.Commit();
 }
 catch
@@ -106,13 +100,13 @@ catch
 ```
 
 **الـ repos تأخذ overloads جديدة `(IDbConnection, IDbTransaction?, ct)`:**
-- `TenantRepository.InsertAsync(tenant, conn, tx, ct)`
-- `UserRepository.InsertAsync(user, conn, tx, ct)` + `GetByEmailAndTenantAsync` + `GetRoleNamesAsync` + `AssignRoleAsync`
-- `RoleRepository.EnsureDefaultRolesAsync(tenantId, conn, tx, ct)` + `GetByNameAsync`
+- `UserRepository.InsertAsync(user, conn, tx, ct)` + `GetByEmailAsync` + `GetRoleNamesAsync` + `AssignRoleAsync`
+- `RoleRepository.EnsureDefaultRolesAsync(companyId, conn, tx, ct)` + `GetByNameAsync`
+- `UserCompanyRepository.LinkAsync(userId, companyId, conn, tx, ct)`
 - `RefreshTokenRepository.InsertAsync(rt, conn, tx, ct)` (يُستدعى من `BuildAsync`)
 - الـ signatures القديمة `(ct)` preserved كـ back-compat wrappers
 
-**Trigger:** HF Space proxy كان يقطع الاتصال بعد 60s timeout، مما يترك orphan tenants (Tenant + HoldingCompany + CoA + DefaultRoles بدون User) — قبل الـ fix، كان 15 orphan tenants في Supabase.
+**Trigger:** HF Space proxy كان يقطع الاتصال بعد 60s timeout، مما يترك orphan users (User + DefaultRoles بدون user_companies link) — قبل الـ fix، كان 15 orphan registrations في Supabase (pre-Phase 6 cleanup).
 
 **Audit:** أي service method جديد يـ insert في >1 جدول → استخدم نفس الـ pattern. DEC-091 يحدد القاعدة.
 
@@ -120,12 +114,12 @@ catch
 
 ```
 POST /api/auth/login
-Body: { email: string, password: string, tenantId?: Guid }
+Body: { email: string, password: string }
 ```
 
-- إذا `tenantId` موجود: بحث داخله
-- وإلا: بحث شامل (لـ super-admin فقط)
+- بحث بـ `Email` فقط (لا يوجد `tenantId` بعد الآن — Constitution Article 3)
 - BCrypt.Verify + LastLogin update
+- الـ JWT يحمل: `user_id`, `default_company_id`, `company_ids[]`, roles
 
 ### AuthResponse (مشترك بين register و login)
 
@@ -136,7 +130,8 @@ Body: { email: string, password: string, tenantId?: Guid }
   AccessTokenExpiresAt: DateTime,
   RefreshTokenExpiresAt: DateTime,
   User: UserInfo,
-  HoldingCompanyId: Guid  // للـ multi-company bootstrap
+  DefaultCompanyId: Guid,   // للـ company switcher
+  CompanyIds: Guid[]        // الشركات التي للمستخدم access عليها
 }
 ```
 
@@ -184,9 +179,9 @@ GET /api/auth/me (Bearer required)
 
 - [`../../AGENTS.md`](../../AGENTS.md)
 - [`../AGENTS.md`](../AGENTS.md)
-- [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — TenantContext, Migrations
+- [`../../Shared/AGENTS.md`](../../Shared/AGENTS.md) — CompanyContextMiddleware, Migrations
 - [`../../Host/AGENTS.md`](../../Host/AGENTS.md) — AuthController
-- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — Tenant bootstrap (HoldingCompany + CoA)
+- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — Company bootstrap (HoldingCompany + CoA)
 - [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3
 - [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5
 - [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4

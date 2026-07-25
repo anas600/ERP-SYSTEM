@@ -6,22 +6,31 @@
 
 ## [Unreleased] - 2026-07-25
 ### Changed (Phase 6.1b — tenant_id removal, multi-company model)
-- **Removed:** `ITenantContext`, `TenantContext`, `TenantMiddleware`, `ITenantContext.cs`, `TenantContext.cs`, `TenantMiddleware.cs` files
-- **Removed:** `Host/Utilities/TenantCache.cs` + `ITenantCache` abstraction
-- **Removed from 35 entities:** `TenantId` property dropped (Customer, Receipt, SalesInvoice, Company, CostCenter, Account, JournalEntry, PostingRule, Attendance, Department, Employee, LeaveRequest, Role, User, Item, ItemCategory, StockLevel, StockMovement, StockReservation, UnitOfMeasure, Warehouse, Notification, Payment, PayrollItem, PayrollRun, SalaryStructure, GoodsReceipt, PurchaseOrder, Vendor, VendorBill, Project, ProjectBudget, ProjectTask, Resource, ResourceAssignment)
+- **Removed files (4):** `ITenantContext.cs`, `TenantContext.cs`, `TenantMiddleware.cs` in `Shared/MultiTenancy/`, plus `TenantCache.cs` in `Host/Utilities/`
+- **Removed from 35 entities:** `TenantId` property dropped
 - **Removed from 50+ repositories:** `Guid tenantId` parameter dropped from method signatures
 - **Removed from 25+ services:** `Guid tenantId` parameter dropped (services now use `ICompanyContext.CompanyId` internally where needed, or are tenantless)
 - **Removed from 25+ controllers:** `ITenantContext` dependency replaced with `ICompanyContext`; `Guid tenantId` arg dropped from service calls
-- **Removed from AuditLogger:** `tenantId` → `companyId`; `tenant_id` column → `company_id` in `audit_log` table
-- **Removed from OutboxEvent:** `tenant_id` column dropped (event has `tenantId` field for back-compat but unused)
-- **Removed from SoftDeleteController:** `tenant_id` filter in raw SQL removed
-- **Removed from EventsController, AuditController, ReportsController, FinanceReportsController:** all `ITenantContext` swapped to `ICompanyContext`
-- **Preserved (back-compat placeholder):** `AuthService` + `JwtTokenService` still emit `tenant_id` JWT claim with `Guid.Empty` value (full rewrite deferred to Phase 6.1c)
+- **Removed from DTOs (Phase 6.1b-5):** `TenantId` property dropped from 5 DTO files (`AccountsReceivable/Dtos.cs`, `HR/Dtos.cs`, `Payroll/Dtos.cs`, `Procurement/Dtos.cs`, plus `Finance/FinanceDtos.cs` AccountResponse)
+- **SQL migrated to `company_id` (Phase 6.1b-5):** 5 Finance/Reports services (`APAgingService`, `BalanceSheetService`, `CashFlowService`, `FinanceReportService`, `InventoryReportService`), `Shared/Events/OutboxRepository`, `Host/Controllers/AuthController` password reset INSERT
+- **AuditLogger fixed (Phase 6.1b-5):** `Host/Audit/AuditLogger.cs` rewritten to use `company_id` column + `ICompanyContext.CompanyId`; catch block now logs via `ILogger` instead of silent swallow
+- **OutboxEvent entity:** `TenantId` property dropped; `CompanyId` is the active field
+- **IProcessedEventsRepository:** `MarkProcessedAsync` signature simplified to `(Guid eventId, CancellationToken ct)` — dedup keyed on `event_id` only (no per-company partitioning in `processed_events`)
+- **Preserved (back-compat placeholder for Phase 6.1c):**
+  - `AuthService.cs`, `AuthDtos.cs`, `JwtTokenService.cs`, `IAuthService.cs`, `Validators.cs` — Auth flow still uses `tenant_id` JWT claim with `Guid.Empty` value
+  - `IIntegrationEvent` records (`StockReceivedEvent`, `StockIssuedEvent`, etc.) — still carry `TenantId` field for back-compat; publishers pass `Guid.Empty`; full rewrite in 6.1c
+  - `IInventoryBootstrapper.EnsureDefaultUoMsAndCategoriesAsync(Guid tenantId, ...)` — parameter kept for back-compat with `ITenantBootstrap.OnTenantCreatedAsync`; UoMs/Categories are global reference data; full signature cleanup in 6.1c
+  - Test files that use `tenantId` for fixture setup: E2E `TestJwtGenerator`, `ErpWebApplicationFactory`, `InvoiceLifecycleE2ETests`, `HealthDefenseE2ETests`, `ProjectServiceTests`, `DoubleEntryValidationTests`, etc. — fixtures will be updated in 6.1c when Auth is rewritten
+- **Generated files (deferred):** `Shared/Generated/Repos/*.g.cs` and `Shared/Generated/DTOs/*.g.cs` still reference `tenant_id`/`TenantId` — need `EntityDtoGen` tool rerun, deferred to 6.1c (these scaffold files are not used at runtime; handwritten repos in `Modules/*/Infrastructure/` are DI-registered)
 ### Added (Phase 6.1a — CompanyContext Foundation)
 - `ICompanyContext` + `CompanyContext` (AsyncLocal) — new abstraction for active company
 - `CompanyContextMiddleware` — reads X-Company-Id header + JWT company_ids[] claim
 - CORS updated to allow X-Company-Id header
 - Unit tests for CompanyContext (4 tests)
+### Added (Phase 6.1b-6 — Docs cleanup)
+- Comprehensive purge of multi-tenant leftovers from active docs (25+ files: `AGENTS.md`, `README.md`, `STATUS.md`, `RUNBOOK.md`, all module-level `AGENTS.md` files, `src/frontend/AGENTS.md`, `docs/SETUP-LOCAL.md`, `docs/PLAN.md`, `docs/SCENARIO-SEEDER-PLAN.md`)
+- Header notes added to 17 historical/research docs (`PHASE2-REPORT.md`, `docs/research/*`, `docs/dec-052/*`, `docs/dec-103a/*`, etc.) marking them as pre-Phase 6 multi-tenant
+- All docs now aligned with `CONSTITUTION.md` Article 3 (Multi-Company, NOT Multi-Tenant)
 ### Back-Compat
 - ITenantContext + TenantMiddleware remain active (deleted in PR-6.1b) — **DELETED in Phase 6.1b**
 

@@ -89,7 +89,7 @@ Auto-discovered via DI — just register `AddScoped<IIntegrationEventHandler<TEv
 
 | Method | Path | الـ Function |
 |--------|------|-------------|
-| GET | /api/events/outbox | list pending events for tenant |
+| GET | /api/events/outbox | list pending events for current company |
 | GET | /api/events/processed | list processed (audit trail) |
 | GET | /api/events/pending-count | count only |
 | POST | /api/events/retry/{id} | admin manual retry (resets retry_count + clears last_error) |

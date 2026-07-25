@@ -4,6 +4,8 @@
 
 **التاريخ:** 23 يونيو 2026 — **المصادر:** Odoo 19.0 Docs الرسمية — **الإصدار المرجعي:** Odoo 19.0.
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 1. لماذا Odoo كمرجع؟

@@ -38,7 +38,7 @@ Finance/
 - 5 أنواع: Asset, Liability, Equity, Revenue, Expense
 - `NormalBalance` يُحسب تلقائياً (Asset/Expense → Debit، الباقي Credit)
 - `IsPostable = false` → حساب تجميعي، لا يقبل قيود مباشرة
-- **Default CoA لكل tenant جديد** (17 حساب: 1100 النقدية، 4100 إيرادات، إلخ)
+- **Default CoA لكل Holding Company جديد** (17 حساب: 1100 النقدية، 4100 إيرادات، إلخ) — عبر `SeedDefaultHoldingAsync` (Phase 6.1a)
 
 ### JournalEntry + JournalLine
 - رأس القيد: `entry_number` تسلسلي (`JE-2026-0001`)
@@ -50,7 +50,7 @@ Finance/
 - MVP: 1 حدث → N سطور debit/credit
 - Template بصيغة JSON (deserializable لـ `PostingRuleTemplate`)
 - صيغ مبسطة: `{amount}` → payload.Amount، أرقام خام
-- **القاعدة الافتراضية للـ tenant جديد**: StockReceived → 1300 المخزون (مدين) / 2100 الدائنون (دائن)
+- **القاعدة الافتراضية للـ Holding Company الجديد**: StockReceived → 1300 المخزون (مدين) / 2100 الدائنون (دائن)
 
 ## Endpoints
 
@@ -86,7 +86,7 @@ Finance/
 
 ## Event Integration (مستقبلي)
 
-- `StockReceived` (من Inventory) → يستدعي `IPostingRulesService.ApplyRulesAsync(tenantId, userId, StockReceived, payload)`
+- `StockReceived` (من Inventory) → يستدعي `IPostingRulesService.ApplyRulesAsync(companyId, userId, StockReceived, payload)`
 - `StockIssued` → قيد COGS
 - `InvoiceCreated` → قيد إيراد
 - `PaymentReceived` → قيد تحصيل

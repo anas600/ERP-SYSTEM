@@ -17,7 +17,7 @@ Payments/
 │       └── PaymentService.cs # Create + GetById + List + Post + Allocate (ينشئ JournalEntry 2-leg عند Post)
 └── Infrastructure/
     ├── IPaymentRepository.cs
-    ├── PaymentRepository.cs  # Dapper (snake_case) + multi-tenant filter
+    ├── PaymentRepository.cs  # Dapper (snake_case) + multi-company filter (company_id)
     └── PaymentSequenceRepository.cs  # PAY-YYYY-NNNN sequence (يُعيد استخدام procurement_document_sequences)
 ```
 

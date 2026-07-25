@@ -5,6 +5,8 @@
 **Author**: Mavis (Tech Lead)  
 **Reviewed by**: Brainstorming Lab (analytical review)
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## Executive Summary

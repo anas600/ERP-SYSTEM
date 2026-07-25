@@ -57,8 +57,7 @@
 ## Conventions
 
 - **Read-only:** لا تكتب في DB. أي mutation → ارفع event واترك الـ module المختص يعالجها
-- **TenantId mandatory:** كل method يبدأ بـ `tenantId` filter (من `ITenantContext`)
-- **CompanyId optional filter:** للـ multi-company isolation
+- **CompanyId mandatory:** كل method يبدأ بـ `companyId` filter (من `ICompanyContext` — Constitution Article 3)
 - **DateTime as UTC:** كل الـ dates بـ UTC
 - **CancellationToken:** كل الـ async methods تأخذه وتُمرره للـ DB
 - **No caching في MVP:** نتركه لـ Redis layer في Phase 3
@@ -78,7 +77,7 @@
 ## Dependencies
 
 - `IDbConnectionFactory` (from `Shared/`)
-- `ITenantContext` (from `Shared/MultiTenancy/`)
+- `ICompanyContext` (from `Shared/MultiTenancy/` — `MultiTenancy/` folder is now a misnomer; the only artifact is `ICompanyContext` per Phase 6.1b-4)
 - Dapper (raw SQL)
 - `IProjectRepository`, `IProjectBudgetRepository` (Project module — للـ ProjectReportService فقط)
 

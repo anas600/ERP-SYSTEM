@@ -114,17 +114,18 @@ interface RegisterRequest {
   email: string;            // required, email format
   password: string;         // required, ≥8 chars, [A-Z], [a-z], [0-9]
   fullName: string;         // required, ≤200 chars
-  tenantName: string;       // مطلوب لإنشاء tenant جديد (يُولّد Subdomain تلقائياً)
+  // ❌ لا يوجد tenantName / subdomain — Per Constitution Article 3.3:
+  //    "Register = create the first user under the default Holding Company
+  //    (no tenant creation wizard)." الـ Holding Company موجودة مسبقاً من SeedDefaultHoldingAsync.
   baseCurrency?: string;    // optional, default "LYD"
-  // ❌ لا يوجد حقل "subdomain" — يُحسب تلقائياً عبر Slugify(TenantName)
 }
 
 // POST /api/auth/login
 interface LoginRequest {
   email: string;
   password: string;
-  tenantId?: string;        // optional (Guid) — إن لم يُرسل، بحث شامل
-  // ❌ لا يوجد "tenantSubdomain" — الـ backend لا يستقبله
+  // ❌ لا يوجد tenantId / tenantSubdomain — Constitution Article 3.
+  //    الـ login يعتمد على email فقط (الـ user→companies mapping في user_companies).
 }
 
 // AuthResponse (مشترك بين register و login)
@@ -134,12 +135,12 @@ interface AuthResponse {
   accessTokenExpiresAt: string;  // ISO datetime
   refreshTokenExpiresAt: string; // ISO datetime
   user: UserInfo;
-  holdingCompanyId: string;      // Guid — للـ multi-company bootstrap
+  defaultCompanyId: string;      // Guid — للـ company switcher
+  companyIds: string[];          // Guid[] — كل الشركات التي للمستخدم access عليها
 }
 
 interface UserInfo {
   id: string;             // Guid
-  tenantId: string;       // Guid
   email: string;
   fullName: string;
   roles: string[];        // ["Admin", "Accountant", "ProjectManager", "Viewer"]
@@ -150,7 +151,7 @@ interface UserInfo {
 
 | المسار | الـ Method | يطلب Auth | الوصف |
 |------|------------|----------|-------|
-| `/api/auth/register` | POST | لا | ينشئ tenant + user، أو يضيف user لـ tenant موجود |
+| `/api/auth/register` | POST | لا | ينشئ first user تحت الـ default Holding Company (Constitution Article 3.3) |
 | `/api/auth/login` | POST | لا | يرجع tokens |
 | `/api/auth/refresh` | POST | لا | يجدد tokens (Token rotation) |
 | `/api/auth/logout` | POST | نعم | يلغي Refresh Token |
@@ -158,11 +159,11 @@ interface UserInfo {
 
 ### Flow (صفحة `/register`)
 
-1. المستخدم يدخل: fullName, email, password, tenantName
+1. المستخدم يدخل: fullName, email, password
 2. `authApi.register({...})` → `POST /api/auth/register`
-3. الـ backend يحسب `Subdomain = Slugify(tenantName)` تلقائياً
-4. ينشئ `Tenant` + `User` + 4 default roles + يربط User بدور `Admin`
-5. يخزّن `accessToken` + `refreshToken` + `user` في `localStorage`
+3. الـ backend يربط الـ user بالـ default Holding Company (موجودة من `SeedDefaultHoldingAsync`)
+4. ينشئ `User` + 4 default roles + يربط User بدور `Admin` + يضيف user→company في `user_companies`
+5. يخزّن `accessToken` + `refreshToken` + `user` + `defaultCompanyId` في `localStorage`
 6. `router.push('/dashboard')`
 
 ### Flow (صفحة `/login`)

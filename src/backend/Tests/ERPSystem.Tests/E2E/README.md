@@ -7,7 +7,7 @@ End-to-end tests that spin up the real ASP.NET Core Host in-process and call rea
 | File | Tests | Purpose |
 |---|---|---|
 | `HealthDefenseE2ETests.cs` | 5 | Health endpoints + DEC-023 verification |
-| `InvoiceLifecycleE2ETests.cs` | 10 | Auth + tenant isolation + X-Request-ID + admin endpoints |
+| `InvoiceLifecycleE2ETests.cs` | 10 | Auth + Company isolation + X-Request-ID + admin endpoints |
 
 Total: 15 E2E tests (currently skipped — no DB locally)
 
@@ -79,4 +79,4 @@ The current environment (sandbox) does not have Postgres running. Tests are mark
 - TODO: Full invoice lifecycle (create → update → post → soft-delete)
 - TODO: Cross-module event flow verification
 - TODO: Audit log verification
-- TODO: Tenant isolation correctness under load
+- TODO: Company isolation correctness under load (per Constitution Article 3)

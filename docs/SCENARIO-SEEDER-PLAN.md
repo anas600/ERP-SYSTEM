@@ -1,13 +1,15 @@
 # 📋 خطة: ScenarioSeeder — بيانات تشغيلية لسنة مالية كاملة
 
-> إنشاء tenant جديد + CoA مخصص + بيانات وهمية متكاملة تمثل سنة تشغيلية.
+> إنشاء سيناريو شركة جديدة + CoA مخصص + بيانات وهمية متكاملة تمثل سنة تشغيلية.
 > السنة المالية: **2026** (يناير — ديسمبر)
+>
+> **Note (Phase 6.1b):** "الـ tenant" في هذا الـ plan تم إعادة تسميته إلى **الشركة / Holding Company** (per Constitution Article 3). الـ scenario يبني شركة subsidiary "AlFajr Trading & Contracting" تحت الـ default Holding Company. لا يوجد `Tenant` entity ولا `tenant_id` بعد الآن.
 
 ---
 
 ## 🎯 الهدف
 
-بناء tenant يحاكي شركة ليبية حقيقية (مقاولات + خدمات) — **شركة الأفق للتجارة والمقاولات** — بسنة تشغيلية كاملة:
+بناء سيناريو يحاكي شركة ليبية حقيقية (مقاولات + خدمات) — **شركة الأفق للتجارة والمقاولات** — بسنة تشغيلية كاملة:
 - 12 شهر رواتب (يناير–ديسمبر 2026)
 - حركات مخزون (استلام + صرف)
 - مشتريات من موردين (PO → GR → Bill)
@@ -266,7 +268,7 @@
 src/backend/Shared/SeedData/
 ├── ScenarioSeeder.cs          # IHostedService — orchestrates everything
 ├── ScenarioData.cs            # Static realistic data (names, amounts, dates)
-├── AlFajrCompanySeeding.cs   # Tenant + Holding + CoA extension
+├── AlFajrCompanySeeding.cs   # Holding Company + CoA extension (per Constitution Article 3)
 └── PayrollSeeder.cs           # 12-month payroll generation
 ```
 
@@ -277,7 +279,7 @@ src/backend/Shared/SeedData/
 {
   "Database": {
     "SeedScenario": true,
-    "ScenarioTenantName": "AlFajr Trading & Contracting"
+    "ScenarioCompanyName": "AlFajr Trading & Contracting"
   }
 }
 ```
@@ -285,11 +287,11 @@ src/backend/Shared/SeedData/
 ### Execution Flow
 
 ```
-1. CreateTenant "AlFajr" → TenantId
-2. Register User (admin@alfajr.local / Demo1234)
+1. CreateCompany "AlFajr" (subsidiary under default Holding) → CompanyId
+2. Register User (admin@alfajr.local / Demo1234) → linked to default Holding via user_companies
        ↓
-3. Company bootstrap fires (OnTenantCreatedAsync)
-   → Holding company "AlFajr Holding"
+3. Company bootstrap fires (SeedDefaultHoldingAsync + OnCompanyCreatedAsync)
+   → Holding company "AlFajr Holding" (or default Holding if no override)
    → Default CoA (47 accounts)
        ↓
 4. ScenarioSeeder (IHostedService) runs on startup:
@@ -326,7 +328,7 @@ src/backend/Shared/SeedData/
 
 الـ Seeder يتحقق من وجود البيانات قبل الإنشاء:
 ```csharp
-if (await _employees.AnyAsync(e => e.TenantId == tenantId)) return; // already seeded
+if (await _employees.AnyAsync(e => e.CompanyId == companyId)) return; // already seeded
 ```
 
 ---
@@ -404,8 +406,8 @@ if (await _employees.AnyAsync(e => e.TenantId == tenantId)) return; // already s
 
 ## 📋 ملخص Plan
 
-**الهدف:** إنشاء tenant جديد "AlFajr" + بيانات تشغيلية لسنة 2026 كاملة
+**الهدف:** إنشاء شركة "AlFajr" (subsidiary تحت default Holding) + بيانات تشغيلية لسنة 2026 كاملة
 **الـ scope:** Backend seeder + API verification + frontend verification
-**الـ output:** tenant يعمل بالكامل يُستخدم لـ demos و testing
+**الـ output:** شركة subsidiary تعمل بالكامل تحت الـ Holding تُستخدم لـ demos و testing
 **الـ timeline:** ~200-300 lines C# code + 1 hour execution
 

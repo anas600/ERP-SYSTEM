@@ -5,6 +5,8 @@
 **المُنفّذ:** backend-architect (branch session)
 **Build:** `dotnet build` → 0 Warning(s) / 0 Error(s) ✅
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 1. ملخص تنفيذي

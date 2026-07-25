@@ -10,7 +10,7 @@
 
 | Entity | الغرض |
 |--------|-------|
-| `Customer` | ماستر العملاء (code فريد لكل tenant) + credit limit + paymentTermsDays |
+| `Customer` | ماستر العملاء (code فريد لكل Holding) + credit limit + paymentTermsDays |
 | `SalesInvoice` + `SalesInvoiceLine` | فواتير المبيعات (Draft → Sent → PartiallyPaid/Paid → Cancelled) |
 | `Receipt` + `ReceiptAllocation` | سندات القبض مع تخصيص متعدد على الفواتير |
 
@@ -40,7 +40,7 @@
 
 - **Modular Monolith pattern** — Entities/Application/Infrastructure (مثل Procurement)
 - **Dapper + raw SQL** (لا EF Core) — Decision في root AGENTS.md
-- **Multi-tenancy** — كل query يفلتر بـ `tenant_id`
+- **Multi-Company** — كل query يفلتر بـ `company_id` (Constitution Article 3)
 - **Status enum → string** في DB (مثل Procurement) — EnumStringTypeHandler يحوّل عند القراءة
 - **FluentValidation** — كل Request DTO له Validator ينتهي بـ "Validator"
 - **Result pattern** — `ArResult<T>` موحد عبر الـ module

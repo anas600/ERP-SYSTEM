@@ -5,6 +5,8 @@
 **Backend:** http://localhost:5000
 **Frontend:** http://localhost:3000
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## ✅ الحكم النهائي: **النظام جاهز للاستخدام** (Production-ready مع 1 caveat)

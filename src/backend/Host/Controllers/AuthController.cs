@@ -206,14 +206,12 @@ public class AuthController : ControllerBase
         // Store in DB
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(@"
-            INSERT INTO password_reset_tokens (id, tenant_id, user_id, token_hash, expires_at, created_at)
-            VALUES (@Id, @TenantId, @UserId, @TokenHash, @ExpiresAt, NOW())",
+            INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, created_at)
+            VALUES (@Id, @UserId, @TokenHash, @ExpiresAt, NOW())",
             new
             {
                 Id = Guid.NewGuid(),
-                // Phase 6.1b: User entity no longer has TenantId — using Guid.Empty placeholder.
-                // TODO(6.1c): JWT still carries the tenant_id claim so the column is removable in a follow-up.
-                TenantId = Guid.Empty,
+                // Phase 6.1b: password_reset_tokens table no longer has tenant_id column.
                 UserId = user.Id,
                 TokenHash = tokenHash,
                 ExpiresAt = expiresAt,
@@ -252,7 +250,7 @@ public class AuthController : ControllerBase
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         // ابحث عن كل الـ tokens النشطة (للمقارنة مع BCrypt)
         var tokens = (await conn.QueryAsync<dynamic>(@"
-            SELECT id, user_id, tenant_id, token_hash, expires_at, used_at
+            SELECT id, user_id, token_hash, expires_at, used_at
             FROM password_reset_tokens
             WHERE expires_at > NOW() AND used_at IS NULL
             ORDER BY created_at DESC LIMIT 20"

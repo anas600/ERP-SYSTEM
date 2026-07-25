@@ -6,7 +6,11 @@ namespace ERPSystem.Shared.Events.Application.Services;
 public interface IProcessedEventsRepository
 {
     Task<bool> IsProcessedAsync(Guid eventId, CancellationToken ct);
-    Task MarkProcessedAsync(Guid eventId, Guid tenantId, CancellationToken ct);
+    /// <summary>
+    /// Mark event as processed for idempotency. Phase 6.1b: dedup is keyed on event_id only
+    /// (multi-company model — no tenant partitioning in processed_events).
+    /// </summary>
+    Task MarkProcessedAsync(Guid eventId, CancellationToken ct);
 }
 
 public sealed class ProcessedEventsRepository : IProcessedEventsRepository
@@ -23,12 +27,14 @@ public sealed class ProcessedEventsRepository : IProcessedEventsRepository
         return hit.HasValue;
     }
 
-    public async Task MarkProcessedAsync(Guid eventId, Guid tenantId, CancellationToken ct)
+    public async Task MarkProcessedAsync(Guid eventId, CancellationToken ct)
     {
+        // Phase 6.1b: processed_events table has company_id (nullable) but dedup is event_id only.
+        // We omit company_id from the INSERT — the publisher's company is irrelevant to dedup.
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(
-            "INSERT INTO processed_events (event_id, tenant_id, processed_at) VALUES (@EventId, @TenantId, @At)",
-            new { EventId = eventId, TenantId = tenantId, At = DateTime.UtcNow }, cancellationToken: ct));
+            "INSERT INTO processed_events (event_id, processed_at) VALUES (@EventId, @At)",
+            new { EventId = eventId, At = DateTime.UtcNow }, cancellationToken: ct));
     }
 }
 

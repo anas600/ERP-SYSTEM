@@ -42,7 +42,6 @@ public sealed class UpdateItemRequest
 public sealed class ItemResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public string Sku { get; set; } = string.Empty;
     public string? Barcode { get; set; }
@@ -84,7 +83,6 @@ public sealed class UpdateWarehouseRequest
 public sealed class WarehouseResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public Guid CompanyId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;

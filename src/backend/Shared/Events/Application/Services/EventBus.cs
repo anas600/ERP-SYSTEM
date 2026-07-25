@@ -36,10 +36,13 @@ public sealed class EventBus : IEventBus
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
         });
 
+        // Phase 6.1b: multi-company model — OutboxEvent.CompanyId is the publisher's company
+        // (filled by handlers that have ICompanyContext). Event payloads still carry the
+        // historical TenantId field for back-compat; here we map it to CompanyId when present.
         var row = new OutboxEvent
         {
             Id = Guid.NewGuid(),
-            TenantId = @event.TenantId,
+            CompanyId = @event.TenantId,  // back-compat: integration events still expose TenantId
             EventType = eventType,
             AggregateId = @event.EventId,  // EventId is the dedup key; but AggregateId is for routing
             AggregateType = aggregateType2,
@@ -50,7 +53,7 @@ public sealed class EventBus : IEventBus
             MaxRetries = 3
         };
         await _outbox.InsertAsync(row, ct);
-        _logger.LogInformation("Published {EventType} for tenant {TenantId} (EventId={EventId})", eventType, @event.TenantId, @event.EventId);
+        _logger.LogInformation("Published {EventType} (EventId={EventId})", eventType, @event.EventId);
     }
 
     private static string AggregateTypeOf(IIntegrationEvent evt) => evt switch

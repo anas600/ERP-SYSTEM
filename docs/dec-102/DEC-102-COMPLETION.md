@@ -2,6 +2,8 @@
 
 ## 📊 Status: PARTIAL — Codegen loop live, manual files pending
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## ✅ What Was Done (Phase 1-3)

@@ -10,16 +10,16 @@ public interface IOutboxRepository
     Task MarkProcessedAsync(Guid id, DateTime processedAt, CancellationToken ct);
     Task MarkFailedAsync(Guid id, int retryCount, string error, CancellationToken ct);
     Task ResetForRetryAsync(Guid id, CancellationToken ct);
-    Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct);
+    Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid companyId, bool unprocessedOnly, int skip, int take, CancellationToken ct);
     Task<OutboxEvent?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct);
+    Task<int> CountPendingAsync(Guid companyId, CancellationToken ct);
 }
 
 public sealed class OutboxRepository : IOutboxRepository
 {
     private readonly IDbConnectionFactory _db;
     public OutboxRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, tenant_id AS TenantId, event_type AS EventType, aggregate_id AS AggregateId,
+    private const string Sel = @"id, company_id AS CompanyId, event_type AS EventType, aggregate_id AS AggregateId,
         aggregate_type AS AggregateType, payload, occurred_at AS OccurredAt,
         processed_at AS ProcessedAt, retry_count AS RetryCount, max_retries AS MaxRetries, last_error AS LastError";
 
@@ -27,9 +27,9 @@ public sealed class OutboxRepository : IOutboxRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO outbox_events (id, tenant_id, event_type, aggregate_id, aggregate_type,
+            INSERT INTO outbox_events (id, company_id, event_type, aggregate_id, aggregate_type,
                                        payload, occurred_at, processed_at, retry_count, max_retries, last_error)
-            VALUES (@Id, @TenantId, @EventType, @AggregateId, @AggregateType,
+            VALUES (@Id, @CompanyId, @EventType, @AggregateId, @AggregateType,
                     @Payload, @OccurredAt, @ProcessedAt, @RetryCount, @MaxRetries, @LastError)", evt, cancellationToken: ct));
     }
 
@@ -68,14 +68,14 @@ public sealed class OutboxRepository : IOutboxRepository
             new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid tenantId, bool unprocessedOnly, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<OutboxEvent>> ListAllAsync(Guid companyId, bool unprocessedOnly, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = $"SELECT {Sel} FROM outbox_events WHERE tenant_id = @TenantId"
+        var sql = $"SELECT {Sel} FROM outbox_events WHERE company_id = @CompanyId"
             + (unprocessedOnly ? " AND processed_at IS NULL" : "")
             + " ORDER BY occurred_at DESC OFFSET @Skip LIMIT @Take";
         var rows = await conn.QueryAsync<OutboxEvent>(new CommandDefinition(sql,
-            new { TenantId = tenantId, Skip = skip, Take = take }, cancellationToken: ct));
+            new { CompanyId = companyId, Skip = skip, Take = take }, cancellationToken: ct));
         return rows.AsList();
     }
 
@@ -86,11 +86,11 @@ public sealed class OutboxRepository : IOutboxRepository
             $"SELECT {Sel} FROM outbox_events WHERE id = @Id LIMIT 1", new { Id = id }, cancellationToken: ct));
     }
 
-    public async Task<int> CountPendingAsync(Guid tenantId, CancellationToken ct)
+    public async Task<int> CountPendingAsync(Guid companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(1) FROM outbox_events WHERE tenant_id = @TenantId AND processed_at IS NULL",
-            new { TenantId = tenantId }, cancellationToken: ct));
+            "SELECT COUNT(1) FROM outbox_events WHERE company_id = @CompanyId AND processed_at IS NULL",
+            new { CompanyId = companyId }, cancellationToken: ct));
     }
 }

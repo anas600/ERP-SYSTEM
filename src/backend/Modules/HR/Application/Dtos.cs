@@ -25,7 +25,6 @@ public sealed class UpdateDepartmentRequest
 public sealed class DepartmentResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
@@ -63,7 +62,6 @@ public sealed class UpdateEmployeeRequest
 public sealed class EmployeeResponse
 {
     public Guid Id { get; set; }
-    public Guid TenantId { get; set; }
     public string EmployeeNumber { get; set; } = string.Empty;
     public string FullName { get; set; } = string.Empty;
     public string? Email { get; set; }

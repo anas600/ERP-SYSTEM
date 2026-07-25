@@ -7,7 +7,7 @@
 
 ## 📌 نظرة عامة
 
-نظام ERP متعدد المستأجرين (Multi-tenant Modular Monolith) للمرحلة الأولى (MVP). يتكون من **7 وحدات أعمال** (Identity + Companies + Finance + Projects + Inventory + Reports + Notifications) فوق أساس Multi-tenancy + Event Store + Outbox.
+نظام ERP متعدد الشركات (Multi-Company Modular Monolith) للمرحلة الأولى (MVP). يتكون من **7 وحدات أعمال** (Identity + Companies + Finance + Projects + Inventory + Reports + Notifications) فوق أساس Multi-Company (per Constitution Article 3) + Event Store + Outbox.
 
 | الخاصية | القيمة |
 |---------|--------|
@@ -52,12 +52,12 @@
 | [`src/AGENTS.md`](src/AGENTS.md) | كل الـ source code (backend + frontend) |
 | [`src/backend/AGENTS.md`](src/backend/AGENTS.md) | الـ Backend (ASP.NET Core) |
 | [`src/backend/Host/AGENTS.md`](src/backend/Host/AGENTS.md) | نقطة الدخول + Controllers + Swagger |
-| [`src/backend/Modules/Identity/AGENTS.md`](src/backend/Modules/Identity/AGENTS.md) | Identity Module (Users, Roles, Tenants) |
+| [`src/backend/Modules/Identity/AGENTS.md`](src/backend/Modules/Identity/AGENTS.md) | Identity Module (Users, Roles; Tenant entity removed in Phase 6.1b) |
 | [`src/backend/Modules/Finance/AGENTS.md`](src/backend/Modules/Finance/AGENTS.md) | Finance Module (Phase 1) |
 | [`src/backend/Modules/Projects/AGENTS.md`](src/backend/Modules/Projects/AGENTS.md) | Projects Module (Phase 2.1) |
 | [`src/backend/Modules/Inventory/AGENTS.md`](src/backend/Modules/Inventory/AGENTS.md) | Inventory Module (Phase 2.2-2.3) |
 | [`src/backend/Modules/Reports/AGENTS.md`](src/backend/Modules/Reports/AGENTS.md) | Reports Module (Phase 2.5) |
-| [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (Tenant, Migrations, Events) |
+| [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (CompanyContext, Migrations, Events) |
 | [`src/backend/Tests/AGENTS.md`](src/backend/Tests/AGENTS.md) | xUnit test projects |
 | [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend |
 | [`src/backend/Modules/Procurement/AGENTS.md`](src/backend/Modules/Procurement/AGENTS.md) | Procurement Module (Phase 3) |
@@ -162,7 +162,7 @@ feat(identity): add refresh token rotation
 fix(auth): handle expired access token correctly
 docs(agents): implement DOX framework
 chore(deps): bump Marten to 7.34
-refactor(shared): extract TenantContext
+refactor(shared): extract CompanyContext (was TenantContext pre-Phase 6.1a)
 test(auth): add JwtTokenService tests
 ```
 
@@ -175,7 +175,7 @@ test(auth): add JwtTokenService tests
 
 ---
 
-## 🌍 Multi-tenancy Convention
+## 🌍 Multi-Company Convention (per Constitution Article 3)
 
 > **Phase 6.1b (2026-07-25):** `ITenantContext`, `TenantContext`, `TenantMiddleware`, and `TenantCache` **removed**. الـ `MultiTenancy` folder الآن يحتوي فقط على `ICompanyContext`, `CompanyContext`, `CompanyContextMiddleware` (multi-company model — مستخدمون globalون، شركات متعددة). الـ `CompanyContextMiddleware` يقرأ `X-Company-Id` header + JWT `company_ids[]` claim ويختار default company لو الـ header غائب. لا يوجد `tenant_id` في الـ schema بعد الآن — الـ user→company mapping في `user_companies` table (Phase 6.0 schema reset). الـ entities لم تعد تحمل `TenantId` (سقطت من 35 entity في 6.1b-1). الـ repos/services/Controllers أُزيل منها `Guid tenantId` (6.1b-2/6.1b-3). الـ `*.g.cs` regenerated بسحب `tenant_id` column references. Auth flow (AuthService/JwtTokenService) مع back-compat placeholder `Guid.Empty` لـ `tenant_id` JWT claim — full rewrite في 6.1c.
 
@@ -317,7 +317,7 @@ urllib.request.urlopen(req)
 | **Phase 4** | **Payroll + EOS (Salary Structure, PayrollRun, Libya Tax, EOS Calculator, Payslip view)** | ✅ مكتمل (PR #11/#12/#13 → main #14) |
 | **Phase 5.A Sprint 1** | **AR Foundation (Customers + SalesInvoices + Receipts + Aging AR)** | ✅ مكتمل (PR #18) |
 | **Phase 5.A Sprint 2** | **AP Payments + Finance Reports rebuild + Fresh Build Mode** | ✅ مكتمل (PR #127) |
-| **Phase 5.B Sprint 1** | **Atomic Register (DEC-091): single-conn + single-tx for AuthService.RegisterAsync → no orphan tenants on HF timeout** | ✅ مكتمل (PR #131 → develop, PR #132 → main, commit `52e8c26`) |
+| **Phase 5.B Sprint 1** | **Atomic Register (DEC-091): single-conn + single-tx for AuthService.RegisterAsync → no orphan users on HF timeout (pre-Phase 6 historical: 15 orphan tenants in Supabase cleaned up)** | ✅ مكتمل (PR #131 → develop, PR #132 → main, commit `52e8c26`) |
 | **Phase 5.B Sprint 2** | **Npgsql Resiliency (DEC-093) + Playwright E2E (DEC-094) + Workflow discipline** | ✅ مكتمل (PR #134 → main, commit `da97b6b`) |
 | **Phase 5.B Sprint 3** | **Migration fix (42P01) + Frontend timeout 60s + CoA batch INSERT + GitHub Secrets** | ✅ مكتمل (PR open on develop → main) |
 
@@ -353,7 +353,7 @@ urllib.request.urlopen(req)
 - **PR #131** → develop, **PR #132** → main (`52e8c26`)
 - **`AuthService.RegisterAsync`** صار atomic — single connection + single transaction عبر 16 ملف، 9 repos مع overloads جديدة `(IDbConnection, IDbTransaction?, ct)`
 - **Pattern:** `using var conn = await _db.CreateOltpConnectionAsync(ct); using var tx = conn.BeginTransaction(); try { ... tx.Commit(); } catch { try { tx.Rollback(); } catch {} throw; }`
-- **15 orphan tenants** تم تنظيفها من Supabase قبل الـ fix
+- **15 orphan tenants** تم تنظيفها من Supabase قبل الـ fix (pre-Phase 6 historical — the failure mode then was orphan tenants; post-Phase 6.1b, the equivalent failure is orphan users)
 - **DEC-091**: كل multi-insert service flow لازم atomic (Audit pass قادم)
 - **DEC-092**: orphan cleanup script مسجّل
 - **Detail:** [`docs/CHANGELOG.md`](docs/CHANGELOG.md) + Identity/AGENTS.md
@@ -397,7 +397,7 @@ urllib.request.urlopen(req)
 | `src/backend/Modules/Identity/AGENTS.md` | إضافة `BaseCurrency` للـ Register؛ توثيق Slugify (subdomain يُحسب تلقائياً)؛ إضافة `HoldingCompanyId` |
 | `infra/docker/AGENTS.md` | إضافة قسم init-scripts (ينشئ DBs من `POSTGRES_MULTIPLE_DATABASES`) |
 | `infra/docker/docker-compose.dev.yml` | `postgres:16-alpine` → `postgres:15-alpine` (تطابق AGENTS) |
-| `src/frontend/lib/api.ts` | ✅ **إصلاح bug:** إزالة `subdomain` من `RegisterRequest`؛ استبداله بـ `BaseCurrency` |
+| `src/frontend/lib/api.ts` | ✅ **إصلاح bug:** إزالة `subdomain` و `tenantName` من `RegisterRequest` (pre-Phase 6.1a cleanup)؛ الـ `BaseCurrency` فقط اختياري |
 | `src/frontend/app/register/page.tsx` | ✅ **إصلاح bug:** إزالة حقل subdomain من الـ form (كان يتم تجاهله من قبل الـ backend) |
 | `docs/CHANGELOG.md` | جديد — سجل التغييرات |
 
@@ -407,7 +407,7 @@ urllib.request.urlopen(req)
 
 1. اقرأ هذا الملف (root AGENTS.md) كاملاً
 2. ارجع للـ AGENTS.md الخاصة بالمجلد اللي بتشتغل فيه
-3. افهم الـ patterns المستخدمة (Dapper + Marten + Multi-tenancy)
+3. افهم الـ patterns المستخدمة (Dapper + Marten + Multi-Company per Constitution Article 3)
 4. لا تخترع patterns جديدة — اتبع الموجود
 5. اكتب tests لكل feature جديد
 6. حدّث AGENTS.md المعني إذا أضفت pattern جديد أو غيّرت بنية

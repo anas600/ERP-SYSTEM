@@ -6,6 +6,8 @@
 > **المدخلات:** `docs/research/daftra-features.md` · `docs/research/erpnext-features.md` · `docs/research/odoo-reference.md` · `docs/PLAN.md` · `AGENTS.md`
 > **الإصدار المقترح للنظام:** v2.1 (Phase 3+)
 
+> ⚠️ **Historical document** — pre-Phase 6 multi-tenant model. Some references to the obsolete `tenant`/`subdomain`/`ITenantContext` model are preserved for context. See `CONSTITUTION.md` Article 3 for the current Multi-Company model.
+
 ---
 
 ## 1. الملخص التنفيذي

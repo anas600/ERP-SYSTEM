@@ -7,9 +7,9 @@ namespace ERPSystem.Modules.Reports.Application.Services;
 
 public interface IFinanceReportService
 {
-    Task<TrialBalanceReport> GetTrialBalanceAsync(Guid tenantId, Guid? companyId, DateTime asOfDate, CancellationToken ct);
-    Task<IncomeStatement> GetIncomeStatementAsync(Guid tenantId, Guid? companyId, DateTime from, DateTime to, CancellationToken ct);
-    Task<BalanceSheet> GetBalanceSheetAsync(Guid tenantId, Guid? companyId, DateTime asOfDate, CancellationToken ct);
+    Task<TrialBalanceReport> GetTrialBalanceAsync(Guid companyId, Guid? subCompanyId, DateTime asOfDate, CancellationToken ct);
+    Task<IncomeStatement> GetIncomeStatementAsync(Guid companyId, Guid? subCompanyId, DateTime from, DateTime to, CancellationToken ct);
+    Task<BalanceSheet> GetBalanceSheetAsync(Guid companyId, Guid? subCompanyId, DateTime asOfDate, CancellationToken ct);
 }
 
 public sealed class FinanceReportService : IFinanceReportService
@@ -18,7 +18,7 @@ public sealed class FinanceReportService : IFinanceReportService
     public FinanceReportService(IDbConnectionFactory db) => _db = db;
 
     /// <summary>Trial Balance: per account, total Debit/Credit from Posted entries up to asOfDate.</summary>
-    public async Task<TrialBalanceReport> GetTrialBalanceAsync(Guid tenantId, Guid? companyId, DateTime asOfDate, CancellationToken ct)
+    public async Task<TrialBalanceReport> GetTrialBalanceAsync(Guid companyId, Guid? subCompanyId, DateTime asOfDate, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -30,20 +30,20 @@ public sealed class FinanceReportService : IFinanceReportService
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
                 AND je.status = 2
                 AND je.entry_date <= @AsOfDate
-                AND je.tenant_id = @TenantId
-            WHERE a.tenant_id = @TenantId"
-            + (companyId.HasValue ? @"
+                AND je.company_id = @CompanyId
+            WHERE a.company_id = @CompanyId"
+            + (subCompanyId.HasValue ? @"
                 AND (jl.id IS NULL OR EXISTS (
                     SELECT 1 FROM journal_entries je2
                     INNER JOIN journal_lines jl2 ON jl2.journal_entry_id = je2.id
-                    WHERE je2.id = je.id AND jl2.company_id = @CompanyId
+                    WHERE je2.id = je.id AND jl2.company_id = @SubCompanyId
                 ))" : "")
             + @"
             GROUP BY a.id, a.code, a.name, a.type
             HAVING COALESCE(SUM(jl.debit), 0) > 0 OR COALESCE(SUM(jl.credit), 0) > 0
             ORDER BY a.code";
         var rows = await conn.QueryAsync<TrialBalanceRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, CompanyId = companyId, AsOfDate = asOfDate }, cancellationToken: ct));
+            new { CompanyId = companyId, SubCompanyId = subCompanyId, AsOfDate = asOfDate }, cancellationToken: ct));
         return new TrialBalanceReport
         {
             AsOfDate = asOfDate,
@@ -52,7 +52,7 @@ public sealed class FinanceReportService : IFinanceReportService
     }
 
     /// <summary>Income Statement: revenue - cogs - opex + other.</summary>
-    public async Task<IncomeStatement> GetIncomeStatementAsync(Guid tenantId, Guid? companyId, DateTime from, DateTime to, CancellationToken ct)
+    public async Task<IncomeStatement> GetIncomeStatementAsync(Guid companyId, Guid? subCompanyId, DateTime from, DateTime to, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -63,13 +63,13 @@ public sealed class FinanceReportService : IFinanceReportService
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
             INNER JOIN accounts a ON a.id = jl.account_id
             WHERE je.status = 2
-              AND je.tenant_id = @TenantId
+              AND je.company_id = @CompanyId
               AND je.entry_date >= @From
               AND je.entry_date <= @To
               AND a.type IN (3, 4, 5)
             GROUP BY a.type, a.code";
         var rows = (await conn.QueryAsync<FinanceRow>(new CommandDefinition(sql,
-            new { TenantId = tenantId, From = from, To = to }, cancellationToken: ct))).ToList();
+            new { CompanyId = companyId, From = from, To = to }, cancellationToken: ct))).ToList();
 
         decimal revenue = 0, cogs = 0, opex = 0, otherIncome = 0, otherExp = 0;
         foreach (var r in rows)
@@ -92,9 +92,9 @@ public sealed class FinanceReportService : IFinanceReportService
     }
 
     /// <summary>Balance Sheet: Σ Assets = Σ Liabilities + Equity (as of asOfDate).</summary>
-    public async Task<BalanceSheet> GetBalanceSheetAsync(Guid tenantId, Guid? companyId, DateTime asOfDate, CancellationToken ct)
+    public async Task<BalanceSheet> GetBalanceSheetAsync(Guid companyId, Guid? subCompanyId, DateTime asOfDate, CancellationToken ct)
     {
-        var tb = await GetTrialBalanceAsync(tenantId, companyId, asOfDate, ct);
+        var tb = await GetTrialBalanceAsync(companyId, subCompanyId, asOfDate, ct);
         decimal assets = 0, liabilities = 0, equity = 0;
         foreach (var r in tb.Rows)
         {
