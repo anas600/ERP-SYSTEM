@@ -702,7 +702,19 @@ export const arApi = {
     const r = await api.post<SalesInvoice>('/api/ar/sales-invoices', data);
     return r.data;
   },
-  updateInvoice: async (id: string, data: Partial<SalesInvoice>): Promise<SalesInvoice> => {
+  updateInvoice: async (
+    id: string,
+    data: {
+      customerId: string;
+      invoiceDate: string;
+      dueDate?: string;
+      currencyCode: string;
+      exchangeRate: number;
+      notes?: string;
+      projectId?: string;
+      lines: { description: string; quantity: number; unitPrice: number; taxRate: number; itemId?: string }[];
+    }
+  ): Promise<SalesInvoice> => {
     const r = await api.put<SalesInvoice>(`/api/ar/sales-invoices/${id}`, data);
     return r.data;
   },
@@ -758,11 +770,18 @@ export const arApi = {
 export interface ApiError {
   detail?: string;
   message?: string;
+  error?: string;
 }
 
 export function getErrorMessage(e: unknown, fallback = 'حدث خطأ غير متوقع'): string {
   const err = e as { response?: { data?: ApiError }; message?: string };
-  return err?.response?.data?.detail || err?.response?.data?.message || err?.message || fallback;
+  return (
+    err?.response?.data?.detail ||
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    fallback
+  );
 }
 
 // ============ API helpers ============
@@ -990,10 +1009,21 @@ export const reportsApi = {
 
 export interface AdminUser { id: string; email: string; fullName: string; isActive: boolean; twoFactorEnabled: boolean; createdAt: string; updatedAt: string; lastLoginAt?: string; }
 export interface AdminUserWithRoles { user: AdminUser; roleIds: string[]; companies: { userId: string; companyId: string; companyCode: string; companyName: string; isDefault: boolean; isHolding: boolean; assignedAt: string }[]; }
+/** User → company mapping record. Matches backend UserCompanyLink. */
+export interface UserCompany {
+  userId: string;
+  companyId: string;
+  companyCode: string;
+  companyName: string;
+  isDefault: boolean;
+  isHolding: boolean;
+  assignedAt: string;
+}
 export interface RoleItem { id: string; name: string; description?: string; }
 export interface CreateUserRequest { email: string; fullName: string; password: string; roleIds?: string[]; defaultCompanyId?: string; }
 export interface UpdateUserRequest { fullName?: string; email?: string; isActive?: boolean; roleIds?: string[]; defaultCompanyId?: string; }
 export interface ChangePasswordRequest { currentPassword: string; newPassword: string; }
+export interface AssignUserToCompanyRequest { companyId: string; isDefault: boolean; }
 
 export const identityApi = {
   listUsers: async (skip = 0, take = 50): Promise<{ count: number; items: AdminUser[] }> => {
@@ -1023,6 +1053,28 @@ export const identityApi = {
     const r = await api.get<RoleItem[]>('/api/identity/roles');
     return r.data;
   },
+  // Per-user companies (Multi-Company mapping). Mirrors backend IUserRepository.GetUserCompaniesAsync.
+  // Note: as of Phase 6.2 the RolesController does not expose a dedicated GET endpoint for this —
+  // callers should fall back to `getUser(id).companies`. The endpoint is wired here for forward
+  // compatibility and the user-management UI uses it when present.
+  listUserCompanies: async (userId: string): Promise<UserCompany[]> => {
+    const r = await api.get<UserCompany[]>(`/api/identity/users/${userId}/companies`);
+    return r.data;
+  },
+  // POST /api/identity/users/{userId}/companies — assign user to a company.
+  // Backend may 404 if endpoint is not yet wired (Phase 6.2). UI should handle gracefully.
+  assignUserToCompany: async (userId: string, companyId: string, isDefault = false): Promise<{ message: string }> => {
+    const r = await api.post<{ message: string }>(`/api/identity/users/${userId}/companies`, {
+      companyId,
+      isDefault,
+    } as AssignUserToCompanyRequest);
+    return r.data;
+  },
+  // DELETE /api/identity/users/{userId}/companies/{companyId} — remove user from a company.
+  // Backend may 404 if endpoint is not yet wired (Phase 6.2). UI should handle gracefully.
+  removeUserFromCompany: async (userId: string, companyId: string): Promise<void> => {
+    await api.delete(`/api/identity/users/${userId}/companies/${companyId}`);
+  },
   changePassword: async (data: ChangePasswordRequest): Promise<{ message: string }> => {
     const r = await api.post<{ message: string }>('/api/auth/change-password', data);
     return r.data;
@@ -1043,6 +1095,26 @@ export const inventoryApi = {
     const r = await api.get<Item[]>('/api/inventory/items');
     return r.data;
   },
+  // GET /api/inventory/items/{id}
+  getItem: async (id: string): Promise<Item> => {
+    const r = await api.get<Item>(`/api/inventory/items/${id}`);
+    return r.data;
+  },
+  // PUT /api/inventory/items/{id}
+  updateItem: async (id: string, data: Partial<Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>>): Promise<Item> => {
+    const r = await api.put<Item>(`/api/inventory/items/${id}`, data);
+    return r.data;
+  },
+  // GET /api/inventory/categories — قائمة فئات الأصناف (لـ select في form)
+  listCategories: async (): Promise<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]>(`/api/inventory/categories`);
+    return r.data;
+  },
+  // GET /api/inventory/units — قائمة وحدات القياس (UoM)
+  listUnitsOfMeasure: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
+    return r.data;
+  },
 };
 
 export const projectsApi = {
@@ -1061,8 +1133,18 @@ export const procurementApi = {
     const r = await api.get<Vendor[]>('/api/procurement/vendors');
     return r.data;
   },
+  // GET /api/procurement/vendors/{id}
+  getVendor: async (id: string): Promise<Vendor> => {
+    const r = await api.get<Vendor>(`/api/procurement/vendors/${id}`);
+    return r.data;
+  },
   createVendor: async (data: Partial<Vendor>): Promise<Vendor> => {
     const r = await api.post<Vendor>('/api/procurement/vendors', data);
+    return r.data;
+  },
+  // PUT /api/procurement/vendors/{id}
+  updateVendor: async (id: string, data: Partial<Omit<Vendor, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Vendor> => {
+    const r = await api.put<Vendor>(`/api/procurement/vendors/${id}`, data);
     return r.data;
   },
 
@@ -1120,8 +1202,18 @@ export const hrApi = {
     const r = await api.get<Employee[]>('/api/hr/employees');
     return r.data;
   },
+  // GET /api/hr/employees/{id}
+  getEmployee: async (id: string): Promise<Employee> => {
+    const r = await api.get<Employee>(`/api/hr/employees/${id}`);
+    return r.data;
+  },
   createEmployee: async (data: Partial<Employee>): Promise<Employee> => {
     const r = await api.post<Employee>('/api/hr/employees', data);
+    return r.data;
+  },
+  // PUT /api/hr/employees/{id}
+  updateEmployee: async (id: string, data: Partial<Omit<Employee, 'id' | 'createdAt' | 'departmentName'>>): Promise<Employee> => {
+    const r = await api.put<Employee>(`/api/hr/employees/${id}`, data);
     return r.data;
   },
 

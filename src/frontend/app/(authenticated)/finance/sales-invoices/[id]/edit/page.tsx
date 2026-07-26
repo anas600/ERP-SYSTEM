@@ -162,6 +162,8 @@ export default function EditSalesInvoicePage() {
         customerId,
         invoiceDate: new Date(invoiceDate).toISOString(),
         dueDate: dueDate ? new Date(dueDate).toISOString() : undefined,
+        currencyCode: invoice.currencyCode,
+        exchangeRate: invoice.exchangeRate,
         notes: notes || undefined,
         projectId: projectId || undefined,
         lines: lines

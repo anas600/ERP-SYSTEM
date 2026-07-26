@@ -1,10 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { User, Mail, Shield, Calendar, CheckCircle2, XCircle, KeyRound } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { useRouter } from 'next/navigation';
+import { User, Mail, Shield, Calendar, CheckCircle2, XCircle, KeyRound, UserPlus, Edit, Power } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, Modal, EmptyState, SkeletonTable, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { identityApi, AdminUser, AdminUserWithRoles, getErrorMessage } from '@/lib/api';
+import { identityApi, AdminUser, getErrorMessage } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
 
 interface UserWithRoles extends AdminUser {
@@ -27,6 +28,8 @@ const ROLE_COLORS: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'n
 };
 
 export default function UsersAdminPage() {
+  const router = useRouter();
+  const toast = useToast();
   const { loading: authLoading, user: currentUser } = useAuth();
   const [items, setItems] = useState<UserWithRoles[]>([]);
   const [total, setTotal] = useState(0);
@@ -35,6 +38,11 @@ export default function UsersAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('all');
+
+  // Modals
+  const [pwdUser, setPwdUser] = useState<UserWithRoles | null>(null);
+  const [newPwd, setNewPwd] = useState('');
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
@@ -49,12 +57,10 @@ export default function UsersAdminPage() {
         identityApi.listUsers(0, 100),
         identityApi.listRoles(),
       ]);
-      // Fetch each user with full details (companies + roleIds)
       const detailedItems = await Promise.all(
         usersRes.items.map(async (u) => {
           try {
             const detail = await identityApi.getUser(u.id);
-            // Map role ids back to role names
             const roleNames = detail.roleIds.map(rid => rolesRes.find(r => r.id === rid)?.name || 'Unknown');
             return { ...u, roles: roleNames, roleIds: detail.roleIds, companies: detail.companies };
           } catch {
@@ -86,19 +92,63 @@ export default function UsersAdminPage() {
   const activeCount = items.filter((u) => u.isActive).length;
   const adminCount = items.filter((u) => u.roles.includes('Admin')).length;
 
+  const toggleActive = async (u: UserWithRoles) => {
+    const action = u.isActive ? 'تعطيل' : 'تفعيل';
+    if (!confirm(`هل تريد ${action} المستخدم ${u.fullName || u.email}؟`)) return;
+    setBusy(true);
+    try {
+      if (u.isActive) {
+        await identityApi.deactivateUser(u.id);
+        toast.success(`تم تعطيل ${u.fullName || u.email}`);
+      } else {
+        await identityApi.updateUser(u.id, { isActive: true });
+        toast.success(`تم تفعيل ${u.fullName || u.email}`);
+      }
+      await load();
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, `فشل ${action} المستخدم.`));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const submitResetPassword = async () => {
+    if (!pwdUser) return;
+    if (newPwd.length < 8) {
+      toast.error('كلمة المرور يجب أن تكون 8 أحرف على الأقل.');
+      return;
+    }
+    setBusy(true);
+    try {
+      await identityApi.resetPassword(pwdUser.id, newPwd);
+      toast.success(`تم تغيير كلمة المرور لـ ${pwdUser.fullName || pwdUser.email}`);
+      setPwdUser(null);
+      setNewPwd('');
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'فشل تغيير كلمة المرور.'));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
         title="👥 إدارة المستخدمين"
         description="Users Admin — عرض وتعيين أدوار وتعطيل المستخدمين"
         actions={
-          <Button onClick={load} variant="secondary" disabled={loading}>
-            تحديث
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={load} variant="secondary" disabled={loading}>
+              تحديث
+            </Button>
+            <Button onClick={() => router.push('/admin/users/new')} variant="primary">
+              <UserPlus className="h-4 w-4 inline-block ml-1" />
+              مستخدم جديد
+            </Button>
+          </div>
         }
       />
 
-      {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <div className="bg-white rounded-xl shadow-sm p-4">
           <div className="text-sm text-gray-500">إجمالي</div>
@@ -120,7 +170,6 @@ export default function UsersAdminPage() {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input
@@ -152,13 +201,22 @@ export default function UsersAdminPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <SkeletonTable rows={5} cols={4} />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا يوجد مستخدمين مطابقين.
+        <div className="bg-white rounded-xl shadow-sm p-4">
+          <EmptyState
+            icon={<User className="h-12 w-12 text-gray-300" />}
+            title="لا يوجد مستخدمين"
+            description="أضف أول مستخدم للنظام."
+            action={
+              <Button onClick={() => router.push('/admin/users/new')} variant="primary">
+                <UserPlus className="h-4 w-4 inline-block ml-1" />
+                مستخدم جديد
+              </Button>
+            }
+          />
         </div>
       ) : (
         <div className="space-y-3">
@@ -215,19 +273,83 @@ export default function UsersAdminPage() {
                   </div>
                 </div>
                 <div className="flex flex-col gap-1">
-                  <Button variant="ghost" size="sm">تعديل</Button>
-                  <Button variant="ghost" size="sm">الأدوار</Button>
-                  {u.isActive ? (
-                    <Button variant="ghost" size="sm">تعطيل</Button>
-                  ) : (
-                    <Button variant="ghost" size="sm">تفعيل</Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => router.push(`/admin/users/${u.id}`)}
+                  >
+                    <Edit className="h-3 w-3 inline-block ml-1" />
+                    تعديل
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setPwdUser(u); setNewPwd(''); }}
+                    disabled={busy}
+                  >
+                    <KeyRound className="h-3 w-3 inline-block ml-1" />
+                    إعادة تعيين كلمة المرور
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => toggleActive(u)}
+                    disabled={busy}
+                  >
+                    <Power className="h-3 w-3 inline-block ml-1" />
+                    {u.isActive ? 'تعطيل' : 'تفعيل'}
+                  </Button>
                 </div>
               </div>
             </Card>
           ))}
         </div>
       )}
+
+      {/* Reset Password Modal */}
+      <Modal
+        open={!!pwdUser}
+        onClose={() => { if (!busy) { setPwdUser(null); setNewPwd(''); } }}
+        title="إعادة تعيين كلمة المرور"
+      >
+        {pwdUser && (
+          <div className="space-y-3" dir="rtl">
+            <p className="text-sm text-gray-600">
+              المستخدم: <span className="font-bold">{pwdUser.fullName || pwdUser.email}</span>
+            </p>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                كلمة المرور الجديدة (8 أحرف على الأقل)
+              </label>
+              <input
+                type="password"
+                value={newPwd}
+                onChange={(e) => setNewPwd(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                placeholder="••••••••"
+                disabled={busy}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button
+                variant="secondary"
+                onClick={() => { setPwdUser(null); setNewPwd(''); }}
+                disabled={busy}
+              >
+                إلغاء
+              </Button>
+              <Button
+                variant="primary"
+                onClick={submitResetPassword}
+                disabled={busy || newPwd.length < 8}
+              >
+                {busy ? 'جاري...' : 'حفظ'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

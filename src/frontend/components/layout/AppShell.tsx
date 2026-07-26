@@ -50,7 +50,7 @@ import {
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { ToastProvider } from '@/lib/useToast';
+import { ToastProvider } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============

@@ -49,3 +49,6 @@ gen-hash/
 head_gitignore.txt
 .env.local
 
+
+**/TODO-STATE.md
+
