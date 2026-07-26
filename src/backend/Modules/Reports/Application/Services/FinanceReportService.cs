@@ -23,8 +23,8 @@ public sealed class FinanceReportService : IFinanceReportService
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName, a.type AS AccountType,
-                   COALESCE(SUM(jl.debit), 0) AS TotalDebit,
-                   COALESCE(SUM(jl.credit), 0) AS TotalCredit
+                   COALESCE(SUM(jl.debit), 0) AS Debit,
+                   COALESCE(SUM(jl.credit), 0) AS Credit
             FROM accounts a
             LEFT JOIN journal_lines jl ON jl.account_id = a.id
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id

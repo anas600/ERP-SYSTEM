@@ -182,4 +182,72 @@ public sealed class UserRepository : IUserRepository
                 AssignedAt = DateTime.UtcNow
             }, transaction: tx, cancellationToken: ct));
     }
+
+    // ============ Phase 6.2: Admin User CRUD ============
+
+    public async Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = @"UPDATE users SET password_hash = @PasswordHash, updated_at = @UpdatedAt
+                             WHERE id = @UserId";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            UserId = userId,
+            PasswordHash = passwordHash,
+            UpdatedAt = DateTime.UtcNow
+        }, cancellationToken: ct));
+    }
+
+    public async Task UpdateProfileAsync(Guid userId, string? fullName, string? email, bool? isActive, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Use COALESCE to only update fields that were provided
+        const string sql = @"UPDATE users
+                             SET full_name = COALESCE(@FullName, full_name),
+                                 email = COALESCE(@Email, email),
+                                 is_active = COALESCE(@IsActive, is_active),
+                                 updated_at = @UpdatedAt
+                             WHERE id = @UserId";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            UserId = userId,
+            FullName = fullName,
+            Email = email,
+            IsActive = isActive,
+            UpdatedAt = DateTime.UtcNow
+        }, cancellationToken: ct));
+    }
+
+    public async Task DeleteAsync(Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Soft delete: just deactivate
+        const string sql = "UPDATE users SET is_active = false, updated_at = @UpdatedAt WHERE id = @UserId";
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            UserId = userId,
+            UpdatedAt = DateTime.UtcNow
+        }, cancellationToken: ct));
+    }
+
+    public async Task<IReadOnlyList<Guid>> GetUserRoleIdsAsync(Guid userId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = "SELECT role_id FROM user_roles WHERE user_id = @UserId";
+        var rows = await conn.QueryAsync<Guid>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task SetUserRolesAsync(Guid userId, IEnumerable<Guid> roleIds, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string deleteSql = "DELETE FROM user_roles WHERE user_id = @UserId";
+        await conn.ExecuteAsync(new CommandDefinition(deleteSql, new { UserId = userId }, cancellationToken: ct));
+
+        const string insertSql = "INSERT INTO user_roles (user_id, role_id) VALUES (@UserId, @RoleId)";
+        foreach (var roleId in roleIds)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(insertSql, new { UserId = userId, RoleId = roleId }, cancellationToken: ct));
+        }
+    }
 }

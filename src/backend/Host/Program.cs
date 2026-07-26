@@ -170,6 +170,19 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Dom
 builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// Phase 6.2: User CRUD + 20 mandatory reports
+builder.Services.AddScoped<IJournalEntryReportService, JournalEntryReportService>();
+builder.Services.AddScoped<IAccountActivityService, AccountActivityService>();
+builder.Services.AddScoped<ICollectionsService, CollectionsService>();
+builder.Services.AddScoped<ICostCenterReportService, CostCenterReportService>();
+builder.Services.AddScoped<IVatReportService, VatReportService>();
+builder.Services.AddScoped<ISalesByCustomerService, SalesByCustomerService>();
+builder.Services.AddScoped<ISalesByItemService, SalesByItemService>();
+builder.Services.AddScoped<ITopCustomersService, TopCustomersService>();
+builder.Services.AddScoped<IPurchasesByVendorService, PurchasesByVendorService>();
+builder.Services.AddScoped<ITopVendorsService, TopVendorsService>();
+builder.Services.AddScoped<IBudgetVsActualService, BudgetVsActualService>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 // Phase 6.1c: ITenantRepository removed — multi-company model has no tenants.
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();

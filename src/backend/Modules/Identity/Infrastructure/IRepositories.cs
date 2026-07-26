@@ -24,6 +24,13 @@ public interface IUserRepository
     Task<UserCompanyLink?> GetDefaultCompanyAsync(Guid userId, CancellationToken ct);
     Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, CancellationToken ct);
     Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, IDbConnection conn, IDbTransaction? tx, CancellationToken ct);
+
+    // Phase 6.2: User CRUD for Admin
+    Task UpdatePasswordAsync(Guid userId, string passwordHash, CancellationToken ct);
+    Task UpdateProfileAsync(Guid userId, string? fullName, string? email, bool? isActive, CancellationToken ct);
+    Task DeleteAsync(Guid userId, CancellationToken ct);
+    Task<IReadOnlyList<Guid>> GetUserRoleIdsAsync(Guid userId, CancellationToken ct);
+    Task SetUserRolesAsync(Guid userId, IEnumerable<Guid> roleIds, CancellationToken ct);
 }
 
 /// <summary>
