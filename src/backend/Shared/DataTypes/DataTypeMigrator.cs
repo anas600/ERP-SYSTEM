@@ -69,6 +69,23 @@ public sealed class DataTypeMigrator
         var tableExists = await TableExistsAsync(conn, dt.Table, ct);
         if (!tableExists)
         {
+            // Pre-create any sequences referenced by nextval() defaults.
+            // Phase 6.0b hotfix: after Phase 6 nuclear clean slate, the
+            // audit_log_id_seq doesn't exist. CREATE TABLE with a nextval()
+            // default fails because the sequence doesn't exist.
+            foreach (var f in dt.Fields)
+            {
+                if (!string.IsNullOrEmpty(f.Default) && f.Default.Contains("nextval("))
+                {
+                    var seqName = ExtractSequenceName(f.Default);
+                    if (!string.IsNullOrEmpty(seqName))
+                    {
+                        await conn.ExecuteAsync(new CommandDefinition(
+                            $"CREATE SEQUENCE IF NOT EXISTS {seqName};",
+                            cancellationToken: ct));
+                    }
+                }
+            }
             await CreateTableAsync(conn, dt, ct);
             result.TablesCreated.Add(dt.Table);
             _logger.LogInformation("[DataTypeMigrator] Created table {Table}", dt.Table);
@@ -158,6 +175,18 @@ public sealed class DataTypeMigrator
             @"SELECT COUNT(*) FROM pg_indexes WHERE indexname = @N",
             new { N = name.ToLowerInvariant() }, cancellationToken: ct));
         return n > 0;
+    }
+
+    /// <summary>
+    /// Extracts the sequence name from a Postgres DEFAULT expression like
+    /// <c>nextval('audit_log_id_seq'::regclass)</c>. Returns the inner sequence
+    /// name (with original quoting preserved), or null if not a nextval.
+    /// </summary>
+    private static string? ExtractSequenceName(string defaultExpr)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            defaultExpr, @"nextval\s*\(\s*'([^']+)'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     // === Schema mutation helpers ===

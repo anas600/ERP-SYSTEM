@@ -72,6 +72,18 @@ public sealed class DataTypeHostedService : IHostedService
                 return;
             }
 
+            // Phase 6.0b hotfix: clear the Npgsql pool before DataTypeMigrator runs.
+            // السبب: Phase 6 nuclear migration (DROP SCHEMA + CREATE SCHEMA) قد
+            // يترك connections في الـ pool بحالة session قديمة (cached view
+            // من الـ schema القديم). لو DataTypeMigrator أخذت connection قديم،
+            // الـ table existence check ممكن يرجع true لـ tables محذوفة.
+            // ClearAllPools يضمن الـ DataTypeMigrator تحصل على fresh connection.
+            try { Npgsql.NpgsqlConnection.ClearAllPools(); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[DataTypeMigrator] ClearAllPools failed (non-fatal)");
+            }
+
             using var scope = _serviceProvider.CreateScope();
             var db = scope.ServiceProvider.GetRequiredService<IDbConnectionFactory>();
             var logger = scope.ServiceProvider.GetRequiredService<ILogger<DataTypeMigrator>>();
