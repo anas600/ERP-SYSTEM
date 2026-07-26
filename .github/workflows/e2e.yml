@@ -77,7 +77,7 @@ jobs:
           # connection bypasses pgbouncer transaction-mode (which is hostile
           # to 40+ table DDL sequences — the migration stalls 5+ min on backend
           # acquire). User `postgres` (no suffix) for the direct connection.
-          SUPABASE_PROJECT_REF=$(python3 -c "import re,sys;u=urllib.parse.unquote(sys.argv[1].strip()); m=re.match(r'postgres\.(.+)', u); print(m.group(1) if m else '')" "${SUPABASE_USER}")
+          SUPABASE_PROJECT_REF=$(python3 -c "import re,sys,urllib.parse;u=urllib.parse.unquote(sys.argv[1].strip()); m=re.match(r'postgres\.(.+)', u); print(m.group(1) if m else '')" "${SUPABASE_USER}")
           if [ -n "${SUPABASE_PROJECT_REF}" ]; then
             export ConnectionStrings__Migrations="Host=db.${SUPABASE_PROJECT_REF}.supabase.co;Port=5432;Database=${SUPABASE_DB};User Id=postgres;Password=${SUPABASE_PASSWORD_ENC};SSL Mode=Require;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
             echo "DEBUG_MIGRATIONS_HOST=db.${SUPABASE_PROJECT_REF}.supabase.co (project_ref=${SUPABASE_PROJECT_REF})"
