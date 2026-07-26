@@ -353,9 +353,12 @@ builder.Services.AddFluentMigratorCore()
         .WithGlobalConnectionString(postgresConn)
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
-builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator runs FIRST to create tables (many C# migrations depend on JSON-created tables)
-builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): creates the default Holding (id=00000000-0000-0000-0000-000000000001) + 47-account CoA + 6 UoMs + 5 categories AFTER tables exist but BEFORE C# migrations. Idempotent.
-builder.Services.AddHostedService<MigrationRunnerHostedService>();
+// Phase 6.0 order (P6-0b) — الترتيب حرج: Phase 6 migration يحذف كل الجداول القديمة
+// (مع tenant_id)، بعدها DataTypeMigrator يعيد بناء الـ schema من JSON بدون tenant_id،
+// بعدها DefaultHolding يبذر الـ Holding + CoA على الـ schema النظيف.
+builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0 (P6-0): Phase6_InitialSchema_20260725_120000 drops every old business table (Clean Slate) so the JSON migrator can rebuild without tenant_id
+builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
+builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============

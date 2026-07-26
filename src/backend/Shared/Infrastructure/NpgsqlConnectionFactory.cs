@@ -56,6 +56,30 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    /// <summary>
+    /// اتصال واحد مباشر بدون pool — مخصّص لـ DefaultHoldingBootstrap (DEC-093 + Phase 6.3).
+    /// السبب: pgbouncer transaction-mode يقفل backend connections بعد كل transaction،
+    /// فالـ acquire المتتالي من client pool يصبح بطيء جداً (5+ دقائق). bootstrap
+    /// يحتاج N عمليات متتالية (SELECT + INSERT Holding + batched CoA + UoMs + Categories)
+    /// على connection واحد، فالحل هو pooling=false + connection lifetime واحدة فقط.
+    /// </summary>
+    public async Task<IDbConnection> CreateEphemeralOltpConnectionAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.OltpConnectionString))
+        {
+            throw new InvalidOperationException("ConnectionStrings:Postgres غير معرّف في الإعدادات.");
+        }
+        var csb = BuildBuilderWithResiliency(_options.OltpConnectionString);
+        // Force pooling=false. ConnectionPruningInterval/IdleLifetime ما يفيدون
+        // لأننا نستخدم connection مرة واحدة ثم نرميها.
+        csb.Pooling = false;
+        var conn = new NpgsqlConnection(csb.ConnectionString);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        _logger.LogDebug("[P6-3 ephemeral] فُتح اتصال OLTP مؤقت (Pool=false, CmdTimeout={Cmd}s)",
+            csb.CommandTimeout);
+        return conn;
+    }
+
     private NpgsqlConnectionStringBuilder BuildBuilderWithResiliency(string connectionString)
     {
         var csb = new NpgsqlConnectionStringBuilder(connectionString)
