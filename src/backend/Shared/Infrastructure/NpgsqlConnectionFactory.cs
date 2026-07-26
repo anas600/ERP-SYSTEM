@@ -102,10 +102,19 @@ public sealed class NpgsqlConnectionOptions
     public string? EventStoreConnectionString { get; set; }
 
     // Resiliency baseline (DEC-093, 2026-07-24)
-    public int CommandTimeoutSeconds { get; set; } = 60;
+    // Phase 6.3 hotfix (PR #149 follow-up): CommandTimeout 60→180. السبب: في cold
+    // start (CI runner → Supabase transatlantic) كان أول DB call بعد DataTypeMigrator
+    // يصطدم بـ stale pooled connection ويعلّق 60s ثم يرمي TimeoutException. مع
+    // الـ retry (3 محاولات) في DefaultHoldingBootstrapHostedService، نحتاج budget
+    // كافٍ: 3 × 180s + 6s backoff = 546s ≤ 600s (e2e health check timeout).
+    public int CommandTimeoutSeconds { get; set; } = 180;
     public int ConnectionTimeoutSeconds { get; set; } = 15;
     public int MaxPoolSize { get; set; } = 20;
     public int MinPoolSize { get; set; } = 1;
     public int KeepaliveSeconds { get; set; } = 30;
-    public int ConnectionIdleLifetimeSeconds { get; set; } = 300;
+    // Phase 6.3 hotfix: 300→60. السبب: Supabase pgbouncer يغلق connection idle بعد
+    // 60-120s على الـ transaction mode. Npgsql ما يكتشف هذا الـ server-side close إلا
+    // عند أول read = 60s timeout. بتقصير الـ idle lifetime لـ 60s، الـ pool يتخلّص
+    // من connections المشكوك فيها قبل أن يطلعها user.
+    public int ConnectionIdleLifetimeSeconds { get; set; } = 60;
 }

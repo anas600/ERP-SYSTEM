@@ -98,9 +98,10 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             // 1) Idempotency check — هل الـ Holding موجود فعلاً؟
             //    الشركة القابضة = code='000' AND is_group=true AND parent_company_id IS NULL.
             //    ICompanyRepository is Scoped — resolve it via a scope (hosted service itself is Singleton).
-            using var scope = _scopeFactory.CreateScope();
-            var companies = scope.ServiceProvider.GetRequiredService<ICompanyRepository>();
-            var existing = await companies.GetHoldingCompanyIdAsync(cancellationToken);
+            //    نلفّ الـ call بـ retry (3 محاولات) لأن أول DB call بعد DataTypeMigrator قد
+            //    يصطدم بـ connection قديم في الـ pool (Supabase pgbouncer أغلقه بعد 60-120s idle).
+            //    في المحاولة التالية، الـ pool يعطي connection جديد.
+            var existing = await GetHoldingIdWithRetryAsync(cancellationToken);
             if (existing.HasValue)
             {
                 _logger.LogInformation(
@@ -188,6 +189,82 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
     }
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+
+    // ============ Transient Npgsql retry (stale pooled connection) ============
+
+    /// <summary>
+    /// يلتفّ حول استعلام الـ idempotency (SELECT أول DB call بعد DataTypeMigrator) مع
+    /// إعادة محاولة عند transient Npgsql/timeout errors. السبب الجذري: Supabase
+    /// pgbouncer قد يغلق connection كان idle في الـ pool بين الـ migrator والـ
+    /// bootstrap (~60-120s)، فأول قراءة على connection قديم تعلّق 60s ثم ترمي
+    /// <c>NpgsqlException: Exception while reading from stream</c>. عند إعادة
+    /// المحاولة، الـ pool يعطي connection جديد من جديد.
+    /// <para>
+    /// 3 محاولات كافيتان: الـ pool <c>MaxPoolSize=20</c> فلو الـ attempt الأول أخذ
+    /// connection سيئ، الـ attempt الثاني على الأرجح يأخذ غيره. backoff: 2s ثم 4s.
+    /// لا نعيد المحاولة على SqlException غير الـ timeout (مثل syntax/permission) لأن
+    /// إعادة المحاولة لن تغيّر النتيجة.
+    /// </para>
+    /// </summary>
+    private async Task<Guid?> GetHoldingIdWithRetryAsync(CancellationToken ct)
+    {
+        const int maxAttempts = 3;
+        Exception? lastError = null;
+
+        for (var attempt = 1; attempt <= maxAttempts; attempt++)
+        {
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var companies = scope.ServiceProvider.GetRequiredService<ICompanyRepository>();
+                return await companies.GetHoldingCompanyIdAsync(ct);
+            }
+            catch (Exception ex) when (IsTransientNpgsqlError(ex))
+            {
+                lastError = ex;
+                if (attempt >= maxAttempts) break;
+
+                var backoffSeconds = attempt * 2; // 2s, 4s
+                _logger.LogWarning(ex,
+                    "[P6-0b] Idempotency check attempt {Attempt}/{Max} hit transient Npgsql/timeout error — retrying in {Backoff}s",
+                    attempt, maxAttempts, backoffSeconds);
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), ct);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+            }
+        }
+
+        throw new InvalidOperationException(
+            $"[P6-0b] Idempotency check failed after {maxAttempts} attempts. " +
+            "Likely cause: Supabase pgbouncer closed the pooled connection during the " +
+            "DataTypeMigrator → DefaultHoldingBootstrap gap, and every retry hit the same " +
+            "stale connection. Consider raising ConnectionLifetime/Keepalive or reducing " +
+            "ConnectionIdleLifetime in NpgsqlConnectionOptions.",
+            lastError);
+    }
+
+    /// <summary>
+    /// يحدّد إذا كان الـ exception "transient" ويستحق إعادة المحاولة. فقط:
+    /// <list type="bullet">
+    ///   <item><c>NpgsqlException</c> (أي خطأ Npgsql، وخصوصاً <c>Exception while reading from stream</c> / <c>TimeoutException</c>).</item>
+    ///   <item><c>TimeoutException</c> المباشر أو كـ inner exception.</item>
+    /// </list>
+    /// لا نلتقط <c>PostgresException</c> (23505 duplicate key, 23502 null violation, إلخ)
+    /// لأن إعادة المحاولة لن تصلحها.
+    /// </summary>
+    private static bool IsTransientNpgsqlError(Exception ex)
+    {
+        if (ex is Npgsql.NpgsqlException) return true;
+        if (ex is TimeoutException) return true;
+        if (ex.InnerException is Npgsql.NpgsqlException) return true;
+        if (ex.InnerException is TimeoutException) return true;
+        return false;
+    }
 
     // ============ Internal seed helpers (raw SQL) ============
 
