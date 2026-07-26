@@ -93,6 +93,26 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             "[P6-0b] DefaultHoldingBootstrap starting (id={HoldingId}, name='{Name}', currency={Currency})",
             holdingId, holdingName, currency);
 
+        // Phase 6.3 hotfix: اطرد كل connections القديمة من الـ pool قبل أي شيء.
+        // السبب الجذري: على cold start من CI runner إلى Supabase، الـ
+        // DataTypeMigrator يستخدم connection ثم يردّه للـ pool. بعد ~60-90s
+        // من idle، Supabase pgbouncer transaction-mode pool يقفل connection
+        // من طرفه. Npgsql ما يكتشف هذا الإغلاق فيطلع connection قديم في أول
+        // read، فيعلّق في socket read إلى ما لا نهاية (حتى مع CommandTimeout).
+        // ClearAllPools يغلق كل connections في client-side pool، فأول
+        // CreateOltpConnectionAsync يفتح connection جديد TCP من الصفر.
+        // ملاحظة: هذا safe هنا لأن الـ bootstrap هو أول DB call في التطبيق
+        // (لا يوجد عمليات DB متوازية). لو في عمليات DB لاحقة، الأفضل نقل
+        // الـ ClearAllPools إلى ما بعد أول DB call ناجح.
+        try
+        {
+            Npgsql.NpgsqlConnection.ClearAllPools();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "[P6-0b] ClearAllPools failed (non-fatal) — proceeding with retry");
+        }
+
         try
         {
             // 1) Idempotency check — هل الـ Holding موجود فعلاً؟
@@ -209,25 +229,34 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
     private async Task<Guid?> GetHoldingIdWithRetryAsync(CancellationToken ct)
     {
         const int maxAttempts = 3;
+        const int perAttemptTimeoutSeconds = 30; // hard cap per attempt (CommandTimeout alone is unreliable on stale conns)
         Exception? lastError = null;
 
         for (var attempt = 1; attempt <= maxAttempts; attempt++)
         {
+            // Phase 6.3 hotfix: hard per-attempt timeout via CancellationTokenSource.
+            // السبب: Npgsql's CommandTimeout ما يطبَّق على stale pooled connection
+            // أحياناً (يعلّق socket read إلى ما لا نهاية). الـ CancellationToken
+            // يضمن إن الـ attempt ما ياخذ أكثر من perAttemptTimeoutSeconds.
+            using var attemptCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+            attemptCts.CancelAfter(TimeSpan.FromSeconds(perAttemptTimeoutSeconds));
+
             try
             {
                 using var scope = _scopeFactory.CreateScope();
                 var companies = scope.ServiceProvider.GetRequiredService<ICompanyRepository>();
-                return await companies.GetHoldingCompanyIdAsync(ct);
+                return await companies.GetHoldingCompanyIdAsync(attemptCts.Token);
             }
-            catch (Exception ex) when (IsTransientNpgsqlError(ex))
+            catch (Exception ex) when (IsTransientNpgsqlError(ex) ||
+                                        (ex is OperationCanceledException && !ct.IsCancellationRequested))
             {
                 lastError = ex;
                 if (attempt >= maxAttempts) break;
 
                 var backoffSeconds = attempt * 2; // 2s, 4s
                 _logger.LogWarning(ex,
-                    "[P6-0b] Idempotency check attempt {Attempt}/{Max} hit transient Npgsql/timeout error — retrying in {Backoff}s",
-                    attempt, maxAttempts, backoffSeconds);
+                    "[P6-3] Idempotency check attempt {Attempt}/{Max} hit transient error — retrying in {Backoff}s. Error: {Msg}",
+                    attempt, maxAttempts, backoffSeconds, ex.Message);
                 try
                 {
                     await Task.Delay(TimeSpan.FromSeconds(backoffSeconds), ct);
@@ -240,11 +269,10 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         }
 
         throw new InvalidOperationException(
-            $"[P6-0b] Idempotency check failed after {maxAttempts} attempts. " +
-            "Likely cause: Supabase pgbouncer closed the pooled connection during the " +
-            "DataTypeMigrator → DefaultHoldingBootstrap gap, and every retry hit the same " +
-            "stale connection. Consider raising ConnectionLifetime/Keepalive or reducing " +
-            "ConnectionIdleLifetime in NpgsqlConnectionOptions.",
+            $"[P6-3] Idempotency check failed after {maxAttempts} attempts ({maxAttempts * perAttemptTimeoutSeconds}s budget). " +
+            "Likely cause: stale pooled connection (Supabase pgbouncer closed it). " +
+            "ClearAllPools at the start of StartAsync should have prevented this; " +
+            "if it persists, check Npgsql logs for connection-level errors.",
             lastError);
     }
 
