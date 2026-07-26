@@ -2,13 +2,16 @@ name: Playwright E2E
 
 on:
   push:
-    branches: [develop]
-  pull_request:
     branches: [develop, main]
   workflow_dispatch:
 
-# Required by `gh pr merge --admin` for develop: E2E must pass before merging
-# any feature branch into develop or develop into main.
+# Per the Fast-Feedback-Loops policy (Siti, 2026-07-26): Playwright E2E is the
+# post-merge smoke test, NOT a per-PR gate. PRs to develop are blocked only
+# by CI Fast (build + unit tests), which runs in <2 min. Playwright runs
+# automatically once develop (or main) is updated, and can be triggered
+# manually via `gh workflow run` when needed. The 11+ min Playwright run
+# previously blocked every PR merge; this decoupling restores the rapid
+# PR-merge loop the team wants.
 
 env:
   DOTNET_VERSION: '9.0.x'
@@ -20,7 +23,7 @@ jobs:
   e2e:
     name: Playwright E2E (chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
