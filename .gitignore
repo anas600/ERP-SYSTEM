@@ -52,3 +52,6 @@ head_gitignore.txt
 
 **/TODO-STATE.md
 
+
+node_modules/
+
