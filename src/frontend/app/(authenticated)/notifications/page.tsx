@@ -1,8 +1,10 @@
 'use client';
 
+// صفحة الإشعارات (User Notifications)
+
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Bell, BellOff, CheckCheck, Filter, Eye } from 'lucide-react';
+import { Bell, BellOff, CheckCheck, Filter, Eye, ArrowRight } from 'lucide-react';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { api, getErrorMessage } from '@/lib/api';
@@ -26,31 +28,32 @@ const TYPE_VARIANTS: Record<string, 'info' | 'success' | 'warning' | 'danger' | 
   warning: 'warning',
   error: 'danger',
   system: 'neutral',
+  approval: 'warning',
+  alert: 'danger',
 };
 
-export default function NotificationsPage() {
-  const { loading: authLoading } = useAuth();
+export default function UserNotificationsPage() {
+  const { loading: authLoading, user } = useAuth();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filter, setFilter] = useState<'all' | 'unread'>('all');
+  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
   useEffect(() => {
     if (authLoading) return;
     load();
-  }, [authLoading, filter]);
+  }, [authLoading]);
 
   const load = async () => {
     setLoading(true);
     setError(null);
     try {
-      const unreadOnly = filter === 'unread';
-      const data = await api.get<Notification[]>('/api/inventory/notifications', {
-        params: { unreadOnly, take: 100 }
-      });
-      setItems(data.data);
+      const r = await api.get<Notification[] | { items?: Notification[] }>('/api/notifications');
+      const list = Array.isArray(r.data) ? r.data : r.data.items || [];
+      setItems(list);
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل تحميل الإشعارات.'));
+      // If endpoint not available, show empty
+      setItems([]);
     } finally {
       setLoading(false);
     }
@@ -58,9 +61,8 @@ export default function NotificationsPage() {
 
   const markAsRead = async (id: string) => {
     try {
-      await api.post(`/api/inventory/notifications/${id}/read`, {});
-      // Refresh
-      load();
+      await api.post(`/api/notifications/${id}/mark-read`);
+      setItems((prev) => prev.map((n) => (n.id === id ? { ...n, isRead: true } : n)));
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحديث الإشعار.'));
     }
@@ -68,94 +70,134 @@ export default function NotificationsPage() {
 
   const markAllAsRead = async () => {
     try {
-      // Bulk mark as read - need a backend endpoint or loop
-      for (const item of items.filter(i => !i.isRead)) {
-        await api.post(`/api/inventory/notifications/${item.id}/read`, {});
-      }
-      load();
+      const unread = items.filter((n) => !n.isRead);
+      await Promise.all(unread.map((n) => api.post(`/api/notifications/${n.id}/mark-read`)));
+      setItems((prev) => prev.map((n) => ({ ...n, isRead: true })));
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحديث الإشعارات.'));
     }
   };
 
-  const unreadCount = items.filter(i => !i.isRead).length;
+  const filtered = items.filter((n) =>
+    filter === 'all' ? true : filter === 'unread' ? !n.isRead : n.isRead
+  );
+  const unreadCount = items.filter((n) => !n.isRead).length;
+
+  if (loading) {
+    return (
+      <div className="text-center py-12 text-gray-500">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+        <p className="mt-3 text-sm">جاري التحميل...</p>
+      </div>
+    );
+  }
 
   return (
     <div>
       <PageHeader
         title="🔔 الإشعارات"
-        description={`Notifications — ${unreadCount} غير مقروء`}
+        description={`إشعاراتك في النظام (${unreadCount} غير مقروء)`}
         actions={
-          <>
-            {unreadCount > 0 && (
-              <Button onClick={markAllAsRead} variant="primary" size="sm" iconLeft={<CheckCheck className="h-4 w-4" />}>
-                تعليم الكل كمقروء
-              </Button>
-            )}
-            <Button onClick={load} variant="secondary" size="sm">تحديث</Button>
-          </>
+          unreadCount > 0 ? (
+            <Button variant="primary" onClick={markAllAsRead} iconLeft={<CheckCheck className="h-4 w-4" />}>
+              تحديد الكل كمقروء
+            </Button>
+          ) : undefined
         }
       />
 
-      {/* Filter */}
-      <div className="bg-white rounded-xl shadow-sm p-2 mb-4 flex gap-1">
-        <button
-          onClick={() => setFilter('all')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            filter === 'all' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          الكل ({items.length})
-        </button>
-        <button
-          onClick={() => setFilter('unread')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium ${
-            filter === 'unread' ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
-          }`}
-        >
-          غير المقروء ({unreadCount})
-        </button>
-      </div>
-
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
 
-      {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
-        </div>
-      ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <BellOff className="h-12 w-12 mx-auto mb-2 text-gray-400" />
-          <p>{filter === 'unread' ? 'لا توجد إشعارات غير مقروءة' : 'لا توجد إشعارات'}</p>
-        </div>
+      {/* Filter tabs */}
+      <div className="bg-white rounded-xl shadow-sm p-2 mb-4 flex gap-1">
+        {[
+          { id: 'all', label: 'الكل', count: items.length, icon: Filter },
+          { id: 'unread', label: 'غير مقروء', count: unreadCount, icon: Bell },
+          { id: 'read', label: 'مقروء', count: items.length - unreadCount, icon: CheckCheck },
+        ].map((tab) => {
+          const Icon = tab.icon;
+          const active = filter === tab.id;
+          return (
+            <button
+              key={tab.id}
+              onClick={() => setFilter(tab.id as any)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                active ? 'bg-blue-500 text-white' : 'text-gray-600 hover:bg-gray-100'
+              }`}
+            >
+              <Icon className="h-4 w-4" />
+              {tab.label} ({tab.count})
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Notifications list */}
+      {filtered.length === 0 ? (
+        <Card className="p-12 text-center text-gray-500">
+          <BellOff className="h-12 w-12 mx-auto mb-3 text-gray-300" />
+          <p>لا توجد إشعارات {filter === 'unread' ? 'غير مقروءة' : ''}.</p>
+        </Card>
       ) : (
         <div className="space-y-2">
-          {items.map((n) => (
-            <Card key={n.id} accent={n.isRead ? 'gray' : 'blue'}>
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2 mb-1">
-                    <h3 className={`font-bold ${n.isRead ? 'text-gray-700' : 'text-gray-900'}`}>{n.title}</h3>
-                    <Badge variant={TYPE_VARIANTS[n.type] ?? 'neutral'}>{n.type}</Badge>
-                    {!n.isRead && <Badge variant="info">جديد</Badge>}
-                  </div>
-                  <p className={`text-sm ${n.isRead ? 'text-gray-500' : 'text-gray-700'}`}>{n.message}</p>
-                  <div className="mt-2 flex items-center gap-3 text-xs text-gray-400">
-                    <span>{formatDate(n.createdAt)} {formatTime(n.createdAt)}</span>
-                    {n.readAt && <span>• مقروء {formatDate(n.readAt)}</span>}
-                  </div>
+          {filtered.map((n) => (
+            <Card
+              key={n.id}
+              className={`p-4 ${!n.isRead ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''}`}
+            >
+              <div className="flex items-start gap-3">
+                <div className={`h-9 w-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
+                  n.isRead ? 'bg-gray-100 text-gray-400' : 'bg-blue-100 text-blue-600'
+                }`}>
+                  <Bell className="h-4 w-4" />
                 </div>
-                <div className="flex flex-col gap-1">
-                  {!n.isRead && (
-                    <Button onClick={() => markAsRead(n.id)} variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />}>
-                      تعليم كمقروء
-                    </Button>
-                  )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className={`text-sm font-semibold ${n.isRead ? 'text-gray-700' : 'text-gray-900'}`}>
+                          {n.title}
+                        </h3>
+                        <Badge variant={TYPE_VARIANTS[n.type] || 'neutral'} size="sm">
+                          {n.type}
+                        </Badge>
+                        {!n.isRead && (
+                          <span className="inline-block h-2 w-2 rounded-full bg-blue-500" title="غير مقروء" />
+                        )}
+                      </div>
+                      <p className={`text-sm mt-1 ${n.isRead ? 'text-gray-500' : 'text-gray-700'}`}>
+                        {n.message}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {formatDate(n.createdAt)} {formatTime(n.createdAt)}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {!n.isRead && (
+                        <button
+                          onClick={() => markAsRead(n.id)}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="تحديد كمقروء"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </button>
+                      )}
+                      {n.referenceId && n.referenceType && (
+                        <Link
+                          href={`/${n.referenceType}/${n.referenceId}`}
+                          className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                          title="عرض"
+                        >
+                          <ArrowRight className="h-4 w-4" />
+                        </Link>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
             </Card>

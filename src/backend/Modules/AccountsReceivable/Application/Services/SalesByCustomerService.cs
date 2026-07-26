@@ -24,7 +24,7 @@ public sealed class SalesByCustomerService : ISalesByCustomerService
                    COALESCE(SUM(si.tax_amount), 0) AS TaxAmount,
                    COALESCE(SUM(si.total_amount), 0) AS TotalAmount,
                    COALESCE(SUM(si.paid_amount), 0) AS PaidAmount,
-                   COALESCE(SUM(si.outstanding), 0) AS Outstanding
+                   COALESCE(SUM(si.total_amount - si.paid_amount), 0) AS Outstanding
             FROM customers c
             INNER JOIN sales_invoices si ON si.customer_id = c.id
                 AND si.invoice_date >= @From AND si.invoice_date <= @To

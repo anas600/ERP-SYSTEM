@@ -2,7 +2,8 @@
 
 // صفحة تفاصيل فاتورة مبيعات — customer info + lines + payments
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Send, XCircle, FileText } from 'lucide-react';
 import { Button, Badge, Card, PageHeader } from '@/components/ui';
@@ -10,8 +11,9 @@ import { arApi, SalesInvoice, SALES_INVOICE_STATUSES, SALES_INVOICE_STATUS_VARIA
 import { formatDate } from '@/lib/utils';
 import { formatNumber } from '@/lib/format';
 
-export default function SalesInvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function SalesInvoiceDetailPage() {
+  const params = useParams<{ id: string }>();
+  const id = params.id;
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

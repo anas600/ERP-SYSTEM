@@ -20,12 +20,12 @@ public sealed class SalesByItemService : ISalesByItemService
         const string sql = @"
             SELECT i.id AS ItemId, i.sku AS Sku, i.name AS ItemName,
                    COALESCE(SUM(sil.quantity), 0) AS Quantity,
-                   COALESCE(SUM(sil.sub_total), 0) AS Subtotal,
-                   COALESCE(SUM(sil.tax_amount), 0) AS TaxAmount,
-                   COALESCE(SUM(sil.sub_total + sil.tax_amount), 0) AS TotalAmount
+                   COALESCE(SUM(sil.line_total), 0) AS Subtotal,
+                   COALESCE(SUM(sil.line_total * sil.tax_rate), 0) AS TaxAmount,
+                   COALESCE(SUM(sil.line_total * (1 + sil.tax_rate)), 0) AS TotalAmount
             FROM items i
             INNER JOIN sales_invoice_lines sil ON sil.item_id = i.id
-            INNER JOIN sales_invoices si ON si.id = sil.invoice_id
+            INNER JOIN sales_invoices si ON si.id = sil.sales_invoice_id
                 AND si.invoice_date >= @From AND si.invoice_date <= @To
                 AND si.status IN ('Posted', 'Partial', 'Paid')
             WHERE i.company_id = @CompanyId

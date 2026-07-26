@@ -37,3 +37,15 @@ Thumbs.db
 # Logs
 *.log
 logs/
+
+# Build artifacts in Tools/
+src/backend/Tools/**/bin/
+src/backend/Tools/**/obj/
+
+
+# Agent scratch
+.mavis/
+gen-hash/
+head_gitignore.txt
+.env.local
+

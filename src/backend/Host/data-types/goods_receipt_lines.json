@@ -1,0 +1,21 @@
+{
+  "name": "GoodsReceiptLine",
+  "table": "goods_receipt_lines",
+  "version": "1.0.0",
+  "module": "Procurement",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "goods_receipt_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "goods_receipts", "column": "id", "on_delete": "cascade" } },
+    { "name": "item_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "items", "column": "id", "on_delete": "restrict" } },
+    { "name": "quantity", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "unit_cost", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "notes", "type": "varchar(500)", "nullable": true },
+    { "name": "line_order", "type": "integer", "nullable": false, "default": "1" }
+  ],
+  "indexes": [
+    { "name": "ix_goods_receipt_lines_gr", "columns": ["goods_receipt_id"] },
+    { "name": "ix_goods_receipt_lines_item", "columns": ["item_id"] }
+  ]
+}
