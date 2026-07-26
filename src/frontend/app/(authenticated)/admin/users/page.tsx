@@ -4,32 +4,19 @@ import { useEffect, useState } from 'react';
 import { User, Mail, Shield, Calendar, CheckCircle2, XCircle, KeyRound } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { api, getErrorMessage } from '@/lib/api';
+import { identityApi, AdminUser, AdminUserWithRoles, getErrorMessage } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
 
-interface UserWithRoles {
-  id: string;
-  email: string;
-  fullName: string;
-  isActive: boolean;
-  twoFactorEnabled: boolean;
-  createdAt: string;
-  updatedAt: string;
-  lastLoginAt?: string;
+interface UserWithRoles extends AdminUser {
   roles: string[];
+  roleIds?: string[];
+  companies?: { companyId: string; companyName: string; isDefault: boolean; isHolding: boolean }[];
 }
 
 interface RoleInfo {
   id: string;
   name: string;
   description?: string;
-}
-
-interface UsersResponse {
-  items: UserWithRoles[];
-  total: number;
-  skip: number;
-  take: number;
 }
 
 const ROLE_COLORS: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'neutral'> = {
@@ -59,12 +46,25 @@ export default function UsersAdminPage() {
     setError(null);
     try {
       const [usersRes, rolesRes] = await Promise.all([
-        api.get<UsersResponse>('/api/users', { params: { take: 100 } }),
-        api.get<RoleInfo[]>('/api/users/roles'),
+        identityApi.listUsers(0, 100),
+        identityApi.listRoles(),
       ]);
-      setItems(usersRes.data.items);
-      setTotal(usersRes.data.total);
-      setRoles(rolesRes.data);
+      // Fetch each user with full details (companies + roleIds)
+      const detailedItems = await Promise.all(
+        usersRes.items.map(async (u) => {
+          try {
+            const detail = await identityApi.getUser(u.id);
+            // Map role ids back to role names
+            const roleNames = detail.roleIds.map(rid => rolesRes.find(r => r.id === rid)?.name || 'Unknown');
+            return { ...u, roles: roleNames, roleIds: detail.roleIds, companies: detail.companies };
+          } catch {
+            return { ...u, roles: [] as string[] };
+          }
+        })
+      );
+      setItems(detailedItems);
+      setTotal(usersRes.count);
+      setRoles(rolesRes);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل.'));
     } finally {

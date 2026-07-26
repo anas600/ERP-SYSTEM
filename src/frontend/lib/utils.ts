@@ -38,3 +38,24 @@ export function formatDateTime(value?: string | null | Date): string {
     hour: '2-digit', minute: '2-digit'
   });
 }
+
+// === Number formatters ===
+// Phase 6.2: added for the 20 financial reports.
+
+/** تنسيق مبلغ مالي بالـ LYD (3 أرقام عشرية + فاصل آلاف). */
+export function formatCurrency(value: number | null | undefined, currency = 'LYD'): string {
+  if (value == null || isNaN(value)) return '—';
+  const abs = Math.abs(value);
+  const formatted = abs.toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+  const sign = value < 0 ? '-' : '';
+  return `${sign}${formatted} ${currency}`;
+}
+
+/** تنسيق نسبة مئوية. */
+export function formatPercent(value: number | null | undefined, decimals = 1): string {
+  if (value == null || isNaN(value)) return '—';
+  return `${value.toFixed(decimals)}%`;
+}
