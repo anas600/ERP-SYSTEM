@@ -2,13 +2,16 @@ name: Playwright E2E
 
 on:
   push:
-    branches: [develop]
-  pull_request:
     branches: [develop, main]
   workflow_dispatch:
 
-# Required by `gh pr merge --admin` for develop: E2E must pass before merging
-# any feature branch into develop or develop into main.
+# Per the Fast-Feedback-Loops policy (Siti, 2026-07-26): Playwright E2E is the
+# post-merge smoke test, NOT a per-PR gate. PRs to develop are blocked only
+# by CI Fast (build + unit tests), which runs in <2 min. Playwright runs
+# automatically once develop (or main) is updated, and can be triggered
+# manually via `gh workflow run` when needed. The 11+ min Playwright run
+# previously blocked every PR merge; this decoupling restores the rapid
+# PR-merge loop the team wants.
 
 env:
   DOTNET_VERSION: '9.0.x'
@@ -20,7 +23,7 @@ jobs:
   e2e:
     name: Playwright E2E (chromium)
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -71,6 +74,19 @@ jobs:
           # + envsubst brittleness).
           # Secrets expected: SUPABASE_HOST, SUPABASE_PORT, SUPABASE_DB, SUPABASE_USER, SUPABASE_PASSWORD
           export ConnectionStrings__Postgres="Host=${SUPABASE_HOST};Port=${SUPABASE_PORT};Database=${SUPABASE_DB};User Id=${SUPABASE_USER};Password=${SUPABASE_PASSWORD_ENC};SSL Mode=Require;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=300;Keepalive=30;Timeout=15;Command Timeout=60"
+          # Phase 6.3 hotfix (PR #149): derive the direct (port 5432) connection
+          # from SUPABASE_USER. The pooler user is `postgres.<project_ref>` and
+          # the direct host is `db.<project_ref>.supabase.co`. The direct
+          # connection bypasses pgbouncer transaction-mode (which is hostile
+          # to 40+ table DDL sequences — the migration stalls 5+ min on backend
+          # acquire). User `postgres` (no suffix) for the direct connection.
+          SUPABASE_PROJECT_REF=$(python3 -c "import re,sys,urllib.parse;u=urllib.parse.unquote(sys.argv[1].strip()); m=re.match(r'postgres\.(.+)', u); print(m.group(1) if m else '')" "${SUPABASE_USER}")
+          if [ -n "${SUPABASE_PROJECT_REF}" ]; then
+            export ConnectionStrings__Migrations="Host=db.${SUPABASE_PROJECT_REF}.supabase.co;Port=5432;Database=${SUPABASE_DB};User Id=postgres;Password=${SUPABASE_PASSWORD_ENC};SSL Mode=Require;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
+            echo "DEBUG_MIGRATIONS_HOST=db.${SUPABASE_PROJECT_REF}.supabase.co (project_ref=${SUPABASE_PROJECT_REF})"
+          else
+            echo "WARN: Could not extract project ref from SUPABASE_USER; migration will fall back to pgbouncer (slow)"
+          fi
           export Database__AutoMigrate=true
           # Also write a minimal appsettings.Development.json so DataTypeHostedService
           # doesn't bail looking for the dev config file (it expects one even if empty).
@@ -86,12 +102,14 @@ jobs:
 
       - name: Wait for backend health
         run: |
-          # Allow up to 10 minutes for the backend to bind to port 5000.
-          # The DefaultHoldingBootstrap is slow on first connection from CI runner
-          # to Supabase (transatlantic latency + cold-start). 60 iterations × 2s
-          # (= 120s) was too tight; bumped to 300 iterations × 2s = 600s.
+          # Allow up to 15 minutes for the backend to bind to port 5000.
+          # The Phase 6.3 migration (40 tables + 80 FKs via the new 2-pass
+          # architecture) plus DefaultHoldingBootstrap can take 5-8 min
+          # on CI runner → Supabase transatlantic latency + cold-start.
+          # 60 iterations × 2s (= 120s) was too tight; 300 × 2s = 600s
+          # was still tight; bumped to 450 × 2s = 900s for safety.
           # Every 10s we dump the last 5 lines of the backend log for debug.
-          for i in {1..300}; do
+          for i in {1..450}; do
             if curl -sf http://localhost:5000/api/health/ready; then
               echo "Backend ready after ${i} attempts (~$((i*2))s)"
               exit 0
@@ -104,7 +122,7 @@ jobs:
             fi
             sleep 2
           done
-          echo "Backend failed to start (timed out after 600s)"
+          echo "Backend failed to start (timed out after 900s)"
           echo "--- full backend.log ---"
           cat /tmp/backend.log
           exit 1

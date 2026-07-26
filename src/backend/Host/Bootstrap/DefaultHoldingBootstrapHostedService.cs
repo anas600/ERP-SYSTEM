@@ -93,14 +93,19 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             "[P6-0b] DefaultHoldingBootstrap starting (id={HoldingId}, name='{Name}', currency={Currency})",
             holdingId, holdingName, currency);
 
+        // Phase 6.3 hotfix (P6-3, the real fix): افتح connection واحد مباشر
+        // (Pooling=false) واستخدمه لكل عمليات الـ bootstrap. السبب: Supabase
+        // pgbouncer transaction-mode pool (port 6543) يعيد الـ backend connections
+        // بعد كل transaction. لو فتحنا N connections متتالية من client pool،
+        // الـ acquire الثاني قد ينتظر 5+ دقائق. اتصال واحد مباشر = acquire
+        // واحد فقط، يلبّي كل العمليات على نفس الـ backend connection.
+        using var conn = await _db.CreateEphemeralOltpConnectionAsync(cancellationToken);
+
         try
         {
             // 1) Idempotency check — هل الـ Holding موجود فعلاً؟
             //    الشركة القابضة = code='000' AND is_group=true AND parent_company_id IS NULL.
-            //    ICompanyRepository is Scoped — resolve it via a scope (hosted service itself is Singleton).
-            using var scope = _scopeFactory.CreateScope();
-            var companies = scope.ServiceProvider.GetRequiredService<ICompanyRepository>();
-            var existing = await companies.GetHoldingCompanyIdAsync(cancellationToken);
+            var existing = await GetHoldingIdOnConnAsync(conn, cancellationToken);
             if (existing.HasValue)
             {
                 _logger.LogInformation(
@@ -113,50 +118,47 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             //    السبب: في الـ multi-company model، لا يوجد عمود قديم للتأجير في الـ schema.
             //    الـ INSERT عبر الـ entity سيرمي SqlException: column قديم غير موجود.
             //    الـ raw SQL يلتزم بمتطلبات الـ schema الجديدة (CONSTITUTION.md §3).
-            using (var conn = await _db.CreateOltpConnectionAsync(cancellationToken))
-            {
-                var now = DateTime.UtcNow;
-                var rows = await conn.ExecuteAsync(new CommandDefinition(@"
-                    INSERT INTO companies
-                        (id, code, name, legal_name, parent_company_id,
-                         is_group, base_currency, is_active, created_at, updated_at)
-                    VALUES
-                        (@Id, @Code, @Name, @LegalName, NULL,
-                         true, @Currency, true, @Now, @Now)
-                    ON CONFLICT (id) DO NOTHING;",
-                    new
-                    {
-                        Id = holdingId,
-                        Code = HoldingCode,
-                        Name = holdingName,
-                        LegalName = holdingName,
-                        Currency = currency,
-                        Now = now,
-                    },
-                    cancellationToken: cancellationToken));
+            var now = DateTime.UtcNow;
+            var rows = await conn.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO companies
+                    (id, code, name, legal_name, parent_company_id,
+                     is_group, base_currency, is_active, created_at, updated_at)
+                VALUES
+                    (@Id, @Code, @Name, @LegalName, NULL,
+                     true, @Currency, true, @Now, @Now)
+                ON CONFLICT (id) DO NOTHING;",
+                new
+                {
+                    Id = holdingId,
+                    Code = HoldingCode,
+                    Name = holdingName,
+                    LegalName = holdingName,
+                    Currency = currency,
+                    Now = now,
+                },
+                cancellationToken: cancellationToken));
 
-                _logger.LogInformation(
-                    "[P6-0b] Default Holding inserted (id={Id}, rows={Rows}, code={Code}, currency={Currency})",
-                    holdingId, rows, HoldingCode, currency);
-            }
+            _logger.LogInformation(
+                "[P6-0b] Default Holding inserted (id={Id}, rows={Rows}, code={Code}, currency={Currency})",
+                holdingId, rows, HoldingCode, currency);
 
             // 3) ابذر دليل الحسابات (47 حساب) للـ Holding عبر raw SQL.
             //    لا نستدعي IAccountRepository.EnsureDefaultCoAAsync لأن الـ INSERT
             //    داخله يكتب إلى tenant_id العمود الذي لم يعد موجوداً في الـ schema
             //    الجديد. نكرّر نمط الـ batched unnest من AccountRepository (DEC-093)
             //    لتفادي 47 round-trip متتالية.
-            var coaCount = await SeedDefaultCoAAsync(holdingId, cancellationToken);
+            var coaCount = await SeedDefaultCoAAsync(conn, holdingId, cancellationToken);
             _logger.LogInformation(
                 "[P6-0b] Default CoA seeded (count={Count}, holdingId={HoldingId})",
                 coaCount, holdingId);
 
             // 4) ابذر وحدات القياس والتصنيفات بنفس الأسلوب (raw SQL).
-            var uomCount = await SeedDefaultUoMsAsync(holdingId, cancellationToken);
+            var uomCount = await SeedDefaultUoMsAsync(conn, holdingId, cancellationToken);
             _logger.LogInformation(
                 "[P6-0b] Default UoMs seeded (count={Count}, holdingId={HoldingId})",
                 uomCount, holdingId);
 
-            var catCount = await SeedDefaultCategoriesAsync(holdingId, cancellationToken);
+            var catCount = await SeedDefaultCategoriesAsync(conn, holdingId, cancellationToken);
             _logger.LogInformation(
                 "[P6-0b] Default Item Categories seeded (count={Count}, holdingId={HoldingId})",
                 catCount, holdingId);
@@ -189,7 +191,38 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
 
     public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
 
-    // ============ Internal seed helpers (raw SQL) ============
+    // ============ Transient Npgsql retry (stale pooled connection) ============
+
+    /// <summary>
+    /// يلتفّ حول استعلام الـ idempotency (SELECT أول DB call بعد DataTypeMigrator) مع
+    /// إعادة محاولة عند transient Npgsql/timeout errors. السبب الجذري: Supabase
+    /// pgbouncer قد يغلق connection كان idle في الـ pool بين الـ migrator والـ
+    /// bootstrap (~60-120s)، فأول قراءة على connection قديم تعلّق 60s ثم ترمي
+    /// <c>NpgsqlException: Exception while reading from stream</c>. عند إعادة
+    /// المحاولة، الـ pool يعطي connection جديد من جديد.
+    /// <para>
+    /// 3 محاولات كافيتان: الـ pool <c>MaxPoolSize=20</c> فلو الـ attempt الأول أخذ
+    /// connection سيئ، الـ attempt الثاني على الأرجح يأخذ غيره. backoff: 2s ثم 4s.
+    /// لا نعيد المحاولة على SqlException غير الـ timeout (مثل syntax/permission) لأن
+    /// إعادة المحاولة لن تغيّر النتيجة.
+    /// </para>
+    /// <summary>
+    /// الـ idempotency check يعمل على الـ connection المُمرّر (ephemeral) مباشرة
+    /// — لا retry، لا scope، لا factory. الـ connection الطازج يضمن إن pgbouncer
+    /// لن يعلّق في acquire.
+    /// </summary>
+    private async Task<Guid?> GetHoldingIdOnConnAsync(System.Data.IDbConnection conn, CancellationToken ct)
+    {
+        return await conn.QueryFirstOrDefaultAsync<Guid?>(new CommandDefinition(
+            @"SELECT id FROM companies
+              WHERE is_group = true
+                AND parent_company_id IS NULL
+                AND code = '000'
+              LIMIT 1",
+            cancellationToken: ct));
+    }
+
+    // ============ Internal seed helpers (raw SQL) — all use the single ephemeral conn ============
 
     /// <summary>
     /// يبذر الـ 47 حساباً من <see cref="DefaultCoASeed.HoldingAccounts"/> في جدول
@@ -197,16 +230,13 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
     /// Idempotent: لو وُجد حساب بالـ code 0000 (جذر شجرة CoA) يُعتبر CoA موجوداً
     /// ويُعاد 0.
     /// </summary>
-    private async Task<int> SeedDefaultCoAAsync(Guid holdingId, CancellationToken ct)
+    private async Task<int> SeedDefaultCoAAsync(System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
     {
         // Pre-check: لو الـ CoA موجود بالفعل (نتحقّق من الحساب الجذر 0000)، نتخطّى.
-        using (var conn = await _db.CreateOltpConnectionAsync(ct))
-        {
-            var hasRoot = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-                "SELECT COUNT(*) FROM accounts WHERE company_id = @HoldingId AND code = '0000' LIMIT 1",
-                new { HoldingId = holdingId }, cancellationToken: ct));
-            if (hasRoot > 0) return 0;
-        }
+        var hasRoot = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM accounts WHERE company_id = @HoldingId AND code = '0000' LIMIT 1",
+            new { HoldingId = holdingId }, cancellationToken: ct));
+        if (hasRoot > 0) return 0;
 
         // نفس نمط الـ AccountRepository: pass 1 = roots (no parent)، pass 2 = children
         // (parent must be resolved أولاً). نولّد UUIDs لكل صف ونبني الـ hierarchy.
@@ -293,7 +323,7 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
     /// جدول <c>units_of_measure</c>، مرتبطة بـ Holding عن طريق <c>company_id</c>.
     /// Idempotent: ON CONFLICT (id) DO NOTHING (id فريد من نوعه لكل تشغيل).
     /// </summary>
-    private async Task<int> SeedDefaultUoMsAsync(Guid holdingId, CancellationToken ct)
+    private async Task<int> SeedDefaultUoMsAsync(System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
     {
         var rows = DefaultInventorySeed.DefaultUoMs
             .Select(uom => new UomRow(
@@ -315,7 +345,6 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             ) AS u(id, company_id, code, name, symbol, is_active)
             ON CONFLICT (id) DO NOTHING;";
 
-        using var conn = await _db.CreateOltpConnectionAsync(ct);
         var inserted = await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             Ids = rows.Select(r => r.Id).ToArray(),
@@ -335,16 +364,13 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
     /// Idempotent: لو التصنيف الجذر "RM" موجود بالفعل (pre-check) يُعتبر الزرع
     /// تم ويُعاد 0.
     /// </summary>
-    private async Task<int> SeedDefaultCategoriesAsync(Guid holdingId, CancellationToken ct)
+    private async Task<int> SeedDefaultCategoriesAsync(System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
     {
         // Pre-check: لو التصنيف الجذر "RM" موجود، نتخطّى.
-        using (var conn0 = await _db.CreateOltpConnectionAsync(ct))
-        {
-            var hasRoot = await conn0.ExecuteScalarAsync<int>(new CommandDefinition(
-                "SELECT COUNT(*) FROM item_categories WHERE company_id = @HoldingId AND code = 'RM' LIMIT 1",
-                new { HoldingId = holdingId }, cancellationToken: ct));
-            if (hasRoot > 0) return 0;
-        }
+        var hasRoot = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT COUNT(*) FROM item_categories WHERE company_id = @HoldingId AND code = 'RM' LIMIT 1",
+            new { HoldingId = holdingId }, cancellationToken: ct));
+        if (hasRoot > 0) return 0;
 
         // كل التصنيفات في الـ seed الحالي roots (ParentCode == null)، فلا حاجة لـ
         // مرحلتين مثل الـ CoA. نبني UUID لكل صف ونبادر بـ batched INSERT.
@@ -369,7 +395,6 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             ) AS u(id, company_id, code, name, description, parent_id, is_active)
             ON CONFLICT (id) DO NOTHING;";
 
-        using var conn = await _db.CreateOltpConnectionAsync(ct);
         var inserted = await conn.ExecuteAsync(new CommandDefinition(sql, new
         {
             Ids = rows.Select(r => r.Id).ToArray(),

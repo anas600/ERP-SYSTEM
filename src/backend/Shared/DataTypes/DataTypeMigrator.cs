@@ -38,21 +38,50 @@ public sealed class DataTypeMigrator
     public async Task<MigrationResult> ReconcileAsync(IEnumerable<DataType> dataTypes, CancellationToken ct)
     {
         var result = new MigrationResult();
+        var dataTypeList = dataTypes.ToList();
 
-        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Phase 6.3 hotfix (PR #149 round 3): الـ root cause الحقيقي كان
+        // information_schema queries بدون table_schema filter (Supabase auth.users /
+        // auth.refresh_tokens كانت بتلوّث TableExistsAsync). الـ direct connection
+        // (port 5432) للـ migrations يبقى مهم كـ defense-in-depth (Supabase docs
+        // توصي صراحة بيه).
+        IDbConnection conn = await _db.CreateEphemeralMigrationConnectionAsync(ct)
+            ?? await _db.CreateEphemeralOltpConnectionAsync(ct);
 
-        foreach (var dt in dataTypes)
+        // 2-pass architecture (PR #149 round 3): pass 1 ينشئ كل الـ tables + columns
+        // + indexes بدون FKs. pass 2 يضيف FKs لما كل الـ target tables تكون موجودة.
+        // السبب: alphabet order يخلّي User (users) يتعمل بعد Notification /
+        // PasswordResetToken / RefreshToken / UserCompany / UserRole، فـ FKs بتاعتها
+        // للـ users كانت تنفشل في الـ pass الواحد. الـ 2-pass يضمن كل الـ FKs تنضاف
+        // من أول run.
+        _logger.LogInformation("[DataTypeMigrator] Pass 1/2: tables + columns + indexes (no FKs yet)...");
+        foreach (var dt in dataTypeList)
         {
-            _logger.LogInformation("[DataTypeMigrator] Reconciling {Name} (table={Table}, version={Version})",
+            _logger.LogInformation("[DataTypeMigrator] Reconciling {Name} (table={Table}, version={Version}) [pass 1/2]",
                 dt.Name, dt.Table, dt.Version);
-
             try
             {
-                await ReconcileOneAsync(conn, dt, result, ct);
+                await ReconcileOneAsync(conn, dt, result, ct, includeForeignKeys: false);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "[DataTypeMigrator] Failed to reconcile {Name}", dt.Name);
+                _logger.LogError(ex, "[DataTypeMigrator] Failed to reconcile {Name} [pass 1/2]", dt.Name);
+                result.Errors.Add($"{dt.Name}: {ex.Message}");
+            }
+        }
+
+        _logger.LogInformation("[DataTypeMigrator] Pass 2/2: foreign keys (all target tables now exist)...");
+        foreach (var dt in dataTypeList)
+        {
+            _logger.LogInformation("[DataTypeMigrator] Reconciling {Name} (table={Table}, version={Version}) [pass 2/2 FKs]",
+                dt.Name, dt.Table, dt.Version);
+            try
+            {
+                await ReconcileOneAsync(conn, dt, result, ct, includeForeignKeys: true);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[DataTypeMigrator] Failed to reconcile {Name} [pass 2/2 FKs]", dt.Name);
                 result.Errors.Add($"{dt.Name}: {ex.Message}");
             }
         }
@@ -63,12 +92,29 @@ public sealed class DataTypeMigrator
         return result;
     }
 
-    private async Task ReconcileOneAsync(IDbConnection conn, DataType dt, MigrationResult result, CancellationToken ct)
+    private async Task ReconcileOneAsync(IDbConnection conn, DataType dt, MigrationResult result, CancellationToken ct, bool includeForeignKeys)
     {
         // 1) Table existence
         var tableExists = await TableExistsAsync(conn, dt.Table, ct);
         if (!tableExists)
         {
+            // Pre-create any sequences referenced by nextval() defaults.
+            // Phase 6.0b hotfix: after Phase 6 nuclear clean slate, the
+            // audit_log_id_seq doesn't exist. CREATE TABLE with a nextval()
+            // default fails because the sequence doesn't exist.
+            foreach (var f in dt.Fields)
+            {
+                if (!string.IsNullOrEmpty(f.Default) && f.Default.Contains("nextval("))
+                {
+                    var seqName = ExtractSequenceName(f.Default);
+                    if (!string.IsNullOrEmpty(seqName))
+                    {
+                        await conn.ExecuteAsync(new CommandDefinition(
+                            $"CREATE SEQUENCE IF NOT EXISTS {seqName};",
+                            cancellationToken: ct));
+                    }
+                }
+            }
             await CreateTableAsync(conn, dt, ct);
             result.TablesCreated.Add(dt.Table);
             _logger.LogInformation("[DataTypeMigrator] Created table {Table}", dt.Table);
@@ -89,25 +135,29 @@ public sealed class DataTypeMigrator
                 dt.Table, field.Name, field.Type);
         }
 
-        // 3) Foreign keys (idempotent — pg_constraint check)
-        foreach (var field in dt.Fields.Where(f => f.ForeignKey != null))
+        // 3) Foreign keys (idempotent — pg_constraint check). تتعمل في pass 2 فقط
+        // بعد ما كل الـ target tables تكون موجودة.
+        if (includeForeignKeys)
         {
-            var fk = field.ForeignKey!;
-            var fkName = fk.Name ?? $"fk_{dt.Table}_{field.Name}";
-            if (await ConstraintExistsAsync(conn, fkName, ct))
+            foreach (var field in dt.Fields.Where(f => f.ForeignKey != null))
             {
-                continue;
+                var fk = field.ForeignKey!;
+                var fkName = fk.Name ?? $"fk_{dt.Table}_{field.Name}";
+                if (await ConstraintExistsAsync(conn, fkName, ct))
+                {
+                    continue;
+                }
+                var targetTableExists = await TableExistsAsync(conn, fk.Table, ct);
+                if (!targetTableExists)
+                {
+                    _logger.LogWarning("[DataTypeMigrator] FK target missing: {Table}.{Col} → {Target}. Skipping.",
+                        dt.Table, field.Name, fk.Table);
+                    continue;
+                }
+                await AddForeignKeyAsync(conn, dt.Table, field, fkName, ct);
+                _logger.LogInformation("[DataTypeMigrator] Added FK {Name} on {Table}.{Col}",
+                    fkName, dt.Table, field.Name);
             }
-            var targetTableExists = await TableExistsAsync(conn, fk.Table, ct);
-            if (!targetTableExists)
-            {
-                _logger.LogWarning("[DataTypeMigrator] FK target missing: {Table}.{Col} → {Target}. Skipping.",
-                    dt.Table, field.Name, fk.Table);
-                continue;
-            }
-            await AddForeignKeyAsync(conn, dt.Table, field, fkName, ct);
-            _logger.LogInformation("[DataTypeMigrator] Added FK {Name} on {Table}.{Col}",
-                fkName, dt.Table, field.Name);
         }
 
         // 4) Indexes
@@ -126,11 +176,21 @@ public sealed class DataTypeMigrator
 
     // === Schema introspection helpers ===
 
+    // Supabase ships its own `auth` schema with `users` + `refresh_tokens` tables
+    // (GoTrue). Phase 6.3 hotfix (PR #149 round 3, real root cause): بدون فلتر
+    // table_schema، TableExistsAsync("users") بترجع TRUE من auth.users، فالـ
+    // precheck على FKs للـ users/user_companies/user_roles/notifications/password_
+    // reset_tokens/refresh_tokens بيعتقد إن الـ target موجود → يـ proceed → الـ SQL
+    // اللي بيستخدم `users` بدون schema qualifier بيفشل (relation users does not
+    // exist لأن الـ public.users ما اتعملش CREATE). نفس المنطق ينطبق على
+    // ConstraintExistsAsync (FKs بنفس الاسم ممكن تتشارك عبر schemas).
+    private const string AppSchema = "public";
+
     private static async Task<bool> TableExistsAsync(IDbConnection conn, string table, CancellationToken ct)
     {
         var n = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = @T",
-            new { T = table.ToLowerInvariant() }, cancellationToken: ct));
+            "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = @S AND table_name = @T",
+            new { S = AppSchema, T = table.ToLowerInvariant() }, cancellationToken: ct));
         return n > 0;
     }
 
@@ -138,8 +198,8 @@ public sealed class DataTypeMigrator
     {
         var cols = await conn.QueryAsync<string>(new CommandDefinition(
             @"SELECT column_name FROM information_schema.columns
-              WHERE table_name = @T",
-            new { T = table.ToLowerInvariant() }, cancellationToken: ct));
+              WHERE table_schema = @S AND table_name = @T",
+            new { S = AppSchema, T = table.ToLowerInvariant() }, cancellationToken: ct));
         return new HashSet<string>(cols, StringComparer.OrdinalIgnoreCase);
     }
 
@@ -147,17 +207,29 @@ public sealed class DataTypeMigrator
     {
         var n = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
             @"SELECT COUNT(*) FROM information_schema.table_constraints
-              WHERE constraint_name = @N",
-            new { N = name.ToLowerInvariant() }, cancellationToken: ct));
+              WHERE constraint_schema = @S AND constraint_name = @N",
+            new { S = AppSchema, N = name.ToLowerInvariant() }, cancellationToken: ct));
         return n > 0;
     }
 
     private static async Task<bool> IndexExistsAsync(IDbConnection conn, string name, CancellationToken ct)
     {
         var n = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            @"SELECT COUNT(*) FROM pg_indexes WHERE indexname = @N",
-            new { N = name.ToLowerInvariant() }, cancellationToken: ct));
+            @"SELECT COUNT(*) FROM pg_indexes WHERE schemaname = @S AND indexname = @N",
+            new { S = AppSchema, N = name.ToLowerInvariant() }, cancellationToken: ct));
         return n > 0;
+    }
+
+    /// <summary>
+    /// Extracts the sequence name from a Postgres DEFAULT expression like
+    /// <c>nextval('audit_log_id_seq'::regclass)</c>. Returns the inner sequence
+    /// name (with original quoting preserved), or null if not a nextval.
+    /// </summary>
+    private static string? ExtractSequenceName(string defaultExpr)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(
+            defaultExpr, @"nextval\s*\(\s*'([^']+)'", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        return match.Success ? match.Groups[1].Value : null;
     }
 
     // === Schema mutation helpers ===

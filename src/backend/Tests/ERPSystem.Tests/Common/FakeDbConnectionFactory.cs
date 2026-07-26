@@ -21,6 +21,22 @@ public sealed class FakeDbConnectionFactory : IDbConnectionFactory
     public Task<IDbConnection> CreateEventStoreConnectionAsync(CancellationToken ct = default) =>
         Task.FromResult<IDbConnection>(new FakeDbConnection(Data));
 
+    /// <summary>
+    /// نسخة الاختبار: في الذاكرة، بدون pool semantics (ما يهم لأن FakeDbConnection
+    /// ما يشارك في pgbouncer transaction-mode). نرجّع FakeDbConnection عادي ليتمكّن
+    /// الـ bootstrap tests من استدعاء نفس الـ surface area بتاع الـ production factory.
+    /// </summary>
+    public Task<IDbConnection> CreateEphemeralOltpConnectionAsync(CancellationToken ct = default) =>
+        Task.FromResult<IDbConnection>(new FakeDbConnection(Data));
+
+    /// <summary>
+    /// نسخة الاختبار من direct migration connection: نفس FakeDbConnection (ما يهم
+    /// لأن الـ tests كلها in-memory). نرجّع null-safe — لو الـ test ما يحتاج
+    /// migration، الـ caller يفحص.
+    /// </summary>
+    public Task<IDbConnection?> CreateEphemeralMigrationConnectionAsync(CancellationToken ct = default) =>
+        Task.FromResult<IDbConnection?>(new FakeDbConnection(Data));
+
     public void EnsureTable(string tableName)
     {
         if (!Data.Tables.Contains(tableName))

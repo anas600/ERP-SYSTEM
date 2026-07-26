@@ -34,7 +34,7 @@ namespace ERPSystem.Shared.Migrations;
 /// Idempotency: all DDL uses IF EXISTS / IF NOT EXISTS guards. Safe to re-run
 /// on a fresh database, partially-built database, or post-deploy database.
 /// </summary>
-[Migration(20260725_120000)]
+[Migration(20260101_000001, TransactionBehavior.None)]
 public class Phase6_InitialSchema : Migration
 {
     public override void Up()
@@ -45,76 +45,25 @@ public class Phase6_InitialSchema : Migration
         //    EXISTS is harmless.
         Execute.Sql("DELETE FROM \"VersionInfo\";");
 
-        // 2) Drop all business tables. The list covers every spec module.
-        //    `user_companies` is included so a re-run after Phase 6.1 starts
-        //    modifying the table does not leave a stale copy. `companies` is
-        //    included so the new shape (no `tenant_id`, no `tenant_id` index)
-        //    is rebuilt cleanly.
+        // 2) Nuclear clean slate: DROP SCHEMA + CREATE SCHEMA. This wipes EVERY
+        //    table, function, sequence, view, and type in the `public` schema.
+        //    الـ `public` schema بعدها يُعاد إنشاؤه فارغاً. الـ DataTypeMigrator
+        //    (JSON) يعيد بناء كل الجداول من الصفر في الـ startup التالي.
         //
-        //    Single DROP TABLE statement, comma-separated, with CASCADE so
-        //    dependent FKs and indexes disappear automatically. CASCADE here
-        //    is destructive by design — this is a clean-slate migration.
-        Execute.Sql(@"
-            DROP TABLE IF EXISTS
-                user_companies,
-                users,
-                roles,
-                user_roles,
-                refresh_tokens,
-                password_reset_tokens,
-                tenants,
-                companies,
-                cost_centers,
-                accounts,
-                journal_entries,
-                journal_lines,
-                posting_rules,
-                projects,
-                project_tasks,
-                resources,
-                resource_assignments,
-                project_budgets,
-                items,
-                item_categories,
-                warehouses,
-                units_of_measure,
-                stock_levels,
-                stock_movements,
-                stock_reservations,
-                vendors,
-                purchase_orders,
-                purchase_order_lines,
-                goods_receipts,
-                goods_receipt_lines,
-                vendor_bills,
-                vendor_bill_lines,
-                customers,
-                sales_invoices,
-                sales_invoice_lines,
-                receipts,
-                receipt_allocations,
-                payments,
-                payment_allocations,
-                departments,
-                employees,
-                attendance,
-                leave_requests,
-                salary_structures,
-                salary_structure_lines,
-                payroll_runs,
-                payroll_items,
-                payslip_components,
-                notifications,
-                outbox_events,
-                processed_events,
-                audit_log,
-                archive_metadata
-            CASCADE;
-        ");
+        //    السبب: لو كان عندنا legacy tables (مع tenant_id) في الـ DB من
+        //    قبل Phase 6.0، الـ DROP TABLE list أعلاه قد يفشل لو:
+        //    - فيه views أو functions معتمدة على هذه الجداول
+        //    - فيه extensions أو types أنشأتها migrations قديمة
+        //    - الـ database partial-state (بعض الجداول موجودة، بعضها ناقص)
+        //
+        //    DROP SCHEMA ... CASCADE يتجاوز كل هذا ويضمن clean slate 100%.
+        Execute.Sql("DROP SCHEMA IF EXISTS public CASCADE;");
+        Execute.Sql("CREATE SCHEMA public;");
+        Execute.Sql("GRANT ALL ON SCHEMA public TO postgres;");
+        Execute.Sql("GRANT ALL ON SCHEMA public TO public;");
 
-        // 3) Drop auto-increment sequences that may not be tied to a column
-        //    (audit_log uses bigint with nextval). The CASCADE on the table
-        //    above should drop the sequence too, but be explicit for safety.
+        // 3) Drop auto-increment sequences that may not be tied to a column.
+        //    بعد DROP SCHEMA ما يبقى شي، لكن للسلامة لو في sequences خارج الـ schema.
         Execute.Sql("DROP SEQUENCE IF EXISTS audit_log_id_seq CASCADE;");
     }
 

@@ -120,6 +120,9 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
     opts.OltpConnectionString = builder.Configuration.GetConnectionString("Postgres")
         ?? throw new InvalidOperationException("ConnectionStrings:Postgres غير معرّف.");
     opts.EventStoreConnectionString = builder.Configuration.GetSection("Marten")["ConnectionString"];
+    // Phase 6.3 hotfix (PR #149): direct connection (port 5432) للـ migrations.
+    // اختياري — لو مش معرّف، الـ migrators يستخدمون الـ OLTP ephemeral (مع تحذير).
+    opts.MigrationsConnectionString = builder.Configuration.GetConnectionString("Migrations");
 
     // Resiliency baseline (DEC-093, 2026-07-24): values من appsettings.json،
     // الـ defaults في NpgsqlConnectionFactory تأخذ الأولوية لو الـ keys ناقصة.
@@ -347,15 +350,46 @@ if (!string.IsNullOrEmpty(postgresConn) && postgresConn.Contains("Password=") &&
     }
 }
 
+// Phase 6.3 hotfix (PR #149): URL-decode the Migrations connection string the same
+// way (Npgsql 8.0.5 quirk). Use it for FluentMigrator if available — bypasses
+// Supavisor/pgbouncer transaction mode (the root cause of PR #149's 6 DDL errors).
+var migrationsConn = builder.Configuration.GetConnectionString("Migrations");
+if (!string.IsNullOrEmpty(migrationsConn) && migrationsConn.Contains("Password=") && migrationsConn.Contains("%"))
+{
+    try
+    {
+        var mcsb = new Npgsql.NpgsqlConnectionStringBuilder(migrationsConn);
+        if (!string.IsNullOrEmpty(mcsb.Password) && mcsb.Password.Contains('%'))
+        {
+            var decoded = System.Web.HttpUtility.UrlDecode(mcsb.Password);
+            if (!string.IsNullOrEmpty(decoded) && decoded != mcsb.Password)
+            {
+                mcsb.Password = decoded;
+                migrationsConn = mcsb.ConnectionString;
+                builder.Configuration["ConnectionStrings:Migrations"] = migrationsConn;
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Program.cs] Warning: failed to URL-decode Migrations connection string: {ex.Message}");
+    }
+}
+var migrationsRunner = !string.IsNullOrWhiteSpace(migrationsConn) ? migrationsConn : postgresConn;
+Console.WriteLine($"[Migrations] FluentMigrator using: {(string.IsNullOrWhiteSpace(migrationsConn) ? "pgbouncer (port 6543) — fallback" : "direct connection (port 5432)")}");
+
 builder.Services.AddFluentMigratorCore()
     .ConfigureRunner(rb => rb
         .AddPostgres()
-        .WithGlobalConnectionString(postgresConn)
+        .WithGlobalConnectionString(migrationsRunner)
         .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
-builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator runs FIRST to create tables (many C# migrations depend on JSON-created tables)
-builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): creates the default Holding (id=00000000-0000-0000-0000-000000000001) + 47-account CoA + 6 UoMs + 5 categories AFTER tables exist but BEFORE C# migrations. Idempotent.
-builder.Services.AddHostedService<MigrationRunnerHostedService>();
+// Phase 6.0 order (P6-0b) — الترتيب حرج: Phase 6 migration يحذف كل الجداول القديمة
+// (مع tenant_id)، بعدها DataTypeMigrator يعيد بناء الـ schema من JSON بدون tenant_id،
+// بعدها DefaultHolding يبذر الـ Holding + CoA على الـ schema النظيف.
+builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0 (P6-0): Phase6_InitialSchema_20260725_120000 drops every old business table (Clean Slate) so the JSON migrator can rebuild without tenant_id
+builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
+builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<OutboxProcessorHostedService>();
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
