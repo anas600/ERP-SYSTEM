@@ -80,6 +80,49 @@ public sealed class NpgsqlConnectionFactory : IDbConnectionFactory
         return conn;
     }
 
+    /// <summary>
+    /// اتصال مباشر (port 5432, بدون Supavisor/pgbouncer) مخصّص لـ Schema migrations
+    /// (FluentMigrator + DataTypeMigrator). السبب الجذري للـ PR #149: pgbouncer
+    /// transaction-mode (port 6543) يـ release الـ backend بعد كل transaction، فـ
+    /// DDL statements المتعاقبة ممكن توصل backends مختلفة → CREATE TABLE users على
+    /// backend A، ALTER TABLE users ADD COLUMN على backend B ما شافش الـ table →
+    /// "42P01: relation users does not exist". الحل الرسمي من Supabase docs:
+    /// use direct connection (port 5432) for migrations. يُرجع null لو ما في
+    /// ConnectionStrings:Migrations معرّف (fallback على ephemeral OLTP).
+    /// </summary>
+    public async Task<IDbConnection?> CreateEphemeralMigrationConnectionAsync(CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(_options.MigrationsConnectionString))
+        {
+            _logger.LogWarning("[Migration] ConnectionStrings:Migrations غير معرّف — لن يتم تشغيل الـ migrations عبر direct connection. الـ DataTypeMigrator سيستخدم الـ OLTP ephemeral (pgbouncer).");
+            return null;
+        }
+        var csb = new NpgsqlConnectionStringBuilder(_options.MigrationsConnectionString);
+        // Direct connection assumes Pooling=false already set in config; force it again defensively.
+        csb.Pooling = false;
+        // URL-decode password for Npgsql 8.0.5 (DEC-096)
+        if (!string.IsNullOrEmpty(csb.Password) && csb.Password.Contains('%'))
+        {
+            try
+            {
+                var decoded = HttpUtility.UrlDecode(csb.Password);
+                if (!string.IsNullOrEmpty(decoded) && decoded != csb.Password)
+                {
+                    csb.Password = decoded;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "[NpgsqlConnectionFactory] Failed to URL-decode Migration Password — using as-is");
+            }
+        }
+        var conn = new NpgsqlConnection(csb.ConnectionString);
+        await conn.OpenAsync(ct).ConfigureAwait(false);
+        _logger.LogInformation("[Migration] فُتح اتصال Migration مباشر (Host={Host}, Port={Port}, Db={Db})",
+            csb.Host, csb.Port, csb.Database);
+        return conn;
+    }
+
     private NpgsqlConnectionStringBuilder BuildBuilderWithResiliency(string connectionString)
     {
         var csb = new NpgsqlConnectionStringBuilder(connectionString)
@@ -124,6 +167,13 @@ public sealed class NpgsqlConnectionOptions
 {
     public string OltpConnectionString { get; set; } = string.Empty;
     public string? EventStoreConnectionString { get; set; }
+
+    /// <summary>
+    /// اتصال مباشر (port 5432, بدون Supavisor/pgbouncer) للـ schema migrations
+    /// فقط. لو غير معرّف، الـ migrators يستخدمون الـ OLTP ephemeral connection
+    /// (مع كل المخاطر اللي شرحناها في PR #149).
+    /// </summary>
+    public string? MigrationsConnectionString { get; set; }
 
     // Resiliency baseline (DEC-093, 2026-07-24)
     // Phase 6.3 hotfix (PR #149 follow-up): CommandTimeout 60→180. السبب: في cold
