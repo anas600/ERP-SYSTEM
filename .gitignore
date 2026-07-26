@@ -1,4 +1,4 @@
-# Build outputs
+﻿# Build outputs
 src/backend/Tools/DataTypeCodeGen/bin/
 src/backend/Tools/DataTypeCodeGen/obj/
 src/frontend/.next/
@@ -6,6 +6,9 @@ src/frontend/node_modules/
 src/frontend/tsconfig.tsbuildinfo
 src/backend/**/*.tsbuildinfo
 **/*.tsbuildinfo
+
+# PDF generation tools (Node.js)
+docs/node_modules/
 
 # EntityRepoEnhance build artifacts
 src/backend/Tools/EntityRepoEnhance/obj/

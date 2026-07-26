@@ -1,7 +1,7 @@
-# 🤖 AGENTS.md — ERP-SYSTEM (Root)
+﻿# 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 5.B Sprint 3 (يوليو 2026) — **Migration fix (42P01) + Timeout alignment 60s + CoA batch INSERT (DEC-093 part 2) + GitHub Secrets automation**. Mavis + Jamie Executive + Jamie Analytical team pattern.
+> محدّث: Phase 6.2 (يوليو 2026) — **Multi-Company refactor (Phase 6) + 20 Accounting Reports + User Management + 1-year seed data + Functional Spec PDF**. Mavis + Jamie Executive + Jamie Analytical team pattern.
 
 ---
 
@@ -15,7 +15,7 @@
 | المدة المتوقعة | 8-10 أسابيع |
 | المالك | anas600 (https://github.com/anas600) |
 | الترخيص | Private — جميع الحقوق محفوظة |
-| الحالة | **Phase 4 مكتمل (PR #1 → #15)**، Phase 5 قادم |
+| الحالة | **Phase 6.2 مكتمل** (Multi-Company refactor + 20 Accounting Reports + User Management + 1-year seed data) |
 
 ---
 
@@ -504,3 +504,52 @@ This project has an analytical team connected via the **Brainstorming Lab** repo
 - Reading a specific file: ~50 tokens in the directive
 - Reading the whole hub every task: ~500 tokens (10× waste)
 - Rule: **only read what's referenced**
+
+---
+
+## 📌 Phase 6.2 — Multi-Company + 20 Reports (2026-07-26)
+
+**Branch:** `feature/phase6-migrate-features` (NOT merged to develop — Anas reviews and merges manually per Constitution Article 5.2)
+**Commits:** `1ac5aff` (backend) + `fbf5a02` (frontend) + final doc/seed commit
+**Diff:** +3,349 / -1,956 lines (backend) + 2,386 / -1,259 lines (frontend) + ~52 KB docs
+
+### What's in this phase
+
+- **20 mandatory accounting reports** (Trial Balance, Income Statement, Balance Sheet, Cash Flow, General Ledger, Journal Entries, Account Activity, AR/AP Aging, Collections, Sales by Customer/Item, Purchases by Vendor, Top Customers/Vendors, Cost Center Performance, Project P&L, Budget vs Actual, VAT 15%, Inventory Valuation)
+- **User management** (CRUD + admin password reset + role assignment)
+- **Self-service change-password** endpoint
+- **Frontend**: 7 new report pages + updated `admin/users` page + `formatCurrency` / `formatPercent` utils
+- **1-year seed data** (4 SQL files, ~50 KB total) on Multi-Company architecture
+- **Functional Specification** (31-page PDF/HTML/MD) for Anas and Stakeholders
+
+### Architecture rules followed (per Constitution Article 3)
+
+- ✅ All SQL filters by `company_id`, NOT `tenant_id`
+- ✅ All services use `ICompanyContext.CompanyId` (no `ITenantContext`)
+- ✅ Holding Company auto-seeded at startup (`ec6b98ee-221c-410e-a690-192245314a68`)
+- ✅ JWT carries `defaultCompanyId` + `company_ids[]` claims
+- ✅ `X-Company-Id` header on every request
+
+### Key file references for Phase 6.2 reviewers
+
+| Topic | File |
+|-------|------|
+| Trial Balance Dapper mapping fix | `src/backend/Modules/Reports/Application/Services/FinanceReportService.cs` |
+| NormalBalance enum cast fix | `src/backend/Modules/Finance/Application/Services/AccountActivityService.cs` |
+| Roles/User CRUD | `src/backend/Host/Controllers/RolesController.cs` |
+| Reports controller (Finance) | `src/backend/Host/Controllers/FinanceReportsController.cs` |
+| Frontend reports API client | `src/frontend/lib/api.ts` |
+| Frontend utils (formatCurrency) | `src/frontend/lib/utils.ts` |
+| Trial Balance page | `src/frontend/app/(authenticated)/reports/financial/trial-balance/page.tsx` |
+| Admin users page (migrated to identityApi) | `src/frontend/app/(authenticated)/admin/users/page.tsx` |
+| Functional Spec (PDF) | `docs/SYSTEM-FUNCTIONAL-SPECIFICATION.pdf` |
+| Full-year seed (Multi-Company) | `docs/seed-one-year-data.sql` + `docs/seed-phases-2-8.sql` + `docs/seed-phases-6-8.sql` |
+
+### Known follow-ups (out of scope for Phase 6.2)
+
+- 13 remaining frontend report pages (Reports #4, #5, #8, #9, #10, #11, #13, #14, #15 vendors, #16, #17, #18 detail, #20)
+- Unit tests for the 10 new report services
+- Playwright E2E tests for the 20 reports
+- PDF/Excel export for reports
+- Charts (line/bar) for trend reports
+- Drill-down navigation (click customer → see invoices)
