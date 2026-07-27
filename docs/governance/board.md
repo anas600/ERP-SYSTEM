@@ -1,32 +1,34 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-27 23:26 UTC (Cycle 3 launch)
-> **Updated by:** سيتي (Cloud)
+> **Last updated:** 2026-07-28 00:30 UTC (Cycle 4 launch by Mavis Local)
+> **Updated by:** Mavis Local (Tech Lead + temporary Coordinator for cycle 4 per Anas)
 
-## 🔄 Current Cycle: 3 / 20
+## 🔄 Current Cycle: 4 / 20
 
 | Field | Value |
 |-------|-------|
-| **Title** | 6.5 CI/Hardening + Complete Phase 6 Tests |
-| **Owner** | Mavis Local (Tech Lead) |
-| **Status** | 🟡 ACTIVE — Hand-off pushed, awaiting Mavis Local start |
-| **Hand-off** | docs/governance/hand-offs/cycle-3.md (128 lines) |
-| **Cron** | `monitor-cycle-3-pr-merge` (task_id 423270248620268, every 3 min) |
-| **DECs** | DEC-070 + DEC-071 |
+| **Title** | Governance Improvement — Lessons Learned + Protocol Hardening |
+| **Owner** | Mavis Local (Tech Lead, +Coordinator role for this cycle only) |
+| **Status** | 🟡 ACTIVE — In progress, will self-merge when done |
+| **Hand-off** | docs/governance/hand-offs/cycle-4.md (writing now) |
+| **DECs** | DEC-070 (admin), DEC-071 (basic tests), DEC-072 (presence protocol) |
+| **Authority grant** | Anas gave Mavis Local the "Coordinator" role for cycle 4 ONLY — to transfer Mavis Local's experience to Siti so future cycles run smoother |
 
-## 📋 Cycle 3 Tasks
+## 📋 Cycle 4 Tasks
 
-### Block A (Mavis Local)
+### Block A (Mavis Local, as Coordinator)
 
-- [ ] T1a: `UserCompany_Limits_Access_To_Assigned_Companies` (unit, ~1h)
-- [ ] T1b: `CompanySwitcher_Switches_Active_Company_In_Context` (unit, ~1h)
-- [ ] T2a-c: Pre-commit hook for secrets (TruffleHog, ~1-2h)
-- [ ] T3a-b: CI workflow improvements (caching, fast-fail, ~1h)
-- [ ] T4: Fix HF Space sync workflow (optional, ~30-60min)
+- [ ] T1: Write `docs/governance/lessons-learned.md` (Mavis Local → Siti knowledge transfer) — cycles 0-3 hard-won experience
+- [ ] T2: Update `docs/governance/README.md` (add documented failure modes + cron pattern)
+- [ ] T3: Update `docs/governance/hand-off-template.md` (add "verify prior work" + "be specific" + "investigate vs fix" sections)
+- [ ] T4: Update `docs/governance/cycle-log.md` (add cycle 2, 3, 4 entries with details)
+- [ ] T5: Update this board (close cycle 3, mark cycle 4 ACTIVE)
+- [ ] T6: Write `docs/governance/hand-offs/cycle-4.md` (the new hand-off for cycle 5+)
+- [ ] T7: Commit + push + open PR + self-merge per DEC-070
 
-## 🛡️ Permissions (DEC-070 + DEC-071)
+## 🛡️ Permissions (DEC-070 + DEC-071 + DEC-072)
 
-- ✅ Self-merge
+- ✅ Self-merge (--admin flag required)
 - ✅ --force-with-lease
 - ✅ Skip Playwright
 - ✅ Risk tolerance on develop
@@ -37,21 +39,32 @@
 
 ## 📈 Progress Tracking
 
-- **Started:** 23:25 UTC
-- **ETA:** 3-4 hours
-- **Estimated completion:** 2026-07-28 02:25 - 03:25 UTC
+- **Started:** 00:25 UTC (after Anas's "Cycle 4" + Coordinator grant)
+- **ETA:** ~30 min (governance-only sprint, no code)
+- **Estimated completion:** 2026-07-28 00:55 UTC
 
 ## 🔄 Previous Cycles
 
+### Cycle 0: Protocol Establishment — DONE ✅
+- Established `docs/governance/` structure
+- PR #152 merged to develop (Phase 6.2 cherry-pick + DEC-ABDO-009 + Mavis docs)
+
 ### Cycle 1: 6.4 Documentation Sprint — DONE ✅
-- PR #153 merged (SHA 47458bd3)
+- PR #153 merged (SHA 47458bd3, by Anas)
 - 20 files, +1494/-8
+- Smart rebase (reset+cherry-pick) resolved CONFLICTING
 
 ### Cycle 2: 6.2 Tests Refactor — DONE ✅
 - PR #154 merged (SHA 89ce08ac, by Mavis Local self-merge)
 - 11 files, +284/-57
-- 1 new test (HoldingBootstrap), partial refactor
+- 3 new test cases (UserCompany_Limits, CompanySwitcher_*, HoldingBootstrap_*)
+
+### Cycle 3: 6.5 CI/Hardening — DONE ✅
+- PR #155 merged (SHA 86b4546a, by Mavis Local self-merge)
+- 4 files, +352/-5
+- Pre-commit hook (POSIX bash) + xunit parallelism + CONTRIBUTING.md
+- T1 was already done in cycle 2 (caught via inventory); T4 was a no-op (HF sync not on develop)
 
 ---
 
-*Updated by سيتي on each state change.*
+*Updated by Mavis Local. Will be updated again on cycle 4 closure.*
