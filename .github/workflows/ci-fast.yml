@@ -3,6 +3,14 @@ name: CI Fast (Tests + Build)
 # DEC-054: Fast feedback loop on every push.
 # Runs unit + integration tests, NO HF Space deploy (saves 8-12 min).
 # For deploy, see ci-deploy.yml (manual or merge to develop).
+#
+# Cycle 3 (Phase 6.5) — Hardening:
+#   - Job-level timeouts (prevent runaway builds)
+#   - xunit.runner.json enables in-assembly parallel test execution
+#   - backend-tests and frontend-build run in parallel (separate jobs)
+#   - Build → Test pipeline within backend-tests for fast-fail on compile errors
+#   - The .githooks/pre-commit hook (local-only) is the first line of defense;
+#     see docs/CONTRIBUTING.md for setup.
 on:
   push:
     branches: [develop, main]
@@ -24,6 +32,7 @@ jobs:
   backend-tests:
     name: Backend Tests (.NET 9.0)
     runs-on: ubuntu-latest
+    timeout-minutes: 15   # Cycle 3 hardening: cap build time
     defaults:
       run:
         working-directory: src/backend
@@ -72,13 +81,17 @@ jobs:
       - name: Restore Tests
         run: dotnet restore Tests/ERPSystem.Tests/ERPSystem.Tests.csproj
 
-      - name: Build Backend
+      # Fast-fail: if compilation breaks, the next step is skipped.
+      # This saves ~3 min vs. running tests against a broken build.
+      - name: Build Backend (fast-fail on compile errors)
         run: dotnet build Host/ERP-SYSTEM.csproj --no-restore --configuration Release
 
       - name: Build Tests
         run: dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj --no-restore --configuration Release
 
-      - name: Run all tests (unit + integration)
+      # xunit.runner.json (root) enables parallelizeTestCollections=true.
+      # On 4-core CI runners, test classes run ~4x in parallel.
+      - name: Run all tests (unit + integration, in parallel)
         run: |
           dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
             --no-build --configuration Release \
@@ -94,11 +107,12 @@ jobs:
           path: '**/TestResults/**/*.trx'
 
   # ===================================================================
-  # Frontend: type-check + lint + build
+  # Frontend: type-check + lint + build (runs in parallel with backend)
   # ===================================================================
   frontend-build:
     name: Frontend Build (Next.js 14)
     runs-on: ubuntu-latest
+    timeout-minutes: 10   # Cycle 3 hardening: cap build time
     defaults:
       run:
         working-directory: src/frontend
@@ -116,10 +130,11 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Type check
+      # Fast-fail: type-check → lint → build (sequential, each fails fast)
+      - name: Type check (fast-fail)
         run: npm run type-check
 
-      - name: Lint
+      - name: Lint (fast-fail)
         run: npm run lint
 
       - name: Build
