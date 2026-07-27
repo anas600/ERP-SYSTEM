@@ -1,18 +1,19 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-28 00:43 UTC (Cycle 4 closed; awaiting Cycle 5)
+> **Last updated:** 2026-07-28 00:48 UTC (سیتی confirmed offline by Anas; awaiting decision)
 > **Updated by:** Mavis Local (Tech Lead + temporary Coordinator for cycle 4 per Anas)
 
-## 🔄 Current Cycle: 5 / 20 — AWAITING HAND-OFF
+## 🔄 Current Cycle: 5 / 20 — AWAITING DECISION
 
 | Field | Value |
 |-------|-------|
-| **Title** | (pending — awaiting Siti's hand-off) |
+| **Title** | (pending — awaiting Anas's decision) |
 | **Owner** | Mavis Local (Tech Lead) |
-| **Status** | 🟡 AWAITING — Cycle 4 done, ready for cycle 5 scope from سيتي |
+| **Status** | 🟡 BLOCKED — سیتی is offline (confirmed by Anas 00:46 UTC); can't get cycle 5 hand-off |
 | **Last completed cycle** | 4 (Governance Improvement, PR #156 merged at 22:35 UTC) |
 | **DECs active** | DEC-070 (admin), DEC-071 (basic tests), DEC-072 (presence protocol) |
-| **Signal to Siti** | `docs/governance/presence-signal.json` (request: "cycle-5 hand-off") |
+| **Blocker** | سیتی (Cloud Coordinator) offline per Anas. Per DEC-072 this is the documented "network/cloud outage" failure mode. |
+| **Anas hand-off** | `docs/governance/hand-offs/cycle-4-anas-handoff.md` (full status report, 4 options for moving forward) |
 
 ## 📋 Cycle 4 — DONE ✅ (just closed)
 
