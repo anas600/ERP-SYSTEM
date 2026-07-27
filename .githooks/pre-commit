@@ -1,0 +1,90 @@
+#!/usr/bin/env pwsh
+# =============================================================================
+# Pre-commit hook — Phase 6 / Cycle 3
+# =============================================================================
+# On Windows: file association invokes PowerShell 5.1
+# On Linux/macOS: requires PowerShell 7+ (`pwsh`) — install via
+#   https://learn.microsoft.com/powershell/scripting/install/installing-powershell
+#
+# Purpose:  Block accidental commit of secrets (.env, passwords, tokens) before
+#           they reach the remote. Mirrors the CI TruffleHog scan (see
+#           .github/workflows/secrets-scan.yml) but runs locally in <5s.
+#
+# Setup:    git config core.hooksPath .githooks
+#           (documented in docs/CONTRIBUTING.md)
+#
+# Bypass:   git commit --no-verify   (for emergencies only — CI still scans)
+#
+# Requires: TruffleHog binary on PATH (https://github.com/trufflesecurity/trufflehog)
+#           OR a Python venv with trufflehog installed. Auto-detected.
+# =============================================================================
+
+$ErrorActionPreference = 'Stop'
+
+# Get list of staged files (added/copied/modified) — skip deletions (no content)
+$staged = git diff --cached --name-only --diff-filter=ACM
+if (-not $staged) {
+    exit 0
+}
+
+# Patterns we always block regardless of TruffleHog availability.
+# These are common .NET / Supabase / .env secret patterns.
+$denyPatterns = @(
+    @{ Pattern = '(?i)password\s*=\s*[^\s"'']+';        Reason = 'password=...' },
+    @{ Pattern = '(?i)connectionstring.*password=';    Reason = 'connection-string password' },
+    @{ Pattern = 'ghp_[A-Za-z0-9]{20,}';                Reason = 'GitHub PAT (ghp_)' },
+    @{ Pattern = 'sk-[A-Za-z0-9]{20,}';                Reason = 'OpenAI/Stripe sk- key' },
+    @{ Pattern = '(?i)aws_secret_access_key\s*=';     Reason = 'AWS secret key' },
+    @{ Pattern = 'BEGIN (RSA|DSA|EC|OPENSSH|PRIVATE) KEY'; Reason = 'private key block' }
+)
+
+$foundViolation = $false
+foreach ($file in $staged) {
+    if (-not (Test-Path $file)) { continue }
+    $content = Get-Content -Raw -Path $file -ErrorAction SilentlyContinue
+    if (-not $content) { continue }
+
+    foreach ($p in $denyPatterns) {
+        $hit = $content | Select-String -Pattern $p.Pattern -AllMatches
+        if ($hit) {
+            Write-Host ""
+            Write-Host "[pre-commit] BLOCKED: $($p.Reason) in $file" -ForegroundColor Red
+            Write-Host "  ${file}:$($hit[0].LineNumber): $($hit[0].Line.Trim())"
+            $foundViolation = $true
+        }
+    }
+}
+
+if ($foundViolation) {
+    Write-Host ""
+    Write-Host "[pre-commit] Commit blocked. Review the lines above." -ForegroundColor Red
+    Write-Host "  Use 'git commit --no-verify' to bypass (NOT recommended)." -ForegroundColor Yellow
+    exit 1
+}
+
+# TruffleHog (if available) — deeper scan for high-entropy strings.
+# ~5s for typical commits. Skip silently if not installed.
+$trufflehog = $null
+if (Get-Command trufflehog -ErrorAction SilentlyContinue) {
+    $trufflehog = 'trufflehog'
+} elseif (Test-Path '.\.venv\Scripts\trufflehog.exe') {
+    $trufflehog = '.\.venv\Scripts\trufflehog.exe'
+}
+
+if ($trufflehog) {
+    Write-Host "[pre-commit] Running TruffleHog on $($staged.Count) staged file(s)..." -ForegroundColor DarkCyan
+    $tempFile = New-TemporaryFile
+    $staged | Out-File -FilePath $tempFile -Encoding utf8
+    & $trufflehog filesystem --file=$tempFile --no-verification --fail 2>&1 | Out-Null
+    $thExit = $LASTEXITCODE
+    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
+    if ($thExit -ne 0) {
+        Write-Host "[pre-commit] TruffleHog detected secrets. Commit blocked." -ForegroundColor Red
+        exit 1
+    }
+} else {
+    Write-Host "[pre-commit] TruffleHog not installed (skipping deep scan; install from https://github.com/trufflesecurity/trufflehog)." -ForegroundColor DarkGray
+}
+
+Write-Host "[pre-commit] OK - staged files clean." -ForegroundColor Green
+exit 0

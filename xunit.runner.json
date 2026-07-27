@@ -1,0 +1,17 @@
+{
+  "$schema": "https://xunit.net/schema/current/xunit.runner.schema.json",
+  "_": "xUnit v2 test runner config — enables parallel test execution within the Tests assembly.",
+  "_xunit_version": "v2 (used by dotnet test with xunit.runner.visualstudio adapter)",
+  "parallelizeAssembly": true,
+  "parallelizeTestCollections": true,
+  "maxParallelThreads": -1,
+  "diagnosticMessages": false,
+  "longRunningTestSeconds": 30,
+  "_notes_on_parallelism": [
+    "Test classes are independent by default (xUnit creates one Test Collection per class).",
+    "Methods within a class run sequentially (xUnit default — no [Collection] merging).",
+    "For shared-state tests (e.g. integration tests sharing a DB), use [Collection(\"name\")] to serialize.",
+    "maxParallelThreads=-1 means use the number of CPU cores.",
+    "In CI, the GitHub runner has 2-4 cores; on a 4-core machine, this runs ~4 test classes in parallel."
+  ]
+}
