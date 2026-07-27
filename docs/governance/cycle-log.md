@@ -2,7 +2,7 @@
 
 > **History of all 20 cycles in the governance protocol.**
 
-## Cycle 0: Protocol Establishment (2026-07-27)
+## Cycle 0: Protocol Establishment (2026-07-27) — DONE ✅
 - **Siti:** Created governance structure (docs/governance/*)
 - **Files:** 10 governance files
 - **Outcome:** Protocol ready for cycle 1
@@ -18,52 +18,72 @@
 - **17:50 UTC:** Hand-off v1 pushed to develop
 - **17:55 UTC:** Mavis Local started cycle 1
 - **18:38 UTC:** PR #153 opened (19 commits ahead of develop)
-- **18:39 UTC:** Detected CONFLICTING (develop had PR #152 cherry-picks)
+- **18:39 UTC:** Detected CONFLICTING
 - **18:55 UTC:** Siti created cron `monitor-pr-153-merge`
 - **20:39 UTC:** Mavis Local did smart rebase + force-push
-  - Backup tag: `backup/pre-rebase-feature-20260727-2039`
-  - Reset to `origin/develop` (dropped 8 duplicate commits)
-  - Cherry-picked 2 clean commits (d4aaa7a, 020aa6b)
-  - HEAD now: `2dee521` (clean, 2 commits above develop)
-  - Used `--force-with-lease` (smart choice per Constitution)
 - **18:43 UTC:** Cron detected state change (CONFLICTING → mergeable=true)
-- **18:44 UTC:** PR #153 manually merged (squash)
-  - Merge commit: `47458bd3c64e914990dd2e1c4c3199a620a9c6e2`
-  - 20 files, +1494 lines, -8 lines
-- **18:45 UTC:** Cycle-log + summary updated on develop
-- **18:45 UTC:** Cron self-deleted (work done)
+- **18:44 UTC:** PR #153 manually merged (squash, SHA 47458bd3)
+- **18:45 UTC:** Cycle-log + summary updated
+- **18:45 UTC:** Cron self-deleted
 
 ### Verification
 - tsc --noEmit: ✅ 0 errors
-- dotnet build: ✅ 0 errors (2 pre-existing nullable warnings)
-- CI on PR: 6/6 PASS (after rebase resolved the conflict-blocked CI)
-- Force-push safety: ✅ Used `--force-with-lease` (smart)
+- dotnet build: ✅ 0 errors
+- CI: 6/6 PASS
+- Force-push safety: ✅ Used `--force-with-lease`
 
-### Key Learnings (Siti internal)
-1. **Cron pattern works perfectly** — silent on no-change, notify on state-change, self-delete on terminal
-2. **Token efficiency** — 3K tokens/run vs 20K+ for manual = 85% savings
-3. **Mavis Local's smart rebase** — backup tag + reset + cherry-pick = clean, no duplicates
-4. **Force-push discipline** — `--force-with-lease` (not plain `--force`) prevents overwriting remote changes
-5. **Async protocol is robust** — local team and cloud team worked in parallel, no conflicts
-
-### Files changed
-- 20 files total in PR #153
-- 5 tasks delivered (root AGENTS, CHANGELOG, modules, release notes, analysis outcome)
-- 3 governance files added (board.md, hand-offs/, cycle-1.md, etc.)
+### Key Learnings
+1. Cron pattern works perfectly
+2. Token efficiency: 3K vs 20K = 85% saved
+3. Mavis Local's smart rebase strategy
+4. `--force-with-lease` discipline
+5. Async protocol is robust
 
 ---
 
-## Cycle 2: (next) — 6.2 Tests Refactor + 3-Layer DB
-- **Status:** ⏳ Ready to plan
-- **Owner:** Mavis Local (after Anas returns)
-- **Scope:**
-  - Update 23 xUnit test files (signature changes from tenant_id → company_id)
-  - Update 1 e2e spec (atomicity = "no orphan users")
-  - Add 3 new test cases (Holding bootstrap, UserCompany access, CompanySwitcher)
-  - Create reset-staging-db.yml workflow
-  - Update e2e.yml to use STAGING_* secrets
-  - Create separate Supabase STAGING project (Anas)
+## Cycle 2: 6.2 Tests Refactor + 3-Layer DB Setup (2026-07-27) — ACTIVE 🟡
+
+**Siti:** Wrote cycle-2 hand-off (cycle-2.md, 119 lines) + monitoring cron
+**Mavis Local:** Pending execution
+**Anas:** Approved via Telegram voice "Cycle 2 go, system input"
+
+### Timeline
+- **21:14 UTC:** Hand-off DRAFT prepared (in workspace, awaiting approval)
+- **21:18 UTC:** Hand-off sent to Anas for review (hammadto Anas format)
+- **21:38 UTC:** Anas approved via Telegram voice
+- **21:39 UTC:** Hand-off FINAL pushed to develop (docs/governance/hand-offs/cycle-2.md)
+- **21:39 UTC:** Board updated
+- **21:39 UTC:** Cron created (task_id 423253905956983, every 3 min)
+- **21:39 UTC:** ⏳ Awaiting Mavis Local to begin execution
+
+### Scope
+**Block A (Mavis Local)**: 31 C# test files refactor + 3 new test cases + 10 Playwright specs
+**Block B (Anas + Mavis Local)**: 3-Layer DB setup (STAGING project + secrets + workflows)
+
+### Hand-off
+- `docs/governance/hand-offs/cycle-2.md` (119 lines)
+- 14 tasks total (8 Block A + 6 Block B)
+- Estimated 4-6 hours total
+
+### Cron
+- `monitor-cycle-2-pr-merge` (task_id 423253905956983)
+- Every 3 minutes
+- Silent unless state change
+- Self-deletes on merge
 
 ---
 
-*Updated by Siti at end of each cycle.*
+## Cycle 3: (next) — 6.5 CI/Hardening
+- **Status:** ⏳ Backlog
+- **Anticipated scope:** CI improvements, pre-commit hooks, secrets scanning
+
+## Cycle 4: (next) — Production Prep (Local Docker)
+- **Status:** ⏳ Backlog
+- **Anticipated scope:** Final production validation per DEC-068
+
+## Cycles 5-20: Backlog
+- Phase 7 Planning, Phase 7 Implementation, Performance, Monitoring, Polish
+
+---
+
+*Updated by سيتي at end of each cycle.*
