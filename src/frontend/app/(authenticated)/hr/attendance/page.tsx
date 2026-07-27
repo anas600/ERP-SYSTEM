@@ -1,11 +1,12 @@
-﻿'use client';
+'use client';
 
 // صفحة الحضور (Attendance) — CheckIn / CheckOut + history
 
 import { useEffect, useState } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
 import { LogIn, LogOut as LogOutIcon, Clock, ClipboardList } from 'lucide-react';
-import { Button, Select, Table, Badge, Card, PageHeader, EmptyState, SkeletonTable, useToast } from '@/components/ui';
+import { Button, Select, Table, Badge, Card, PageHeader, EmptyState, SkeletonTable } from '@/components/ui';
+import { useToast } from '@/lib/useToast';
 import { useAuth } from '@/lib/useAuth';
 import {
   hrApi,

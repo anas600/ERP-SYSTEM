@@ -11,10 +11,10 @@ import {
   PageHeader,
   Select,
   SkeletonTable,
-  useToast,
 } from '@/components/ui';
 import { Table, type TableColumn } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
+import { useToast } from '@/lib/useToast';
 import { api, getErrorMessage, identityApi, type AdminUser } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
 

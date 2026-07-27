@@ -10,9 +10,10 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Select, Card, PageHeader, useToast } from '@/components/ui';
+import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { inventoryApi, getErrorMessage } from '@/lib/api';
+import { useToast } from '@/lib/useToast';
 
 const ITEM_TYPES = [
   { label: 'منتج (Stock)', value: 'Stock' },

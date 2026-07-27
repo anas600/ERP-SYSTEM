@@ -8,9 +8,10 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save, Trash2 } from 'lucide-react';
-import { Button, Card, Input, PageHeader, Select, useToast } from '@/components/ui';
+import { Button, Card, Input, PageHeader, Select } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
+import { useToast } from '@/lib/useToast';
 
 interface PostingRule {
   id: string;

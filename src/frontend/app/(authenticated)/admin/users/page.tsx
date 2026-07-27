@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Mail, Shield, Calendar, CheckCircle2, XCircle, KeyRound, UserPlus, Edit, Power } from 'lucide-react';
-import { Card, Badge, PageHeader, Button, Modal, EmptyState, SkeletonTable, useToast } from '@/components/ui';
+import { Card, Badge, PageHeader, Button, Modal, EmptyState, SkeletonTable } from '@/components/ui';
+import { useToast } from '@/lib/useToast';
 import { useAuth } from '@/lib/useAuth';
 import { identityApi, AdminUser, getErrorMessage } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';

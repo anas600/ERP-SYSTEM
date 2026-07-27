@@ -6,7 +6,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Card, PageHeader, useToast } from '@/components/ui';
+import { Button, Input, Card, PageHeader } from '@/components/ui';
+import { useToast } from '@/lib/useToast';
 import { arApi, getErrorMessage } from '@/lib/api';
 
 interface FormState {

@@ -3,9 +3,10 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Save, KeyRound, Building2, Trash2, Plus, Shield, Mail, CheckCircle2, XCircle, Calendar } from 'lucide-react';
-import { Badge, Button, Card, Modal, PageHeader, SkeletonTable, useToast } from '@/components/ui';
+import { Badge, Button, Card, Modal, PageHeader, SkeletonTable } from '@/components/ui';
 import { identityApi, getErrorMessage } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
+import { useToast } from '@/lib/useToast';
 
 interface UserDetail {
   id: string;

@@ -6,10 +6,11 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, ArrowLeft, Send, XCircle, FileText } from 'lucide-react';
-import { Button, Badge, Card, PageHeader, useToast } from '@/components/ui';
+import { Button, Badge, Card, PageHeader } from '@/components/ui';
 import { arApi, SalesInvoice, SALES_INVOICE_STATUSES, SALES_INVOICE_STATUS_VARIANTS, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { formatNumber } from '@/lib/format';
+import { useToast } from '@/lib/useToast';
 
 export default function SalesInvoiceDetailPage() {
   const params = useParams<{ id: string }>();

@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, UserPlus, Eye, EyeOff } from 'lucide-react';
-import { Button, Card, PageHeader, useToast } from '@/components/ui';
+import { Button, Card, PageHeader } from '@/components/ui';
+import { useToast } from '@/lib/useToast';
 import { identityApi, getErrorMessage } from '@/lib/api';
 
 interface RoleItem { id: string; name: string; description?: string; }
