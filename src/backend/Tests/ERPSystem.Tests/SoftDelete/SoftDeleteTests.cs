@@ -63,10 +63,10 @@ public class SoftDeleteTests
     }
 
     [Fact]
-    public void SoftDelete_IsTenantScoped()
+    public void SoftDelete_IsCompanyScoped()
     {
-        // Soft delete + restore must respect tenant_id
-        // Cannot delete records from another tenant
+        // Soft delete + restore must respect company_id (multi-company isolation)
+        // Cannot delete records from another company
         Assert.True(true);  // Enforced by WHERE clause
     }
 

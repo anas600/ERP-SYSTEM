@@ -21,9 +21,9 @@ public class FinanceReportServiceTests
 {
     private static (FinanceReportService svc, FakeDbConnectionFactory db, Guid companyId) Build()
     {
-        var tenant = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();
-        return (new FinanceReportService(db), db, tenant);
+        return (new FinanceReportService(db), db, companyId);
     }
 
     // ============== DTO Unit Tests (تشتغل دائماً) ==============
@@ -132,19 +132,19 @@ public class FinanceReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres. See CI workflow.")]
     public async Task GetTrialBalance_BalancedPostedEntries_ReturnsBalancedReport()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var cash = Guid.NewGuid();
         var revenue = Guid.NewGuid();
         var date = new DateTime(2026, 1, 31);
 
-        db.AddRow("accounts", "id", cash, "tenant_id", tenant, "code", "1110", "name", "الصندوق", "type", (int)AccountType.Asset);
-        db.AddRow("accounts", "id", revenue, "tenant_id", tenant, "code", "4100", "name", "إيرادات", "type", (int)AccountType.Revenue);
+        db.AddRow("accounts", "id", cash, "company_id", companyId, "code", "1110", "name", "الصندوق", "type", (int)AccountType.Asset);
+        db.AddRow("accounts", "id", revenue, "company_id", companyId, "code", "4100", "name", "إيرادات", "type", (int)AccountType.Revenue);
         var je = Guid.NewGuid();
-        db.AddRow("journal_entries", "id", je, "tenant_id", tenant, "status", (int)JournalEntryStatus.Posted, "entry_date", date);
+        db.AddRow("journal_entries", "id", je, "company_id", companyId, "status", (int)JournalEntryStatus.Posted, "entry_date", date);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", cash, "debit", 500m, "credit", 0m);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", revenue, "debit", 0m, "credit", 500m);
 
-        var report = await svc.GetTrialBalanceAsync(tenant, null, date, CancellationToken.None);
+        var report = await svc.GetTrialBalanceAsync(companyId, null, date, CancellationToken.None);
 
         report.Rows.Should().HaveCount(2);
         report.TotalDebit.Should().Be(500);
@@ -153,10 +153,10 @@ public class FinanceReportServiceTests
     }
 
     [Fact(Skip = "Integration: requires real Postgres.")]
-    public async Task GetTrialBalance_EmptyTenant_ReturnsEmptyReport()
+    public async Task GetTrialBalance_EmptyCompany_ReturnsEmptyReport()
     {
-        var (svc, _, tenant) = Build();
-        var report = await svc.GetTrialBalanceAsync(tenant, null, DateTime.UtcNow, CancellationToken.None);
+        var (svc, _, companyId) = Build();
+        var report = await svc.GetTrialBalanceAsync(companyId, null, DateTime.UtcNow, CancellationToken.None);
         report.Rows.Should().BeEmpty();
         report.IsBalanced.Should().BeTrue();
     }
@@ -164,20 +164,20 @@ public class FinanceReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres.")]
     public async Task GetIncomeStatement_RevenueAndCogs_CalculatesCorrectly()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var from = new DateTime(2026, 1, 1);
         var to = new DateTime(2026, 1, 31);
         var revenue = Guid.NewGuid();
         var cogs = Guid.NewGuid();
 
-        db.AddRow("accounts", "id", revenue, "tenant_id", tenant, "code", "4100", "type", (int)AccountType.Revenue);
-        db.AddRow("accounts", "id", cogs, "tenant_id", tenant, "code", "5110", "type", (int)AccountType.Expense);
+        db.AddRow("accounts", "id", revenue, "company_id", companyId, "code", "4100", "type", (int)AccountType.Revenue);
+        db.AddRow("accounts", "id", cogs, "company_id", companyId, "code", "5110", "type", (int)AccountType.Expense);
         var je = Guid.NewGuid();
-        db.AddRow("journal_entries", "id", je, "tenant_id", tenant, "status", (int)JournalEntryStatus.Posted, "entry_date", to);
+        db.AddRow("journal_entries", "id", je, "company_id", companyId, "status", (int)JournalEntryStatus.Posted, "entry_date", to);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", revenue, "debit", 0m, "credit", 1000m);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", cogs, "debit", 600m, "credit", 0m);
 
-        var income = await svc.GetIncomeStatementAsync(tenant, null, from, to, CancellationToken.None);
+        var income = await svc.GetIncomeStatementAsync(companyId, null, from, to, CancellationToken.None);
         income.Revenue.Should().Be(1000);
         income.Cogs.Should().Be(600);
         income.GrossProfit.Should().Be(400);
@@ -186,39 +186,39 @@ public class FinanceReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres.")]
     public async Task GetIncomeStatement_OpEx_ClassifiedAsOperatingExpenses()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var from = new DateTime(2026, 1, 1);
         var to = new DateTime(2026, 1, 31);
         var opex = Guid.NewGuid();
 
-        db.AddRow("accounts", "id", opex, "tenant_id", tenant, "code", "5200", "type", (int)AccountType.Expense);
+        db.AddRow("accounts", "id", opex, "company_id", companyId, "code", "5200", "type", (int)AccountType.Expense);
         var je = Guid.NewGuid();
-        db.AddRow("journal_entries", "id", je, "tenant_id", tenant, "status", (int)JournalEntryStatus.Posted, "entry_date", to);
+        db.AddRow("journal_entries", "id", je, "company_id", companyId, "status", (int)JournalEntryStatus.Posted, "entry_date", to);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", opex, "debit", 200m, "credit", 0m);
 
-        var income = await svc.GetIncomeStatementAsync(tenant, null, from, to, CancellationToken.None);
+        var income = await svc.GetIncomeStatementAsync(companyId, null, from, to, CancellationToken.None);
         income.OperatingExpenses.Should().Be(200);
     }
 
     [Fact(Skip = "Integration: requires real Postgres.")]
     public async Task GetBalanceSheet_AssetsEqualsLiabilitiesPlusEquity_IsBalanced()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var date = new DateTime(2026, 1, 31);
         var cash = Guid.NewGuid();
         var ap = Guid.NewGuid();
         var equity = Guid.NewGuid();
 
-        db.AddRow("accounts", "id", cash, "tenant_id", tenant, "code", "1110", "type", (int)AccountType.Asset);
-        db.AddRow("accounts", "id", ap, "tenant_id", tenant, "code", "2110", "type", (int)AccountType.Liability);
-        db.AddRow("accounts", "id", equity, "tenant_id", tenant, "code", "3100", "type", (int)AccountType.Equity);
+        db.AddRow("accounts", "id", cash, "company_id", companyId, "code", "1110", "type", (int)AccountType.Asset);
+        db.AddRow("accounts", "id", ap, "company_id", companyId, "code", "2110", "type", (int)AccountType.Liability);
+        db.AddRow("accounts", "id", equity, "company_id", companyId, "code", "3100", "type", (int)AccountType.Equity);
         var je = Guid.NewGuid();
-        db.AddRow("journal_entries", "id", je, "tenant_id", tenant, "status", (int)JournalEntryStatus.Posted, "entry_date", date);
+        db.AddRow("journal_entries", "id", je, "company_id", companyId, "status", (int)JournalEntryStatus.Posted, "entry_date", date);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", cash, "debit", 1000m, "credit", 0m);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", ap, "debit", 0m, "credit", 400m);
         db.AddRow("journal_lines", "journal_entry_id", je, "account_id", equity, "debit", 0m, "credit", 600m);
 
-        var bs = await svc.GetBalanceSheetAsync(tenant, null, date, CancellationToken.None);
+        var bs = await svc.GetBalanceSheetAsync(companyId, null, date, CancellationToken.None);
         bs.TotalAssets.Should().Be(1000);
         bs.TotalLiabilities.Should().Be(400);
         bs.TotalEquity.Should().Be(600);

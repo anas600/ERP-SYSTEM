@@ -34,7 +34,7 @@ public class RetentionTests
 
         // Insert into audit_log (should auto-route to correct partition)
         await using var cmd = new NpgsqlCommand(@"
-            INSERT INTO audit_log (tenant_id, entity_type, entity_id, action, user_id, changes, ip_address, created_at)
+            INSERT INTO audit_log (company_id, entity_type, entity_id, action, user_id, changes, ip_address, created_at)
             VALUES (@t, 'Test', @e, 'TEST', @u, '{}'::jsonb, '127.0.0.1'::inet, NOW())
             RETURNING id;
         ", conn);

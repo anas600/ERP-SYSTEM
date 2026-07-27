@@ -65,7 +65,7 @@ public class ItemServiceTests
         var (svc, _) = Build();
         var c = await svc.CreateAsync(Guid.NewGuid(), new CreateItemRequest { CompanyId = Guid.NewGuid(), Sku = "X", Name = "Y" }, CancellationToken.None);
         var r = await svc.GetByIdAsync(c.Value!.Id, CancellationToken.None);
-        // Phase 6.1b: items are global (no tenant filter), so this succeeds.
+        // Phase 6.1b: items are global (no company/tenant filter), so this succeeds.
         r.Succeeded.Should().BeTrue();
     }
 }
