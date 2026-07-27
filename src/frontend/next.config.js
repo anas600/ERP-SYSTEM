@@ -1,4 +1,6 @@
 /** @type {import('next').NextConfig} */
+const API_TARGET = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+
 const nextConfig = {
   reactStrictMode: true,
   output: 'standalone',
@@ -12,6 +14,16 @@ const nextConfig = {
       },
     ],
     formats: ['image/avif', 'image/webp'],
+  },
+  // Phase 6.2 fix: proxy /api/* from Next.js dev server (port 3000) to backend (port 5000).
+  // Many admin pages use relative fetch('/api/...') and would otherwise 404 against Next.js.
+  async rewrites() {
+    return [
+      {
+        source: '/api/:path*',
+        destination: `${API_TARGET}/api/:path*`,
+      },
+    ];
   },
 };
 module.exports = nextConfig;
