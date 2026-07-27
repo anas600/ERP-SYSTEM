@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
+import { Button, Input, Select, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { hrApi, Department, getErrorMessage } from '@/lib/api';
 
@@ -32,6 +32,7 @@ export default function EditEmployeePage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   useAuth();
+  const toast = useToast();
   const [form, setForm] = useState<FormState | null>(null);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +81,9 @@ export default function EditEmployeePage() {
     if (!form) return;
     setError(null);
     if (!form.fullName || !form.email) {
-      setError('الاسم الكامل والبريد الإلكتروني مطلوبان.');
+      const msg = 'الاسم الكامل والبريد الإلكتروني مطلوبان.';
+      setError(msg);
+      toast.error(msg);
       return;
     }
     setSubmitting(true);
@@ -97,9 +100,12 @@ export default function EditEmployeePage() {
         baseSalary: Number(form.baseSalary) || 0,
         isActive: form.isActive,
       });
+      toast.success('تم حفظ التعديلات بنجاح.');
       router.push(`/hr/employees/${params.id}`);
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل تحديث الموظف.'));
+      const msg = getErrorMessage(e, 'فشل تحديث الموظف.');
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };

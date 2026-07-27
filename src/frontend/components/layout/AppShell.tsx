@@ -124,10 +124,13 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'الإدارة',
     items: [
+      // الأشخاص والهيكل
       { label: 'المستخدمين', href: '/admin/users', icon: Users },
       { label: 'الشركات', href: '/admin/companies', icon: Building2 },
+      // التهيئة
       { label: 'فئات الأصناف', href: '/admin/item-categories', icon: Tag },
       { label: 'قواعد الترحيل', href: '/admin/posting-rules', icon: Shield },
+      // الإشعارات والمراقبة
       { label: 'الإشعارات', href: '/admin/notifications', icon: Bell },
       { label: 'سجل التدقيق', href: '/admin/audit', icon: Activity },
       { label: 'صحة النظام', href: '/admin/health', icon: TrendingUp },

@@ -19,6 +19,7 @@ import {
   Briefcase,
 } from 'lucide-react';
 import { Card, Badge } from '@/components/ui';
+import { DashboardFooter } from '@/components/layout/DashboardFooter';
 import { useAuth } from '@/lib/useAuth';
 import {
   authApi,
@@ -288,6 +289,8 @@ export default function DashboardPage() {
           </Card>
         </Link>
       </div>
+
+      <DashboardFooter />
     </div>
   );
 }

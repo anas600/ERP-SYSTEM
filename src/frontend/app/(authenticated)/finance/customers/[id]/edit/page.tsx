@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Card, PageHeader } from '@/components/ui';
+import { Button, Input, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { arApi, getErrorMessage } from '@/lib/api';
 
@@ -43,6 +43,7 @@ export default function EditCustomerPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   useAuth();
+  const toast = useToast();
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -98,9 +99,12 @@ export default function EditCustomerPage() {
         paymentTermsDays: Number(form.paymentTermsDays) || 30,
         isActive: form.isActive,
       });
+      toast.success('تم حفظ التعديلات بنجاح.');
       router.push(`/finance/customers/${params.id}`);
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل تحديث العميل.'));
+      const msg = getErrorMessage(e, 'فشل تحديث العميل.');
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };

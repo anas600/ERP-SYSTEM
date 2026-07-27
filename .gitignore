@@ -55,3 +55,8 @@ head_gitignore.txt
 
 node_modules/
 
+
+.auth/
+playwright-report/
+test-results/
+

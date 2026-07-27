@@ -1,15 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, FileText, RefreshCw } from 'lucide-react';
+import { ArrowRight, ArrowLeft, FileText, RefreshCw } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { api, getErrorMessage } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
 export default function FinanceCustomersIdPage() {
   const params = useParams<{ id: string }>();
+  const router = useRouter();
   const id = params.id;
 
   const [item, setItem] = useState<any>(null);
@@ -40,6 +41,16 @@ export default function FinanceCustomersIdPage() {
 
   return (
     <div>
+      <div className="mb-3">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          العودة للقائمة
+        </button>
+      </div>
+
       <PageHeader
         title="بطاقة العميل"
         description="بيانات العميل + الفواتير + الرصيد"

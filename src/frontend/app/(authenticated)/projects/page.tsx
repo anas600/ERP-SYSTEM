@@ -4,9 +4,9 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil } from 'lucide-react';
-import { formatDate, formatTime } from '@/lib/utils';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { Plus, Pencil, Briefcase } from 'lucide-react';
+import { formatDate } from '@/lib/utils';
+import { Card, Badge, PageHeader, Button, EmptyState, SkeletonTable } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { projectsApi, Project, PROJECT_STATUSES } from '@/lib/api';
 
@@ -56,14 +56,20 @@ export default function ProjectsPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
-        </div>
+        <SkeletonTable rows={5} cols={3} />
       ) : projects.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد مشاريع في هذا الـ tenant.
-        </div>
+        <EmptyState
+          icon={<Briefcase className="h-12 w-12" />}
+          title="لا توجد مشاريع"
+          description="ابدأ بإنشاء مشروع جديد لتنظيم أعمال الشركة."
+          action={
+            <Link href="/projects/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                مشروع جديد
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {projects.map((p) => (

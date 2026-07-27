@@ -10,7 +10,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
+import { Button, Input, Select, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { inventoryApi, getErrorMessage } from '@/lib/api';
 
@@ -45,6 +45,7 @@ export default function EditItemPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   useAuth();
+  const toast = useToast();
   const [form, setForm] = useState<FormState | null>(null);
   const [categories, setCategories] = useState<{ id: string; code: string; name: string; isActive: boolean }[]>([]);
   const [units, setUnits] = useState<{ id: string; code: string; name: string; isActive: boolean }[]>([]);
@@ -112,9 +113,12 @@ export default function EditItemPage() {
         reorderQuantity: Number(form.reorderQuantity) || 0,
         isActive: form.isActive,
       });
+      toast.success('تم حفظ التعديلات بنجاح.');
       router.push(`/inventory/items/${params.id}`);
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل تحديث المنتج.'));
+      const msg = getErrorMessage(e, 'فشل تحديث المنتج.');
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };

@@ -1,20 +1,32 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { formatDate, formatTime } from '@/lib/utils';
+// سجل التدقيق (Audit Log) — مع filters + CSV export + SkeletonTable + EmptyState
+
+import { useEffect, useMemo, useState } from 'react';
+import { Download, Filter, RefreshCw, Shield } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  EmptyState,
+  PageHeader,
+  Select,
+  SkeletonTable,
+  useToast,
+} from '@/components/ui';
+import { Table, type TableColumn } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { Button, Table, Badge, PageHeader } from '@/components/ui';
-import { api, getErrorMessage } from '@/lib/api';
+import { api, getErrorMessage, identityApi, type AdminUser } from '@/lib/api';
+import { formatDate, formatTime } from '@/lib/utils';
 
 interface AuditEntry {
   id: number;
-  companyId?: string;
+  companyId?: string | null;
   entityType: string;
-  entityId?: string;
+  entityId?: string | null;
   action: string;
-  userId?: string;
-  changes?: string;
-  ipAddress?: string;
+  userId?: string | null;
+  changes?: string | null;
+  ipAddress?: string | null;
   createdAt: string;
 }
 
@@ -23,49 +35,137 @@ interface AuditSummary {
   cnt: number;
 }
 
-const ACTION_VARIANTS: Record<string, string> = {
+const ACTION_VARIANTS: Record<string, 'success' | 'info' | 'danger' | 'warning' | 'neutral'> = {
   CREATE: 'success',
   UPDATE: 'info',
   DELETE: 'danger',
   READ: 'neutral',
   APPROVE: 'success',
+  REJECT: 'danger',
   POST: 'info',
   REVERSE: 'warning',
+  CANCEL: 'danger',
 };
 
+const ACTION_LABELS: Record<string, string> = {
+  CREATE: 'إنشاء',
+  UPDATE: 'تعديل',
+  DELETE: 'حذف',
+  READ: 'قراءة',
+  APPROVE: 'موافقة',
+  REJECT: 'رفض',
+  POST: 'ترحيل',
+  REVERSE: 'عكس',
+  CANCEL: 'إلغاء',
+};
+
+const TAKE = 50;
+
+function toCsv(rows: AuditEntry[], users: AdminUser[]): string {
+  const userById = new Map(users.map((u) => [u.id, u]));
+  const header = [
+    'id',
+    'createdAt',
+    'userEmail',
+    'action',
+    'entityType',
+    'entityId',
+    'ipAddress',
+    'changes',
+  ];
+  const escape = (v: unknown): string => {
+    if (v == null) return '';
+    const s = String(v);
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+  const body = rows.map((r) => [
+    r.id,
+    r.createdAt,
+    userById.get(r.userId ?? '')?.email ?? r.userId ?? '',
+    r.action,
+    r.entityType,
+    r.entityId ?? '',
+    r.ipAddress ?? '',
+    r.changes ?? '',
+  ].map(escape).join(','));
+  return [header.join(','), ...body].join('\n');
+}
+
+function downloadCsv(filename: string, csv: string) {
+  // BOM في بداية الملف حتى Excel يفتح UTF-8 بشكل صحيح
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
 export default function AuditPage() {
-  const { loading: authLoading, user } = useAuth();
+  const { loading: authLoading } = useAuth();
+  const toast = useToast();
+
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [summary, setSummary] = useState<AuditSummary[]>([]);
+  const [users, setUsers] = useState<AdminUser[]>([]);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState({
-    entityType: '',
-    action: '',
-    fromDate: '',
-    toDate: '',
-  });
+
+  // الفلاتر
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
+  const [userId, setUserId] = useState('');
+  const [action, setAction] = useState('');
+  const [entityType, setEntityType] = useState('');
+
   const [skip, setSkip] = useState(0);
-  const take = 50;
 
   useEffect(() => {
     if (authLoading) return;
-    load();
-  }, [authLoading, skip]);
+    void loadUsers();
+    void load({ skip: 0 });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading]);
 
-  const load = async () => {
-    setLoading(true);
+  const loadUsers = async () => {
+    try {
+      const res = await identityApi.listUsers(0, 200);
+      setUsers(res.items);
+    } catch {
+      // users list is optional — if it fails we just show user ids
+      setUsers([]);
+    }
+  };
+
+  const load = async (opts?: { skip?: number; silent?: boolean }) => {
+    const nextSkip = opts?.skip ?? skip;
+    if (!opts?.silent) setLoading(true);
     setError(null);
     try {
-      const params: Record<string, unknown> = { skip, take };
-      if (filters.entityType) params.entityType = filters.entityType;
-      if (filters.action) params.action = filters.action;
-      if (filters.fromDate) params.fromDate = filters.fromDate;
-      if (filters.toDate) params.toDate = filters.toDate;
-      const data = await api.get<AuditEntry[]>('/api/audit', { params });
-      setEntries(data.data);
-      const sum = await api.get<AuditSummary[]>('/api/audit/summary');
-      setSummary(sum.data);
+      const params: Record<string, string | number> = { skip: nextSkip, take: TAKE };
+      if (from) params.fromDate = from;
+      if (to) params.toDate = to;
+      if (userId) params.userId = userId;
+      if (action) params.action = action;
+      if (entityType) params.entityType = entityType;
+
+      const [listRes, sumRes] = await Promise.all([
+        api.get<AuditEntry[]>('/api/audit', { params }),
+        // ملخص فقط في الـ load الأول — يقلل الطلبات
+        nextSkip === 0
+          ? api.get<AuditSummary[]>('/api/audit/summary').catch(() => ({ data: [] as AuditSummary[] }))
+          : Promise.resolve({ data: [] as AuditSummary[] }),
+      ]);
+      setEntries(listRes.data);
+      if (nextSkip === 0) setSummary(sumRes.data);
+      setSkip(nextSkip);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'تعذّر تحميل سجل التدقيق.'));
     } finally {
@@ -74,9 +174,116 @@ export default function AuditPage() {
   };
 
   const applyFilters = () => {
-    setSkip(0);
-    load();
+    void load({ skip: 0 });
   };
+
+  const clearFilters = () => {
+    setFrom('');
+    setTo('');
+    setUserId('');
+    setAction('');
+    setEntityType('');
+    void load({ skip: 0 });
+  };
+
+  const onExport = () => {
+    if (entries.length === 0) {
+      toast.info('لا توجد بيانات للتصدير.');
+      return;
+    }
+    const csv = toCsv(entries, users);
+    const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    downloadCsv(`audit-log-${ts}.csv`, csv);
+    toast.success(`تم تصدير ${entries.length} سجل.`);
+  };
+
+  const userById = useMemo(
+    () => new Map(users.map((u) => [u.id, u])),
+    [users]
+  );
+
+  const hasMore = entries.length === TAKE;
+
+  const columns: TableColumn<AuditEntry>[] = [
+    {
+      key: 'id',
+      header: '#',
+      render: (e) => <span className="text-xs text-gray-500 font-mono">#{e.id}</span>,
+      className: 'w-16',
+    },
+    {
+      key: 'createdAt',
+      header: 'التاريخ',
+      render: (e) => (
+        <div>
+          <div className="text-sm">{formatDate(e.createdAt)}</div>
+          <div className="text-xs text-gray-400">{formatTime(e.createdAt)}</div>
+        </div>
+      ),
+      className: 'w-40',
+    },
+    {
+      key: 'user',
+      header: 'المستخدم',
+      render: (e) => {
+        const u = e.userId ? userById.get(e.userId) : null;
+        if (u) {
+          return (
+            <div>
+              <div className="text-sm text-gray-800">{u.fullName || u.email}</div>
+              <div className="text-xs text-gray-400">{u.email}</div>
+            </div>
+          );
+        }
+        return <span className="font-mono text-xs text-gray-400">{e.userId?.slice(0, 8) ?? '—'}</span>;
+      },
+    },
+    {
+      key: 'action',
+      header: 'الإجراء',
+      render: (e) => (
+        <Badge variant={ACTION_VARIANTS[e.action] ?? 'neutral'}>
+          {ACTION_LABELS[e.action] ?? e.action}
+        </Badge>
+      ),
+      className: 'w-24',
+    },
+    {
+      key: 'entityType',
+      header: 'الكيان',
+      render: (e) => <span className="font-mono text-xs">{e.entityType}</span>,
+    },
+    {
+      key: 'entityId',
+      header: 'معرّف الكيان',
+      render: (e) => (
+        <span className="font-mono text-xs text-gray-500" title={e.entityId ?? ''}>
+          {e.entityId ? e.entityId.slice(0, 8) + '…' : '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'ip',
+      header: 'IP',
+      render: (e) => <span className="font-mono text-xs">{e.ipAddress ?? '—'}</span>,
+      className: 'w-32',
+    },
+    {
+      key: 'changes',
+      header: 'التفاصيل',
+      render: (e) =>
+        e.changes ? (
+          <details className="text-xs">
+            <summary className="cursor-pointer text-blue-600">عرض</summary>
+            <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto max-w-md font-mono whitespace-pre-wrap break-all">
+              {e.changes}
+            </pre>
+          </details>
+        ) : (
+          <span className="text-gray-400">—</span>
+        ),
+    },
+  ];
 
   return (
     <div>
@@ -84,19 +291,24 @@ export default function AuditPage() {
         title="🛡️ سجل التدقيق"
         description="Audit Log — كل العمليات على النظام مسجلة"
         actions={
-          <Button onClick={load} variant="secondary" disabled={loading}>
-            تحديث
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button onClick={() => load({ silent: true })} variant="secondary" disabled={loading} iconLeft={<RefreshCw className="h-4 w-4" />}>
+              تحديث
+            </Button>
+            <Button onClick={onExport} variant="primary" disabled={loading || entries.length === 0} iconLeft={<Download className="h-4 w-4" />}>
+              تصدير CSV
+            </Button>
+          </div>
         }
       />
 
-      {/* Summary */}
+      {/* Summary cards */}
       {!loading && summary.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2 mb-4">
           {summary.slice(0, 6).map((s) => (
             <div key={s.entityType} className="bg-white rounded-lg shadow-sm p-3 text-center">
               <div className="text-2xl font-bold text-blue-600">{s.cnt}</div>
-              <div className="text-xs text-gray-500 mt-1">{s.entityType}</div>
+              <div className="text-xs text-gray-500 mt-1 truncate" title={s.entityType}>{s.entityType}</div>
             </div>
           ))}
         </div>
@@ -104,124 +316,117 @@ export default function AuditPage() {
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm p-4 mb-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="نوع الكيان (Vendor, JournalEntry...)"
-            value={filters.entityType}
-            onChange={(e) => setFilters({ ...filters, entityType: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+        <div className="flex items-center gap-2 text-sm text-gray-600 mb-3">
+          <Filter className="h-4 w-4" />
+          <span className="font-semibold">الفلاتر</span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">من تاريخ</label>
+            <input
+              type="date"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">إلى تاريخ</label>
+            <input
+              type="date"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
+          <Select
+            label="المستخدم"
+            value={userId}
+            onChange={(e) => setUserId(e.target.value)}
+            options={[
+              { label: '— الكل —', value: '' },
+              ...users.map((u) => ({ label: u.email, value: u.id })),
+            ]}
+            containerClassName="md:col-span-1"
           />
-          <input
-            type="text"
-            placeholder="الإجراء (CREATE, UPDATE...)"
-            value={filters.action}
-            onChange={(e) => setFilters({ ...filters, action: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+          <Select
+            label="الإجراء"
+            value={action}
+            onChange={(e) => setAction(e.target.value)}
+            options={[
+              { label: '— الكل —', value: '' },
+              { label: 'CREATE', value: 'CREATE' },
+              { label: 'UPDATE', value: 'UPDATE' },
+              { label: 'DELETE', value: 'DELETE' },
+              { label: 'APPROVE', value: 'APPROVE' },
+              { label: 'REJECT', value: 'REJECT' },
+              { label: 'POST', value: 'POST' },
+              { label: 'CANCEL', value: 'CANCEL' },
+            ]}
           />
-          <input
-            type="date"
-            value={filters.fromDate}
-            onChange={(e) => setFilters({ ...filters, fromDate: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-          />
-          <input
-            type="date"
-            value={filters.toDate}
-            onChange={(e) => setFilters({ ...filters, toDate: e.target.value })}
-            className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
-          />
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">نوع الكيان</label>
+            <input
+              type="text"
+              placeholder="مثال: Vendor, JournalEntry"
+              value={entityType}
+              onChange={(e) => setEntityType(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+            />
+          </div>
         </div>
         <div className="mt-3 flex gap-2">
-          <Button onClick={applyFilters} variant="primary" size="sm" disabled={loading}>
+          <Button onClick={applyFilters} variant="primary" size="sm" disabled={loading} iconLeft={<Filter className="h-3 w-3" />}>
             تطبيق الفلاتر
           </Button>
-          <Button onClick={() => { setFilters({ entityType: '', action: '', fromDate: '', toDate: '' }); setSkip(0); }} variant="secondary" size="sm">
+          <Button onClick={clearFilters} variant="secondary" size="sm" disabled={loading}>
             مسح
           </Button>
         </div>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-red-700">
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-red-700 text-sm">
           {error}
         </div>
       )}
 
-      <Table
-        data={entries}
-        loading={loading}
-        rowKey={(e) => String(e.id)}
-        columns={[
-          {
-            key: 'id',
-            header: '#',
-            render: (e) => <span className="text-xs text-gray-500 font-mono">{e.id}</span>,
-            className: 'w-12',
-          },
-          {
-            key: 'createdAt',
-            header: 'التاريخ',
-            render: (e) => (
-              <div>
-                <div className="text-sm">{formatDate(e.createdAt)}</div>
-                <div className="text-xs text-gray-400">{formatTime(e.createdAt)}</div>
-              </div>
-            ),
-            className: 'w-40',
-          },
-          {
-            key: 'entityType',
-            header: 'الكيان',
-            render: (e) => <span className="font-mono text-xs">{e.entityType}</span>,
-          },
-          {
-            key: 'action',
-            header: 'الإجراء',
-            render: (e) => (
-              <Badge variant={(ACTION_VARIANTS[e.action] ?? 'neutral') as any}>
-                {e.action}
-              </Badge>
-            ),
-            className: 'w-24',
-          },
-          {
-            key: 'userId',
-            header: 'المستخدم',
-            render: (e) => <span className="font-mono text-xs text-gray-500">{e.userId?.slice(0, 8) ?? '—'}</span>,
-          },
-          {
-            key: 'ip',
-            header: 'IP',
-            render: (e) => <span className="font-mono text-xs">{e.ipAddress ?? '—'}</span>,
-          },
-          {
-            key: 'changes',
-            header: 'التغييرات',
-            render: (e) => e.changes ? (
-              <details className="text-xs">
-                <summary className="cursor-pointer text-blue-600">عرض</summary>
-                <pre className="mt-1 p-2 bg-gray-50 rounded text-xs overflow-x-auto max-w-md">{e.changes}</pre>
-              </details>
-            ) : <span className="text-gray-400">—</span>,
-          },
-        ]}
-        emptyMessage="لا توجد سجلات تدقيق."
-      />
+      {loading ? (
+        <SkeletonTable rows={6} cols={6} />
+      ) : entries.length === 0 ? (
+        <EmptyState
+          icon={<Shield className="h-12 w-12" />}
+          title="لا توجد سجلات"
+          description="لم يتم العثور على سجلات تدقيق تطابق الفلاتر."
+        />
+      ) : (
+        <>
+          <Table
+            data={entries}
+            loading={false}
+            rowKey={(e) => String(e.id)}
+            columns={columns}
+            emptyMessage="لا توجد سجلات"
+          />
 
-      {/* Pagination */}
-      {entries.length === take && (
-        <div className="mt-4 flex gap-2 justify-center">
-          <Button onClick={() => setSkip(Math.max(0, skip - take))} variant="secondary" size="sm" disabled={skip === 0}>
-            السابق
-          </Button>
-          <span className="px-3 py-2 text-sm text-gray-600">
-            {skip + 1} - {skip + entries.length}
-          </span>
-          <Button onClick={() => setSkip(skip + take)} variant="secondary" size="sm">
-            التالي
-          </Button>
-        </div>
+          {/* Pagination */}
+          <div className="mt-4 flex items-center justify-center gap-2">
+            <Button
+              onClick={() => load({ skip: Math.max(0, skip - TAKE) })}
+              variant="secondary"
+              size="sm"
+              disabled={loading || skip === 0}
+            >
+              السابق
+            </Button>
+            <span className="px-3 py-2 text-sm text-gray-600">
+              {skip + 1} - {skip + entries.length}
+            </span>
+            <Button onClick={() => load({ skip: skip + TAKE })} variant="secondary" size="sm" disabled={loading || !hasMore}>
+              التالي
+            </Button>
+          </div>
+        </>
       )}
     </div>
   );

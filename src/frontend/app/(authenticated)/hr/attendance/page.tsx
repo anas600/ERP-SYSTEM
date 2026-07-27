@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
-import { LogIn, LogOut as LogOutIcon, CheckCircle2, Clock } from 'lucide-react';
-import { Button, Select, Table, Badge, Card, PageHeader } from '@/components/ui';
+import { LogIn, LogOut as LogOutIcon, Clock, ClipboardList } from 'lucide-react';
+import { Button, Select, Table, Badge, Card, PageHeader, EmptyState, SkeletonTable, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import {
   hrApi,
@@ -17,12 +17,12 @@ import {
 
 export default function AttendancePage() {
   const { user } = useAuth();
+  const toast = useToast();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState('');
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [actionLoading, setActionLoading] = useState<1 | 2 | null>(null);
-  const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   useEffect(() => {
     loadEmployees();
@@ -53,7 +53,7 @@ export default function AttendancePage() {
       // آخر 20 سجل
       setHistory(data.slice(-20).reverse());
     } catch (e: unknown) {
-      setMessage({ type: 'error', text: getErrorMessage(e, 'تعذّر تحميل السجل.') });
+      toast.error(getErrorMessage(e, 'تعذّر تحميل السجل.'));
     } finally {
       setLoadingHistory(false);
     }
@@ -61,20 +61,16 @@ export default function AttendancePage() {
 
   const handleAction = async (type: 1 | 2) => {
     if (!selectedEmployee) {
-      setMessage({ type: 'error', text: 'يجب اختيار الموظف أولاً.' });
+      toast.error('يجب اختيار الموظف أولاً.');
       return;
     }
     setActionLoading(type);
-    setMessage(null);
     try {
       await hrApi.recordAttendance({ employeeId: selectedEmployee, type });
-      setMessage({
-        type: 'success',
-        text: type === 1 ? 'تم تسجيل الحضور بنجاح.' : 'تم تسجيل الانصراف بنجاح.',
-      });
+      toast.success(type === 1 ? 'تم تسجيل الحضور بنجاح.' : 'تم تسجيل الانصراف بنجاح.');
       loadHistory();
     } catch (e: unknown) {
-      setMessage({ type: 'error', text: getErrorMessage(e, 'فشل تسجيل الحركة.') });
+      toast.error(getErrorMessage(e, 'فشل تسجيل الحركة.'));
     } finally {
       setActionLoading(null);
     }
@@ -86,18 +82,6 @@ export default function AttendancePage() {
         title="🕐 الحضور والانصراف"
         description="سجل حضور الموظفين — CheckIn / CheckOut"
       />
-
-      {message && (
-        <div
-          className={`px-4 py-3 rounded-lg mb-4 text-sm ${
-            message.type === 'success'
-              ? 'bg-green-50 border border-green-200 text-green-700'
-              : 'bg-red-50 border border-red-200 text-red-700'
-          }`}
-        >
-          {message.text}
-        </div>
-      )}
 
       {/* Action Card */}
       <Card title="تسجيل حركة" description="اختر الموظف ثم اضغط CheckIn / CheckOut" className="mb-4">
@@ -134,50 +118,63 @@ export default function AttendancePage() {
 
       {/* History */}
       <Card title="السجل الأخير" description={`آخر 20 حركة للموظف المحدد`}>
-        <Table
-          columns={[
-            {
-              key: 'timestamp',
-              header: 'الوقت',
-              render: (r) => (
-                <div>
-                  <p className="text-sm text-gray-800">{formatDate(r.timestamp)}</p>
-                  <p className="text-xs text-gray-500 font-mono">
-                    {formatTime(r.timestamp)}
-                  </p>
-                </div>
-              ),
-            },
-            {
-              key: 'type',
-              header: 'النوع',
-              render: (r) => (
-                <Badge variant={r.type === 1 ? 'success' : 'danger'}>
-                  {r.type === 1 ? (
-                    <>
-                      <LogIn className="h-3 w-3 ml-1" /> {ATTENDANCE_TYPES[r.type]}
-                    </>
-                  ) : (
-                    <>
-                      <LogOutIcon className="h-3 w-3 ml-1" /> {ATTENDANCE_TYPES[r.type]}
-                    </>
-                  )}
-                </Badge>
-              ),
-            },
-            {
-              key: 'notes',
-              header: 'ملاحظات',
-              render: (r) => r.notes || <span className="text-gray-400 text-xs">—</span>,
-            },
-          ]}
-          data={history}
-          loading={loadingHistory}
-          rowKey={(r) => r.id}
-          emptyMessage={
-            !selectedEmployee ? 'اختر موظفاً لعرض السجل.' : 'لا توجد حركات مسجلة لهذا الموظف.'
-          }
-        />
+        {loadingHistory ? (
+          <SkeletonTable rows={5} cols={3} />
+        ) : !selectedEmployee ? (
+          <EmptyState
+            icon={<ClipboardList className="h-12 w-12" />}
+            title="اختر موظفاً لعرض السجل"
+            description="اختر موظفاً من القائمة أعلاه لعرض آخر 20 حركة حضور/انصراف."
+          />
+        ) : history.length === 0 ? (
+          <EmptyState
+            icon={<Clock className="h-12 w-12" />}
+            title="لا توجد حركات مسجلة"
+            description="لم يتم تسجيل أي حركة حضور أو انصراف لهذا الموظف."
+          />
+        ) : (
+          <Table
+            columns={[
+              {
+                key: 'timestamp',
+                header: 'الوقت',
+                render: (r) => (
+                  <div>
+                    <p className="text-sm text-gray-800">{formatDate(r.timestamp)}</p>
+                    <p className="text-xs text-gray-500 font-mono">
+                      {formatTime(r.timestamp)}
+                    </p>
+                  </div>
+                ),
+              },
+              {
+                key: 'type',
+                header: 'النوع',
+                render: (r) => (
+                  <Badge variant={r.type === 1 ? 'success' : 'danger'}>
+                    {r.type === 1 ? (
+                      <>
+                        <LogIn className="h-3 w-3 ml-1" /> {ATTENDANCE_TYPES[r.type]}
+                      </>
+                    ) : (
+                      <>
+                        <LogOutIcon className="h-3 w-3 ml-1" /> {ATTENDANCE_TYPES[r.type]}
+                      </>
+                    )}
+                  </Badge>
+                ),
+              },
+              {
+                key: 'notes',
+                header: 'ملاحظات',
+                render: (r) => r.notes || <span className="text-gray-400 text-xs">—</span>,
+              },
+            ]}
+            data={history}
+            rowKey={(r) => r.id}
+            emptyMessage="لا توجد حركات مسجلة لهذا الموظف."
+          />
+        )}
       </Card>
     </div>
   );

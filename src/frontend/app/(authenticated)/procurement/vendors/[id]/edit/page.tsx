@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
+import { Button, Input, Select, Card, PageHeader, useToast } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { procurementApi, PAYMENT_TERMS, getErrorMessage } from '@/lib/api';
 
@@ -39,6 +39,7 @@ export default function EditVendorPage() {
   const router = useRouter();
   const params = useParams<{ id: string }>();
   useAuth();
+  const toast = useToast();
   const [form, setForm] = useState<FormState | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -90,9 +91,12 @@ export default function EditVendorPage() {
         paymentTerms: form.paymentTerms,
         isActive: form.isActive,
       });
+      toast.success('تم حفظ التعديلات بنجاح.');
       router.push('/procurement/vendors');
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل تحديث المورّد.'));
+      const msg = getErrorMessage(e, 'فشل تحديث المورّد.');
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };

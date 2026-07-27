@@ -5,7 +5,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Plus, FileText } from 'lucide-react';
-import { Button, Input, Select, Table, Badge, PageHeader, Card } from '@/components/ui';
+import { Button, Input, Select, Table, Badge, PageHeader, Card, EmptyState, SkeletonTable } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { arApi, SalesInvoice, Customer, SALES_INVOICE_STATUSES, SALES_INVOICE_STATUS_VARIANTS, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -108,69 +108,90 @@ export default function SalesInvoicesPage() {
         </div>
       )}
 
-      <Table
-        columns={[
-          {
-            key: 'invoiceNumber',
-            header: 'رقم الفاتورة',
-            render: (inv) => (
-              <Link href={`/finance/sales-invoices/${inv.id}`} className="text-blue-600 hover:underline font-mono font-semibold">
-                {inv.invoiceNumber}
+      {loading ? (
+        <SkeletonTable rows={5} cols={4} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={<FileText className="h-12 w-12" />}
+          title="لا توجد فواتير مبيعات"
+          description={invoices.length === 0 ? 'ابدأ بإنشاء أول فاتورة مبيعات للعملاء.' : 'لا توجد فواتير تطابق الفلاتر الحالية.'}
+          action={
+            invoices.length === 0 ? (
+              <Link href="/finance/sales-invoices/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  فاتورة جديدة
+                </Button>
               </Link>
-            ),
-          },
-          {
-            key: 'customer',
-            header: 'العميل',
-            render: (inv) => <span className="font-semibold text-gray-800">{inv.customerName || '—'}</span>,
-          },
-          {
-            key: 'invoiceDate',
-            header: 'التاريخ',
-            render: (inv) => <span className="text-sm text-gray-600">{formatDate(inv.invoiceDate)}</span>,
-          },
-          {
-            key: 'dueDate',
-            header: 'الاستحقاق',
-            render: (inv) => <span className="text-sm text-gray-600">{formatDate(inv.dueDate)}</span>,
-          },
-          {
-            key: 'total',
-            header: 'الإجمالي',
-            align: 'end',
-            render: (inv) => <span className="font-mono font-semibold">{formatNumber(inv.totalAmount)}</span>,
-          },
-          {
-            key: 'outstanding',
-            header: 'المتبقي',
-            align: 'end',
-            render: (inv) => (
-              <span className={`font-mono font-semibold ${inv.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                {formatNumber(inv.outstanding)}
-              </span>
-            ),
-          },
-          {
-            key: 'status',
-            header: 'الحالة',
-            align: 'center',
-            render: (inv) => (
-              <Badge variant={SALES_INVOICE_STATUS_VARIANTS[inv.status] || 'neutral'}>
-                {SALES_INVOICE_STATUSES[inv.status] || '—'}
-              </Badge>
-            ),
-          },
-        ]}
-        data={filtered}
-        loading={loading}
-        rowKey={(inv) => inv.id}
-        emptyMessage="لا توجد فواتير. ابدأ بإنشاء فاتورة جديدة."
-      />
-
-      {!loading && filtered.length > 0 && (
-        <p className="mt-3 text-xs text-gray-500 text-start">
-          {filtered.length} فاتورة • إجمالي: <span className="font-mono font-semibold">{formatNumber(filtered.reduce((s, i) => s + i.totalAmount, 0))}</span>
-        </p>
+            ) : (
+              <Button variant="secondary" onClick={() => { setFilterCustomer(''); setFilterStatus(''); setSearch(''); }}>
+                مسح الفلاتر
+              </Button>
+            )
+          }
+        />
+      ) : (
+        <>
+          <Table
+            columns={[
+              {
+                key: 'invoiceNumber',
+                header: 'رقم الفاتورة',
+                render: (inv) => (
+                  <Link href={`/finance/sales-invoices/${inv.id}`} className="text-blue-600 hover:underline font-mono font-semibold">
+                    {inv.invoiceNumber}
+                  </Link>
+                ),
+              },
+              {
+                key: 'customer',
+                header: 'العميل',
+                render: (inv) => <span className="font-semibold text-gray-800">{inv.customerName || '—'}</span>,
+              },
+              {
+                key: 'invoiceDate',
+                header: 'التاريخ',
+                render: (inv) => <span className="text-sm text-gray-600">{formatDate(inv.invoiceDate)}</span>,
+              },
+              {
+                key: 'dueDate',
+                header: 'الاستحقاق',
+                render: (inv) => <span className="text-sm text-gray-600">{formatDate(inv.dueDate)}</span>,
+              },
+              {
+                key: 'total',
+                header: 'الإجمالي',
+                align: 'end',
+                render: (inv) => <span className="font-mono font-semibold">{formatNumber(inv.totalAmount)}</span>,
+              },
+              {
+                key: 'outstanding',
+                header: 'المتبقي',
+                align: 'end',
+                render: (inv) => (
+                  <span className={`font-mono font-semibold ${inv.outstanding > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                    {formatNumber(inv.outstanding)}
+                  </span>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'الحالة',
+                align: 'center',
+                render: (inv) => (
+                  <Badge variant={SALES_INVOICE_STATUS_VARIANTS[inv.status] || 'neutral'}>
+                    {SALES_INVOICE_STATUSES[inv.status] || '—'}
+                  </Badge>
+                ),
+              },
+            ]}
+            data={filtered}
+            rowKey={(inv) => inv.id}
+            emptyMessage="لا توجد فواتير. ابدأ بإنشاء فاتورة جديدة."
+          />
+          <p className="mt-3 text-xs text-gray-500 text-start">
+            {filtered.length} فاتورة • إجمالي: <span className="font-mono font-semibold">{formatNumber(filtered.reduce((s, i) => s + i.totalAmount, 0))}</span>
+          </p>
+        </>
       )}
     </div>
   );

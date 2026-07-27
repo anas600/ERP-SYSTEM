@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Card, PageHeader } from '@/components/ui';
+import { Button, Input, Card, PageHeader, useToast } from '@/components/ui';
 import { arApi, getErrorMessage } from '@/lib/api';
 
 interface FormState {
@@ -23,6 +23,7 @@ interface FormState {
 
 export default function NewCustomerPage() {
   const router = useRouter();
+  const toast = useToast();
   const [form, setForm] = useState<FormState>({
     code: '',
     name: '',
@@ -57,9 +58,12 @@ export default function NewCustomerPage() {
         creditLimit: form.creditLimit ? Number(form.creditLimit) : undefined,
         paymentTermsDays: Number(form.paymentTermsDays) || 30,
       });
+      toast.success(`تم إنشاء العميل "${form.name}" بنجاح.`);
       router.push('/finance/customers');
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل إنشاء العميل. تأكد من البيانات وأن الـ backend يدعم الـ endpoint.'));
+      const msg = getErrorMessage(e, 'فشل إنشاء العميل. تأكد من البيانات وأن الـ backend يدعم الـ endpoint.');
+      setError(msg);
+      toast.error(msg);
       setSubmitting(false);
     }
   };
