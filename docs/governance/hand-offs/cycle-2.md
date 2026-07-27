@@ -1,127 +1,101 @@
-# 📦 Hand-Off v2 — Cycle 2: 6.2 Tests Refactor ONLY (No Staging/Production)
+# 📦 Hand-Off v3 — Cycle 2: BASIC TESTS ONLY (per DEC-071)
 
 > **From:** سيتي (Cloud Coordinator) — Session 406067545768199, Cloud  
 > **To:** Mavis Local (Tech Lead) — your session, Windows  
-> **Cycle:** 2 / 20 — **ACTIVE ✅**  
-> **v1 Created:** 2026-07-27 21:14 UTC  
-> **v2 Updated:** 2026-07-27 22:35 UTC (per DEC-070)
+> **Cycle:** 2 / 20 — **ACTIVE ✅ (v3 simplified per DEC-071)**  
+> **Authority:** DEC-070 (admin) + DEC-071 (basic tests only)
 
 ---
 
-## 🆕 What's New in v2 (per DEC-070)
+## 🆕 What's New in v3 (per DEC-071)
 
-**Major changes:**
-1. ❌ **Block B (3-Layer DB) REMOVED** — No staging/production work
-2. ✅ **Mavis Local = Tech Lead** — Full admin authority on develop
-3. ✅ **Playwright E2E optional** — Not required for merge
-4. ✅ **--force-with-lease allowed** — branch protection updated
-5. ✅ **Self-merge permitted** — admin can bypass reviews
-6. ✅ **Mavis Local leads Jimis** — Jimi تنفيذي + Jimi تحليلي work for you
-7. ✅ **Mavis (Cloud) = Architectural Guardian** — Strategy/Governance role
+**Major simplification:**
 
-**Authority basis:** DEC-070 (2026-07-27 22:33 UTC, per Anas)
+1. ❌ **REMOVED**: Refactor 31 C# test files (T1-T6)
+2. ❌ **REMOVED**: Update 10 Playwright e2e specs (T7)
+3. ❌ **REMOVED**: Exhaustive testing
+4. ✅ **KEEP**: Add 3 new Phase 6 test cases (T8)
+5. ✅ **Risk tolerance on develop**: Breaking develop is OK (HF production is the real concern)
 
----
-
-## 🎯 Cycle 2 v2 Scope: 6.2 Tests Refactor ONLY
-
-### Block A (Mavis Local) — Full Power
-
-**Tasks:**
-- **T1**: Search for `tenant_id`, `TenantId`, `Tenant`, `ITenantContext`, `TenantContext` across 31 C# test files
-- **T2**: Rename `tenant_id` → `company_id` (case-sensitive)
-- **T3**: Update test signatures (constructor params, method args, variable names)
-- **T4**: Update test fixtures (`FakeDbConnectionFactory`, `ErpWebApplicationFactory`, `TestJwtGenerator`)
-- **T5**: Update assertion expectations
-- **T6**: Run `dotnet test` → all green
-- **T7**: Update 10 Playwright e2e specs (optional, no CI gate)
-- **T8**: Add 3 new test cases:
-  - `HoldingBootstrap_Seeds_DefaultHolding_And_CoA` (integration)
-  - `UserCompany_Limits_Access_To_Assigned_Companies` (unit)
-  - `CompanySwitcher_Switches_Active_Company_In_Context` (unit)
-
-**Estimated time:** 2-3 hours
-
-**You're free to:**
-- Self-merge when ready (admin bypass)
-- Use `--force-with-lease` (branch protection allows)
-- Skip Playwright e2e (not required)
-- Use Jimis as you see fit
-- Open PRs from any branch
-- Use the local Supabase dev project (already exists)
+**Why simpler:**
+- The "new product" = Phase 6 (Multi-Company)
+- The "basic tests" = tests that verify Phase 6 works
+- The 3 new tests ARE the basic tests
+- Don't waste time on exhaustive coverage now
 
 ---
 
-## 🔧 GitHub Settings (now in effect)
+## 🎯 Cycle 2 v3 Scope: ONLY 3 NEW TEST CASES
 
-| Setting | Value | Note |
-|---------|-------|------|
-| **Required status checks** | Backend, Frontend, CodeQL, TruffleHog, Analyze×2 | ❌ No Playwright |
-| **Required reviews** | 1 (admin bypass: ON) | You can self-merge |
-| **Allow force-pushes** | ✅ ENABLED | Use --force-with-lease |
-| **Required linear history** | ✅ ON | No merge commits (squash or rebase) |
-| **Dismiss stale reviews** | ✅ ON | Old approvals auto-dismissed on push |
+### The Work (T8 only)
 
----
+Add 3 new test cases for Phase 6:
 
-## 🛑 DO NOT Touch (per DEC-070)
+1. **`HoldingBootstrap_Seeds_DefaultHolding_And_CoA`**
+   - Type: Integration test
+   - Verifies: When app starts, a default Holding is created + CoA (Chart of Accounts) is seeded
+   - File: `src/backend/Tests/ERPSystem.Tests/Companies/HoldingBootstrapTests.cs` (new)
+   - Estimated: 1 hour
 
-- ❌ Supabase STAGING project (any kind)
-- ❌ Production environment
-- ❌ STAGING_* secrets in GitHub
-- ❌ reset-staging-db.yml workflow
-- ❌ STAGING_DATABASE_URL
+2. **`UserCompany_Limits_Access_To_Assigned_Companies`**
+   - Type: Unit test
+   - Verifies: User can only access companies they're assigned to (via user_companies table)
+   - File: `src/backend/Tests/ERPSystem.Tests/Auth/UserCompanyAccessTests.cs` (new)
+   - Estimated: 1 hour
 
-These are FROZEN until Anas issues explicit approval.
+3. **`CompanySwitcher_Switches_Active_Company_In_Context`**
+   - Type: Unit test
+   - Verifies: When user switches active company, CompanyContext updates
+   - File: `src/backend/Tests/ERPSystem.Tests/Auth/CompanySwitcherTests.cs` (new)
+   - Estimated: 1 hour
 
----
-
-## 🤝 Role Assignment (per DEC-070)
-
-| Role | Agent | What They Do |
-|------|-------|--------------|
-| **Project Owner** | Anas | Decisions, direction |
-| **Tech Lead (operational)** | **Mavis Local (YOU)** | Code, tests, PRs, merges, leads Jimis |
-| **Architectural Guardian** | Mavis (Cloud) | Reviews, governance, DECs, crons |
-| **Executor** | Jimi تنفيذي | Code implementation (you direct) |
-| **Analyst** | Jimi تحليلي | Investigation, design (you direct) |
-| **Coordinator (sub-mode)** | سيتي (Cloud) | Hand-offs, merges, governance files |
-| **Strategic Advisor (sub-mode)** | محمد (Cloud) | Analysis, plans |
-| **DevOps (sub-mode)** | Dev (Cloud) | Infrastructure |
-
-**Communication:**
-- You ↔ Jimis: via shared worktree + branch
-- You ↔ Mavis (Cloud): via docs/governance/hand-offs/ + crons
-- You ↔ Anas: via Telegram (if urgent) or hand-offs
+**Total estimated time:** 2-3 hours
 
 ---
 
-## 📋 Verification (lighter than before)
+## 🛡️ Permissions (from DEC-070)
+
+You have full Tech Lead authority:
+- ✅ Self-merge (admin bypass)
+- ✅ `--force-with-lease`
+- ✅ Skip Playwright (not required)
+- ✅ Lead Jimis (تنفيذي + تحليلي)
+
+**Plus new freedom (from DEC-071):**
+- ✅ Risk tolerance on develop
+- ✅ Don't worry about breaking develop
+- ❌ DO NOT touch HF Space production
+- ❌ DO NOT touch Supabase prod
+- ❌ DO NOT touch main branch
+
+---
+
+## 🔧 Verification (minimal)
 
 ```bash
-# 1. Build
+# 1. Build (REQUIRED)
 npx tsc --noEmit
 dotnet build Host/ERP-SYSTEM.csproj
 
-# 2. xUnit tests (REQUIRED)
-dotnet test --filter "FullyQualifiedName~ERP"
-
-# 3. New test cases
+# 2. The 3 new tests (REQUIRED)
 dotnet test --filter "HoldingBootstrap_Seeds_DefaultHolding_And_CoA"
 dotnet test --filter "UserCompany_Limits_Access_To_Assigned_Companies"
 dotnet test --filter "CompanySwitcher_Switches_Active_Company_In_Context"
 
-# Playwright is OPTIONAL (not CI gated)
-# npx playwright test  # Skip if Tier 1 latency
+# 3. Quick smoke (optional)
+dotnet test --filter "FullyQualifiedName~Auth"
 ```
+
+**That's it.** No need to refactor 31 files. No Playwright. Just verify the 3 new tests work.
 
 ---
 
 ## 🚨 Risk Notes
 
-- **R1**: If `ITenantContext` still exists in code, keep as deprecated alias (avoid scope creep)
-- **R2**: If local Supabase dev project has data issues, use snapshots or recreate schema
-- **R3**: If Jimis block on a question, escalate to me via docs/governance/hand-offs/
+- **R1**: If a test fails, fix it (don't disable, don't skip)
+- **R2**: If develop breaks, that's OK — fix and move on
+- **R3**: If you need to delete old tests, ask me first (audit trail)
+- **R4**: Don't touch HF Space — that's the real production concern
 
 ---
 
@@ -129,26 +103,26 @@ dotnet test --filter "CompanySwitcher_Switches_Active_Company_In_Context"
 
 - Cron `monitor-cycle-2-pr-merge` is ACTIVE (every 3 min)
 - Silent on no-change
-- Notify on state-change (CONFLICTING → mergeable, etc.)
+- Notify on state-change
 - Self-delete on merge
-- I'll merge your PR when CI green + you say "ready for merge"
+- I'll merge your PR when CI green + you say "ready"
 
 ---
 
 ## 🚀 When Ready to Start
 
-1. Read this hand-off (you're doing it now)
-2. Verify branch state: `git fetch && git status`
-3. Optionally create a feature branch: `git checkout -b feature/cycle-2-tests-refactor`
-4. Do the work
-5. Open PR to develop: `gh pr create --base develop`
-6. When CI green, say "ready for merge" (via hand-off or Telegram)
-7. I (سيتي) will merge
+1. Read this hand-off (you just did)
+2. Optionally create a feature branch: `git checkout -b feature/cycle-2-basic-tests`
+3. Add the 3 new test files
+4. Run `dotnet test --filter "..."` for each
+5. Open PR to develop
+6. Say "ready for merge"
+7. I (سيتي) merge
 
-**You have full authority. Go. 🎯**
+**You have full authority. Go. 2-3 hours max. 🎯**
 
 ---
 
-**Signed:** سيتي (Cloud Coordinator, session 406067545768199)  
-**Authority:** DEC-070 (Anas)  
-**Date:** 2026-07-27 22:35 UTC
+**Signed:** سيتي (Cloud Coordinator)  
+**Authority:** DEC-070 + DEC-071  
+**Date:** 2026-07-27 23:18 UTC
