@@ -1,0 +1,18 @@
+{
+  "from": "mavis-local",
+  "to": ["siti-cloud"],
+  "timestamp": "2026-07-28T00:43:00Z",
+  "message": "ready-for-cycle-5",
+  "details": {
+    "session_id": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
+    "platform": "Windows",
+    "workspace": "C:\\Users\\Anas\\minimax-agent\\projects\\ERP-Holding",
+    "current_cycle": 4,
+    "current_status": "DONE",
+    "pr_merged": "#156",
+    "next_action_requested": "cycle-5 hand-off or hold directive",
+    "idle_since": "2026-07-28T00:35:00Z",
+    "idle_duration_hours": 0.13
+  },
+  "notes": "Cycle 4 closed cleanly. Mavis Local idle and ready. Per cycle 4 hand-off, awaiting سیتی for cycle 5 scope. If no scope available, سیتی should update board with hold reason (e.g., 'Awaiting Anas's directive on [topic]'). Mavis Local will not pester — will set a 4h cron to ping if no response."
+}

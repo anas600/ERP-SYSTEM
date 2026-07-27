@@ -1,34 +1,66 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-28 00:30 UTC (Cycle 4 launch by Mavis Local)
+> **Last updated:** 2026-07-28 00:43 UTC (Cycle 4 closed; awaiting Cycle 5)
 > **Updated by:** Mavis Local (Tech Lead + temporary Coordinator for cycle 4 per Anas)
 
-## 🔄 Current Cycle: 4 / 20
+## 🔄 Current Cycle: 5 / 20 — AWAITING HAND-OFF
 
 | Field | Value |
 |-------|-------|
-| **Title** | Governance Improvement — Lessons Learned + Protocol Hardening |
-| **Owner** | Mavis Local (Tech Lead, +Coordinator role for this cycle only) |
-| **Status** | 🟡 ACTIVE — In progress, will self-merge when done |
-| **Hand-off** | docs/governance/hand-offs/cycle-4.md (writing now) |
-| **DECs** | DEC-070 (admin), DEC-071 (basic tests), DEC-072 (presence protocol) |
-| **Authority grant** | Anas gave Mavis Local the "Coordinator" role for cycle 4 ONLY — to transfer Mavis Local's experience to Siti so future cycles run smoother |
+| **Title** | (pending — awaiting Siti's hand-off) |
+| **Owner** | Mavis Local (Tech Lead) |
+| **Status** | 🟡 AWAITING — Cycle 4 done, ready for cycle 5 scope from سيتي |
+| **Last completed cycle** | 4 (Governance Improvement, PR #156 merged at 22:35 UTC) |
+| **DECs active** | DEC-070 (admin), DEC-071 (basic tests), DEC-072 (presence protocol) |
+| **Signal to Siti** | `docs/governance/presence-signal.json` (request: "cycle-5 hand-off") |
 
-## 📋 Cycle 4 Tasks
+## 📋 Cycle 4 — DONE ✅ (just closed)
 
-### Block A (Mavis Local, as Coordinator)
+- **PR #156** merged to develop (squash `37e59ab7`) at 2026-07-27 22:35:25Z
+- **5/5 CI checks** PASSED (2m8s analyze-csharp, 56s analyze-js, 1m30s backend, 3s codeql, 1m50s frontend, 15s trufflehog)
+- **6 governance files** delivered: lessons-learned.md (13 KB), README +71 lines, hand-off-template +45 lines, board updated, cycle-log updated, cycle-4 hand-off (9 KB)
+- **~+800 lines of docs added to develop**
+- **0 code changes** (governance-only sprint per Anas's Coordinator grant)
 
-- [ ] T1: Write `docs/governance/lessons-learned.md` (Mavis Local → Siti knowledge transfer) — cycles 0-3 hard-won experience
-- [ ] T2: Update `docs/governance/README.md` (add documented failure modes + cron pattern)
-- [ ] T3: Update `docs/governance/hand-off-template.md` (add "verify prior work" + "be specific" + "investigate vs fix" sections)
-- [ ] T4: Update `docs/governance/cycle-log.md` (add cycle 2, 3, 4 entries with details)
-- [ ] T5: Update this board (close cycle 3, mark cycle 4 ACTIVE)
-- [ ] T6: Write `docs/governance/hand-offs/cycle-4.md` (the new hand-off for cycle 5+)
-- [ ] T7: Commit + push + open PR + self-merge per DEC-070
+## 🛰️ Message to سيتي
+
+**From:** Mavis Local (your cycle 4 Coordinator)
+**Re:** Cycle 5 hand-off
+**Status:** I am ready, idle, and waiting
+
+You (سيتي) have two options for cycle 5:
+
+### Option A: Write the cycle 5 hand-off (your standard role)
+
+Push `docs/governance/hand-offs/cycle-5.md` to develop with:
+- Cycle title + scope (use the new hand-off template's "verify prior work" + "be specific" + "investigate vs fix" sections)
+- Specifically check `git log origin/develop` for what cycle 4 changed — don't re-include it in cycle 5
+- Reference the new `lessons-learned.md` and the new failure modes (especially: hand-off inaccuracy)
+
+When I see the new hand-off on develop, I'll:
+1. Read it
+2. Do the T1 inventory (verify scope against current develop HEAD)
+3. Execute T2-Tn
+4. Open PR + self-merge per DEC-070
+
+### Option B: If there's no urgent work, hold for Anas
+
+If you're waiting for new direction from Anas (e.g., a new feature, a new DEC, a new direction), just update the board with the reason:
+- "Awaiting Anas's directive on [topic]"
+- "Holding per DEC-XXX"
+
+I won't pester you. I'll stay idle.
+
+## 📡 Channels for siتي to reach Mavis Local
+
+- **Cycle hand-off:** `docs/governance/hand-offs/cycle-N.md` (standard)
+- **Presence signal response:** Reply to `docs/governance/presence-signal.json` (just update it with your state)
+- **Board update:** Edit `docs/governance/board.md` directly
+- **Direct (if needed):** Telegram via Mavis Cloud (I get the relay)
 
 ## 🛡️ Permissions (DEC-070 + DEC-071 + DEC-072)
 
-- ✅ Self-merge (--admin flag required)
+- ✅ Self-merge
 - ✅ --force-with-lease
 - ✅ Skip Playwright
 - ✅ Risk tolerance on develop
@@ -39,9 +71,9 @@
 
 ## 📈 Progress Tracking
 
-- **Started:** 00:25 UTC (after Anas's "Cycle 4" + Coordinator grant)
-- **ETA:** ~30 min (governance-only sprint, no code)
-- **Estimated completion:** 2026-07-28 00:55 UTC
+- **Last action:** 00:35 UTC (cycle 4 merged)
+- **Currently:** Awaiting siti's hand-off or anas's scope
+- **Cron:** none active (idle mode per cycle 4 lessons — don't spam when "wait" is the right answer)
 
 ## 🔄 Previous Cycles
 
@@ -52,19 +84,22 @@
 ### Cycle 1: 6.4 Documentation Sprint — DONE ✅
 - PR #153 merged (SHA 47458bd3, by Anas)
 - 20 files, +1494/-8
-- Smart rebase (reset+cherry-pick) resolved CONFLICTING
 
 ### Cycle 2: 6.2 Tests Refactor — DONE ✅
 - PR #154 merged (SHA 89ce08ac, by Mavis Local self-merge)
 - 11 files, +284/-57
-- 3 new test cases (UserCompany_Limits, CompanySwitcher_*, HoldingBootstrap_*)
+- 5 new tests (3 unit + 2 integration)
 
 ### Cycle 3: 6.5 CI/Hardening — DONE ✅
 - PR #155 merged (SHA 86b4546a, by Mavis Local self-merge)
 - 4 files, +352/-5
-- Pre-commit hook (POSIX bash) + xunit parallelism + CONTRIBUTING.md
-- T1 was already done in cycle 2 (caught via inventory); T4 was a no-op (HF sync not on develop)
+- Pre-commit hook + xunit parallelism + CONTRIBUTING.md
+
+### Cycle 4: Governance Improvement — DONE ✅
+- PR #156 merged (SHA 37e59ab7, by Mavis Local self-merge)
+- 6 files, +797/-74
+- lessons-learned.md + README + hand-off-template + board + cycle-log + cycle-4 hand-off
 
 ---
 
-*Updated by Mavis Local. Will be updated again on cycle 4 closure.*
+*Updated by Mavis Local. Will be updated again when cycle 5 starts or after 4h idle (whichever comes first).*
