@@ -27,6 +27,29 @@
 - **Memory entry saved** — 3-Tier & Dual-Agent Governance Model for ERP-SYSTEM (2026-07-27)
   - 3 Tiers (Local Dev / Staging / Production), Doc-Driven Sync, high/low conflict zones, hard limits
 
+## [Unreleased] - 2026-07-27 (Mavis / Abdo)
+### Governance Acknowledgment (3-Tier & Dual-Agent Governance Model)
+- Read and internalized `docs/ABDO-TEAM-ALIGNMENT.md` (one-time handoff from Mavis / Anas on `origin/feature/phase6-migrate-features`)
+- Read `CONSTITUTION.md` (Articles 1-10) - confirmed Article 3 Multi-Company model
+- Read `docs/HANDOFF-PHASE6-MIGRATE.md` (reference Hand-off Report structure)
+- Saved `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md` locally for reference
+- Confirmed branch: `feature/abdo-team` @ `c77921b`
+- Starting work under 3-Tier & Dual-Agent Governance Model:
+  - Tier 1 (Local Dev) - my work, on `feature/abdo-team` only
+  - Tier 2 (Staging `develop`) - Anas/Siti only
+  - Tier 3 (Production `main`) - Anas/Siti only
+- Commitments:
+  - No `tenant_id` references anywhere (Article 3.5)
+  - Use `ICompanyContext` + `company_id` + `X-Company-Id` header on all new code
+  - Every commit: Conventional Commits + CHANGELOG entry + AGENTS.md update if applicable
+  - No force-push on `feature/abdo-team`
+  - No push to `develop` or `main` (per Article 4)
+  - No modifications to `CONSTITUTION.md`, root `AGENTS.md`, or `Program.cs` modules list
+  - Doc-driven sync only - no direct chat with Mavis / Anas
+  - Cloud issues (Supabase / HF / pgbouncer) are isolated in Hand-off Reports, not fixed in Tier 1
+
+---
+
 ## [Unreleased] - 2026-07-26
 ### Added (Phase 6.2 — 20 Accounting Reports + User Management on Multi-Company)
 - **Backend: 10 new report services** on Multi-Company architecture (`ICompanyContext` + `WHERE company_id = @CompanyId`):
