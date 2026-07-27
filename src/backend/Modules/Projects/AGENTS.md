@@ -3,6 +3,8 @@
 > Projects Module — ✅ Phase 2.1 (مكتمل).
 >
 > محدّث: 2026-06-24 — إضافة Phase 3+ context
+>
+> **Phase 6 (2026-07-27) — Multi-Company update:** Per Constitution Article 3, this module now uses `ICompanyContext` (instead of removed `ITenantContext`). All queries filter by `company_id` (instead of removed `tenant_id`). Users are global, companies are many. JWT carries `default_company_id` + `company_ids[]`. See root [AGENTS.md](../../../../AGENTS.md#-multi-company-convention-per-constitution-article-3) and [docs/PHASE6-RELEASE-NOTES.md](../../../../PHASE6-RELEASE-NOTES.md) for migration guide.
 
 ## شو فيه
 

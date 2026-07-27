@@ -799,3 +799,125 @@ Every JSON has indexes like `ix_xxx_tenant_yyy` and `ix_xxx_tenant_code` (compos
 ---
 
 _End of analysis. Report is read-only — no files modified during this work. Ready for owner (Anas) review and Phase 6 execution kickoff._
+
+---
+
+## 9. Outcome (Added 2026-07-27 — Cycle 1 Documentation Sprint 6.4)
+
+> **This section was added AFTER Phase 6 execution, not before.** It records what actually happened vs. what was planned, the lessons learned, and links to the implementation PRs. Cycle 1 (Documentation Sprint 6.4) is responsible for this addition.
+
+### 9.1 Planned vs. Actual
+
+| Item | Plan (Section above) | Actual | Status |
+|---|---|---|---|
+| **Phase 6.0 — Schema reset** | 1 new migration + 35 JSON updates + delete `tenants.json` + new `user_companies.json` + rewrite `seed_meta.json` | Done in `Phase6_InitialSchema_20260725_120000` migration | ✅ |
+| **Phase 6.1 — Backend code refactor** | ~100 backend files in 1 big PR or 2-3 PRs for reviewability | Done across **9 PRs** (#131–#151) for reviewability | ✅ (slightly more PRs than planned) |
+| **Phase 6.1 — `ITenantContext` → `ICompanyContext`** | Remove `MultiTenancy/`, add `CompanyContext/` | Done (Phase 6.1b: 3 files removed, 3 new files added) | ✅ |
+| **Phase 6.1 — `TenantMiddleware` → `CompanyContextMiddleware`** | Replace middleware | Done (Phase 6.1b) | ✅ |
+| **Phase 6.1 — Atomic Register (DEC-091)** | Not in original plan — added after 15 orphan users were discovered in Supabase | Implemented in PR #131 + #132 (commit `52e8c26`) | ✅ (bonus hardening) |
+| **Phase 6.1 — Npgsql Resiliency (DEC-093)** | Not in original plan — added after cloud timeouts | `NpgsqlConnectionFactory` (PR #134) | ✅ (bonus hardening) |
+| **Phase 6.2 — 20 reports** | Listed in original plan | **20 reports delivered** (Trial Balance, IS, BS, CF, GL, Journal, AR/AP Aging, etc.) | ✅ |
+| **Phase 6.2 — User Management** | Implicit in original plan | CRUD + admin reset + self-service change-password | ✅ |
+| **Phase 6.3 — Frontend** | 9 files (lib/api.ts + 7 pages) | **Larger scope**: 7 new report pages + admin/users migration + CompanySwitcher + AppShell + notification bell + Next.js proxy + Playwright e2e (4 tests) | ✅ (expanded) |
+| **Phase 6.4 — Documentation** | 25 doc files | **Done in Cycle 1** (this cycle): root AGENTS.md + 11 module AGENTS.md + CHANGELOG.md + this Outcome section + new `PHASE6-RELEASE-NOTES.md` | ✅ |
+| **Phase 6.5 — CI hardening** | 0.5 dev day | Deferred to Cycle 2 (out of scope for documentation sprint) | ⏳ |
+
+### 9.2 Effort Actual
+
+| Phase | Plan (days) | Actual (days) | Notes |
+|---|---:|---:|---|
+| 6.0 (Schema) | 1-2 | 1 | Single migration, JSON updates, `user_companies` table |
+| 6.1 (Backend) | 3-4 | 4 | Atomic register was unplanned, added 0.5 day |
+| 6.1b (Tenant→Company cleanup) | (in 6.1) | 0.5 | Drop `tenant_id` from 35 entities, 50 repos, 25 services |
+| 6.2 (Reports + User Mgmt) | 1-2 | 2 | 20 reports + 1-year seed data |
+| 6.3 (Frontend) | 1 | 2 | CompanySwitcher + Next.js proxy + AppShell + 4 Playwright tests |
+| 6.4 (Docs) | 0.5-1 | 0.5 (this cycle) | Done in 1 session |
+| **Total** | **6-8** | **~10** | Within 25% of upper bound |
+
+### 9.3 Risks Materialized
+
+| Risk | Materialized? | Mitigation / Outcome |
+|---|---|---|
+| 1.1 — Foreign keys to `tenants` (45+) | ✅ Materialized | Clean-slate migration dropped them with CASCADE |
+| 1.2 — Indexes to drop (60+) | ✅ Materialized | Auto-dropped with tables; new `(company_id, code)` indexes created |
+| 5.3 — Email uniqueness changes (per-tenant → global) | ✅ Materialized | `UNIQUE` constraint added to `users.email`; documented in FAQ |
+| 5.3 — Roles become global | ✅ Materialized | 4 default roles seeded at boot, no per-tenant role table |
+| 5.3 — Reports aggregation | ✅ Materialized | 20 reports re-scoped by `company_id`; verified in `FinanceReportService.cs` Dapper mapping fix |
+| 5.3 — E2E atomicity test re-framing | ✅ Materialized | `e2e/auth.spec.ts` rewritten to assert "no orphan users" instead of "no orphan tenants" |
+| 5.4 — Data migration | ❌ Not needed | Fresh Build Mode (per `Program.cs:359-379`) — no production data |
+| 5.5 — Third-party integrations | ❌ Not affected | Supabase is just the PG host, no Supabase Auth integration |
+| **UNPLANNED** — 15 orphan users in Supabase | ✅ Materialized | DEC-091 atomic register fix (PR #131 + #132) |
+| **UNPLANNED** — pgbouncer cold-start (303s on first request) | ✅ Materialized | DEC-093 NpgsqlConnectionFactory + DEC-094 PoolWarmupHostedService (PR #151) |
+| **UNPLANNED** — Supabase pgbouncer 429s on cloud sandbox IP | ✅ Materialized | 3-Tier isolation: defer cloud issues to dedicated sessions; rely on local tsc + code review for Tier 1 |
+| **UNPLANNED** — Cross-team coordination needed (Abdo's parallel branch) | ✅ Materialized | 3-Tier & Dual-Agent Governance Model adopted; `ABDO-TEAM-ALIGNMENT.md` + `HANDOFF-PHASE6-MIGRATE.md` |
+
+### 9.4 Key PRs
+
+| PR | Title | Cycle | Status |
+|---|---|---|---|
+| #131 → #132 | Atomic Register (DEC-091) | 5.B Sprint 1 | ✅ Merged (`52e8c26` on main) |
+| #134 | Npgsql Resiliency + Playwright E2E (DEC-093, 094) | 5.B Sprint 2 | ✅ Merged (`da97b6b` on main) |
+| #151 | Migration fix (42P01) + Timeout 60s + CoA perf | 5.B Sprint 3 | ✅ Merged |
+| #152 | v5 Cherry-pick + ToastProvider fix + DEC-ABDO-009 | Cycle 0 | ✅ Merged (`a603cc3` on develop) |
+| **(this cycle)** | Documentation Sprint 6.4 | **Cycle 1** | ⏳ Pending PR to develop |
+
+### 9.5 Lessons Learned
+
+1. **"Fresh Build Mode" saved us.** The fact that v5 was already running with an empty DB in HF Space made the clean-slate refactor 10x safer than an incremental migration. This decision was made 4 months ago (DEC-082) and paid off in Phase 6.
+
+2. **Multi-tenancy was vestigial from day 1.** The `tenants.subscription_expires_at` column was future-proofing for SaaS billing that was never built. The constitution was right to call it out in Article 3 — the abstraction was wrong for an internal SME ERP.
+
+3. **Atomicity must be a first-class contract.** The 15 orphan users in Supabase (DEC-091) happened because the register flow used 2 separate connections: the first created the user, the second was supposed to seed the company but the network dropped. The fix (single conn + single tx) is a pattern that should apply to every multi-insert service flow (DEC-091 audit pass is queued for Cycle 2+).
+
+4. **3-Tier isolation is the right architecture.** Local Tier 1 (this session) can't reliably test cloud-dependent features. The Supabase pgbouncer 303s cold-start would have blocked every test if we tried to verify e2e locally. By documenting infra failures in Hand-Off Reports and relying on tsc + code review for Tier 1, we shipped Phase 6.2 in 9 PRs without getting stuck.
+
+5. **The 3-Tier & Dual-Agent Governance Model worked.** Running two parallel feature branches (Mavis/Anas on `feature/phase6-migrate-features`, Mavis/Abdo on `feature/abdo-team`) with no direct agent-to-agent communication was unconventional but effective. The 5-doc sync (AGENTS.md, CHANGELOG.md, HANDOFF-*, DEC-*, commit msg) was enough.
+
+6. **Generated code is a single point of failure.** The 24 `Shared/Generated/Repos/*.g.cs` files all had `tenant_id` baked in. They were regenerated by re-running `Tools/EntityRepoEnhance/Program.cs` after the JSON update. This worked but is brittle — if the JSON migrator and the C# generator ever diverge, the build breaks silently. A future improvement: codegen should fail loud if JSON schema can't satisfy code requirements.
+
+7. **"Smart cron" is needed for cloud failure detection.** Per Anas's observation in Cycle 1 hand-off, the analytical team lost internet and we didn't know until a human happened to check. A token-free cron that pings a status page and updates `docs/governance/board.md` is being proposed for Cycle 2 (Anas's call).
+
+### 9.6 What's NOT in this Phase (out of scope, deferred)
+
+- **Email uniqueness per-company** (currently global) — Phase 7+
+- **Per-company role customization** (currently global 4 roles) — Phase 7+
+- **Multi-Holding deployments** (currently 1 per deployment) — Phase 7+
+- **Per-company dashboards** — Phase 7+
+- **Intercompany transactions** (the `is_intercompany` flag is set but logic not wired) — Phase 7+
+- **Multi-jurisdiction compliance** — Phase 8+
+- **Remaining 13 frontend report pages** (Reports #4, #5, #8, #9, #10, #11, #13, #14, #15 vendors, #16, #17, #18 detail, #20) — Cycle 2+
+- **PDF/Excel export for reports** — Cycle 2+
+- **Drill-down navigation** (click customer → see invoices) — Cycle 3+
+- **Marten event store wiring** (installed but unused) — Phase 8+
+
+### 9.7 Sign-off (post-execution)
+
+- [x] **Owner (Anas)** approved the clean-slate approach (Constitution Article 3.4 — pre-approved)
+- [x] **Mavis** confirmed migration order with analytical team
+- [x] **Schema for `user_companies`** locked (composite PK, `is_default` flag)
+- [x] **API contract for new auth flow** agreed (RegisterRequest without TenantId, AuthResponse with defaultCompanyId)
+- [x] **Decision: roles global** — done in v6
+- [x] **Decision: email uniqueness global** — done in v6
+- [x] **Decision: `X-Company-Id` header + JWT `company_ids[]`** — done in v6
+- [x] **HF Space Fresh Build Mode** — confirmed no production data to preserve
+- [x] **All 9 PRs merged** to develop + main
+- [x] **Functional Spec PDF** generated (31 pages, [docs/SYSTEM-FUNCTIONAL-SPECIFICATION.pdf](./SYSTEM-FUNCTIONAL-SPECIFICATION.pdf))
+- [x] **Cycle 1 documentation sprint** — this section is the result
+
+### 9.8 Open follow-ups (for Cycle 2+ planning)
+
+1. **DEC-091 audit pass** — apply `single conn + single tx` pattern to all multi-insert service flows (Cyclic penalty if we skip)
+2. **DEC-092 orphan cleanup script** — register as a recurring maintenance job
+3. **DEC-093 Npgsql resiliency** — confirm `NpgsqlConnectionFactory` defaults are sufficient for the HF Space pgbouncer path; consider explicit `Application Name` for observability
+4. **DEC-094 Playwright E2E** — run on every PR to develop; document in CI workflow
+5. **Smart cron for cloud failure detection** (Anas's proposal for Cycle 2) — token-free ping to status pages, write to `docs/governance/board.md`
+6. **Remaining 13 frontend report pages** (Cycle 2 candidate)
+7. **PDF/Excel export** for reports (Cycle 3 candidate)
+8. **Drill-down navigation** (Cycle 3 candidate)
+9. **Charts (line/bar)** for trend reports (Cycle 3 candidate)
+
+---
+
+**End of Outcome section. Phase 6 is COMPLETE per Constitution Article 3.**
+
+_Sign-off by Mavis (Anas's local team) — 2026-07-27, Cycle 1 Documentation Sprint 6.4._

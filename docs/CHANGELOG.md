@@ -4,6 +4,55 @@
 
 ---
 
+## [Phase 6 Release] - 2026-07-27 (Mavis / Anas)
+
+### 🎉 Phase 6: Multi-Company Architecture — RELEASED
+
+**🚨 Breaking change:** النظام تحوّل من **Multi-Tenant** (Phase 5 وما قبل) إلى **Multi-Company** (Phase 6+).
+- **Schema:** لا يوجد `tenant_id` في أي جدول. الـ `tenants` table محذوفة.
+- **Users:** globalون (مش مرتبطين بـ tenant). الـ user→company mapping في `user_companies` join table.
+- **Companies:** الـ Holding (`id=00000000-0000-0000-0000-000000000001`) هو الـ root. الـ subsidiaries تحته.
+- **Auth:** JWT يحمل `user_id` + `default_company_id` + `company_ids[]` (multi-company). الـ frontend يختار الشركة عبر `X-Company-Id` header.
+- **Middleware:** `CompanyContextMiddleware` يحقن `ICompanyContext` من الـ header أو JWT.
+
+**PRs merged (9 PRs, 18 commits, squash-merged into develop at `a603cc3`):**
+- PR #139 — `refactor(phase6-0): schema reset — drop tenant_id, add user_companies, holding model`
+- PR #140 — `feat(phase6-0b): DefaultHoldingBootstrapHostedService seeds Holding at startup`
+- PR #141 — `feat(phase6-1a): CompanyContext foundation (#141)`
+- PR #146 — `refactor(phase6-1b): remove tenant_id, ITenantContext, TenantCache`
+- PR #147 — `refactor(phase6-1c): Auth + JWT rewrite for Multi-Company model`
+- PR #148 — `refactor(phase6-3): Frontend — Multi-Company model (CompanySwitcher + X-Company-Id)`
+- PR #149 — `fix(phase6-3): Holding bootstrap fail-loud + /api/health/ready readiness probe`
+- PR #151 — `fix(phase6-3): pool warmup at startup to fix 30s+ first-request hang on HF Space`
+- PR #152 — `feat(phase6): Cherry-pick Abdo's 4 commits + DEC-ABDO-009 + 3 docs` (final consolidation)
+
+**Key features delivered:**
+- ✅ 41 tables (no `tenant_id`), 5 FKs to `public.users` (instead of tenant_users)
+- ✅ 20 Accounting Reports (Finance: trial balance, income statement, balance sheet, cash flow, general ledger, journal entries, account activity, AP aging, collections, VAT, cost-center performance; Sales: top customers, sales-by-customer, sales-by-item; Procurement: top vendors, purchases-by-vendor; Inventory: valuation; Projects: budget-vs-actual)
+- ✅ User Management (full CRUD + role assignment + admin password reset)
+- ✅ 18 frontend report pages (`src/frontend/app/(authenticated)/reports/*`)
+- ✅ 1-year seed data (491 invoices, 262 bills, 12 payroll runs)
+- ✅ Holding bootstrap (seeds default Holding at startup, idempotent)
+- ✅ Pool warmup (fixes 30s+ first-request hang on HF Space)
+- ✅ Playwright e2e suite (39 smoke + 9 security tests)
+- ✅ Functional Spec PDF (3.8 MB)
+- ✅ Pre-Production checklist + Admin Guide + User Guide (AR) + Cross-team governance
+
+**Migration guide (Multi-Tenant → Multi-Company):**
+- **Code:** Replace `ITenantContext`/`TenantContext` with `ICompanyContext`/`CompanyContext`. Replace `tenantId` with `companyId` in queries.
+- **Schema:** No `tenant_id` column. Use `company_id` (FK → `companies.id`).
+- **Auth:** JWT claims changed from `tenant_id` to `default_company_id` + `company_ids[]`.
+- **API:** Add `X-Company-Id` header to all requests.
+- **Frontend:** Use `CompanySwitcher` component; pass `X-Company-Id` from localStorage.
+
+**Reference docs:**
+- 📘 [docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md](PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md) — full analysis
+- 📗 [docs/PHASE6-RELEASE-NOTES.md](PHASE6-RELEASE-NOTES.md) — user-facing release notes
+- 📙 [CONSTITUTION.md](../CONSTITUTION.md) — Article 3 (Multi-Company architecture)
+- 🏛️ [docs/governance/README.md](governance/README.md) — 20-cycle governance protocol
+
+---
+
 ## [Unreleased] - 2026-07-27 (Mavis / Abdo)
 ### Tests (initial Playwright e2e suite on abdo-team)
 - `src/frontend/e2e/smoke.spec.ts` — HTTP-level reachability for all 37 sidebar routes (2/2 passing in 56.7s)

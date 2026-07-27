@@ -1,21 +1,46 @@
 ﻿# 🤖 AGENTS.md — ERP-SYSTEM (Root)
 
 > **التوثيق الذاتي لـ AI Agents والـ humans معاً.** قبل أي تعديل، اقرأ من الجذر → للمجلد المطلوب.
-> محدّث: Phase 6.2 (يوليو 2026) — **Multi-Company refactor (Phase 6) + 20 Accounting Reports + User Management + 1-year seed data + Functional Spec PDF**. Mavis + Jamie Executive + Jamie Analytical team pattern.
+> محدّث: Phase 6.4 (يوليو 2026) — **Multi-Company architecture live (PR #152 merged) + 20 Accounting Reports + User Management + 1-year seed data + Functional Spec PDF**. **Cycle 1: 6.4 Documentation Sprint active.** Mavis Local (Executor) + Siti (Coordinator) + Muhammad (Strategic) + Dev (DevOps) team pattern.
+
+---
+
+## 📌 Phase 6 Status (July 2026)
+
+| Phase | Status | Description | Reference |
+|-------|--------|-------------|-----------|
+| **6.0** | ✅ DONE | Schema reset — drop `tenant_id`, add `user_companies` | PR #139 |
+| **6.0b** | ✅ DONE | `DefaultHoldingBootstrapHostedService` seeds Holding at startup | PR #140 |
+| **6.1a** | ✅ DONE | `CompanyContext` foundation (replaces `TenantContext`) | PR #141 |
+| **6.1b** | ✅ DONE | Remove `tenant_id` from 35 entities + 3 layers (entity/repo/Controller) | PR #146 |
+| **6.1c** | ✅ DONE | Auth + JWT rewrite for Multi-Company model | PR #147 |
+| **6.3** | ✅ DONE | Frontend Multi-Company model (CompanySwitcher + X-Company-Id) | PR #148 |
+| **6.3** | ✅ DONE | Holding bootstrap fail-loud + `/api/health/ready` readiness probe | PR #149 |
+| **6.3** | ✅ DONE | Pool warmup at startup (fixes 30s+ first-request hang on HF Space) | PR #151 |
+| **6.2** | ⏳ PENDING | Tests refactor + E2E (23 xUnit + 1 e2e spec) | Cycle 2 |
+| **6.4** | 🟡 ACTIVE | **Documentation Sprint** (this cycle) | [docs/governance/hand-offs/cycle-1.md](docs/governance/hand-offs/cycle-1.md) |
+| **6.5** | ⏳ PLANNED | CI/Hardening (`phase6-migration-verify.yml`) | Cycle 3 |
+| **7** | ⏳ BACKLOG | Phase 7 (new features) | Cycles 6-10 |
+
+> 📘 **For the full Phase 6 analysis**, see [`docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md`](docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md).
+> 📗 **For user-facing release notes**, see [`docs/PHASE6-RELEASE-NOTES.md`](docs/PHASE6-RELEASE-NOTES.md).
+> 📙 **For the governance protocol**, see [`docs/governance/README.md`](docs/governance/README.md).
 
 ---
 
 ## 📌 نظرة عامة
 
-نظام ERP متعدد الشركات (Multi-Company Modular Monolith) للمرحلة الأولى (MVP). يتكون من **7 وحدات أعمال** (Identity + Companies + Finance + Projects + Inventory + Reports + Notifications) فوق أساس Multi-Company (per Constitution Article 3) + Event Store + Outbox.
+نظام ERP متعدد الشركات (**Multi-Company** Modular Monolith) للمرحلة الأولى (MVP). يتكون من **11 وحدات أعمال** (Identity + AccountsReceivable + Finance + HR + Inventory + Notifications + Payments + Payroll + Procurement + Projects + Reports) + Companies module، فوق أساس Multi-Company (per Constitution Article 3) + Event Store + Outbox.
+
+> **Breaking change (Phase 6):** النظام تحوّل من **Multi-Tenant** (Phase 5 وما قبل) إلى **Multi-Company** (Phase 6+). لا يوجد `tenant_id` في الـ schema. الـ users globalون، الـ companies متعددة، والربط عبر `user_companies` table.
 
 | الخاصية | القيمة |
 |---------|--------|
-| المنهجية | Agile / Scrum + Iterative MVP |
-| المدة المتوقعة | 8-10 أسابيع |
+| المنهجية | Agile / Scrum + Iterative MVP + 20-cycle governance protocol |
+| المدة المتوقعة | 8-10 أسابيع (initial) + 20 cycles (governance) |
 | المالك | anas600 (https://github.com/anas600) |
 | الترخيص | Private — جميع الحقوق محفوظة |
-| الحالة | **Phase 6.2 مكتمل** (Multi-Company refactor + 20 Accounting Reports + User Management + 1-year seed data) |
+| الحالة | **Phase 6.3+ مكتمل** (PR #152 merged: Multi-Company core + 20 Reports + User Mgmt + 1-year seed) · **6.4 Docs Sprint active** |
 
 ---
 
@@ -56,13 +81,18 @@
 | [`src/backend/Modules/Finance/AGENTS.md`](src/backend/Modules/Finance/AGENTS.md) | Finance Module (Phase 1) |
 | [`src/backend/Modules/Projects/AGENTS.md`](src/backend/Modules/Projects/AGENTS.md) | Projects Module (Phase 2.1) |
 | [`src/backend/Modules/Inventory/AGENTS.md`](src/backend/Modules/Inventory/AGENTS.md) | Inventory Module (Phase 2.2-2.3) |
-| [`src/backend/Modules/Reports/AGENTS.md`](src/backend/Modules/Reports/AGENTS.md) | Reports Module (Phase 2.5) |
-| [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (CompanyContext, Migrations, Events) |
+| [`src/backend/Modules/Reports/AGENTS.md`](src/backend/Modules/Reports/AGENTS.md) | Reports Module (Phase 2.5 + 6.2: 20 Accounting Reports) |
+| [`src/backend/Modules/AccountsReceivable/AGENTS.md`](src/backend/Modules/AccountsReceivable/AGENTS.md) | AR Module (Phase 5.A: Customers, SalesInvoices, Receipts, Aging) |
+| [`src/backend/Modules/Notifications/AGENTS.md`](src/backend/Modules/Notifications/AGENTS.md) | Notifications Module (Phase 6: in-app notification center) |
+| [`src/backend/Modules/Payments/AGENTS.md`](src/backend/Modules/Payments/AGENTS.md) | Payments Module (Phase 5.A: AP Payments) |
+| [`src/backend/Shared/AGENTS.md`](src/backend/Shared/AGENTS.md) | كود مشترك (**CompanyContext** replaces TenantContext, Migrations, Events) |
 | [`src/backend/Tests/AGENTS.md`](src/backend/Tests/AGENTS.md) | xUnit test projects |
-| [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend |
+| [`src/frontend/AGENTS.md`](src/frontend/AGENTS.md) | Next.js frontend (App Router, RTL) |
 | [`src/backend/Modules/Procurement/AGENTS.md`](src/backend/Modules/Procurement/AGENTS.md) | Procurement Module (Phase 3) |
 | [`src/backend/Modules/HR/AGENTS.md`](src/backend/Modules/HR/AGENTS.md) | HR Core Module (Phase 3.5) |
 | [`src/backend/Modules/Payroll/AGENTS.md`](src/backend/Modules/Payroll/AGENTS.md) | Payroll + EOS Module (Phase 4) |
+| [`docs/governance/README.md`](docs/governance/README.md) | Governance protocol + 20-cycle loop (Cycle 0+ active) |
+| [`docs/governance/hand-offs/cycle-1.md`](docs/governance/hand-offs/cycle-1.md) | Current cycle hand-off (6.4 Docs Sprint) |
 | [`infra/AGENTS.md`](infra/AGENTS.md) | Docker + CI/CD |
 | [`infra/docker/AGENTS.md`](infra/docker/AGENTS.md) | docker-compose + init-scripts |
 | [`infra/.github/AGENTS.md`](infra/.github/AGENTS.md) | GitHub Actions workflows |
