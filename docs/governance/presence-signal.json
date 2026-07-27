@@ -1,0 +1,6 @@
+{
+  "from": "anas",
+  "to": ["cloud", "local"],
+  "timestamp": "2026-07-28T00:11:00Z",
+  "message": "presence check - first test"
+}
