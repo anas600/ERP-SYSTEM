@@ -29,28 +29,27 @@ import {
   X,
   LogOut,
   ChevronLeft,
-  Bell,
-  User as UserIcon,
-  KeyRound,
-  Settings,
-  ClipboardList,
-  Building2,
-  BarChart3,
-  Tag,
-  MapPin,
-  Package,
+  // Phase 6.2 additions
+  FolderTree,
   GitBranch,
-  TrendingUp,
   Activity,
+  Lock,
+  Layers,
+  Bell,
+  Building2,
+  Tag,
+  Settings,
   Shield,
-  Tag as TagIcon,
-  ListChecks,
-  ScrollText,
+  Heart,
+  BarChart3,
+  LineChart,
+  FileBarChart,
+  ShoppingBag,
+  Package,
+  FileSpreadsheet,
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
-import { Breadcrumbs } from '@/components/layout/Breadcrumbs';
-import { ToastProvider } from '@/components/ui/Toast';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -73,18 +72,17 @@ const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { label: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
-      { label: 'التقارير', href: '/reports', icon: BarChart3 },
     ],
   },
   {
     label: 'المالية',
     items: [
       { label: 'دليل الحسابات', href: '/finance/accounts', icon: Wallet },
-      { label: 'مراكز التكلفة', href: '/finance/cost-centers', icon: MapPin },
+      { label: 'مراكز التكلفة', href: '/finance/cost-centers', icon: FolderTree },
+      { label: 'قيود اليومية', href: '/finance/journal-entries', icon: GitBranch },
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },
-      { label: 'القيود المحاسبية', href: '/finance/journal-entries', icon: ScrollText },
       { label: 'أعمار الذمم AR', href: '/finance/aging-ar', icon: Hourglass },
     ],
   },
@@ -92,9 +90,9 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'المخزون',
     items: [
       { label: 'الأصناف', href: '/inventory/items', icon: Boxes },
-      { label: 'حركات المخزون', href: '/inventory/movements', icon: GitBranch },
-      { label: 'مستويات المخزون', href: '/inventory/stock-levels', icon: ListChecks },
-      { label: 'الحجوزات', href: '/inventory/reservations', icon: ClipboardList },
+      { label: 'حركات المخزون', href: '/inventory/movements', icon: Activity },
+      { label: 'الحجوزات', href: '/inventory/reservations', icon: Lock },
+      { label: 'مستويات المخزون', href: '/inventory/stock-levels', icon: Layers },
     ],
   },
   {
@@ -122,18 +120,32 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    label: 'التقارير',
+    items: [
+      { label: 'نظرة عامة', href: '/reports', icon: BarChart3 },
+      { label: 'التقارير المالية', href: '/reports/financial', icon: LineChart },
+      { label: 'ميزان المراجعة', href: '/reports/financial/trial-balance', icon: FileBarChart },
+      { label: 'الميزانية العمومية', href: '/reports/financial/balance-sheet', icon: FileBarChart },
+      { label: 'قائمة الدخل', href: '/reports/financial/income-statement', icon: FileBarChart },
+      { label: 'ضريبة القيمة المضافة', href: '/reports/financial/vat', icon: FileSpreadsheet },
+      { label: 'تقارير المبيعات', href: '/reports/sales', icon: ShoppingBag },
+      { label: 'مبيعات حسب العميل', href: '/reports/sales/sales-by-customer', icon: FileBarChart },
+      { label: 'تقارير المخزون', href: '/reports/inventory', icon: Package },
+      { label: 'تقييم المخزون', href: '/reports/inventory/valuation', icon: FileBarChart },
+      { label: 'تقارير المشاريع', href: '/reports/projects', icon: Briefcase },
+      { label: 'الميزانية مقابل الفعلي', href: '/reports/projects/budget-vs-actual', icon: FileBarChart },
+    ],
+  },
+  {
     label: 'الإدارة',
     items: [
-      // الأشخاص والهيكل
       { label: 'المستخدمين', href: '/admin/users', icon: Users },
       { label: 'الشركات', href: '/admin/companies', icon: Building2 },
-      // التهيئة
       { label: 'فئات الأصناف', href: '/admin/item-categories', icon: Tag },
-      { label: 'قواعد الترحيل', href: '/admin/posting-rules', icon: Shield },
-      // الإشعارات والمراقبة
-      { label: 'الإشعارات', href: '/admin/notifications', icon: Bell },
-      { label: 'سجل التدقيق', href: '/admin/audit', icon: Activity },
-      { label: 'صحة النظام', href: '/admin/health', icon: TrendingUp },
+      { label: 'قواعد الترحيل', href: '/admin/posting-rules', icon: Settings },
+      { label: 'سجل التدقيق', href: '/admin/audit', icon: Shield },
+      { label: 'إشعاراتي', href: '/notifications', icon: Bell },
+      { label: 'صحة النظام', href: '/admin/health', icon: Heart },
     ],
   },
 ];
@@ -177,7 +189,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <div>
               <p className="font-bold text-gray-800 leading-tight">ERP-SYSTEM</p>
-              <p className="text-[10px] text-gray-500">v2.1 Phase 3</p>
+              <p className="text-[10px] text-gray-500">v1.0.34-hotfix2 · Phase 6.3</p>
             </div>
           </Link>
           <button
@@ -268,11 +280,12 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notifications bell */}
+        {/* Notification bell */}
         <Link
           href="/notifications"
-          className="relative p-2 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100"
+          className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800"
           aria-label="الإشعارات"
+          title="إشعاراتي"
         >
           <Bell className="h-5 w-5" />
         </Link>
@@ -281,64 +294,63 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
           <button
             onClick={() => setUserMenu((v) => !v)}
             className="flex items-center gap-2 p-1.5 rounded-lg hover:bg-gray-100"
-            aria-label="قائمة المستخدم"
           >
-          <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">
-            {initials || '؟'}
-          </div>
-          <div className="hidden sm:block text-right">
-            <p className="text-sm font-semibold text-gray-800 leading-tight">{userName}</p>
-            <p className="text-[10px] text-gray-500 leading-tight">{userEmail}</p>
-          </div>
-          <ChevronLeft className={cn('h-4 w-4 text-gray-400 transition-transform', !userMenu && 'rotate-180')} />
-        </button>
-
-        {userMenu && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setUserMenu(false)} />
-            <div className="absolute left-0 mt-2 w-60 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
-              <div className="px-4 py-2 border-b border-gray-100">
-                <p className="text-sm font-semibold text-gray-800 truncate">{userName || 'مستخدم'}</p>
-                <p className="text-xs text-gray-500 truncate">{userEmail}</p>
-              </div>
-              <Link
-                href="/profile"
-                onClick={() => setUserMenu(false)}
-                className="w-full text-right flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <UserIcon className="h-4 w-4" />
-                <span>الملف الشخصي</span>
-              </Link>
-              <Link
-                href="/profile/change-password"
-                onClick={() => setUserMenu(false)}
-                className="w-full text-right flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <KeyRound className="h-4 w-4" />
-                <span>تغيير كلمة المرور</span>
-              </Link>
-              <Link
-                href="/admin/companies"
-                onClick={() => setUserMenu(false)}
-                className="w-full text-right flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                <Building2 className="h-4 w-4" />
-                <span>إدارة الشركات</span>
-              </Link>
-              <div className="border-t border-gray-100 my-1" />
-              <button
-                onClick={() => {
-                  setUserMenu(false);
-                  onLogout();
-                }}
-                className="w-full text-right flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="h-4 w-4" />
-                <span>تسجيل الخروج</span>
-              </button>
+            <div className="h-8 w-8 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-sm font-bold">
+              {initials || '؟'}
             </div>
-          </>
-        )}
+            <div className="hidden sm:block text-right">
+              <p className="text-sm font-semibold text-gray-800 leading-tight">{userName}</p>
+              <p className="text-[10px] text-gray-500 leading-tight">{userEmail}</p>
+            </div>
+            <ChevronLeft className={cn('h-4 w-4 text-gray-400 transition-transform', !userMenu && 'rotate-180')} />
+          </button>
+
+          {userMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setUserMenu(false)} />
+              <div className="absolute left-0 mt-2 w-56 bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-20">
+                <div className="px-4 py-2 border-b border-gray-100 sm:hidden">
+                  <p className="text-sm font-semibold text-gray-800">{userName}</p>
+                  <p className="text-xs text-gray-500">{userEmail}</p>
+                </div>
+                <Link
+                  href="/admin/users"
+                  onClick={() => setUserMenu(false)}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Users className="h-4 w-4" />
+                  <span>إدارة المستخدمين</span>
+                </Link>
+                <Link
+                  href="/admin/companies"
+                  onClick={() => setUserMenu(false)}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Building2 className="h-4 w-4" />
+                  <span>إدارة الشركات</span>
+                </Link>
+                <Link
+                  href="/admin/audit"
+                  onClick={() => setUserMenu(false)}
+                  className="w-full flex items-center gap-2 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Shield className="h-4 w-4" />
+                  <span>سجل التدقيق</span>
+                </Link>
+                <div className="border-t border-gray-100 my-1" />
+                <button
+                  onClick={() => {
+                    setUserMenu(false);
+                    onLogout();
+                  }}
+                  className="w-full text-right flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span>تسجيل الخروج</span>
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -368,22 +380,17 @@ export function AppShell({ children }: AppShellProps) {
   };
 
   return (
-    <ToastProvider>
-      <div className="min-h-screen bg-gray-50 flex" dir="rtl">
-        <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
-        <div className="flex-1 flex flex-col min-w-0">
-          <Topbar
-            onMenuClick={() => setSidebarOpen(true)}
-            userName={userName}
-            userEmail={userEmail}
-            onLogout={onLogout}
-          />
-          <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">
-            <Breadcrumbs />
-            {children}
-          </main>
-        </div>
+    <div className="min-h-screen bg-gray-50 flex" dir="rtl">
+      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <div className="flex-1 flex flex-col min-w-0">
+        <Topbar
+          onMenuClick={() => setSidebarOpen(true)}
+          userName={userName}
+          userEmail={userEmail}
+          onLogout={onLogout}
+        />
+        <main className="flex-1 p-4 md:p-6 max-w-7xl w-full mx-auto">{children}</main>
       </div>
-    </ToastProvider>
+    </div>
   );
 }
