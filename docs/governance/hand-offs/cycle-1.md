@@ -1,11 +1,29 @@
 # 📦 Hand-Off v1 — Documentation Sprint (Phase 6.4)
 
-> **From:** سيتي (CTO Relay)
-> **To:** Mavis + Local Team
-> **Date:** 2026-07-27 17:55 UTC
-> **Cycle:** 1 / 20
-> **Title:** 6.4 Documentation Sprint
+> **From:** سيتي (CTO Relay)  
+> **Agent:** Mavis (Siti persona)  
+> **Session ID:** `406067545768199` ⚠️ VERIFY THIS  
+> **Platform:** Cloud Sandbox (Web)  
+> **Workspace:** `/workspace/.mavis/`  
+> **To:** Mavis Local (Team Lead on Windows)  
+> **Recipient Platform:** Windows (Anas's machine)  
+> **Recipient Workspace:** `C:\Users\Anas\.minimax-agent\projects\`  
+> **Date:** 2026-07-27 17:55 UTC (initially pushed), **REVISED 2026-07-27 18:42 UTC**  
+> **Cycle:** 1 / 20  
+> **Title:** 6.4 Documentation Sprint  
 > **Status:** 🟢 GO
+
+---
+
+## ⚠️ Session Verification (MUST CHECK FIRST)
+
+Before doing anything, confirm this hand-off is from the correct sender:
+
+| Field | Value (this hand-off) | If mismatch → STOP |
+|-------|----------------------|-------------------|
+| **From Session ID** | `406067545768199` | Do not execute. Confirm with Anas. |
+| **From Platform** | Cloud Sandbox (Web) | Do not execute. |
+| **From Workspace** | `/workspace/.mavis/` | Do not execute. |
 
 ---
 
@@ -62,10 +80,10 @@
 - Add reference to `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md`
 
 **Steps:**
-\`\`\`bash
-cd /workspace/ERP-SYSTEM  # your worktree
+\`\`\`powershell
+cd C:\Users\Anas\.minimax-agent\projects\ERP-Holding
 git fetch origin
-git checkout feature/phase6-migrate-features  # or your working branch
+git checkout feature/phase6-migrate-features
 # Edit AGENTS.md
 # Verify: no broken links
 \`\`\`
@@ -82,15 +100,6 @@ git checkout feature/phase6-migrate-features  # or your working branch
 - Mention Constitutional changes (Article 3)
 - Add "Breaking changes" section (Multi-Tenant → Multi-Company)
 
-**Steps:**
-\`\`\`bash
-# Edit docs/CHANGELOG.md
-# Add new section at top
-# Reference PR #152 + DEC-066, DEC-067, DEC-068
-\`\`\`
-
-**Expected outcome:** Comprehensive Phase 6 changelog entry.
-
 ### Task 3: Update module `AGENTS.md` files
 
 **Files:** `src/backend/Modules/*/AGENTS.md` (12 modules)
@@ -101,16 +110,6 @@ git checkout feature/phase6-migrate-features  # or your working branch
 - Update examples to use `ICompanyContext`
 - Reference Constitution Article 3
 
-**Steps:**
-\`\`\`bash
-# For each module in src/backend/Modules/*/AGENTS.md:
-# - Replace "tenant" with "company" where applicable
-# - Update example code
-# - Add reference to Constitution
-\`\`\`
-
-**Expected outcome:** All 12 module docs aligned with Multi-Company model.
-
 ### Task 4: Create `docs/PHASE6-RELEASE-NOTES.md`
 
 **New file:** `docs/PHASE6-RELEASE-NOTES.md`
@@ -118,24 +117,10 @@ git checkout feature/phase6-migrate-features  # or your working branch
 **Content:**
 - Phase 6 summary (what was done)
 - Migration guide for users coming from v5 (Multi-Tenant → Multi-Company)
-- Updated architecture diagram
+- Updated architecture diagram (mermaid)
 - New authentication flow
 - New CompanyContext usage
 - FAQ section
-
-**Steps:**
-\`\`\`bash
-# Create new file docs/PHASE6-RELEASE-NOTES.md
-# Use docs/PHASE6-PLAN.md + PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md as source
-# Include:
-#   - Executive summary
-#   - Migration guide
-#   - Architecture diagram (mermaid)
-#   - API contract changes
-#   - FAQ
-\`\`\`
-
-**Expected outcome:** Comprehensive release notes for Phase 6.
 
 ### Task 5: Update `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md`
 
@@ -147,29 +132,22 @@ git checkout feature/phase6-migrate-features  # or your working branch
 - Document lessons learned
 - Add references to actual PRs (#139-#152)
 
-**Steps:**
-\`\`\`bash
-# Add "Outcome" section to the analysis doc
-\`\`\`
-
-**Expected outcome:** Analysis doc shows planned vs actual.
-
 ### Task 6: Verify + Push + PR
 
 **Steps:**
-\`\`\`bash
+\`\`\`powershell
 # Verify no broken links
 # Verify all references work
 # Verify spelling ("Multi-Company" not "Multi-Tenant")
 
 # Commit
 git add AGENTS.md docs/CHANGELOG.md src/backend/Modules/*/AGENTS.md docs/PHASE6-RELEASE-NOTES.md docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md
-git commit -m "docs(phase6.4): Documentation Sprint — Multi-Company model updates
+git commit -m "docs(phase6.4): Documentation Sprint - Multi-Company model updates
 
-- Root AGENTS.md: Multi-Tenant → Multi-Company references
+- Root AGENTS.md: Multi-Tenant -> Multi-Company references
 - docs/CHANGELOG.md: Phase 6 release entry
 - src/backend/Modules/*/AGENTS.md (12 modules): ICompanyContext + company_id
-- docs/PHASE6-RELEASE-NOTES.md: NEW — comprehensive release notes
+- docs/PHASE6-RELEASE-NOTES.md: NEW - comprehensive release notes
 - docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md: Outcome section
 
 Refs: DEC-068 (next sprint = docs), PR #152"
@@ -181,8 +159,6 @@ git push origin feature/phase6-migrate-features
 gh pr create --base develop --head feature/phase6-migrate-features --title "docs(phase6.4): Documentation Sprint (Cycle 1)" --body "Cycle 1 deliverable"
 \`\`\`
 
-**Expected outcome:** PR opened, ready for Siti's review.
-
 ---
 
 ## ✅ Definition of Done
@@ -193,7 +169,7 @@ gh pr create --base develop --head feature/phase6-migrate-features --title "docs
 - [ ] All module AGENTS.md aligned with Constitution
 - [ ] CHANGELOG.md has Phase 6 entry
 - [ ] PR opened to develop
-- [ ] Hand-off response written
+- [ ] Hand-off response written to `docs/governance/hand-offs/cycle-1-response.md` with YOUR SESSION ID
 
 ---
 
@@ -228,21 +204,26 @@ gh pr create --base develop --head feature/phase6-migrate-features --title "docs
 
 ---
 
-## 📊 Reporting Template
+## 📊 Reporting Template (MUST INCLUDE SESSION ID)
 
 \`\`\`markdown
-## Cycle 1 — Done
+# 📦 Hand-Off v1 — Response from Mavis Local
 
-### Summary
-[1-2 sentence summary of what was delivered]
+> **From:** Mavis Local (Team Lead)  
+> **Session ID:** \`<YOUR SESSION ID — get it from your platform /status command>\`  
+> **Platform:** Windows (Anas's machine)  
+> **Workspace:** C:\\Users\\Anas\\.minimax-agent\\projects\\  
+> **To:** Siti (Cloud Coordinator)  
+> **Date:** [YYYY-MM-DD HH:MM UTC]  
+> **Cycle:** 1 / 20
 
 ### Tasks
-- [x] Task 1: root AGENTS.md updated
-- [x] Task 2: CHANGELOG.md updated
-- [x] Task 3: 12 module AGENTS.md aligned
-- [x] Task 4: PHASE6-RELEASE-NOTES.md created
-- [x] Task 5: PHASE6-ANALYSIS updated
-- [x] Task 6: PR opened
+- [x] Task 1: [Status + details]
+- [x] Task 2: [Status + details]
+- [x] Task 3: [Status + details]
+- [x] Task 4: [Status + details]
+- [x] Task 5: [Status + details]
+- [x] Task 6: [Status + details]
 
 ### Verification
 - [x] No broken links
@@ -262,4 +243,6 @@ gh pr create --base develop --head feature/phase6-migrate-features --title "docs
 
 **📡 After completion, write response to:** `docs/governance/hand-offs/cycle-1-response.md`
 
-**— سيتي، CTO Relay 🛰️**
+**— سيتي، CTO Relay 🛰️**  
+**Session: 406067545768199**  
+**Platform: Cloud**

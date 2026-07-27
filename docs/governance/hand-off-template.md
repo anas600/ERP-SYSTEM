@@ -1,16 +1,37 @@
-# 📦 Hand-Off Template v1.0
+# 📋 Hand-Off Template v1.1
 
-> **Use this template for ALL cycle hand-offs between Siti (Coordinator) and Mavis Local (Executor).**
+> **Use this template for ALL cycle hand-offs between Siti (Cloud Coordinator) and Mavis Local (Desktop Executor).**
+> **v1.1 adds mandatory session ID fields to prevent identity confusion.**
+
+---
+
+## ⚠️ Session Verification (MUST CHECK)
+
+Before executing ANY hand-off, verify:
+
+| Field | Expected Value |
+|-------|----------------|
+| **From Session ID** | `406067545768199` (Siti, Cloud) |
+| **From Platform** | Cloud Sandbox (Web) |
+| **From Workspace** | `/workspace/.mavis/` |
+
+**If the sender's session ID does NOT match `406067545768199`, STOP. Do not execute. Confirm with Anas.**
 
 ---
 
 ```markdown
 # 📦 Hand-Off v[N] — [Cycle Title]
 
-> **From:** سيتي (CTO Relay)
-> **To:** Mavis + Local Team
-> **Date:** [YYYY-MM-DD HH:MM UTC]
-> **Cycle:** [N] / 20
+> **From:** سيتي (CTO Relay)  
+> **Agent:** Mavis (Siti persona)  
+> **Session ID:** `406067545768199`  
+> **Platform:** Cloud Sandbox (Web)  
+> **Workspace:** `/workspace/.mavis/`  
+> **To:** Mavis Local (Team Lead)  
+> **Recipient Platform:** Windows (Anas's machine)  
+> **Recipient Workspace:** `C:\Users\Anas\.minimax-agent\projects\`  
+> **Date:** [YYYY-MM-DD HH:MM UTC]  
+> **Cycle:** [N] / 20  
 > **Status:** 🟡 [Status emoji]
 
 ---
@@ -52,9 +73,6 @@
 
 **Expected outcome:** [Description]
 
-### Task 2: [Title]
-...
-
 ---
 
 ## ✅ Definition of Done
@@ -62,75 +80,43 @@
 - [ ] [Criterion 1]
 - [ ] [Criterion 2]
 - [ ] [Criterion 3]
-- [ ] Hand-Off report returned
+- [ ] Hand-Off report returned to `docs/governance/hand-offs/cycle-[N]-response.md`
 
 ---
 
-## ⏱️ Time Estimate
+## 📊 Response Format (REQUIRED)
 
-| Task | Time |
-|------|------|
-| Task 1 | X min |
-| Task 2 | X min |
-| ... | ... |
-| Reporting | X min |
+When returning hand-off, use this exact header:
 
-**Note:** Times are estimates. Quality > speed.
+```markdown
+# 📦 Hand-Off v[N] — Response from Mavis Local
 
----
-
-## 🔓 Technical Freedom
-
-**Team is empowered to:**
-- [Decisions they can make]
-
-**Stop only if:**
-- ❌ [Show-stoppers]
-
----
-
-## 📊 Reporting Template
-
-\`\`\`markdown
-## Cycle [N] — Done
-
-### Summary
-- [1-2 sentence summary]
+> **From:** Mavis Local (Team Lead)  
+> **Session ID:** `<your session ID — fill from /status>`  
+> **Platform:** Windows (Anas's machine)  
+> **Workspace:** `C:\Users\Anas\.minimax-agent\projects\`  
+> **To:** Siti (Cloud Coordinator)  
+> **Date:** [YYYY-MM-DD HH:MM UTC]  
+> **Cycle:** [N] / 20  
+> **Cycle Title:** [same as hand-off]
 
 ### Tasks
-- [ ] Task 1: [Status]
-- [ ] Task 2: [Status]
+- [x] Task 1: [Status + details]
+- [x] Task 2: [Status + details]
 
 ### Verification
 - [Check 1]: ✅ / ❌
 - [Check 2]: ✅ / ❌
 
-### Issues Encountered
-- [None / list]
-
 ### Time Spent
-- [X] minutes
+[X] minutes
+
+### Issues Encountered
+- [None / list with context]
 
 **Ready for next cycle:** YES / NO
-\`\`\`
-
----
-
-**📡 After completion, return hand-off to docs/governance/hand-offs/cycle-[N]-response.md**
-
-**— سيتي، CTO Relay 🛰️**
 ```
 
 ---
 
-## 🔧 Usage
-
-1. **Siti** copies this template to `docs/governance/hand-offs/cycle-N.md`
-2. **Siti** fills in cycle-specific details
-3. **Siti** pushes to develop branch
-4. **Mavis Local** reads from develop
-5. **Mavis Local** executes
-6. **Mavis Local** writes response to `docs/governance/hand-offs/cycle-N-response.md`
-7. **Mavis Local** pushes response + PR (if code changes)
-8. **Siti** merges, analyzes, prepares cycle N+1
-
+*Template v1.1 — Last updated 2026-07-27 18:40 UTC (session ID clarification)*
