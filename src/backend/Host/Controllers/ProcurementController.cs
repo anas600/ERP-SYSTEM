@@ -2,6 +2,8 @@ using System.Security.Claims;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Entities;
+using ERPSystem.Modules.Reports.Application;
+using ERPSystem.Shared.MultiTenancy;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -21,6 +23,9 @@ public class ProcurementController : ControllerBase
     private readonly IPurchaseOrderService _pos;
     private readonly IGoodsReceiptService _grs;
     private readonly IVendorBillService _bills;
+    private readonly IPurchasesByVendorService _purchasesByVendor;
+    private readonly ITopVendorsService _topVendors;
+    private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateVendorRequest> _createVendorV;
     private readonly IValidator<UpdateVendorRequest> _updateVendorV;
@@ -30,13 +35,43 @@ public class ProcurementController : ControllerBase
 
     public ProcurementController(
         IVendorService vendors, IPurchaseOrderService pos, IGoodsReceiptService grs, IVendorBillService bills,
+        IPurchasesByVendorService purchasesByVendor, ITopVendorsService topVendors,
         IValidator<CreateVendorRequest> createVendorV, IValidator<UpdateVendorRequest> updateVendorV,
         IValidator<CreatePurchaseOrderRequest> createPoV,
-        IValidator<CreateGoodsReceiptRequest> createGrV, IValidator<CreateVendorBillRequest> createBillV)
+        IValidator<CreateGoodsReceiptRequest> createGrV, IValidator<CreateVendorBillRequest> createBillV,
+        ICompanyContext companyContext)
     {
         _vendors = vendors; _pos = pos; _grs = grs; _bills = bills;
+        _purchasesByVendor = purchasesByVendor; _topVendors = topVendors;
         _createVendorV = createVendorV; _updateVendorV = updateVendorV; _createPoV = createPoV;
         _createGrV = createGrV; _createBillV = createBillV;
+        _companyContext = companyContext;
+    }
+
+    private Guid CompanyId => _companyContext.CompanyId ?? throw new UnauthorizedAccessException();
+
+    // Report 14: Purchases by Vendor
+    [HttpGet("api/procurement/reports/purchases-by-vendor")]
+    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+    public async Task<IActionResult> PurchasesByVendor(
+        [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct)
+    {
+        if (to < from) return BadRequest("to must be >= from.");
+        var r = await _purchasesByVendor.GetAsync(CompanyId, from, to, ct);
+        return Ok(r);
+    }
+
+    // Report 15: Top Vendors
+    [HttpGet("api/procurement/reports/top-vendors")]
+    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+    public async Task<IActionResult> TopVendors(
+        [FromQuery] DateTime from, [FromQuery] DateTime to,
+        [FromQuery] int limit = 10, CancellationToken ct = default)
+    {
+        if (limit <= 0) limit = 10;
+        if (limit > 100) limit = 100;
+        var r = await _topVendors.GetAsync(CompanyId, from, to, limit, ct);
+        return Ok(r);
     }
 
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);

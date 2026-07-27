@@ -9,6 +9,14 @@
     <NoWarn>$(NoWarn);NU1903;NU1904;CS1591</NoWarn>
   </PropertyGroup>
 
+  <!-- Phase 6.1: Exclude obsolete migration backups from compilation.
+       These .cs files are kept for reference but contain tenant_id references
+       that conflict with the multi-company schema. They MUST NOT be compiled. -->
+  <ItemGroup>
+    <Compile Remove="..\Shared\Migrations\_obsolete_backup\**" />
+    <Content Remove="..\Shared\Migrations\_obsolete_backup\**" />
+  </ItemGroup>
+
   <ItemGroup>
     <!-- Logging -->
     <PackageReference Include="Serilog.AspNetCore" Version="8.0.2" />

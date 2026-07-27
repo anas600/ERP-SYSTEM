@@ -2,16 +2,21 @@
 
 // صفحة تفاصيل فاتورة مبيعات — customer info + lines + payments
 
-import { useEffect, useState, use } from 'react';
+import { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Send, XCircle, FileText } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Send, XCircle, FileText } from 'lucide-react';
 import { Button, Badge, Card, PageHeader } from '@/components/ui';
 import { arApi, SalesInvoice, SALES_INVOICE_STATUSES, SALES_INVOICE_STATUS_VARIANTS, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { formatNumber } from '@/lib/format';
+import { useToast } from '@/lib/useToast';
 
-export default function SalesInvoiceDetailPage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
+export default function SalesInvoiceDetailPage() {
+  const params = useParams<{ id: string }>();
+  const router = useRouter();
+  const toast = useToast();
+  const id = params.id;
   const [invoice, setInvoice] = useState<SalesInvoice | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,8 +44,11 @@ export default function SalesInvoiceDetailPage({ params }: { params: Promise<{ i
     try {
       const updated = await arApi.postInvoice(invoice.id);
       setInvoice(updated);
+      toast.success('تم ترحيل الفاتورة بنجاح.');
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل ترحيل الفاتورة.'));
+      const msg = getErrorMessage(e, 'فشل ترحيل الفاتورة.');
+      setError(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(false);
     }
@@ -53,8 +61,11 @@ export default function SalesInvoiceDetailPage({ params }: { params: Promise<{ i
     try {
       const updated = await arApi.cancelInvoice(invoice.id);
       setInvoice(updated);
+      toast.success('تم إلغاء الفاتورة.');
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل إلغاء الفاتورة.'));
+      const msg = getErrorMessage(e, 'فشل إلغاء الفاتورة.');
+      setError(msg);
+      toast.error(msg);
     } finally {
       setActionLoading(false);
     }
@@ -84,6 +95,16 @@ export default function SalesInvoiceDetailPage({ params }: { params: Promise<{ i
 
   return (
     <div>
+      <div className="mb-3">
+        <button
+          onClick={() => router.back()}
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          العودة للقائمة
+        </button>
+      </div>
+
       <PageHeader
         title={`📄 فاتورة ${invoice.invoiceNumber}`}
         description={invoice.customerName ? `العميل: ${invoice.customerName}` : 'تفاصيل الفاتورة'}

@@ -1,0 +1,19 @@
+{
+  "name": "erp-system-e2e",
+  "version": "1.0.34",
+  "private": true,
+  "description": "ERP-SYSTEM v1.0.34-hotfix2 — Multi-Company Edition. End-to-end tests + DB seed scripts.",
+  "scripts": {
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:smoke": "playwright test smoke.spec.ts",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report",
+    "seed:1year": "node scripts/gen_seed_1year.js",
+    "seed:check": "node scripts/check_seed.js"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.62.0",
+    "pg": "^8.13.0"
+  }
+}

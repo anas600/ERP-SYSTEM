@@ -1,3 +1,5 @@
+using ERPSystem.Modules.Projects.Application.Services;
+using ERPSystem.Modules.Reports.Application;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Shared.MultiTenancy;
 using Microsoft.AspNetCore.Authorization;
@@ -13,9 +15,15 @@ public class ReportsController : ControllerBase
     private readonly IProjectReportService _projects;
     private readonly IInventoryReportService _inventory;
     private readonly IFinanceReportService _finance;
+    private readonly IBudgetVsActualService _budgetVsActual;
     private readonly ICompanyContext _companyContext;
-    public ReportsController(IProjectReportService p, IInventoryReportService i, IFinanceReportService f, ICompanyContext c)
-    { _projects = p; _inventory = i; _finance = f; _companyContext = c; }
+
+    public ReportsController(
+        IProjectReportService p, IInventoryReportService i, IFinanceReportService f,
+        IBudgetVsActualService budgetVsActual, ICompanyContext c)
+    {
+        _projects = p; _inventory = i; _finance = f; _budgetVsActual = budgetVsActual; _companyContext = c;
+    }
     private Guid CompanyId => _companyContext.CompanyId ?? throw new UnauthorizedAccessException();
 
     // ===== Project Reports =====
@@ -36,6 +44,16 @@ public class ReportsController : ControllerBase
     {
         var r = await _projects.GetProjectsSummaryAsync(companyId, ct);
         return Ok(new { count = r.Count, items = r });
+    }
+
+    // Report 18: Budget vs Actual (all projects)
+    [HttpGet("projects/budget-vs-actual")]
+    public async Task<IActionResult> BudgetVsActualAll(
+        [FromQuery] Guid? projectId, [FromQuery] DateTime from, [FromQuery] DateTime to,
+        CancellationToken ct)
+    {
+        var r = await _budgetVsActual.GetAsync(CompanyId, projectId, from, to, ct);
+        return Ok(r);
     }
 
     // ===== Inventory Reports =====

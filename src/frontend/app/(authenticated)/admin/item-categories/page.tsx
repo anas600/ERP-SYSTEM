@@ -1,11 +1,19 @@
 'use client';
 
-// قائمة فئات الأصناف (Item Categories)
+// قائمة فئات الأصناف (Item Categories) — Tree view + Add/Edit/Delete
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { FolderTree, Pencil, Plus, Trash2 } from 'lucide-react';
+import {
+  Badge,
+  Button,
+  ConfirmDialog,
+  EmptyState,
+  PageHeader,
+  SkeletonTable,
+  useToast,
+} from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -13,20 +21,24 @@ interface ItemCategory {
   id: string;
   code: string;
   name: string;
-  description?: string;
-  parentId?: string;
+  description?: string | null;
+  parentId?: string | null;
   isActive: boolean;
 }
 
 export default function ItemCategoriesPage() {
   const { loading: authLoading } = useAuth();
+  const toast = useToast();
   const [items, setItems] = useState<ItemCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ItemCategory | null>(null);
+  const [deleteSubmitting, setDeleteSubmitting] = useState(false);
 
   useEffect(() => {
     if (authLoading) return;
-    load();
+    void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading]);
 
   const load = async () => {
@@ -35,7 +47,7 @@ export default function ItemCategoriesPage() {
     try {
       const res = await fetch('/api/inventory/categories', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
-      const data = await res.json();
+      const data = (await res.json()) as ItemCategory[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -48,65 +60,145 @@ export default function ItemCategoriesPage() {
   const roots = items.filter((c) => !c.parentId);
   const childrenOf = (parentId: string) => items.filter((c) => c.parentId === parentId);
 
+  const submitDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleteSubmitting(true);
+    try {
+      const res = await fetch(`/api/inventory/categories/${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (res.status === 404 || res.status === 405) {
+        throw new Error('حذف الفئات غير مدعوم في الـ backend حالياً.');
+      }
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل الحذف');
+      }
+      toast.success(`تم حذف الفئة "${deleteTarget.name}".`);
+      setDeleteTarget(null);
+      await load();
+    } catch (e: unknown) {
+      toast.error(getErrorMessage(e, 'فشل حذف الفئة.'));
+    } finally {
+      setDeleteSubmitting(false);
+    }
+  };
+
   return (
     <div>
       <PageHeader
         title="📁 فئات الأصناف"
         description="التصنيف الهرمي للأصناف في المخزون"
         actions={
-          <Link href="/admin/item-categories/new">
-            <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>فئة جديدة</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Button onClick={load} variant="secondary" size="sm" disabled={loading}>
+              تحديث
+            </Button>
+            <Link href="/admin/item-categories/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                فئة جديدة
+              </Button>
+            </Link>
+          </div>
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
+      {error && (
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+          {error}
+        </div>
+      )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
-        </div>
+        <SkeletonTable rows={5} cols={3} />
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">لا توجد فئات.</div>
+        <EmptyState
+          icon={<FolderTree className="h-12 w-12" />}
+          title="لا توجد فئات"
+          description="ابدأ بإنشاء أول فئة لتنظيم الأصناف في المخزون."
+          action={
+            <Link href="/admin/item-categories/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                فئة جديدة
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {roots.map((root) => {
             const children = childrenOf(root.id);
             return (
-              <div key={root.id}>
-                <Card accent="blue">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="text-xs text-gray-500 font-mono">{root.code}</p>
-                      <h3 className="font-bold text-gray-800 mt-1">{root.name}</h3>
-                      {root.description && <p className="text-sm text-gray-500 mt-1">{root.description}</p>}
-                      <div className="mt-2 flex items-center gap-2">
-                        <Badge variant={root.isActive ? 'success' : 'neutral'}>{root.isActive ? 'فعّال' : 'معطّل'}</Badge>
-                        {children.length > 0 && <Badge variant="info">{children.length} فئة فرعية</Badge>}
+              <div key={root.id} className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div className="p-4 border-r-4 border-blue-500">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-xs text-gray-500 font-mono">{root.code}</p>
+                        <Badge variant={root.isActive ? 'success' : 'neutral'}>
+                          {root.isActive ? 'فعّال' : 'معطّل'}
+                        </Badge>
+                        {children.length > 0 && (
+                          <Badge variant="info">{children.length} فئة فرعية</Badge>
+                        )}
                       </div>
+                      <h3 className="font-bold text-gray-800 mt-1">{root.name}</h3>
+                      {root.description && (
+                        <p className="text-sm text-gray-500 mt-1">{root.description}</p>
+                      )}
                     </div>
-                    <Link href={`/admin/item-categories/${root.id}/edit`}>
-                      <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
-                    </Link>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Link href={`/admin/item-categories/${root.id}/edit`}>
+                        <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />}>
+                          تعديل
+                        </Button>
+                      </Link>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteTarget(root)}
+                        iconLeft={<Trash2 className="h-3 w-3 text-red-500" />}
+                      >
+                        حذف
+                      </Button>
+                    </div>
                   </div>
-                </Card>
+                </div>
                 {children.length > 0 && (
-                  <div className="ms-6 mt-2 space-y-2 border-s-2 border-gray-200 ps-4">
+                  <div className="bg-gray-50/50 border-t border-gray-100 divide-y divide-gray-100">
                     {children.map((c) => (
-                      <Card key={c.id} accent="gray">
-                        <div className="flex items-start justify-between">
-                          <div>
+                      <div
+                        key={c.id}
+                        className="p-3 ps-10 border-r-4 border-gray-200 flex items-start justify-between gap-3"
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="text-xs text-gray-500 font-mono">{c.code}</p>
-                            <h4 className="font-bold text-gray-800 text-sm">{c.name}</h4>
-                            {c.description && <p className="text-xs text-gray-500 mt-1">{c.description}</p>}
-                            <Badge variant={c.isActive ? 'success' : 'neutral'} className="mt-1">{c.isActive ? 'فعّال' : 'معطّل'}</Badge>
+                            <Badge variant={c.isActive ? 'success' : 'neutral'}>
+                              {c.isActive ? 'فعّال' : 'معطّل'}
+                            </Badge>
                           </div>
-                          <Link href={`/admin/item-categories/${c.id}/edit`}>
-                            <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
-                          </Link>
+                          <h4 className="font-bold text-gray-800 text-sm mt-0.5">{c.name}</h4>
+                          {c.description && (
+                            <p className="text-xs text-gray-500 mt-1">{c.description}</p>
+                          )}
                         </div>
-                      </Card>
+                        <div className="flex items-center gap-1 flex-shrink-0">
+                          <Link href={`/admin/item-categories/${c.id}/edit`}>
+                            <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />}>
+                              تعديل
+                            </Button>
+                          </Link>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteTarget(c)}
+                            iconLeft={<Trash2 className="h-3 w-3 text-red-500" />}
+                          >
+                            حذف
+                          </Button>
+                        </div>
+                      </div>
                     ))}
                   </div>
                 )}
@@ -115,6 +207,24 @@ export default function ItemCategoriesPage() {
           })}
         </div>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        title="حذف فئة الأصناف"
+        message={
+          deleteTarget ? (
+            <span>
+              هل تريد حذف الفئة <b>{deleteTarget.name}</b>؟ إذا كانت تحوي فئات فرعية فقد يفشل الحذف.
+            </span>
+          ) : null
+        }
+        confirmLabel="حذف"
+        cancelLabel="إلغاء"
+        variant="danger"
+        loading={deleteSubmitting}
+        onConfirm={submitDelete}
+        onCancel={() => setDeleteTarget(null)}
+      />
     </div>
   );
 }

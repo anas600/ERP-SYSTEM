@@ -1,8 +1,118 @@
-# 📝 CHANGELOG — ERP-SYSTEM
+﻿# 📝 CHANGELOG — ERP-SYSTEM
 
 > سجل التغييرات الموثّقة. **آخر إدخال في الأعلى.**
 
 ---
+
+## [Unreleased] - 2026-07-27 (Mavis / Abdo)
+### Tests (initial Playwright e2e suite on abdo-team)
+- `src/frontend/e2e/smoke.spec.ts` — HTTP-level reachability for all 37 sidebar routes (2/2 passing in 56.7s)
+- `src/frontend/e2e/admin.spec.ts` — browser-level check for 7 admin pages + sidebar group visibility (5/8 passing; 3 fail due to a real auth-header bug, see DEC-ABDO-009 below)
+- Installed `@playwright/test` (was in devDeps) + chromium-1228 browser binary via `npx playwright install`
+- `docs/HANDOFF-ABDO-TEAM-TESTS-INITIAL.md` — Hand-off Report with executive summary, multi-company compliance, build results, and the DEC-ABDO-009 known issue
+
+### Known Issues
+- **DEC-ABDO-009 (P1):** 3 admin pages fail to load data in browser because they use raw `fetch()` without the `Authorization: Bearer` header (the `api.ts` axios client adds it automatically; raw `fetch()` does not). Affected: `/admin/posting-rules`, `/admin/item-categories`, `/admin/notifications`. Fix: change `fetch(...)` to `api.get(...)` in each page (~15 lines total). Will be a separate PR after review.
+
+---
+
+## [Unreleased] - 2026-07-27 (Mavis / Abdo)
+### Governance Acknowledgment (3-Tier & Dual-Agent Governance Model)
+- Read and internalized `docs/ABDO-TEAM-ALIGNMENT.md` (one-time handoff from Mavis / Anas on `origin/feature/phase6-migrate-features`)
+- Read `CONSTITUTION.md` (Articles 1-10) - confirmed Article 3 Multi-Company model
+- Read `docs/HANDOFF-PHASE6-MIGRATE.md` (reference Hand-off Report structure)
+- Saved `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md` locally for reference
+- Confirmed branch: `feature/abdo-team` @ `c77921b`
+- Starting work under 3-Tier & Dual-Agent Governance Model:
+  - Tier 1 (Local Dev) - my work, on `feature/abdo-team` only
+  - Tier 2 (Staging `develop`) - Anas/Siti only
+  - Tier 3 (Production `main`) - Anas/Siti only
+- Commitments:
+  - No `tenant_id` references anywhere (Article 3.5)
+  - Use `ICompanyContext` + `company_id` + `X-Company-Id` header on all new code
+  - Every commit: Conventional Commits + CHANGELOG entry + AGENTS.md update if applicable
+  - No force-push on `feature/abdo-team`
+  - No push to `develop` or `main` (per Article 4)
+  - No modifications to `CONSTITUTION.md`, root `AGENTS.md`, or `Program.cs` modules list
+  - Doc-driven sync only - no direct chat with Mavis / Anas
+  - Cloud issues (Supabase / HF / pgbouncer) are isolated in Hand-off Reports, not fixed in Tier 1
+
+---
+
+## [Unreleased] - 2026-07-27 (Mavis / Anas)
+### Documentation (Mavis local — Tier 1 docs sync)
+- **`src/backend/Modules/Reports/AGENTS.md` — upgraded from Phase 2.5 to Phase 6.2 (6.1 KB → 20 KB).**
+  - Added: 10 new services (AccountActivity, Collections, CostCenter, JournalEntry, VAT, SalesByCustomer, SalesByItem, TopCustomers, PurchasesByVendor, TopVendors)
+  - Added: 11 new endpoints in `FinanceReportsController` + 4 cross-module endpoints in `ReportsController` (20 total)
+  - Added: 18 frontend report pages documentation
+  - Added: Phase 6.2 DTO computed properties section
+  - Added: P0 fix history (d450dae — 7 JSON DataTypes + 3 SQL fixes + 4 DI fixes)
+  - Added: Multi-Company compliance section (Constitution Article 3)
+  - Added: Known Issues / Future Work section (unit test gap, Excel/PDF export, charts, URL duplication)
+  - Refs: docs/HANDOFF-PHASE6-MIGRATE.md (sister doc)
+
+## [Unreleased] - 2026-07-27 (Mavis / Anas)
+### Documentation (3-Tier & Dual-Agent Governance Model)
+- **`docs/ABDO-TEAM-ALIGNMENT.md` (NEW — 26.9 KB, 520 lines) — one-time context sync for Abdo's Mavis instance.**
+  - Sections: Constitution high-level, Multi-Company architecture, 3-Tier isolation, Doc-Driven Sync, First Actions checklist, Reference Map, Example Hand-Off, Acknowledgment
+  - For Abdo's Mavis to read once and internalize the full project context under the new governance model
+  - Will be propagated to `feature/abdo-team` by admin (cherry-pick or shared branch)
+- **`docs/HANDOFF-PHASE6-MIGRATE.md` (NEW — 18.9 KB, 327 lines) — session analysis of Abdo's 9 commits.**
+  - Executive summary, file-type breakdown, Constitution §3 compliance table, build/test results, HTTP smoke, P0 fix inspection, decision matrix
+- **Memory entry saved** — 3-Tier & Dual-Agent Governance Model for ERP-SYSTEM (2026-07-27)
+  - 3 Tiers (Local Dev / Staging / Production), Doc-Driven Sync, high/low conflict zones, hard limits
+
+---
+
+## [Unreleased] - 2026-07-26
+### Added (Phase 6.2 — 20 Accounting Reports + User Management on Multi-Company)
+- **Backend: 10 new report services** on Multi-Company architecture (`ICompanyContext` + `WHERE company_id = @CompanyId`):
+  - `JournalEntryReportService` (Finance) — Report #6: Journal Entries with filters (date range, status, pagination)
+  - `AccountActivityService` (Finance) — Report #7: Account Activity with opening/closing balance; **fix**: `NormalBalance` enum cast to int before comparison
+  - `CollectionsService` (Finance) — Report #11: Customer collection performance (DSO, aging buckets)
+  - `CostCenterReportService` (Finance) — Report #16: Cost Center performance (revenue, cost, variance)
+  - `VatReportService` (Finance) — Report #19: Libya VAT 15% (output vs input, net payable)
+  - `SalesByCustomerService`, `SalesByItemService`, `TopCustomersService` (AR)
+  - `PurchasesByVendorService`, `TopVendorsService` (Procurement)
+  - `BudgetVsActualService` (Projects) — Report #18
+- **Backend: 20+ new DTOs** in `Modules/Reports/Application/ReportDtos.cs` (JournalEntryLineDto, AccountActivityResponse, CollectionsRow/Report, CostCenterPerformanceRow/Report, VatReport, SalesByCustomerRow/Report, …)
+- **Backend: 5 controllers updated** (Multi-Company pattern):
+  - `Host/Controllers/FinanceReportsController.cs` — rewritten, 10 endpoints
+  - `Host/Controllers/FinanceArController.cs` — +3 endpoints (sales-by-customer, sales-by-item, top-customers)
+  - `Host/Controllers/ProcurementController.cs` — +2 endpoints (purchases-by-vendor, top-vendors)
+  - `Host/Controllers/ReportsController.cs` — +1 endpoint (projects/budget-vs-actual)
+- **Backend: New `RolesController.cs`** (Admin only) — full user management:
+  - `POST /api/identity/users` (create), `GET /api/identity/users` (list), `GET /api/identity/users/{id}` (with roleIds + companies)
+  - `PUT /api/identity/users/{id}` (update profile + roles + company), `PUT /api/identity/users/{id}/password` (admin reset)
+  - `DELETE /api/identity/users/{id}` (deactivate), `GET /api/identity/roles` (list)
+  - DTOs: `CreateUserRequest`, `UpdateUserRequest`, `AdminResetPasswordRequest`
+- **Backend: `AuthController` change-password** — `POST /api/auth/change-password` (self-service, requires current password)
+- **Backend: `IUserRepository` + `UserRepository`** — +5 methods: `UpdatePasswordAsync`, `UpdateProfileAsync`, `DeleteAsync` (soft), `GetUserRoleIdsAsync`, `SetUserRolesAsync`
+- **Backend: `Program.cs`** — +11 `AddScoped` registrations for the new services
+- **Backend: `FinanceReportService.cs` Trial Balance SQL** — alias fix `TotalDebit/TotalCredit` → `Debit/Credit` (Dapper case-insensitive mapping does not strip `Total` prefix; bug encountered twice, root cause same)
+- **Frontend: `lib/api.ts`** — +16 DTOs, +20 report methods, +10 identity methods, +30+ helper types, removed duplicate `TrialBalanceRow` interface
+- **Frontend: `lib/utils.ts`** — +`formatCurrency(value, currency='LYD')`, +`formatPercent(value, decimals=1)`
+- **Frontend: 7 new report pages:**
+  - `app/(authenticated)/reports/financial/trial-balance/page.tsx`
+  - `app/(authenticated)/reports/financial/income-statement/page.tsx`
+  - `app/(authenticated)/reports/financial/balance-sheet/page.tsx`
+  - `app/(authenticated)/reports/financial/vat/page.tsx`
+  - `app/(authenticated)/reports/sales/sales-by-customer/page.tsx`
+  - `app/(authenticated)/reports/projects/budget-vs-actual/page.tsx`
+  - `app/(authenticated)/reports/inventory/valuation/page.tsx`
+- **Frontend: `admin/users/page.tsx`** — migrated from legacy `/api/users` to `identityApi.listUsers/getUser/listRoles`
+- **Docs: `docs/SYSTEM-FUNCTIONAL-SPECIFICATION.md/.html/.pdf`** — 31-page bilingual spec (Arabic/English) covering all 12 modules with functional requirements matrix, breakdown, operational insights, and technical empowerment. PDF generated via Chrome headless with base64-embedded Arabic fonts.
+- **Docs: 4 seed SQL files** on Multi-Company architecture (`company_id` not `tenant_id`, holding UUID `ec6b98ee-221c-410e-a690-192245314a68`):
+  - `docs/seed-data-phase6.sql` — minimal Phase 6 reference (8.5 KB)
+  - `docs/seed-one-year-data.sql` — full 1-year reference data (16 customers, 12 vendors, 21 items, 4 warehouses, 14 cost centers, 4 projects, 6 departments, 5 categories, 6 UoMs) (10.4 KB)
+  - `docs/seed-phases-2-8.sql` — HR data (15 employees, 3 salary structures, 6427 attendance, 617 leave requests, 12 payroll runs) (7 KB)
+  - `docs/seed-phases-6-8.sql` — Operations + Finance (43 POs, 31 goods receipts, 30 vendor bills, 27 payments, 61 sales invoices, 55 receipts, 79 stock movements, 25 stock levels, 24 project tasks, 30 resource assignments, 4 project budgets, 13 payroll runs, 204 payroll items, 216 journal entries, 528 journal lines) (24 KB)
+- **`.gitignore`** — `docs/node_modules/` (PDF generation toolchain, not source)
+### Verified
+- Backend `dotnet build --nologo` — 0 errors, 0 warnings
+- Frontend `npx tsc --noEmit` — 0 errors in new code (2 pre-existing errors in E2E specs are unrelated to this change)
+- 20 reports all 200 OK against live PostgreSQL (AlFajr Holding Company)
+- Net Income 1,868,278 LYD; Total Assets 2,546,623 LYD; Revenue 2,848,078 LYD
 
 ## [Unreleased] - 2026-07-25
 ### Changed (Phase 6.1b — tenant_id removal, multi-company model)

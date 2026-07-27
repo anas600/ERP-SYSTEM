@@ -304,7 +304,42 @@ public class AuthController : ControllerBase
         _logger.LogInformation("Password reset completed for user {UserId}", matchedUserId);
         return Ok(new { message = "تم تحديث كلمة المرور بنجاح." });
     }
+
+    /// <summary>
+    /// Self-service password change (Phase 6.2).
+    /// Authenticated user provides their current password and a new one.
+    /// </summary>
+    [HttpPost("change-password")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        var sub = User.FindFirst("sub")?.Value ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (!Guid.TryParse(sub, out var userId))
+            return Unauthorized();
+        if (string.IsNullOrWhiteSpace(request.CurrentPassword) || string.IsNullOrWhiteSpace(request.NewPassword))
+            return BadRequest(new ProblemDetails { Title = "Validation Error", Detail = "Current and new passwords are required." });
+        if (request.NewPassword.Length < 6)
+            return BadRequest(new ProblemDetails { Title = "Weak Password", Detail = "Password must be at least 6 characters." });
+
+        var user = await _users.GetByIdAsync(userId, ct);
+        if (user == null) return Unauthorized();
+
+        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, user.PasswordHash))
+            return BadRequest(new ProblemDetails { Title = "Wrong Password", Detail = "Current password is incorrect." });
+
+        var newHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword, workFactor: 11);
+        await _users.UpdatePasswordAsync(userId, newHash, ct);
+        _logger.LogInformation("Password changed for user {UserId}", userId);
+        return Ok(new { message = "Password changed successfully." });
+    }
 }
 
 public sealed class ForgotPasswordRequest { public string Email { get; set; } = string.Empty; }
 public sealed class ResetPasswordRequest { public string Token { get; set; } = string.Empty; public string NewPassword { get; set; } = string.Empty; }
+public sealed class ChangePasswordRequest
+{
+    public string CurrentPassword { get; set; } = string.Empty;
+    public string NewPassword { get; set; } = string.Empty;
+}

@@ -702,7 +702,19 @@ export const arApi = {
     const r = await api.post<SalesInvoice>('/api/ar/sales-invoices', data);
     return r.data;
   },
-  updateInvoice: async (id: string, data: Partial<SalesInvoice>): Promise<SalesInvoice> => {
+  updateInvoice: async (
+    id: string,
+    data: {
+      customerId: string;
+      invoiceDate: string;
+      dueDate?: string;
+      currencyCode: string;
+      exchangeRate: number;
+      notes?: string;
+      projectId?: string;
+      lines: { description: string; quantity: number; unitPrice: number; taxRate: number; itemId?: string }[];
+    }
+  ): Promise<SalesInvoice> => {
     const r = await api.put<SalesInvoice>(`/api/ar/sales-invoices/${id}`, data);
     return r.data;
   },
@@ -758,11 +770,18 @@ export const arApi = {
 export interface ApiError {
   detail?: string;
   message?: string;
+  error?: string;
 }
 
 export function getErrorMessage(e: unknown, fallback = 'حدث خطأ غير متوقع'): string {
   const err = e as { response?: { data?: ApiError }; message?: string };
-  return err?.response?.data?.detail || err?.response?.data?.message || err?.message || fallback;
+  return (
+    err?.response?.data?.detail ||
+    err?.response?.data?.message ||
+    err?.response?.data?.error ||
+    err?.message ||
+    fallback
+  );
 }
 
 // ============ API helpers ============
@@ -861,9 +880,239 @@ export const financeApi = {
   },
 };
 
+// ============ 20 Mandatory Accounting Reports API ============
+// Phase 6.2: Added on top of the new Multi-Company architecture
+
+// DTOs matching the backend (C#)
+export interface TrialBalanceRow { accountId: string; accountCode: string; accountName: string; accountType: number; debit: number; credit: number; }
+export interface TrialBalanceReport { asOfDate: string; rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number; isBalanced: boolean; }
+export interface IncomeStatement { from: string; to: string; revenue: number; cogs: number; operatingExpenses: number; otherIncome: number; otherExpenses: number; netIncome: number; }
+export interface BalanceSheet { asOfDate: string; totalAssets: number; totalLiabilities: number; totalEquity: number; isBalanced: boolean; }
+export interface CashFlowReport { from: string; to: string; operatingActivities: number; investingActivities: number; financingActivities: number; netCashFlow: number; }
+export interface JournalEntryLineDto { journalEntryId: string; entryNumber: string; entryDate: string; description: string; reference: string; totalDebit: number; totalCredit: number; status: number; postedAt?: string; }
+export interface JournalEntryReport { from?: string; to?: string; status?: number; totalEntries: number; totalDebit: number; totalCredit: number; lines: JournalEntryLineDto[]; }
+export interface AccountActivityTransaction { journalLineId: string; entryDate: string; entryNumber: string; reference: string; description: string; debit: number; credit: number; }
+export interface AccountActivityResponse { accountId: string; accountCode: string; accountName: string; normalBalance: number; from?: string; to?: string; openingBalance: number; periodDebit: number; periodCredit: number; closingBalance: number; transactions: AccountActivityTransaction[]; }
+export interface CollectionsRow { receiptId: string; receiptNumber: string; receiptDate: string; customerCode: string; customerName: string; paymentMethod: string; amount: number; currency: string; notes: string; }
+export interface CollectionsReport { from?: string; to?: string; totalAmount: number; count: number; rows: CollectionsRow[]; }
+export interface CostCenterPerformanceRow { costCenterId: string; costCenterCode: string; costCenterName: string; revenue: number; expense: number; net: number; margin: number; }
+export interface CostCenterPerformanceReport { from?: string; to?: string; totalRevenue: number; totalExpense: number; totalNet: number; rows: CostCenterPerformanceRow[]; }
+export interface VatReport { from: string; to: string; vatRate: number; totalSales: number; outputVat: number; totalPurchases: number; inputVat: number; netVatPayable: number; details: Record<string, unknown>; }
+export interface SalesByCustomerRow { customerId: string; customerCode: string; customerName: string; invoiceCount: number; subtotal: number; taxAmount: number; totalAmount: number; paidAmount: number; outstanding: number; }
+export interface SalesByCustomerReport { from: string; to: string; grandTotal: number; grandOutstanding: number; rows: SalesByCustomerRow[]; }
+export interface SalesByItemRow { itemId: string; sku: string; itemName: string; quantity: number; subtotal: number; taxAmount: number; totalAmount: number; }
+export interface SalesByItemReport { from: string; to: string; grandTotal: number; rows: SalesByItemRow[]; }
+export interface PurchasesByVendorRow { vendorId: string; vendorCode: string; vendorName: string; billCount: number; subtotal: number; taxAmount: number; totalAmount: number; paidAmount: number; outstanding: number; }
+export interface PurchasesByVendorReport { from: string; to: string; grandTotal: number; grandOutstanding: number; rows: PurchasesByVendorRow[]; }
+export interface TopCustomerRow { rank: number; customerId: string; customerCode: string; customerName: string; totalAmount: number; invoiceCount: number; }
+export interface TopCustomersReport { from: string; to: string; limit: number; rows: TopCustomerRow[]; }
+export interface TopVendorRow { rank: number; vendorId: string; vendorCode: string; vendorName: string; totalAmount: number; billCount: number; }
+export interface TopVendorsReport { from: string; to: string; limit: number; rows: TopVendorRow[]; }
+export interface BudgetVsActualRow { projectId: string; projectName: string; budget: number; actual: number; variance: number; variancePercent: number; }
+export interface BudgetVsActualReport { projectId?: string; from: string; to: string; totalBudget: number; totalActual: number; totalVariance: number; totalVariancePercent: number; rows: BudgetVsActualRow[]; }
+
+export const reportsApi = {
+  // Report 1: Trial Balance
+  trialBalance: async (asOf: string): Promise<TrialBalanceReport> => {
+    const r = await api.get<TrialBalanceReport>('/api/finance/reports/trial-balance', { params: { asOf } });
+    return r.data;
+  },
+  // Report 2: Income Statement
+  incomeStatement: async (from: string, to: string): Promise<IncomeStatement> => {
+    const r = await api.get<IncomeStatement>('/api/finance/reports/income-statement', { params: { from, to } });
+    return r.data;
+  },
+  // Report 3: Balance Sheet
+  balanceSheet: async (asOf: string): Promise<BalanceSheet> => {
+    const r = await api.get<BalanceSheet>('/api/finance/reports/balance-sheet', { params: { asOf } });
+    return r.data;
+  },
+  // Report 4: Cash Flow
+  cashFlow: async (from: string, to: string): Promise<CashFlowReport> => {
+    const r = await api.get<CashFlowReport>('/api/finance/reports/cash-flow', { params: { from, to } });
+    return r.data;
+  },
+  // Report 5: General Ledger
+  generalLedger: async (accountId: string, from?: string, to?: string): Promise<AccountActivityResponse> => {
+    const r = await api.get<AccountActivityResponse>('/api/finance/reports/general-ledger', { params: { accountId, from, to } });
+    return r.data;
+  },
+  // Report 6: Journal Entries
+  journalEntries: async (from?: string, to?: string, status?: number, skip = 0, take = 100): Promise<JournalEntryReport> => {
+    const r = await api.get<JournalEntryReport>('/api/finance/reports/journal-entries', { params: { from, to, status, skip, take } });
+    return r.data;
+  },
+  // Report 7: Account Activity
+  accountActivity: async (accountId: string, from?: string, to?: string): Promise<AccountActivityResponse> => {
+    const r = await api.get<AccountActivityResponse>('/api/finance/reports/account-activity', { params: { accountId, from, to } });
+    return r.data;
+  },
+  // Report 10: AP Aging
+  apAging: async (asOf: string): Promise<{ asOfDate: string; vendors: { vendorCode: string; vendorName: string; current: number; days31To60: number; days61To90: number; days91Plus: number; total: number }[]; totalCurrent: number; total31To60: number; total61To90: number; total91Plus: number; grandTotal: number; }> => {
+    const r = await api.get<{ asOfDate: string; vendors: { vendorCode: string; vendorName: string; current: number; days31To60: number; days61To90: number; days91Plus: number; total: number }[]; totalCurrent: number; total31To60: number; total61To90: number; total91Plus: number; grandTotal: number; }>('/api/finance/reports/ap-aging', { params: { asOf } });
+    return r.data;
+  },
+  // Report 11: Collections
+  collections: async (from?: string, to?: string): Promise<CollectionsReport> => {
+    const r = await api.get<CollectionsReport>('/api/finance/reports/collections', { params: { from, to } });
+    return r.data;
+  },
+  // Report 12: Sales by Customer
+  salesByCustomer: async (from: string, to: string): Promise<SalesByCustomerReport> => {
+    const r = await api.get<SalesByCustomerReport>('/api/ar/reports/sales-by-customer', { params: { from, to } });
+    return r.data;
+  },
+  // Report 13: Sales by Item
+  salesByItem: async (from: string, to: string): Promise<SalesByItemReport> => {
+    const r = await api.get<SalesByItemReport>('/api/ar/reports/sales-by-item', { params: { from, to } });
+    return r.data;
+  },
+  // Report 14: Purchases by Vendor
+  purchasesByVendor: async (from: string, to: string): Promise<PurchasesByVendorReport> => {
+    const r = await api.get<PurchasesByVendorReport>('/api/procurement/reports/purchases-by-vendor', { params: { from, to } });
+    return r.data;
+  },
+  // Report 15: Top Customers
+  topCustomers: async (from: string, to: string, limit = 10): Promise<TopCustomersReport> => {
+    const r = await api.get<TopCustomersReport>('/api/ar/reports/top-customers', { params: { from, to, limit } });
+    return r.data;
+  },
+  // Report 15: Top Vendors
+  topVendors: async (from: string, to: string, limit = 10): Promise<TopVendorsReport> => {
+    const r = await api.get<TopVendorsReport>('/api/procurement/reports/top-vendors', { params: { from, to, limit } });
+    return r.data;
+  },
+  // Report 16: Cost Center Performance
+  costCenterPerformance: async (from?: string, to?: string): Promise<CostCenterPerformanceReport> => {
+    const r = await api.get<CostCenterPerformanceReport>('/api/finance/reports/cost-center-performance', { params: { from, to } });
+    return r.data;
+  },
+  // Report 17/18: Project P&L + Budget vs Actual (all projects)
+  projectBudgetVsActual: async (projectId?: string, from?: string, to?: string): Promise<BudgetVsActualReport> => {
+    const r = await api.get<BudgetVsActualReport>('/api/reports/projects/budget-vs-actual', { params: { projectId, from, to } });
+    return r.data;
+  },
+  // Report 19: VAT
+  vat: async (from: string, to: string): Promise<VatReport> => {
+    const r = await api.get<VatReport>('/api/finance/reports/vat', { params: { from, to } });
+    return r.data;
+  },
+  // Report 20: Inventory Valuation
+  inventoryValuation: async (): Promise<{ count: number; totalValue: number; items: { itemId: string; itemSku: string; itemName: string; warehouseId: string; warehouseName: string; quantityOnHand: number; averageCost: number; totalValue: number }[] }> => {
+    const r = await api.get<{ count: number; totalValue: number; items: { itemId: string; itemSku: string; itemName: string; warehouseId: string; warehouseName: string; quantityOnHand: number; averageCost: number; totalValue: number }[] }>('/api/reports/inventory/valuation');
+    return r.data;
+  },
+};
+
+// ============ Identity (User Management) API ============
+// Phase 6.2: Admin user CRUD
+
+export interface AdminUser { id: string; email: string; fullName: string; isActive: boolean; twoFactorEnabled: boolean; createdAt: string; updatedAt: string; lastLoginAt?: string; }
+export interface AdminUserWithRoles { user: AdminUser; roleIds: string[]; companies: { userId: string; companyId: string; companyCode: string; companyName: string; isDefault: boolean; isHolding: boolean; assignedAt: string }[]; }
+/** User → company mapping record. Matches backend UserCompanyLink. */
+export interface UserCompany {
+  userId: string;
+  companyId: string;
+  companyCode: string;
+  companyName: string;
+  isDefault: boolean;
+  isHolding: boolean;
+  assignedAt: string;
+}
+export interface RoleItem { id: string; name: string; description?: string; }
+export interface CreateUserRequest { email: string; fullName: string; password: string; roleIds?: string[]; defaultCompanyId?: string; }
+export interface UpdateUserRequest { fullName?: string; email?: string; isActive?: boolean; roleIds?: string[]; defaultCompanyId?: string; }
+export interface ChangePasswordRequest { currentPassword: string; newPassword: string; }
+export interface AssignUserToCompanyRequest { companyId: string; isDefault: boolean; }
+
+export const identityApi = {
+  listUsers: async (skip = 0, take = 50): Promise<{ count: number; items: AdminUser[] }> => {
+    const r = await api.get<{ count: number; items: AdminUser[] }>('/api/identity/users', { params: { skip, take } });
+    return r.data;
+  },
+  getUser: async (id: string): Promise<AdminUserWithRoles> => {
+    const r = await api.get<AdminUserWithRoles>(`/api/identity/users/${id}`);
+    return r.data;
+  },
+  createUser: async (data: CreateUserRequest): Promise<AdminUser> => {
+    const r = await api.post<AdminUser>('/api/identity/users', data);
+    return r.data;
+  },
+  updateUser: async (id: string, data: UpdateUserRequest): Promise<{ message: string }> => {
+    const r = await api.put<{ message: string }>(`/api/identity/users/${id}`, data);
+    return r.data;
+  },
+  resetPassword: async (id: string, newPassword: string): Promise<{ message: string }> => {
+    const r = await api.put<{ message: string }>(`/api/identity/users/${id}/password`, { newPassword });
+    return r.data;
+  },
+  deactivateUser: async (id: string): Promise<void> => {
+    await api.delete(`/api/identity/users/${id}`);
+  },
+  listRoles: async (): Promise<RoleItem[]> => {
+    const r = await api.get<RoleItem[]>('/api/identity/roles');
+    return r.data;
+  },
+  // Per-user companies (Multi-Company mapping). Mirrors backend IUserRepository.GetUserCompaniesAsync.
+  // Note: as of Phase 6.2 the RolesController does not expose a dedicated GET endpoint for this —
+  // callers should fall back to `getUser(id).companies`. The endpoint is wired here for forward
+  // compatibility and the user-management UI uses it when present.
+  listUserCompanies: async (userId: string): Promise<UserCompany[]> => {
+    const r = await api.get<UserCompany[]>(`/api/identity/users/${userId}/companies`);
+    return r.data;
+  },
+  // POST /api/identity/users/{userId}/companies — assign user to a company.
+  // Backend may 404 if endpoint is not yet wired (Phase 6.2). UI should handle gracefully.
+  assignUserToCompany: async (userId: string, companyId: string, isDefault = false): Promise<{ message: string }> => {
+    const r = await api.post<{ message: string }>(`/api/identity/users/${userId}/companies`, {
+      companyId,
+      isDefault,
+    } as AssignUserToCompanyRequest);
+    return r.data;
+  },
+  // DELETE /api/identity/users/{userId}/companies/{companyId} — remove user from a company.
+  // Backend may 404 if endpoint is not yet wired (Phase 6.2). UI should handle gracefully.
+  removeUserFromCompany: async (userId: string, companyId: string): Promise<void> => {
+    await api.delete(`/api/identity/users/${userId}/companies/${companyId}`);
+  },
+  changePassword: async (data: ChangePasswordRequest): Promise<{ message: string }> => {
+    const r = await api.post<{ message: string }>('/api/auth/change-password', data);
+    return r.data;
+  },
+  // Forgot password (Phase 6)
+  forgotPassword: async (email: string): Promise<{ message: string; devToken?: string; resetUrl?: string; expiresAt?: string }> => {
+    const r = await api.post<{ message: string; devToken?: string; resetUrl?: string; expiresAt?: string }>('/api/auth/forgot-password', { email });
+    return r.data;
+  },
+  resetPasswordWithToken: async (token: string, newPassword: string): Promise<{ message: string }> => {
+    const r = await api.post<{ message: string }>('/api/auth/reset-password', { token, newPassword });
+    return r.data;
+  },
+};
+
 export const inventoryApi = {
   listItems: async (): Promise<Item[]> => {
     const r = await api.get<Item[]>('/api/inventory/items');
+    return r.data;
+  },
+  // GET /api/inventory/items/{id}
+  getItem: async (id: string): Promise<Item> => {
+    const r = await api.get<Item>(`/api/inventory/items/${id}`);
+    return r.data;
+  },
+  // PUT /api/inventory/items/{id}
+  updateItem: async (id: string, data: Partial<Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>>): Promise<Item> => {
+    const r = await api.put<Item>(`/api/inventory/items/${id}`, data);
+    return r.data;
+  },
+  // GET /api/inventory/categories — قائمة فئات الأصناف (لـ select في form)
+  listCategories: async (): Promise<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]>(`/api/inventory/categories`);
+    return r.data;
+  },
+  // GET /api/inventory/units — قائمة وحدات القياس (UoM)
+  listUnitsOfMeasure: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
     return r.data;
   },
 };
@@ -884,8 +1133,18 @@ export const procurementApi = {
     const r = await api.get<Vendor[]>('/api/procurement/vendors');
     return r.data;
   },
+  // GET /api/procurement/vendors/{id}
+  getVendor: async (id: string): Promise<Vendor> => {
+    const r = await api.get<Vendor>(`/api/procurement/vendors/${id}`);
+    return r.data;
+  },
   createVendor: async (data: Partial<Vendor>): Promise<Vendor> => {
     const r = await api.post<Vendor>('/api/procurement/vendors', data);
+    return r.data;
+  },
+  // PUT /api/procurement/vendors/{id}
+  updateVendor: async (id: string, data: Partial<Omit<Vendor, 'id' | 'createdAt' | 'updatedAt'>>): Promise<Vendor> => {
+    const r = await api.put<Vendor>(`/api/procurement/vendors/${id}`, data);
     return r.data;
   },
 
@@ -943,8 +1202,18 @@ export const hrApi = {
     const r = await api.get<Employee[]>('/api/hr/employees');
     return r.data;
   },
+  // GET /api/hr/employees/{id}
+  getEmployee: async (id: string): Promise<Employee> => {
+    const r = await api.get<Employee>(`/api/hr/employees/${id}`);
+    return r.data;
+  },
   createEmployee: async (data: Partial<Employee>): Promise<Employee> => {
     const r = await api.post<Employee>('/api/hr/employees', data);
+    return r.data;
+  },
+  // PUT /api/hr/employees/{id}
+  updateEmployee: async (id: string, data: Partial<Omit<Employee, 'id' | 'createdAt' | 'departmentName'>>): Promise<Employee> => {
+    const r = await api.put<Employee>(`/api/hr/employees/${id}`, data);
     return r.data;
   },
 

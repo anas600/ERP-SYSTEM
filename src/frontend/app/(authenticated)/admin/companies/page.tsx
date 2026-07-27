@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Plus, Pencil, Building2, Hash, MapPin } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { Card, Badge, PageHeader, Button, EmptyState, SkeletonTable } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { api, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -120,14 +120,24 @@ export default function CompaniesAdminPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
-        </div>
+        <SkeletonTable rows={5} cols={3} />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد شركات.
-        </div>
+        <EmptyState
+          icon={<Building2 className="h-12 w-12" />}
+          title="لا توجد شركات"
+          description={items.length === 0 ? 'لم يتم تسجيل أي شركة بعد.' : 'لا توجد شركات تطابق الفلتر الحالي.'}
+          action={
+            items.length === 0 ? (
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                شركة جديدة
+              </Button>
+            ) : (
+              <Button variant="secondary" onClick={() => setFilter('all')}>
+                عرض كل الشركات
+              </Button>
+            )
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((c) => (

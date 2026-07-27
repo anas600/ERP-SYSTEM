@@ -170,7 +170,7 @@ public sealed class SalesInvoiceRepository : ISalesInvoiceRepository
             FROM receipt_allocations ra
             INNER JOIN receipts r ON r.id = ra.receipt_id
             WHERE ra.sales_invoice_id = @InvId
-              AND r.status = 'Posted'",
+              AND r.posted_at IS NOT NULL",
             new { InvId = salesInvoiceId }, cancellationToken: ct));
         return sum ?? 0m;
     }

@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { Button, Table, Badge, PageHeader } from '@/components/ui';
+import { Plus, Receipt } from 'lucide-react';
+import { Button, Table, Badge, PageHeader, EmptyState, SkeletonTable } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { formatDate } from '@/lib/utils';
 import {
@@ -74,75 +74,90 @@ export default function BillsPage() {
         </div>
       )}
 
-      <Table
-        columns={[
-          {
-            key: 'billNumber',
-            header: 'رقم الفاتورة',
-            render: (b) => <span className="font-mono text-blue-600 font-semibold">{b.billNumber}</span>,
-          },
-          {
-            key: 'gr',
-            header: 'استلام البضاعة',
-            render: (b) => b.grNumber || <span className="text-gray-400 text-xs">{b.goodsReceiptId}</span>,
-          },
-          {
-            key: 'vendor',
-            header: 'المورّد',
-            render: (b) => b.vendorName || <span className="text-gray-400 text-xs">—</span>,
-          },
-          {
-            key: 'billDate',
-            header: 'تاريخ الفاتورة',
-            render: (b) => (
-              <span className="text-sm text-gray-700">
-                {formatDate(b.billDate)}
-              </span>
-            ),
-          },
-          {
-            key: 'dueDate',
-            header: 'تاريخ الاستحقاق',
-            render: (b) =>
-              b.dueDate ? (
-                <span className="text-sm text-gray-700">{formatDate(b.dueDate)}</span>
-              ) : (
-                <span className="text-gray-400 text-xs">—</span>
-              ),
-          },
-          {
-            key: 'total',
-            header: 'الإجمالي',
-            align: 'end',
-            render: (b) => (
-              <div className="text-end">
-                <p className="font-bold text-gray-800">
-                  {b.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                </p>
-                <p className="text-[10px] text-gray-500 font-mono">
-                  {b.currency} (ضريبة: {b.taxAmount?.toFixed(2) || '0.00'})
-                </p>
-              </div>
-            ),
-          },
-          {
-            key: 'status',
-            header: 'الحالة',
-            render: (b) => (
-              <Badge variant={BILL_STATUS_VARIANTS[b.status] || 'neutral'}>
-                {BILL_STATUSES[b.status] || b.status}
-              </Badge>
-            ),
-          },
-        ]}
-        data={bills}
-        loading={loading}
-        rowKey={(b) => b.id}
-        emptyMessage="لا توجد فواتير موردين بعد."
-      />
-
-      {!loading && bills.length > 0 && (
-        <p className="mt-3 text-xs text-gray-500 text-start">{bills.length} فاتورة</p>
+      {loading ? (
+        <SkeletonTable rows={5} cols={4} />
+      ) : bills.length === 0 ? (
+        <EmptyState
+          icon={<Receipt className="h-12 w-12" />}
+          title="لا توجد فواتير موردين"
+          description="لم يتم تسجيل أي فاتورة مورد بعد. أنشئ فاتورة من استلام بضاعة موجود."
+          action={
+            <Link href="/procurement/bills/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                فاتورة جديدة
+              </Button>
+            </Link>
+          }
+        />
+      ) : (
+        <>
+          <Table
+            columns={[
+              {
+                key: 'billNumber',
+                header: 'رقم الفاتورة',
+                render: (b) => <span className="font-mono text-blue-600 font-semibold">{b.billNumber}</span>,
+              },
+              {
+                key: 'gr',
+                header: 'استلام البضاعة',
+                render: (b) => b.grNumber || <span className="text-gray-400 text-xs">{b.goodsReceiptId}</span>,
+              },
+              {
+                key: 'vendor',
+                header: 'المورّد',
+                render: (b) => b.vendorName || <span className="text-gray-400 text-xs">—</span>,
+              },
+              {
+                key: 'billDate',
+                header: 'تاريخ الفاتورة',
+                render: (b) => (
+                  <span className="text-sm text-gray-700">
+                    {formatDate(b.billDate)}
+                  </span>
+                ),
+              },
+              {
+                key: 'dueDate',
+                header: 'تاريخ الاستحقاق',
+                render: (b) =>
+                  b.dueDate ? (
+                    <span className="text-sm text-gray-700">{formatDate(b.dueDate)}</span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">—</span>
+                  ),
+              },
+              {
+                key: 'total',
+                header: 'الإجمالي',
+                align: 'end',
+                render: (b) => (
+                  <div className="text-end">
+                    <p className="font-bold text-gray-800">
+                      {b.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-mono">
+                      {b.currency} (ضريبة: {b.taxAmount?.toFixed(2) || '0.00'})
+                    </p>
+                  </div>
+                ),
+              },
+              {
+                key: 'status',
+                header: 'الحالة',
+                render: (b) => (
+                  <Badge variant={BILL_STATUS_VARIANTS[b.status] || 'neutral'}>
+                    {BILL_STATUSES[b.status] || b.status}
+                  </Badge>
+                ),
+              },
+            ]}
+            data={bills}
+            rowKey={(b) => b.id}
+            emptyMessage="لا توجد فواتير موردين بعد."
+          />
+          <p className="mt-3 text-xs text-gray-500 text-start">{bills.length} فاتورة</p>
+        </>
       )}
     </div>
   );

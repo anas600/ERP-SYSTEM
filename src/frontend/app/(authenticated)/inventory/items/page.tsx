@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil } from 'lucide-react';
-import { Input, Card, PageHeader, Button } from '@/components/ui';
+import { Plus, Pencil, Package } from 'lucide-react';
+import { Input, Card, PageHeader, Button, EmptyState, SkeletonTable } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { inventoryApi, Item } from '@/lib/api';
 
@@ -68,14 +68,20 @@ export default function ItemsPage() {
       )}
 
       {loading ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
-          <p className="mt-3 text-sm">جاري التحميل...</p>
-        </div>
+        <SkeletonTable rows={5} cols={3} />
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد منتجات في هذا الـ tenant.
-        </div>
+        <EmptyState
+          icon={<Package className="h-12 w-12" />}
+          title="لا توجد منتجات"
+          description="لا توجد أصناف في هذا الـ tenant. ابدأ بإضافة منتج جديد."
+          action={
+            <Link href="/inventory/items/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                إضافة منتج
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((item) => (

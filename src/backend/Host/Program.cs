@@ -170,6 +170,24 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Dom
 builder.Services.AddMemoryCache();
 
 builder.Services.AddScoped<IUserRepository, UserRepository>();
+
+// Phase 6.2: User CRUD + 20 mandatory reports
+builder.Services.AddScoped<IJournalEntryReportService, JournalEntryReportService>();
+builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
+builder.Services.AddScoped<IGeneralLedgerReportService, GeneralLedgerReportService>();
+builder.Services.AddScoped<IBalanceSheetService, BalanceSheetService>();
+builder.Services.AddScoped<ICashFlowService, CashFlowService>();
+builder.Services.AddScoped<IAPAgingService, APAgingService>();
+builder.Services.AddScoped<IAccountActivityService, AccountActivityService>();
+builder.Services.AddScoped<ICollectionsService, CollectionsService>();
+builder.Services.AddScoped<ICostCenterReportService, CostCenterReportService>();
+builder.Services.AddScoped<IVatReportService, VatReportService>();
+builder.Services.AddScoped<ISalesByCustomerService, SalesByCustomerService>();
+builder.Services.AddScoped<ISalesByItemService, SalesByItemService>();
+builder.Services.AddScoped<ITopCustomersService, TopCustomersService>();
+builder.Services.AddScoped<IPurchasesByVendorService, PurchasesByVendorService>();
+builder.Services.AddScoped<ITopVendorsService, TopVendorsService>();
+builder.Services.AddScoped<IBudgetVsActualService, BudgetVsActualService>();
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 // Phase 6.1c: ITenantRepository removed — multi-company model has no tenants.
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
@@ -382,7 +400,7 @@ builder.Services.AddFluentMigratorCore()
     .ConfigureRunner(rb => rb
         .AddPostgres()
         .WithGlobalConnectionString(migrationsRunner)
-        .ScanIn(typeof(CreateIdentityTables).Assembly).For.Migrations())
+        .ScanIn(typeof(Phase6_InitialSchema).Assembly).For.Migrations())
     .AddLogging(lb => lb.AddSerilog());
 // Phase 6.0 order (P6-0b) — الترتيب حرج: Phase 6 migration يحذف كل الجداول القديمة
 // (مع tenant_id)، بعدها DataTypeMigrator يعيد بناء الـ schema من JSON بدون tenant_id،
