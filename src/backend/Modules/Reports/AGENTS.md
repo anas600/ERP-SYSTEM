@@ -5,6 +5,8 @@
 > محدّث: 2026-07-27 — ترقية من Phase 2.5 إلى Phase 6.2 (Abdo's commits `1ac5aff` + `fbf5a02`)
 >
 > Hand-off Report: [`../../../docs/HANDOFF-PHASE6-MIGRATE.md`](../../../docs/HANDOFF-PHASE6-MIGRATE.md)
+>
+> **Phase 6 (2026-07-27) — Multi-Company update (doc-sprint 6.4):** Reports is already Phase 6.2 (filters by `company_id` via `ICompanyContext` — 20 reports migrated). This note acknowledges alignment with Constitution Article 3 and points to the canonical migration guide. See root [AGENTS.md](../../../../AGENTS.md#-multi-company-convention-per-constitution-article-3) and [docs/PHASE6-RELEASE-NOTES.md](../../../../PHASE6-RELEASE-NOTES.md).
 
 ## شو فيه
 
