@@ -4,6 +4,29 @@
 
 ---
 
+## [Unreleased] - 2026-07-27 (Mavis / Anas)
+### Documentation (Mavis local — Tier 1 docs sync)
+- **`src/backend/Modules/Reports/AGENTS.md` — upgraded from Phase 2.5 to Phase 6.2 (6.1 KB → 20 KB).**
+  - Added: 10 new services (AccountActivity, Collections, CostCenter, JournalEntry, VAT, SalesByCustomer, SalesByItem, TopCustomers, PurchasesByVendor, TopVendors)
+  - Added: 11 new endpoints in `FinanceReportsController` + 4 cross-module endpoints in `ReportsController` (20 total)
+  - Added: 18 frontend report pages documentation
+  - Added: Phase 6.2 DTO computed properties section
+  - Added: P0 fix history (d450dae — 7 JSON DataTypes + 3 SQL fixes + 4 DI fixes)
+  - Added: Multi-Company compliance section (Constitution Article 3)
+  - Added: Known Issues / Future Work section (unit test gap, Excel/PDF export, charts, URL duplication)
+  - Refs: docs/HANDOFF-PHASE6-MIGRATE.md (sister doc)
+
+## [Unreleased] - 2026-07-27 (Mavis / Anas)
+### Documentation (3-Tier & Dual-Agent Governance Model)
+- **`docs/ABDO-TEAM-ALIGNMENT.md` (NEW — 26.9 KB, 520 lines) — one-time context sync for Abdo's Mavis instance.**
+  - Sections: Constitution high-level, Multi-Company architecture, 3-Tier isolation, Doc-Driven Sync, First Actions checklist, Reference Map, Example Hand-Off, Acknowledgment
+  - For Abdo's Mavis to read once and internalize the full project context under the new governance model
+  - Will be propagated to `feature/abdo-team` by admin (cherry-pick or shared branch)
+- **`docs/HANDOFF-PHASE6-MIGRATE.md` (NEW — 18.9 KB, 327 lines) — session analysis of Abdo's 9 commits.**
+  - Executive summary, file-type breakdown, Constitution §3 compliance table, build/test results, HTTP smoke, P0 fix inspection, decision matrix
+- **Memory entry saved** — 3-Tier & Dual-Agent Governance Model for ERP-SYSTEM (2026-07-27)
+  - 3 Tiers (Local Dev / Staging / Production), Doc-Driven Sync, high/low conflict zones, hard limits
+
 ## [Unreleased] - 2026-07-26
 ### Added (Phase 6.2 — 20 Accounting Reports + User Management on Multi-Company)
 - **Backend: 10 new report services** on Multi-Company architecture (`ICompanyContext` + `WHERE company_id = @CompanyId`):
