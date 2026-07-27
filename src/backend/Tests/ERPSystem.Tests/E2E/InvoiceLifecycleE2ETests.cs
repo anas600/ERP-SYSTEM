@@ -14,7 +14,7 @@ namespace ERPSystem.Tests.E2E;
 /// Requires a local Postgres (see scripts/local-integration.sh for setup).
 ///
 /// Scope (initial PR — more scenarios in follow-ups):
-/// - Tenant isolation (admin only sees their tenant's data)
+/// - Company isolation (admin only sees their company's data)
 /// - Soft delete + restore roundtrip
 /// - Audit trail verification (after audit_log was added)
 /// - Cross-module event flow (after IDomainEvent was added)
@@ -106,24 +106,24 @@ public class InvoiceLifecycleE2ETests : IClassFixture<ErpWebApplicationFactory>
     [Fact(Skip = "Requires Postgres on localhost:5432. Run via ./scripts/local-integration.sh then dotnet test, or via ci-fast.yml in CI.")]
     public async Task ListInvoices_WithAuth_ReturnsOkOrEmpty()
     {
-        // Auth as test tenant — should return Ok (possibly empty list for new tenant)
+        // Auth as test company — should return Ok (possibly empty list for new company)
         var client = CreateAuthedClient();
         var response = await client.GetAsync("/api/ar/sales-invoices");
         response.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Unauthorized);
     }
 
     [Fact(Skip = "Requires Postgres on localhost:5432. Run via ./scripts/local-integration.sh then dotnet test, or via ci-fast.yml in CI.")]
-    public async Task TenantIsolation_DifferentTenants_IndependentContexts()
+    public async Task CompanyIsolation_DifferentCompanies_IndependentContexts()
     {
-        // Two clients with different tenant IDs.
-        // A client from tenant A must not see tenant B's data.
+        // Two clients with different company IDs.
+        // A client from company A must not see company B's data.
         var clientA = CreateAuthedClient(companyId: Guid.NewGuid().ToString());
         var clientB = CreateAuthedClient(companyId: Guid.NewGuid().ToString());
 
         var resA = await clientA.GetAsync("/api/ar/sales-invoices");
         var resB = await clientB.GetAsync("/api/ar/sales-invoices");
 
-        // Both should return ok or unauthorized — but NOT cross-tenant data
+        // Both should return ok or unauthorized — but NOT cross-company data
         resA.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Unauthorized);
         resB.StatusCode.Should().BeOneOf(HttpStatusCode.OK, HttpStatusCode.Unauthorized);
     }

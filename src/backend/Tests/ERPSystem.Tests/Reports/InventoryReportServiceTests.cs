@@ -16,9 +16,9 @@ public class InventoryReportServiceTests
 {
     private static (InventoryReportService svc, FakeDbConnectionFactory db, Guid companyId) Build()
     {
-        var tenant = Guid.NewGuid();
+        var companyId = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();
-        return (new InventoryReportService(db), db, tenant);
+        return (new InventoryReportService(db), db, companyId);
     }
 
     // ============== DTO Unit Tests ==============
@@ -107,17 +107,16 @@ public class InventoryReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres for SQL JOINs.")]
     public async Task GetStockValuation_PositiveQuantity_ReturnsItemsWithTotalValue()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var itemId = Guid.NewGuid();
         var warehouseId = Guid.NewGuid();
-        var companyId = Guid.NewGuid();
 
-        db.AddRow("items", "id", itemId, "tenant_id", tenant, "company_id", companyId, "sku", "ITM-001", "name", "صنف 1");
-        db.AddRow("warehouses", "id", warehouseId, "tenant_id", tenant, "company_id", companyId, "code", "WH-01", "name", "مخزن 1");
-        db.AddRow("stock_levels", "tenant_id", tenant, "company_id", companyId, "item_id", itemId,
+        db.AddRow("items", "id", itemId, "company_id", companyId, "sku", "ITM-001", "name", "صنف 1");
+        db.AddRow("warehouses", "id", warehouseId, "company_id", companyId, "code", "WH-01", "name", "مخزن 1");
+        db.AddRow("stock_levels", "company_id", companyId, "item_id", itemId,
             "warehouse_id", warehouseId, "quantity_on_hand", 100m, "average_cost", 5.5m);
 
-        var rows = await svc.GetStockValuationAsync(tenant, null, null, CancellationToken.None);
+        var rows = await svc.GetStockValuationAsync(companyId, null, null, CancellationToken.None);
         rows.Should().HaveCount(1);
         rows[0].QuantityOnHand.Should().Be(100);
     }
@@ -125,17 +124,17 @@ public class InventoryReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres.")]
     public async Task GetLowStock_BelowReorderLevel_ReturnsItemWithCorrectStatus()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var itemId = Guid.NewGuid();
         var whId = Guid.NewGuid();
 
-        db.AddRow("items", "id", itemId, "tenant_id", tenant, "sku", "X", "name", "صنف X",
+        db.AddRow("items", "id", itemId, "company_id", companyId, "sku", "X", "name", "صنف X",
             "is_active", true, "reorder_level", 50m, "reorder_quantity", 100m);
-        db.AddRow("warehouses", "id", whId, "tenant_id", tenant, "code", "WH", "name", "مخزن");
-        db.AddRow("stock_levels", "tenant_id", tenant, "item_id", itemId, "warehouse_id", whId,
+        db.AddRow("warehouses", "id", whId, "company_id", companyId, "code", "WH", "name", "مخزن");
+        db.AddRow("stock_levels", "company_id", companyId, "item_id", itemId, "warehouse_id", whId,
             "quantity_on_hand", 10m, "quantity_reserved", 0m);
 
-        var low = await svc.GetLowStockAsync(tenant, null, CancellationToken.None);
+        var low = await svc.GetLowStockAsync(companyId, null, CancellationToken.None);
         low.Should().HaveCount(1);
         low[0].Status.Should().Be("Critical");
     }
@@ -143,15 +142,15 @@ public class InventoryReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres for EXTRACT(DAY FROM ...).")]
     public async Task GetStockAging_DaysMapping_CategorizesCorrectly()
     {
-        var (svc, db, tenant) = Build();
+        var (svc, db, companyId) = Build();
         var itemId = Guid.NewGuid();
         var whId = Guid.NewGuid();
 
-        db.AddRow("items", "id", itemId, "tenant_id", tenant, "sku", "Z", "name", "صنف Z");
-        db.AddRow("stock_levels", "tenant_id", tenant, "item_id", itemId, "warehouse_id", whId,
+        db.AddRow("items", "id", itemId, "company_id", companyId, "sku", "Z", "name", "صنف Z");
+        db.AddRow("stock_levels", "company_id", companyId, "item_id", itemId, "warehouse_id", whId,
             "quantity_on_hand", 100m, "last_movement_at", DateTime.UtcNow.AddDays(-45));
 
-        var aging = await svc.GetStockAgingAsync(tenant, null, CancellationToken.None);
+        var aging = await svc.GetStockAgingAsync(companyId, null, CancellationToken.None);
         aging.Should().HaveCount(1);
         aging[0].AgeBucket.Should().Be("31-60");
     }

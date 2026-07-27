@@ -12,7 +12,7 @@ namespace ERPSystem.Tests.Inventory.Stock;
 
 public class StockMovementServiceTests
 {
-    // Single test fixture: tenant + item pre-wired for that tenant
+    // Single test fixture: company + item pre-wired for that company
     private sealed class Fixture
     {
         public Guid companyId { get; } = Guid.NewGuid();

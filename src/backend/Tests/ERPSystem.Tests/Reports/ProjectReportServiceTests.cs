@@ -112,7 +112,6 @@ public class ProjectReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres for SQL JOINs across journal_lines and projects.")]
     public async Task GetProjectPnL_RevenueAndMaterial_CalculatesCorrectly()
     {
-        var tenant = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();
         var projects = new FakeProjectRepository();
         var budgets = new FakeProjectBudgetRepository();
@@ -133,7 +132,6 @@ public class ProjectReportServiceTests
     [Fact(Skip = "Integration: requires real Postgres.")]
     public async Task GetBudgetVsActual_WithBudget_ReturnsSpentAndAvailable()
     {
-        var tenant = Guid.NewGuid();
         var db = new FakeDbConnectionFactory();
         var projects = new FakeProjectRepository();
         var budgets = new FakeProjectBudgetRepository();
