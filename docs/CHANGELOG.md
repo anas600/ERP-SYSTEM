@@ -4,6 +4,41 @@
 
 ---
 
+## [Unreleased] - 2026-07-27 (Mavis / Abdo)
+### Tests (initial Playwright e2e suite on abdo-team)
+- `src/frontend/e2e/smoke.spec.ts` — HTTP-level reachability for all 37 sidebar routes (2/2 passing in 56.7s)
+- `src/frontend/e2e/admin.spec.ts` — browser-level check for 7 admin pages + sidebar group visibility (5/8 passing; 3 fail due to a real auth-header bug, see DEC-ABDO-009 below)
+- Installed `@playwright/test` (was in devDeps) + chromium-1228 browser binary via `npx playwright install`
+- `docs/HANDOFF-ABDO-TEAM-TESTS-INITIAL.md` — Hand-off Report with executive summary, multi-company compliance, build results, and the DEC-ABDO-009 known issue
+
+### Known Issues
+- **DEC-ABDO-009 (P1):** 3 admin pages fail to load data in browser because they use raw `fetch()` without the `Authorization: Bearer` header (the `api.ts` axios client adds it automatically; raw `fetch()` does not). Affected: `/admin/posting-rules`, `/admin/item-categories`, `/admin/notifications`. Fix: change `fetch(...)` to `api.get(...)` in each page (~15 lines total). Will be a separate PR after review.
+
+---
+
+## [Unreleased] - 2026-07-27 (Mavis / Abdo)
+### Governance Acknowledgment (3-Tier & Dual-Agent Governance Model)
+- Read and internalized `docs/ABDO-TEAM-ALIGNMENT.md` (one-time handoff from Mavis / Anas on `origin/feature/phase6-migrate-features`)
+- Read `CONSTITUTION.md` (Articles 1-10) - confirmed Article 3 Multi-Company model
+- Read `docs/HANDOFF-PHASE6-MIGRATE.md` (reference Hand-off Report structure)
+- Saved `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md` locally for reference
+- Confirmed branch: `feature/abdo-team` @ `c77921b`
+- Starting work under 3-Tier & Dual-Agent Governance Model:
+  - Tier 1 (Local Dev) - my work, on `feature/abdo-team` only
+  - Tier 2 (Staging `develop`) - Anas/Siti only
+  - Tier 3 (Production `main`) - Anas/Siti only
+- Commitments:
+  - No `tenant_id` references anywhere (Article 3.5)
+  - Use `ICompanyContext` + `company_id` + `X-Company-Id` header on all new code
+  - Every commit: Conventional Commits + CHANGELOG entry + AGENTS.md update if applicable
+  - No force-push on `feature/abdo-team`
+  - No push to `develop` or `main` (per Article 4)
+  - No modifications to `CONSTITUTION.md`, root `AGENTS.md`, or `Program.cs` modules list
+  - Doc-driven sync only - no direct chat with Mavis / Anas
+  - Cloud issues (Supabase / HF / pgbouncer) are isolated in Hand-off Reports, not fixed in Tier 1
+
+---
+
 ## [Unreleased] - 2026-07-27 (Mavis / Anas)
 ### Documentation (Mavis local — Tier 1 docs sync)
 - **`src/backend/Modules/Reports/AGENTS.md` — upgraded from Phase 2.5 to Phase 6.2 (6.1 KB → 20 KB).**
@@ -26,27 +61,6 @@
   - Executive summary, file-type breakdown, Constitution §3 compliance table, build/test results, HTTP smoke, P0 fix inspection, decision matrix
 - **Memory entry saved** — 3-Tier & Dual-Agent Governance Model for ERP-SYSTEM (2026-07-27)
   - 3 Tiers (Local Dev / Staging / Production), Doc-Driven Sync, high/low conflict zones, hard limits
-
-## [Unreleased] - 2026-07-27 (Mavis / Abdo)
-### Governance Acknowledgment (3-Tier & Dual-Agent Governance Model)
-- Read and internalized `docs/ABDO-TEAM-ALIGNMENT.md` (one-time handoff from Mavis / Anas on `origin/feature/phase6-migrate-features`)
-- Read `CONSTITUTION.md` (Articles 1-10) - confirmed Article 3 Multi-Company model
-- Read `docs/HANDOFF-PHASE6-MIGRATE.md` (reference Hand-off Report structure)
-- Saved `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md` locally for reference
-- Confirmed branch: `feature/abdo-team` @ `c77921b`
-- Starting work under 3-Tier & Dual-Agent Governance Model:
-  - Tier 1 (Local Dev) - my work, on `feature/abdo-team` only
-  - Tier 2 (Staging `develop`) - Anas/Siti only
-  - Tier 3 (Production `main`) - Anas/Siti only
-- Commitments:
-  - No `tenant_id` references anywhere (Article 3.5)
-  - Use `ICompanyContext` + `company_id` + `X-Company-Id` header on all new code
-  - Every commit: Conventional Commits + CHANGELOG entry + AGENTS.md update if applicable
-  - No force-push on `feature/abdo-team`
-  - No push to `develop` or `main` (per Article 4)
-  - No modifications to `CONSTITUTION.md`, root `AGENTS.md`, or `Program.cs` modules list
-  - Doc-driven sync only - no direct chat with Mavis / Anas
-  - Cloud issues (Supabase / HF / pgbouncer) are isolated in Hand-off Reports, not fixed in Tier 1
 
 ---
 
