@@ -1,40 +1,46 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-27 22:40 UTC (DEC-070 issued)
+> **Last updated:** 2026-07-27 23:20 UTC (DEC-071 issued)
 > **Updated by:** سيتي (Cloud)
 
 ## 🔄 Current Cycle: 2 / 20
 
 | Field | Value |
 |-------|-------|
-| **Title** | 6.2 Tests Refactor ONLY (per DEC-070) |
-| **Owner** | Mavis Local (Tech Lead, full admin) |
-| **Status** | 🟡 ACTIVE — Hand-off v2 pushed, awaiting Mavis Local start |
-| **Started** | 2026-07-27 21:38 UTC (v1), 22:35 UTC (v2 per DEC-070) |
-| **Hand-off** | docs/governance/hand-offs/cycle-2.md (v2, 154 lines) |
-| **Cron** | `monitor-cycle-2-pr-merge` (task_id 423253905956983, every 3 min) |
-| **PR** | ⏳ Awaiting Mavis Local to open |
-| **DEC** | DEC-070 (Local Team Empowerment) |
+| **Title** | Basic Tests Only (per DEC-071) |
+| **Owner** | Mavis Local (Tech Lead) |
+| **Status** | 🟡 ACTIVE — Simplified scope, awaiting Mavis Local start |
+| **Hand-off** | docs/governance/hand-offs/cycle-2.md (v3, 128 lines) |
+| **Cron** | `monitor-cycle-2-pr-merge` (active) |
+| **DECs** | DEC-070 (admin) + DEC-071 (basic tests) |
 
-## 📋 Cycle 2 Tasks (v2 - per DEC-070)
+## 📋 Cycle 2 v3 — SCOPE (Simplified per DEC-071)
 
-### Block A (Mavis Local, FULL POWER) — 6.2 Tests Refactor
+### ✅ KEEP (only this)
 
-- [ ] T1: Search for tenant_id patterns across 31 C# test files
-- [ ] T2: Rename tenant_id → company_id
-- [ ] T3: Update test signatures
-- [ ] T4: Update test fixtures (FakeDbConnectionFactory, etc.)
-- [ ] T5: Update assertion expectations
-- [ ] T6: Run dotnet test → all green
-- [ ] T7: Update 10 Playwright e2e specs (OPTIONAL, not CI gated)
-- [ ] T8: Add 3 new test cases (HoldingBootstrap, UserCompany, CompanySwitcher)
+- [ ] T8a: `HoldingBootstrap_Seeds_DefaultHolding_And_CoA` (integration, ~1h)
+- [ ] T8b: `UserCompany_Limits_Access_To_Assigned_Companies` (unit, ~1h)
+- [ ] T8c: `CompanySwitcher_Switches_Active_Company_In_Context` (unit, ~1h)
 
-### 🟡 Block B (3-Layer DB) — REMOVED per DEC-070
+**Total: 3 test cases, 2-3 hours**
 
-> ❌ NO staging, NO production, NO STAGING_* secrets
-> Until Anas gives explicit approval
+### ❌ REMOVED (per DEC-071)
 
-## 🆕 DEC-070 — Effective NOW
+- ❌ Refactor 31 C# test files (T1-T6)
+- ❌ Update 10 Playwright e2e specs (T7)
+- ❌ Exhaustive test coverage
+- ❌ 3-Layer DB setup (T9-T14, per DEC-070)
+
+## 🆕 DEC-071 — Effective NOW
+
+| Setting | Value | Note |
+|---------|-------|------|
+| **Scope** | 3 new Phase 6 tests | ONLY these |
+| **Risk tolerance** | ✅ High on develop | OK to break |
+| **Don't touch** | HF Space, Supabase prod, main | Real concerns |
+| **Continue cycle** | ✅ After tests pass | Don't pause |
+
+## 🆕 DEC-070 — Active
 
 | Setting | Value | Note |
 |---------|-------|------|
@@ -42,23 +48,21 @@
 | **Playwright E2E** | Optional | Not required for merge |
 | **Force-pushes** | ✅ Allowed | Use --force-with-lease |
 | **Self-merge** | ✅ Allowed | Admin bypass |
-| **Jimis leadership** | Mavis Local leads | Jimi تنفيذي + Jimi تحليلي |
-| **Mavis (Cloud) role** | Architectural Guardian | Strategy, governance, DECs |
-| **Staging layer** | 🟡 Frozen | Until Anas approves |
-| **Production layer** | 🟡 Frozen | Until Anas approves |
+| **Jimis** | Led by Mavis Local | تنفيذي + تحليلي |
+| **Mavis (Cloud)** | Architectural Guardian | Strategy, governance, DECs |
+| **Staging/Production** | 🟡 Frozen | Until Anas approves |
 
 ## 📈 Progress Tracking
 
-- **Started:** 21:38 UTC (v1), 22:35 UTC (v2)
-- **ETA:** 2-3 hours (just Block A now)
-- **Estimated completion:** 2026-07-28 00:30 - 01:30 UTC
+- **Started:** 21:38 UTC (v1), 22:35 UTC (v2), 23:17 UTC (v3)
+- **ETA:** 2-3 hours (just 3 tests)
+- **Estimated completion:** 2026-07-28 01:17 - 02:17 UTC
 
 ## 🔄 Previous Cycles
 
 ### Cycle 1: 6.4 Documentation Sprint — DONE ✅
 - PR #153 merged at 18:44 UTC (squash, SHA 47458bd3)
 - 20 files, +1494 lines, -8 lines
-- 6/6 CI checks PASS
 
 ---
 
