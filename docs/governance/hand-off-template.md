@@ -64,6 +64,29 @@ Before executing ANY hand-off, verify:
 
 ## 📋 Tasks
 
+### ⚠️ Pre-Hand-off Verification (BEFORE writing tasks)
+
+Before listing tasks, **verify your scope against current develop state**:
+
+```bash
+# Check what's already on develop
+git fetch origin develop
+git log origin/develop --oneline -10
+
+# Check if tests/files referenced already exist
+git show origin/develop:src/path/to/file.cs | head -5
+```
+
+**If the previous cycle's deliverable matches a proposed task, mark it as
+"already done" and reference the existing file/commit. Don't repeat work.**
+
+**Real example (cycle 3):** The hand-off said "Add 2 missing new test cases"
+but cycle 2's PR #154 had already added them to
+`src/backend/Tests/ERPSystem.Tests/Auth/CompanyContextTests.cs`. Mavis Local
+caught this in T1 inventory and documented it in the response (T1 = "already
+done, see cycle 2"). The investigation took 2 minutes, the actual work was
+zero — saving the executor from rewriting code that was already there.
+
 ### Task 1: [Title]
 
 **Steps:**
@@ -72,6 +95,28 @@ Before executing ANY hand-off, verify:
 \`\`\`
 
 **Expected outcome:** [Description]
+
+### ⚠️ Use Specific File Paths (NOT generic "update tests")
+
+**Bad:** "T1: Update the 31 C# test files to use company_id"
+
+**Good:** "T1: Update the following 8 test files (verified by grep on cycle
+N-1 HEAD): `src/backend/Tests/ERPSystem.Tests/Reports/FinanceReportServiceTests.cs`
+(36 refs), `src/backend/Tests/ERPSystem.Tests/Reports/InventoryReportServiceTests.cs`
+(24 refs), ..."
+
+If you can't name the specific files, mark the task as "investigate" and let
+Mavis Local figure out the scope.
+
+### ⚠️ Distinguish "investigate" from "fix"
+
+**Bad:** "T4: Fix HF Space sync workflow (failed in PR #154)"
+
+**Good:** "T4: Investigate whether HF Space sync applies to develop PRs.
+If yes, fix the workflow. If no, document why it doesn't apply."
+
+This is critical for tasks that may not apply to the current state.
+Mavis Local will not blindly fix something that may not be broken.
 
 ---
 
