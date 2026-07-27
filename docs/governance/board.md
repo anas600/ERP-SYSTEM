@@ -1,48 +1,52 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-27 (Cycle 1 close)
-> **Updated by:** Mavis Local (Anas's team)
+> **Last updated:** 2026-07-27 21:39 UTC (Cycle 2 launch)
+> **Updated by:** سيتي (Cloud)
 
-## 🔄 Current Cycle: 1 / 20
+## 🔄 Current Cycle: 2 / 20
 
 | Field | Value |
 |-------|-------|
-| **Title** | 6.4 Documentation Sprint |
-| **Owner** | Mavis Local |
-| **Status** | 🟢 DONE — all 5 tasks complete, PR pending to develop |
-| **Started** | 2026-07-27 |
-| **ETA** | 2026-07-27 (on time) |
+| **Title** | 6.2 Tests Refactor + 3-Layer DB Setup |
+| **Owner** | Mavis Local (Block A) + Anas (Block B) |
+| **Status** | 🟡 ACTIVE — hand-off pushed, awaiting Mavis Local to start |
+| **Started** | 2026-07-27 21:38 UTC |
+| **Hand-off** | docs/governance/hand-offs/cycle-2.md (119 lines, 4.4 KB) |
+| **Cron** | `monitor-cycle-2-pr-merge` (task_id 423253905956983, every 3 min) |
+| **PR** | ⏳ Awaiting Mavis Local to open |
 
-## 📋 Cycle 1 Tasks — Status
+## 📋 Cycle 2 Tasks — Status
 
-- [x] T1: Update root `AGENTS.md` (Multi-Tenant → Multi-Company)
-- [x] T2: Update `docs/CHANGELOG.md` (Phase 6 release entry)
-- [x] T3: Update 11 module `AGENTS.md` files with Phase 6 banner
-- [x] T4: Create new `docs/PHASE6-RELEASE-NOTES.md`
-- [x] T5: Update `docs/PHASE6-ANALYSIS-MULTICOMPANY-REFACTOR.md` (Outcome section)
-- [x] T6: Verify (tsc + dotnet build) + commit + push + PR
-- [x] T7: Write `docs/governance/hand-offs/cycle-1-response.md`
-- [x] T8: Update `docs/governance/board.md` (this file)
+### Block A (Mavis Local) — 6.2 Tests Refactor
+- [ ] T1: Search for tenant_id patterns across 31 C# test files
+- [ ] T2: Rename tenant_id → company_id
+- [ ] T3: Update test signatures
+- [ ] T4: Update test fixtures (FakeDbConnectionFactory, etc.)
+- [ ] T5: Update assertion expectations
+- [ ] T6: Run dotnet test → all green
+- [ ] T7: Update 10 Playwright e2e specs
+- [ ] T8: Add 3 new test cases (HoldingBootstrap, UserCompany, CompanySwitcher)
 
-## 🚧 Blockers
+### Block B (Anas + Mavis Local) — 3-Layer DB Setup
+- [ ] T9 (Anas): Create Supabase STAGING project
+- [ ] T10 (Anas): Add STAGING_* secrets to GitHub
+- [ ] T11 (Anas): Add STAGING_DATABASE_URL to .NET backend
+- [ ] T12 (Mavis Local): Create reset-staging-db.yml
+- [ ] T13 (Mavis Local): Update e2e.yml to use STAGING_* secrets
+- [ ] T14 (Mavis Local): Add e2e.yml auto-screenshot step
 
-- None. Hand-off clean.
+## 📈 Progress Tracking
 
-## 📌 Recent Activity
+- **Started:** 21:38 UTC
+- **ETA:** 4-6 hours (with Block A + Block B parallelism)
+- **Estimated completion:** 2026-07-28 01:38 - 03:38 UTC
 
-| Date | Agent | Action |
-|------|-------|--------|
-| 2026-07-27 18:25 | Mavis Local | Cycle 1 tasks T1-T8 complete on `feature/phase6-migrate-features` |
-| 2026-07-27 | Anas | Observed: analytical team offline (network failure case — see cycle-1-response.md §5) |
-| 2026-07-27 03:00 | Siti | Cycle 0 complete: governance protocol established, PR #152 merged to develop |
-| 2026-07-26 12:00 | Mavis Local | v5 cherry-pick + DEC-ABDO-009 fix (3 admin pages) + 4 PRs |
-| 2026-07-25 00:00 | Mavis Local | 3-Tier & Dual-Agent Governance Model adopted (memory saved) |
+## 🔄 Previous Cycle (1) — DONE ✅
 
-## 🔮 Next: Cycle 2 — TBD
+- PR #153 merged at 18:44 UTC (squash, SHA 47458bd3)
+- 20 files, +1494 lines, -8 lines
+- 6/6 CI checks PASS
 
-Awaiting Siti's Cycle 2 hand-off after she reviews the cycle-1-response.md.
+---
 
-**Likely candidates (from cycle-1-response.md §7.2):**
-1. DEC-091 audit pass (apply `single conn + single tx` to multi-insert service flows)
-2. Smart cron for cloud failure detection (Anas's proposal)
-3. 13 remaining frontend report pages
+*Updated by سيتي at start of each cycle and on state changes.*
