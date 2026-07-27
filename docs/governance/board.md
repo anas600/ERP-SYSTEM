@@ -1,68 +1,56 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-27 23:20 UTC (DEC-071 issued)
+> **Last updated:** 2026-07-27 23:26 UTC (Cycle 3 launch)
 > **Updated by:** سيتي (Cloud)
 
-## 🔄 Current Cycle: 2 / 20
+## 🔄 Current Cycle: 3 / 20
 
 | Field | Value |
 |-------|-------|
-| **Title** | Basic Tests Only (per DEC-071) |
+| **Title** | 6.5 CI/Hardening + Complete Phase 6 Tests |
 | **Owner** | Mavis Local (Tech Lead) |
-| **Status** | 🟡 ACTIVE — Simplified scope, awaiting Mavis Local start |
-| **Hand-off** | docs/governance/hand-offs/cycle-2.md (v3, 128 lines) |
-| **Cron** | `monitor-cycle-2-pr-merge` (active) |
-| **DECs** | DEC-070 (admin) + DEC-071 (basic tests) |
+| **Status** | 🟡 ACTIVE — Hand-off pushed, awaiting Mavis Local start |
+| **Hand-off** | docs/governance/hand-offs/cycle-3.md (128 lines) |
+| **Cron** | `monitor-cycle-3-pr-merge` (task_id 423270248620268, every 3 min) |
+| **DECs** | DEC-070 + DEC-071 |
 
-## 📋 Cycle 2 v3 — SCOPE (Simplified per DEC-071)
+## 📋 Cycle 3 Tasks
 
-### ✅ KEEP (only this)
+### Block A (Mavis Local)
 
-- [ ] T8a: `HoldingBootstrap_Seeds_DefaultHolding_And_CoA` (integration, ~1h)
-- [ ] T8b: `UserCompany_Limits_Access_To_Assigned_Companies` (unit, ~1h)
-- [ ] T8c: `CompanySwitcher_Switches_Active_Company_In_Context` (unit, ~1h)
+- [ ] T1a: `UserCompany_Limits_Access_To_Assigned_Companies` (unit, ~1h)
+- [ ] T1b: `CompanySwitcher_Switches_Active_Company_In_Context` (unit, ~1h)
+- [ ] T2a-c: Pre-commit hook for secrets (TruffleHog, ~1-2h)
+- [ ] T3a-b: CI workflow improvements (caching, fast-fail, ~1h)
+- [ ] T4: Fix HF Space sync workflow (optional, ~30-60min)
 
-**Total: 3 test cases, 2-3 hours**
+## 🛡️ Permissions (DEC-070 + DEC-071)
 
-### ❌ REMOVED (per DEC-071)
-
-- ❌ Refactor 31 C# test files (T1-T6)
-- ❌ Update 10 Playwright e2e specs (T7)
-- ❌ Exhaustive test coverage
-- ❌ 3-Layer DB setup (T9-T14, per DEC-070)
-
-## 🆕 DEC-071 — Effective NOW
-
-| Setting | Value | Note |
-|---------|-------|------|
-| **Scope** | 3 new Phase 6 tests | ONLY these |
-| **Risk tolerance** | ✅ High on develop | OK to break |
-| **Don't touch** | HF Space, Supabase prod, main | Real concerns |
-| **Continue cycle** | ✅ After tests pass | Don't pause |
-
-## 🆕 DEC-070 — Active
-
-| Setting | Value | Note |
-|---------|-------|------|
-| **Mavis Local authority** | Tech Lead (admin) | Full power on develop |
-| **Playwright E2E** | Optional | Not required for merge |
-| **Force-pushes** | ✅ Allowed | Use --force-with-lease |
-| **Self-merge** | ✅ Allowed | Admin bypass |
-| **Jimis** | Led by Mavis Local | تنفيذي + تحليلي |
-| **Mavis (Cloud)** | Architectural Guardian | Strategy, governance, DECs |
-| **Staging/Production** | 🟡 Frozen | Until Anas approves |
+- ✅ Self-merge
+- ✅ --force-with-lease
+- ✅ Skip Playwright
+- ✅ Risk tolerance on develop
+- ✅ Lead Jimis
+- ❌ NO staging/production (frozen)
+- ❌ NO HF Space production app touch
+- ❌ NO main branch
 
 ## 📈 Progress Tracking
 
-- **Started:** 21:38 UTC (v1), 22:35 UTC (v2), 23:17 UTC (v3)
-- **ETA:** 2-3 hours (just 3 tests)
-- **Estimated completion:** 2026-07-28 01:17 - 02:17 UTC
+- **Started:** 23:25 UTC
+- **ETA:** 3-4 hours
+- **Estimated completion:** 2026-07-28 02:25 - 03:25 UTC
 
 ## 🔄 Previous Cycles
 
 ### Cycle 1: 6.4 Documentation Sprint — DONE ✅
-- PR #153 merged at 18:44 UTC (squash, SHA 47458bd3)
-- 20 files, +1494 lines, -8 lines
+- PR #153 merged (SHA 47458bd3)
+- 20 files, +1494/-8
+
+### Cycle 2: 6.2 Tests Refactor — DONE ✅
+- PR #154 merged (SHA 89ce08ac, by Mavis Local self-merge)
+- 11 files, +284/-57
+- 1 new test (HoldingBootstrap), partial refactor
 
 ---
 
