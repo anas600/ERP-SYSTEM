@@ -24,11 +24,13 @@ chmod +x .githooks/pre-commit
 git config core.hooksPath .githooks
 ```
 
-This enables `.githooks/pre-commit` which:
+This enables `.githooks/pre-commit` which is a cross-platform bash script that:
 
 1. Scans staged files for common secret patterns (`password=`, `ghp_*`, `sk-*`, AWS keys, private keys, etc.) — runs in <100ms.
 2. If `trufflehog` is on `PATH` (recommended), runs the deep entropy-based scan (~5s).
 3. Blocks the commit if anything is found.
+
+The hook uses POSIX bash (works on Linux, macOS, Windows with Git Bash, and CI containers). It does NOT require PowerShell.
 
 **To install TruffleHog** (optional but recommended):
 

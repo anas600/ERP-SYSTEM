@@ -1,14 +1,15 @@
-#!/usr/bin/env pwsh
+#!/usr/bin/env bash
 # =============================================================================
 # Pre-commit hook — Phase 6 / Cycle 3
 # =============================================================================
-# On Windows: file association invokes PowerShell 5.1
-# On Linux/macOS: requires PowerShell 7+ (`pwsh`) — install via
-#   https://learn.microsoft.com/powershell/scripting/install/installing-powershell
+# Cross-platform bash script. Works on:
+#   - Linux / macOS  (bash is preinstalled)
+#   - Windows        (Git Bash comes with Git for Windows)
+#   - CI containers  (bash is standard)
 #
-# Purpose:  Block accidental commit of secrets (.env, passwords, tokens) before
-#           they reach the remote. Mirrors the CI TruffleHog scan (see
-#           .github/workflows/secrets-scan.yml) but runs locally in <5s.
+# Purpose:  Block accidental commit of secrets (.env, passwords, tokens)
+#           before they reach the remote. Mirrors the CI TruffleHog scan
+#           (see .github/workflows/secrets-scan.yml) but runs locally in <5s.
 #
 # Setup:    git config core.hooksPath .githooks
 #           (documented in docs/CONTRIBUTING.md)
@@ -16,75 +17,73 @@
 # Bypass:   git commit --no-verify   (for emergencies only — CI still scans)
 #
 # Requires: TruffleHog binary on PATH (https://github.com/trufflesecurity/trufflehog)
-#           OR a Python venv with trufflehog installed. Auto-detected.
+#           for the deep scan; the deny-pattern check below needs only grep.
 # =============================================================================
 
-$ErrorActionPreference = 'Stop'
+set -euo pipefail
 
 # Get list of staged files (added/copied/modified) — skip deletions (no content)
-$staged = git diff --cached --name-only --diff-filter=ACM
-if (-not $staged) {
+STAGED=$(git diff --cached --name-only --diff-filter=ACM)
+if [ -z "$STAGED" ]; then
     exit 0
-}
+fi
 
 # Patterns we always block regardless of TruffleHog availability.
-# These are common .NET / Supabase / .env secret patterns.
-$denyPatterns = @(
-    @{ Pattern = '(?i)password\s*=\s*[^\s"'']+';        Reason = 'password=...' },
-    @{ Pattern = '(?i)connectionstring.*password=';    Reason = 'connection-string password' },
-    @{ Pattern = 'ghp_[A-Za-z0-9]{20,}';                Reason = 'GitHub PAT (ghp_)' },
-    @{ Pattern = 'sk-[A-Za-z0-9]{20,}';                Reason = 'OpenAI/Stripe sk- key' },
-    @{ Pattern = '(?i)aws_secret_access_key\s*=';     Reason = 'AWS secret key' },
-    @{ Pattern = 'BEGIN (RSA|DSA|EC|OPENSSH|PRIVATE) KEY'; Reason = 'private key block' }
+# Common .NET / Supabase / .env secret patterns. Case-insensitive for some.
+DENY_PATTERNS=(
+    '(?i)password[[:space:]]*=[[:space:]]*[^[:space:]"'\'']+'
+    '(?i)connectionstring.*password='
+    'ghp_[A-Za-z0-9]{20,}'
+    'sk-[A-Za-z0-9]{20,}'
+    '(?i)aws_secret_access_key[[:space:]]*='
+    'BEGIN (RSA|DSA|EC|OPENSSH|PRIVATE) KEY'
 )
 
-$foundViolation = $false
-foreach ($file in $staged) {
-    if (-not (Test-Path $file)) { continue }
-    $content = Get-Content -Raw -Path $file -ErrorAction SilentlyContinue
-    if (-not $content) { continue }
+# Flag any file matching a pattern. Use grep -E for portability.
+FOUND_VIOLATION=0
+for file in $STAGED; do
+    # Skip files that don't exist (e.g. deleted in working tree)
+    [ -f "$file" ] || continue
 
-    foreach ($p in $denyPatterns) {
-        $hit = $content | Select-String -Pattern $p.Pattern -AllMatches
-        if ($hit) {
-            Write-Host ""
-            Write-Host "[pre-commit] BLOCKED: $($p.Reason) in $file" -ForegroundColor Red
-            Write-Host "  ${file}:$($hit[0].LineNumber): $($hit[0].Line.Trim())"
-            $foundViolation = $true
-        }
-    }
-}
+    for pattern in "${DENY_PATTERNS[@]}"; do
+        if grep -nE "$pattern" "$file" >/dev/null 2>&1; then
+            echo ""
+            echo "[pre-commit] BLOCKED: pattern '$pattern' in $file" >&2
+            grep -nE "$pattern" "$file" | head -3 | sed 's/^/  /' >&2
+            FOUND_VIOLATION=1
+        fi
+    done
+done
 
-if ($foundViolation) {
-    Write-Host ""
-    Write-Host "[pre-commit] Commit blocked. Review the lines above." -ForegroundColor Red
-    Write-Host "  Use 'git commit --no-verify' to bypass (NOT recommended)." -ForegroundColor Yellow
+if [ "$FOUND_VIOLATION" -eq 1 ]; then
+    echo ""
+    echo "[pre-commit] Commit blocked. Review the lines above." >&2
+    echo "  Use 'git commit --no-verify' to bypass (NOT recommended)." >&2
     exit 1
-}
+fi
 
 # TruffleHog (if available) — deeper scan for high-entropy strings.
 # ~5s for typical commits. Skip silently if not installed.
-$trufflehog = $null
-if (Get-Command trufflehog -ErrorAction SilentlyContinue) {
-    $trufflehog = 'trufflehog'
-} elseif (Test-Path '.\.venv\Scripts\trufflehog.exe') {
-    $trufflehog = '.\.venv\Scripts\trufflehog.exe'
-}
+TRUFFLEHOG=""
+if command -v trufflehog >/dev/null 2>&1; then
+    TRUFFLEHOG="trufflehog"
+elif [ -x "./.venv/bin/trufflehog" ]; then
+    TRUFFLEHOG="./.venv/bin/trufflehog"
+elif [ -x "./.venv/Scripts/trufflehog.exe" ]; then
+    TRUFFLEHOG="./.venv/Scripts/trufflehog.exe"
+fi
 
-if ($trufflehog) {
-    Write-Host "[pre-commit] Running TruffleHog on $($staged.Count) staged file(s)..." -ForegroundColor DarkCyan
-    $tempFile = New-TemporaryFile
-    $staged | Out-File -FilePath $tempFile -Encoding utf8
-    & $trufflehog filesystem --file=$tempFile --no-verification --fail 2>&1 | Out-Null
-    $thExit = $LASTEXITCODE
-    Remove-Item $tempFile -Force -ErrorAction SilentlyContinue
-    if ($thExit -ne 0) {
-        Write-Host "[pre-commit] TruffleHog detected secrets. Commit blocked." -ForegroundColor Red
+if [ -n "$TRUFFLEHOG" ]; then
+    echo "[pre-commit] Running TruffleHog on $(echo "$STAGED" | wc -l) staged file(s)..." >&2
+    # Build a comma-separated list of files
+    FILE_LIST=$(echo "$STAGED" | tr '\n' ',' | sed 's/,$//')
+    if ! $TRUFFLEHOG filesystem --file="$FILE_LIST" --no-verification --fail 2>/dev/null; then
+        echo "[pre-commit] TruffleHog detected secrets. Commit blocked." >&2
         exit 1
-    }
-} else {
-    Write-Host "[pre-commit] TruffleHog not installed (skipping deep scan; install from https://github.com/trufflesecurity/trufflehog)." -ForegroundColor DarkGray
-}
+    fi
+else
+    echo "[pre-commit] TruffleHog not installed (skipping deep scan; install from https://github.com/trufflesecurity/trufflehog)." >&2
+fi
 
-Write-Host "[pre-commit] OK - staged files clean." -ForegroundColor Green
+echo "[pre-commit] OK - staged files clean." >&2
 exit 0
