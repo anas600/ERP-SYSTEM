@@ -10,7 +10,7 @@ public sealed class CompanyRepository : ICompanyRepository
     private readonly IDbConnectionFactory _db;
     public CompanyRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelectColumns = @"id, code, name, legal_name AS LegalName,
+    private const string SelectColumns = @"id, code, name, slug, legal_name AS LegalName,
         parent_company_id AS ParentCompanyId, is_group AS IsGroup,
         base_currency AS BaseCurrency, is_active AS IsActive,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
@@ -47,6 +47,22 @@ public sealed class CompanyRepository : ICompanyRepository
             cancellationToken: ct));
     }
 
+    // Sprint 1 (T2 / Block A): lookup a Holding by its URL-friendly slug.
+    // The Holding is identified by is_group=true AND parent_company_id IS NULL.
+    // Slug lookup is case-insensitive (lowercased) so /api/holdings/mfa-holding and
+    // /api/holdings/MFA-Holding both resolve to the same row.
+    public async Task<Company?> GetHoldingBySlugAsync(string slug, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<Company>(new CommandDefinition(
+            $@"SELECT {SelectColumns} FROM companies
+               WHERE is_group = true
+                 AND parent_company_id IS NULL
+                 AND LOWER(slug) = LOWER(@Slug)
+               LIMIT 1",
+            new { Slug = slug }, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Company>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -74,9 +90,9 @@ public sealed class CompanyRepository : ICompanyRepository
     public async Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO companies (id, code, name, legal_name, parent_company_id,
+            INSERT INTO companies (id, code, name, slug, legal_name, parent_company_id,
                                    is_group, base_currency, is_active, created_at, updated_at)
-            VALUES (@Id, @Code, @Name, @LegalName, @ParentCompanyId,
+            VALUES (@Id, @Code, @Name, @Slug, @LegalName, @ParentCompanyId,
                     @IsGroup, @BaseCurrency, @IsActive, @CreatedAt, @UpdatedAt)",
             company, transaction: tx, cancellationToken: ct));
     }
@@ -85,7 +101,7 @@ public sealed class CompanyRepository : ICompanyRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            UPDATE companies SET name = @Name, legal_name = @LegalName,
+            UPDATE companies SET name = @Name, slug = @Slug, legal_name = @LegalName,
                                  base_currency = @BaseCurrency, is_active = @IsActive,
                                  updated_at = @UpdatedAt
             WHERE id = @Id", company, cancellationToken: ct));

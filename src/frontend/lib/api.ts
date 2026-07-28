@@ -1329,3 +1329,74 @@ export const hrApi = {
     },
   },
 };
+
+// ============ Dashboard (Holding-level KPIs) ============
+// Sprint 1: replaces the per-company dashboard with a Holding-level summary.
+// Contract: GET /api/dashboard/summary — returns 4 counts for the active company
+// (or, when the active company is the Holding, aggregated across all sub-companies).
+// Backend is being built in parallel on the same branch; 404 in dev is expected
+// until the endpoint is wired. The page handles the 404 with an error state.
+
+export interface DashboardSummary {
+  /** عدد الشركات ضمن القابضة (Holding) أو 1 لو الطلب ليس holding-scoped. */
+  companies: number;
+  /** عدد المستخدمين النشطين المرتبطين بالشركة الحالية (أو القابضة). */
+  users: number;
+  /** عدد النشاطات (journal posted, invoices, POs...) اليوم. */
+  activities_today: number;
+  /** إجمالي المعاملات المالية (sales + purchases + journals) في آخر 30 يوم. */
+  transactions: number;
+  /** معرّف الشركة/الـ scope اللي تم حساب الـ summary عليه — للتوضيح في الـ UI. */
+  scopeCompanyId?: string;
+  /** ISO timestamp للـ snapshot. */
+  asOf?: string;
+}
+
+export const dashboardApi = {
+  // GET /api/dashboard/summary — Holding-level KPIs (4 counts).
+  // Active company comes from X-Company-Id header (set by the axios interceptor).
+  getSummary: async (): Promise<DashboardSummary> => {
+    const r = await api.get<DashboardSummary>('/api/dashboard/summary');
+    return r.data;
+  },
+};
+
+// ============ Holdings API ============
+// Sprint 1: Holding detail view. Lists a Holding + its sub-companies.
+// Contract: GET /api/holdings/{slug} — returns the holding by URL slug.
+// The holding's `companies` array is the source of truth for the sub-companies
+// dropdown on the Holding page (a separate, simpler view than /admin/companies).
+
+export interface HoldingCompany {
+  id: string;
+  code: string;
+  name: string;
+  /** هل هي الشركة القابضة نفسها (false في العادة للـ sub-companies) */
+  isHolding: boolean;
+  isActive: boolean;
+  currency: string;
+  country?: string;
+  createdAt: string;
+}
+
+export interface HoldingDetail {
+  id: string;
+  /** الـ URL-friendly slug — مثال "mfa-holding" */
+  slug: string;
+  name: string;
+  legalName?: string;
+  taxNumber?: string;
+  baseCurrency: string;
+  country?: string;
+  /** قائمة الشركات الفرعية (لا تشمل القابضة نفسها) */
+  companies: HoldingCompany[];
+  createdAt: string;
+}
+
+export const holdingsApi = {
+  // GET /api/holdings/{slug} — Holding detail + sub-companies.
+  getBySlug: async (slug: string): Promise<HoldingDetail> => {
+    const r = await api.get<HoldingDetail>(`/api/holdings/${encodeURIComponent(slug)}`);
+    return r.data;
+  },
+};

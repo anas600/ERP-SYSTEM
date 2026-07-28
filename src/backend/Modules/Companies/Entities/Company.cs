@@ -7,6 +7,11 @@ public class Company
     public Guid Id { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
+    /// <summary>
+    /// URL-friendly slug (Phase 6.4 / Sprint 1) — unique per row.
+    /// Nullable for back-compat with rows created before the column was added.
+    /// </summary>
+    public string? Slug { get; set; }
     public string? LegalName { get; set; }
     public Guid? ParentCompanyId { get; set; }
     public bool IsGroup { get; set; } = false;

@@ -16,6 +16,31 @@ public interface ICompanyService
     Task<CompanyResult<IReadOnlyList<Company>>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
     Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(CancellationToken ct);
     Task<CompanyResult<bool>> DeactivateAsync(Guid id, CancellationToken ct);
+    // Sprint 1 (T2 / Block A): slug-based Holding lookup, returns Holding + child companies.
+    Task<CompanyResult<HoldingDetail>> GetHoldingBySlugAsync(string slug, CancellationToken ct);
+}
+
+// Sprint 1 (T2 / Block A): holding detail returned by /api/holdings/{slug}.
+// The Holding is identified by (is_group=true, parent_company_id IS NULL).
+// The companies list is the immediate children of the Holding.
+public sealed class HoldingDetail
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public string BaseCurrency { get; set; } = "LYD";
+    public bool IsActive { get; set; }
+    public List<HoldingCompanySummary> Companies { get; set; } = new();
+}
+
+public sealed class HoldingCompanySummary
+{
+    public Guid Id { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public string Code { get; set; } = string.Empty;
+    public string? Slug { get; set; }
+    public bool IsActive { get; set; }
 }
 
 public sealed class CompanyTreeNode { public Company Company { get; set; } = null!; public List<CompanyTreeNode> Children { get; set; } = new(); }
@@ -89,6 +114,39 @@ public sealed class CompanyService : ICompanyService
         c.IsActive = false; c.UpdatedAt = DateTime.UtcNow;
         await _companies.UpdateAsync(c, ct);
         return CompanyResult<bool>.Ok(true);
+    }
+
+    // Sprint 1 (T2 / Block A): Holding-by-slug lookup. Returns the Holding with its
+    // immediate child companies. The Holding is identified by is_group=true AND
+    // parent_company_id IS NULL. Slug is matched case-insensitively.
+    public async Task<CompanyResult<HoldingDetail>> GetHoldingBySlugAsync(string slug, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+            return CompanyResult<HoldingDetail>.Fail("الـ slug مطلوب.", CompanyErrorCode.ValidationError);
+
+        var holding = await _companies.GetHoldingBySlugAsync(slug.Trim(), ct);
+        if (holding == null)
+            return CompanyResult<HoldingDetail>.Fail("لم يتم العثور على الشركة القابضة.", CompanyErrorCode.NotFound);
+
+        var subs = await _companies.ListSubsidiariesAsync(holding.Id, ct);
+        var detail = new HoldingDetail
+        {
+            Id = holding.Id,
+            Name = holding.Name,
+            Code = holding.Code,
+            Slug = holding.Slug,
+            BaseCurrency = holding.BaseCurrency,
+            IsActive = holding.IsActive,
+            Companies = subs.Select(s => new HoldingCompanySummary
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Code = s.Code,
+                Slug = s.Slug,
+                IsActive = s.IsActive,
+            }).ToList(),
+        };
+        return CompanyResult<HoldingDetail>.Ok(detail);
     }
     private static CompanyTreeNode BuildTree(Company n, IReadOnlyList<Company> all) => new() { Company = n, Children = all.Where(c => c.ParentCompanyId == n.Id).Select(c => BuildTree(c, all)).ToList() };
 }

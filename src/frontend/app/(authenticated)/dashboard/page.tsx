@@ -1,298 +1,210 @@
 ﻿'use client';
 
-// صفحة لوحة التحكم (Dashboard) — محسّنة بـ KPI tiles + Quick Actions + Recent Activity
+// Sprint 1: Holding-level Dashboard — 4 KPI tiles (companies / users /
+// activities_today / transactions). Replaces the per-company dashboard from
+// Phase 3, which showed per-company counts (vendors / POs / employees /
+// low-stock). The new design reflects the Multi-Company / Holding model of
+// Phase 6: the active company (X-Company-Id) drives the scope, and when the
+// active company is the Holding the KPIs aggregate across all sub-companies.
+//
+// Note: the underlying endpoint (`GET /api/dashboard/summary`) is being wired
+// by the Backend Jimi in parallel. The page shows a friendly Arabic error
+// message until that endpoint is live — no mock data is used.
 
 import { useEffect, useState } from 'react';
-import { formatDate, formatTime } from '@/lib/utils';
-import Link from 'next/link';
 import {
-  Truck,
-  FileText,
-  UserCog,
-  Boxes,
-  Plus,
+  Building2,
   Users,
-  PackageCheck,
-  Receipt,
   Activity,
-  Wallet,
-  Briefcase,
+  ArrowLeftRight,
+  AlertCircle,
+  RefreshCw,
 } from 'lucide-react';
-import { Card, Badge } from '@/components/ui';
-import { DashboardFooter } from '@/components/layout/DashboardFooter';
+import { Card, PageHeader, Button } from '@/components/ui';
+import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { useAuth } from '@/lib/useAuth';
-import {
-  authApi,
-  financeApi,
-  inventoryApi,
-  projectsApi,
-  procurementApi,
-  hrApi,
-  Account,
-  Item,
-  Project,
-  PurchaseOrder,
-} from '@/lib/api';
+import { dashboardApi, getErrorMessage } from '@/lib/api';
 
-interface RecentItem {
-  id: string;
-  title: string;
-  subtitle: string;
-  badge: string;
-  date: string;
-  href: string;
+interface KpiTile {
+  key: 'companies' | 'users' | 'activities_today' | 'transactions';
+  label: string;
+  /** توضيح قصير يظهر تحت الرقم */
+  hint: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** لون الـ accent — يطابق الـ palette الموجود في Card */
+  accent: 'blue' | 'green' | 'purple' | 'yellow' | 'red';
+  /** color of the icon background ring */
+  iconBg: string;
+  iconColor: string;
 }
+
+const KPI_TILES: KpiTile[] = [
+  {
+    key: 'companies',
+    label: 'الشركات',
+    hint: 'تحت القابضة',
+    icon: Building2,
+    accent: 'blue',
+    iconBg: 'bg-blue-50',
+    iconColor: 'text-blue-600',
+  },
+  {
+    key: 'users',
+    label: 'المستخدمون',
+    hint: 'فعّالون',
+    icon: Users,
+    accent: 'green',
+    iconBg: 'bg-green-50',
+    iconColor: 'text-green-600',
+  },
+  {
+    key: 'activities_today',
+    label: 'نشاطات اليوم',
+    hint: 'آخر 24 ساعة',
+    icon: Activity,
+    accent: 'purple',
+    iconBg: 'bg-purple-50',
+    iconColor: 'text-purple-600',
+  },
+  {
+    key: 'transactions',
+    label: 'المعاملات',
+    hint: 'آخر 30 يوم',
+    icon: ArrowLeftRight,
+    accent: 'yellow',
+    iconBg: 'bg-yellow-50',
+    iconColor: 'text-yellow-600',
+  },
+];
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [items, setItems] = useState<Item[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [vendorsCount, setVendorsCount] = useState(0);
-  const [openPoCount, setOpenPoCount] = useState(0);
-  const [employeesCount, setEmployeesCount] = useState(0);
-  const [lowStockCount, setLowStockCount] = useState(0);
-  const [recent, setRecent] = useState<RecentItem[]>([]);
+  const [summary, setSummary] = useState<Awaited<
+    ReturnType<typeof dashboardApi.getSummary>
+  > | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const load = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const [accRes, invRes, projRes, venRes, poRes, empRes] = await Promise.allSettled([
-        financeApi.listAccounts(),
-        inventoryApi.listItems(),
-        projectsApi.listProjects(),
-        // Fixed: use typed procurementApi (goes to localhost:5000, not localhost:3000)
-        procurementApi.listVendors(),
-        procurementApi.listPOs(),
-        hrApi.listEmployees(),
-      ]);
-
-      if (accRes.status === 'fulfilled') setAccounts(accRes.value);
-      if (invRes.status === 'fulfilled') {
-        setItems(invRes.value);
-        setLowStockCount(
-          invRes.value.filter((i) => (i.averageCost ?? 0) >= 0 && i.reorderLevel > 0).length
-        );
-      }
-      if (projRes.status === 'fulfilled') setProjects(projRes.value);
-
-      if (venRes.status === 'fulfilled' && Array.isArray(venRes.value)) {
-        setVendorsCount(venRes.value.length ?? 0);
-      }
-      if (poRes.status === 'fulfilled' && Array.isArray(poRes.value)) {
-        // PO Status: Draft=1, Pending=2, Approved=3, Sent=4, Received=5, Cancelled=6
-        const open = poRes.value.filter(
-          (p: PurchaseOrder) => p.status !== 5 && p.status !== 6
-        );
-        setOpenPoCount(open.length ?? 0);
-        // آخر 5 POs كـ recent activity
-        const recentPOs: RecentItem[] = poRes.value
-          .slice(-5)
-          .reverse()
-          .map((p: PurchaseOrder) => ({
-            id: p.id,
-            title: p.poNumber,
-            subtitle: p.vendorName || p.vendorId,
-            badge: String(p.status),  // status is number (enum: 1=Draft, 2=Pending, etc.)
-            date: p.createdAt,
-            href: '/procurement/purchase-orders',
-          }));
-        setRecent((prev) => [...recentPOs, ...prev].slice(0, 5));
-      }
-      if (empRes.status === 'fulfilled' && Array.isArray(empRes.value)) {
-        setEmployeesCount(empRes.value.length ?? 0);
-      }
+      const data = await dashboardApi.getSummary();
+      setSummary(data);
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'تعذّر تحميل لوحة التحكم.'));
     } finally {
       setLoading(false);
     }
   };
 
+  useEffect(() => {
+    load();
+  }, []);
+
+  // Format numbers with Arabic locale (so 1,234 becomes ١٬٢٣٤ visually)
+  // Falls back to en-US if Intl is unavailable.
+  const formatNumber = (n: number | undefined | null): string => {
+    if (n == null) return '—';
+    try {
+      return n.toLocaleString('ar-EG');
+    } catch {
+      return n.toLocaleString('en-US');
+    }
+  };
+
+  const firstName = (user?.fullName ?? '').split(' ')[0] || 'مستخدم';
+
   return (
     <div>
-      {/* Header ترحيبي */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800">
-          مرحباً، {user?.fullName?.split(' ')[0] || 'مستخدم'} 👋
-        </h1>
-        <p className="text-sm text-gray-500 mt-1">نظرة عامة على نشاط الشركة</p>
-      </div>
+      {/* Page header — مع CompanySwitcher في الـ actions عشان الـ user يقدر
+          يبدّل بين الشركات من هنا أيضاً (إضافة لـ Topbar) */}
+      <PageHeader
+        title={`مرحباً، ${firstName} 👋`}
+        description="نظرة عامة على نشاط القابضة والشركات التابعة"
+        actions={
+          <div className="flex items-center gap-2">
+            <CompanySwitcher />
+            <Button
+              variant="secondary"
+              onClick={load}
+              disabled={loading}
+              aria-label="تحديث"
+            >
+              <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">تحديث</span>
+            </Button>
+          </div>
+        }
+      />
 
-      {/* KPI Tiles */}
+      {/* Error state — رسالة ودودة بالعربي لو الـ endpoint غير متاح */}
+      {error && !loading && (
+        <div
+          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
+          role="alert"
+        >
+          <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+          <div className="flex-1">
+            <p className="font-semibold">تعذّر تحميل لوحة التحكم</p>
+            <p className="text-sm mt-0.5">
+              {error} — Endpoint: <code className="text-xs">/api/dashboard/summary</code>
+            </p>
+            <p className="text-xs mt-1 text-red-600">
+              ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.
+            </p>
+          </div>
+          <Button variant="secondary" onClick={load} disabled={loading}>
+            إعادة المحاولة
+          </Button>
+        </div>
+      )}
+
+      {/* KPI tiles — 4 بطاقات responsive (1 col mobile, 2 tablet, 4 desktop) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Link href="/procurement/vendors" className="block">
-          <Card accent="blue" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">إجمالي الموردين</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{vendorsCount}</p>
-                <p className="text-xs text-gray-400 mt-1">مورّد مُسجَّل</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Truck className="h-6 w-6 text-blue-600" />
-              </div>
-            </div>
-          </Card>
-        </Link>
+        {KPI_TILES.map((tile) => {
+          const Icon = tile.icon;
+          const value = loading
+            ? null
+            : error
+              ? null
+              : (summary?.[tile.key] ?? null);
 
-        <Link href="/procurement/purchase-orders" className="block">
-          <Card accent="yellow" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">أوامر شراء مفتوحة</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{openPoCount}</p>
-                <p className="text-xs text-gray-400 mt-1">قيد التنفيذ</p>
+          return (
+            <Card key={tile.key} accent={tile.accent}>
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm text-gray-500">{tile.label}</p>
+                  {value == null ? (
+                    <div
+                      className="mt-2 h-9 w-20 rounded bg-gray-100 animate-pulse"
+                      role="status"
+                      aria-label="جاري التحميل"
+                    />
+                  ) : (
+                    <p className="text-3xl font-bold text-gray-800 mt-1 tabular-nums">
+                      {formatNumber(value)}
+                    </p>
+                  )}
+                  <p className="text-xs text-gray-400 mt-1">{tile.hint}</p>
+                </div>
+                <div
+                  className={`h-12 w-12 rounded-lg ${tile.iconBg} flex items-center justify-center flex-shrink-0`}
+                >
+                  <Icon className={`h-6 w-6 ${tile.iconColor}`} />
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-lg bg-yellow-50 flex items-center justify-center">
-                <FileText className="h-6 w-6 text-yellow-600" />
-              </div>
-            </div>
-          </Card>
-        </Link>
-
-        <Link href="/hr/employees" className="block">
-          <Card accent="green" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-500">موظفين نشطين</p>
-                <p className="text-3xl font-bold text-gray-800 mt-1">{employeesCount}</p>
-                <p className="text-xs text-gray-400 mt-1">في الشركة</p>
-              </div>
-              <div className="h-12 w-12 rounded-lg bg-green-50 flex items-center justify-center">
-                <UserCog className="h-6 w-6 text-green-600" />
-              </div>
-            </div>
-          </Card>
-        </Link>
-
-        <Card accent="red">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500">أصناف منخفضة المخزون</p>
-              <p className="text-3xl font-bold text-gray-800 mt-1">{lowStockCount}</p>
-              <p className="text-xs text-gray-400 mt-1">تحت حد الطلب</p>
-            </div>
-            <div className="h-12 w-12 rounded-lg bg-red-50 flex items-center justify-center">
-              <Boxes className="h-6 w-6 text-red-600" />
-            </div>
-          </div>
-        </Card>
+            </Card>
+          );
+        })}
       </div>
 
-      {/* Quick Actions + Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-        <Card title="إجراءات سريعة" description="إنشاء سريع" className="lg:col-span-1">
-          <div className="grid grid-cols-2 gap-2">
-            <Link
-              href="/procurement/purchase-orders/new"
-              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-            >
-              <Plus className="h-5 w-5 text-blue-600" />
-              <span className="text-xs font-semibold text-gray-700">أمر شراء</span>
-            </Link>
-            <Link
-              href="/procurement/vendors/new"
-              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-            >
-              <Truck className="h-5 w-5 text-blue-600" />
-              <span className="text-xs font-semibold text-gray-700">مورّد</span>
-            </Link>
-            <Link
-              href="/hr/employees/new"
-              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-            >
-              <UserCog className="h-5 w-5 text-blue-600" />
-              <span className="text-xs font-semibold text-gray-700">موظف</span>
-            </Link>
-            <Link
-              href="/procurement/goods-receipts/new"
-              className="flex flex-col items-center gap-1 p-3 rounded-lg border border-gray-200 hover:border-blue-300 hover:bg-blue-50 transition-colors"
-            >
-              <PackageCheck className="h-5 w-5 text-blue-600" />
-              <span className="text-xs font-semibold text-gray-700">استلام</span>
-            </Link>
-          </div>
-        </Card>
-
-        <Card title="آخر النشاطات" description="آخر 5 أوامر شراء" className="lg:col-span-2">
-          {loading ? (
-            <div className="py-8 text-center text-sm text-gray-500">جاري التحميل...</div>
-          ) : recent.length === 0 ? (
-            <div className="py-8 text-center text-sm text-gray-500">
-              <Activity className="h-8 w-8 mx-auto mb-2 text-gray-300" />
-              لا توجد نشاطات بعد
-            </div>
-          ) : (
-            <ul className="divide-y divide-gray-100">
-              {recent.map((r) => (
-                <li key={r.id} className="py-3 flex items-center justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-semibold text-gray-800 truncate">{r.title}</p>
-                    <p className="text-xs text-gray-500 truncate">{r.subtitle}</p>
-                  </div>
-                  <div className="flex items-center gap-2 flex-shrink-0">
-                    <Badge variant="info">{r.badge}</Badge>
-                    <span className="text-[10px] text-gray-400">
-                      {formatDate(r.date)}
-                    </span>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Card>
-      </div>
-
-      {/* Stats للوحدات الموجودة */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Link href="/finance/accounts" className="block">
-          <Card accent="purple" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-purple-50 flex items-center justify-center">
-                <Wallet className="h-5 w-5 text-purple-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">الحسابات المحاسبية</p>
-                <p className="text-2xl font-bold text-gray-800">{accounts.length}</p>
-              </div>
-            </div>
-          </Card>
-        </Link>
-        <Link href="/inventory/items" className="block">
-          <Card accent="green" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-green-50 flex items-center justify-center">
-                <Boxes className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">الأصناف</p>
-                <p className="text-2xl font-bold text-gray-800">{items.length}</p>
-              </div>
-            </div>
-          </Card>
-        </Link>
-        <Link href="/projects" className="block">
-          <Card accent="blue" className="hover:shadow-md transition-shadow">
-            <div className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-lg bg-blue-50 flex items-center justify-center">
-                <Briefcase className="h-5 w-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">المشاريع</p>
-                <p className="text-2xl font-bold text-gray-800">{projects.length}</p>
-              </div>
-            </div>
-          </Card>
-        </Link>
-      </div>
-
-      <DashboardFooter />
+      {/* ملخص إضافي — يعرض "as of" timestamp لو متاح من الـ backend */}
+      {summary?.asOf && !error && (
+        <div className="text-xs text-gray-400 text-center mt-2">
+          آخر تحديث: {new Date(summary.asOf).toLocaleString('en-GB')}
+        </div>
+      )}
     </div>
   );
 }
-
-
