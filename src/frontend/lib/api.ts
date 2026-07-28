@@ -1400,3 +1400,167 @@ export const holdingsApi = {
     return r.data;
   },
 };
+
+// ============ Companies API (Sprint 2 — T1, T3, T7, T8) ============
+// Phase 6 Multi-Company: companies are the top-level scope. The /api/companies
+// endpoint is being upgraded to support pagination (T1) and a richer DTO
+// (parentCompanyId, baseCurrency, legalName). This block is the canonical
+// frontend client for company CRUD — used by /admin/companies (T7) and
+// /admin/companies/[id] (T8).
+//
+// T1: GET /api/companies?page=N&pageSize=20  — paginated list
+// T3: POST /api/companies                     — create
+// PUT: PUT /api/companies/{id}                — update (T8 edit form)
+// PUT: PUT /api/companies/{id}/activate        — activate/deactivate
+
+export interface Company {
+  id: string;
+  code: string;
+  name: string;
+  /** الاسم القانوني — قد يختلف عن الاسم التجاري */
+  legalName?: string;
+  /** الرقم الضريبي — اختياري */
+  taxNumber?: string;
+  /** العملة الأساسية (ISO 4217 — e.g. "LYD", "USD") */
+  baseCurrency: string;
+  /** البلد — اختياري (ISO 3166-1 alpha-2 أو اسم حر) */
+  country?: string;
+  isHolding: boolean;
+  isActive: boolean;
+  /** معرّف الشركة الأم (للشركات الفرعية في الـ holding tree) */
+  parentCompanyId?: string | null;
+  /** اسم الشركة الأم — للعرض في الجدول بدون استعلام إضافي */
+  parentCompanyName?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+/** شكل الرد للـ GET /api/companies?page=N&pageSize=20 (T1).
+ *  الـ backend قد يطابق `PaginationResponse<T>` من Shared layer أو يُرجع شكلاً
+ *  أبسط. كلا الشكلين مدعومان هنا لتجنّب كسر الـ build قبل جاهزية T1. */
+export interface PagedCompanies {
+  items: Company[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
+export interface CreateCompanyRequest {
+  code: string;
+  name: string;
+  legalName?: string;
+  taxNumber?: string;
+  baseCurrency: string;
+  country?: string;
+  isHolding?: boolean;
+  isActive?: boolean;
+  parentCompanyId?: string | null;
+}
+
+export interface UpdateCompanyRequest {
+  code?: string;
+  name?: string;
+  legalName?: string;
+  taxNumber?: string;
+  baseCurrency?: string;
+  country?: string;
+  isHolding?: boolean;
+  isActive?: boolean;
+  parentCompanyId?: string | null;
+}
+
+export const companiesApi = {
+  // T1: GET /api/companies?page=N&pageSize=20
+  // يقبل أيضاً `includeInactive=true` للـ admin view (يعرض المعطّلة).
+  // يلتقط شكل الرد المتوقَّع `{ items, total, page, pageSize }` — لو الـ backend
+  // ما يزال يُرجع مصفوفة بسيطة (Phase 6.1b) نلفّها في شكل موحّد.
+  list: async (params?: { page?: number; pageSize?: number; includeInactive?: boolean; search?: string }): Promise<PagedCompanies> => {
+    const r = await api.get<Company[] | PagedCompanies>('/api/companies', {
+      params: {
+        page: params?.page,
+        pageSize: params?.pageSize,
+        includeInactive: params?.includeInactive,
+        search: params?.search,
+      },
+    });
+    if (Array.isArray(r.data)) {
+      // الـ backend لم يُحدَّث بعد — رجّع كل العناصر في صفحة واحدة.
+      return {
+        items: r.data,
+        total: r.data.length,
+        page: 1,
+        pageSize: r.data.length,
+      };
+    }
+    return r.data;
+  },
+  // GET /api/companies/{id} — T8 details
+  get: async (id: string): Promise<Company> => {
+    const r = await api.get<Company>(`/api/companies/${id}`);
+    return r.data;
+  },
+  // T3: POST /api/companies — create
+  create: async (data: CreateCompanyRequest): Promise<Company> => {
+    const r = await api.post<Company>('/api/companies', data);
+    return r.data;
+  },
+  // T8 edit: PUT /api/companies/{id}
+  // الـ backend لم يُضِف PUT بعد (T3 يستخدم POST لكل من create/update في
+  // بعض الـ designs). نُحاول PUT أولاً، ونُسقط إلى POST إن فشل.
+  update: async (id: string, data: UpdateCompanyRequest): Promise<Company> => {
+    try {
+      const r = await api.put<Company>(`/api/companies/${id}`, data);
+      return r.data;
+    } catch (e: unknown) {
+      const err = e as { response?: { status?: number } };
+      if (err?.response?.status === 405 || err?.response?.status === 404) {
+        // Fallback: الـ backend يستخدم POST بدون id = create-only. نُعيد رمي
+        // الخطأ الأصلي لأن الـ edit غير مدعوم في تلك الحالة.
+      }
+      throw e;
+    }
+  },
+  // PUT /api/companies/{id}/activate — تفعيل/تعطيل (يُسهِّل workflow T8)
+  setActive: async (id: string, isActive: boolean): Promise<{ message: string }> => {
+    const r = await api.put<{ message: string }>(`/api/companies/${id}/activate`, { isActive });
+    return r.data;
+  },
+};
+
+// ============ Users API (Sprint 2 — T4, T5, T9, T10) ============
+// T4: GET /api/users?company_id={id}&skip=N&take=M  — list with company filter
+// T5: GET /api/users/{id}/companies                  — user's assigned companies
+//
+// هذا الـ namespace الجديد مُكمِّل لـ `identityApi` الموجود (الـ auth flow +
+// user CRUD). هنا نُركِّز على الـ read paths اللازمة لـ admin screens.
+// ملاحظة: `identityApi.listUserCompanies(userId)` و `getUser(userId)` لا تزال
+// تعمل — الـ frontend يُفضِّل `usersApi` للـ admin views.
+
+export interface PagedUsers {
+  items: AdminUser[];
+  total: number;
+  skip: number;
+  take: number;
+}
+
+export const usersApi = {
+  // T4: GET /api/users?company_id=&skip=&take=
+  list: async (params?: { companyId?: string; skip?: number; take?: number }): Promise<PagedUsers> => {
+    const r = await api.get<AdminUser[] | PagedUsers>('/api/users', {
+      params: {
+        company_id: params?.companyId,
+        skip: params?.skip ?? 0,
+        take: params?.take ?? 50,
+      },
+    });
+    if (Array.isArray(r.data)) {
+      return { items: r.data, total: r.data.length, skip: params?.skip ?? 0, take: params?.take ?? 50 };
+    }
+    return r.data;
+  },
+  // T5: GET /api/users/{id}/companies
+  getUserCompanies: async (userId: string): Promise<UserCompany[]> => {
+    const r = await api.get<UserCompany[]>(`/api/users/${userId}/companies`);
+    return r.data;
+  },
+};
