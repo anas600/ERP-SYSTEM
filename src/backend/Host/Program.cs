@@ -162,6 +162,8 @@ builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ERPSystem.Host.Audit.IAuditLogger, ERPSystem.Host.Audit.AuditLogger>();
 // DEC-073: ActivityLogger (user-action log: login, refresh, logout, register)
 builder.Services.AddScoped<ERPSystem.Modules.Activity.Application.IActivityLogger, ERPSystem.Modules.Activity.Application.ActivityLogService>();
+// Sprint 3 (T1 / Block A): Activity feed reader (GET /api/activity/recent).
+builder.Services.AddScoped<ERPSystem.Modules.Activity.Application.IActivityFeedService, ERPSystem.Modules.Activity.Application.ActivityFeedService>();
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
