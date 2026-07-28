@@ -38,6 +38,7 @@ using ERPSystem.Modules.AccountsReceivable.Infrastructure;
 using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
+using ERPSystem.Modules.Dashboard.Application.Services;
 using ERPSystem.Modules.Finance.Application.EventHandlers;
 using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Shared.Events;
@@ -268,6 +269,8 @@ builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IStockLevelService, StockLevelService>();
 builder.Services.AddScoped<IStockReservationService, StockReservationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
+// Sprint 1 (T1 / Block A): dashboard summary KPIs (4-count payload).
+builder.Services.AddScoped<IDashboardSummaryService, DashboardSummaryService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();

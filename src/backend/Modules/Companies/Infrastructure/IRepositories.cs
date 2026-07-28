@@ -15,6 +15,10 @@ public interface ICompanyRepository
     // (the seed holding), or null if none exists. Used by DefaultHoldingBootstrapHostedService
     // at app startup for the idempotency check.
     Task<Guid?> GetHoldingCompanyIdAsync(CancellationToken ct);
+    // Sprint 1 (T2 / Block A): slug-based lookup for /api/holdings/{slug}.
+    // Returns the Holding (is_group=true, parent_company_id IS NULL) whose slug
+    // matches (case-insensitive), or null if not found.
+    Task<Company?> GetHoldingBySlugAsync(string slug, CancellationToken ct);
     Task InsertAsync(Company company, CancellationToken ct);
     Task InsertAsync(Company company, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task UpdateAsync(Company company, CancellationToken ct);

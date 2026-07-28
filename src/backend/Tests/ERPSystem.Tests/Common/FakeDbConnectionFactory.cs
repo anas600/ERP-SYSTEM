@@ -100,7 +100,29 @@ internal sealed class FakeDbCommand : DbCommand
     protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior) =>
         new FakeDbDataReader(_ds, CommandText);
     public override int ExecuteNonQuery() => 0;
-    public override object? ExecuteScalar() => null;
+    // Sprint 1 (T3 / Block A): COUNT(*) / COUNT(1) support for unit tests.
+    // Previously returned null → Dapper defaulted to 0 for any COUNT.
+    // Now extracts the FROM table name and returns its row count.
+    // The WHERE clause is ignored (same limitation as FakeDbDataReader).
+    // This is a strict improvement: tests that did not rely on COUNT
+    // getting 0 are unaffected; tests that do COUNT against a known
+    // row count can now assert exact values (see DashboardSummaryTests).
+    public override object? ExecuteScalar()
+    {
+        // Match COUNT(*), COUNT(1), or COUNT(somecol) followed by FROM <table>.
+        // The capture group is the table name; the argument inside the
+        // parens is intentionally permissive (matches anything that doesn't
+        // contain a closing paren) to cover all the standard aggregate forms.
+        var m = System.Text.RegularExpressions.Regex.Match(
+            CommandText, @"\bCOUNT\s*\(\s*[^)]*\)\s+FROM\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+            System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (m.Success)
+        {
+            var table = m.Groups[1].Value;
+            return _ds.Tables.Contains(table) ? _ds.Tables[table]!.Rows.Count : 0;
+        }
+        return null;
+    }
 }
 
 internal sealed class FakeDbParameter : DbParameter
