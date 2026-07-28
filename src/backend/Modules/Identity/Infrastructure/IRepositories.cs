@@ -18,6 +18,10 @@ public interface IUserRepository
     Task AssignRoleAsync(Guid userId, Guid roleId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
     Task<IReadOnlyList<User>> ListAsync(int skip, int take, CancellationToken ct); // DEC-067-C
     Task<int> CountAsync(CancellationToken ct); // DEC-067-C
+    // Sprint 2 (T4 / Block A): company-scoped user list. Returns users assigned
+    // to the given company via user_companies. Used by GET /api/users?company_id={guid}.
+    Task<IReadOnlyList<User>> ListByCompanyAsync(Guid companyId, int skip, int take, CancellationToken ct);
+    Task<int> CountByCompanyAsync(Guid companyId, CancellationToken ct);
 
     // Phase 6.1c: user → companies mapping (multi-company model).
     Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct);

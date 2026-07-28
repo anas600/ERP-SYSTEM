@@ -63,6 +63,20 @@ public sealed class CompanyRepository : ICompanyRepository
             new { Slug = slug }, cancellationToken: ct));
     }
 
+    // Sprint 2 (T3 / Block A): general slug lookup (any company, not just Holdings).
+    // The companies table has a unique index on slug (see companies.json in
+    // data-types), so at most one row will match.
+    public async Task<Company?> GetBySlugAsync(string slug, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(slug)) return null;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.QueryFirstOrDefaultAsync<Company>(new CommandDefinition(
+            $@"SELECT {SelectColumns} FROM companies
+               WHERE LOWER(slug) = LOWER(@Slug)
+               LIMIT 1",
+            new { Slug = slug }, cancellationToken: ct));
+    }
+
     public async Task<IReadOnlyList<Company>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -70,6 +84,63 @@ public sealed class CompanyRepository : ICompanyRepository
             + (includeInactive ? "" : " AND is_active = true") + " ORDER BY code";
         var rows = await conn.QueryAsync<Company>(new CommandDefinition(sql, cancellationToken: ct));
         return rows.AsList();
+    }
+
+    // Sprint 2 (T1 / Block A): paged list for GET /api/companies. Returns at most
+    // `take` rows starting at offset `skip` (computed from page/pageSize in the
+    // service layer). Includes inactive rows when includeInactive=true.
+    public async Task<IReadOnlyList<Company>> ListPagedAsync(int skip, int take, bool includeInactive, CancellationToken ct)
+    {
+        if (take < 1) take = 20;
+        if (skip < 0) skip = 0;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var sql = $"SELECT {SelectColumns} FROM companies WHERE 1=1"
+            + (includeInactive ? "" : " AND is_active = true")
+            + " ORDER BY code"
+            + " OFFSET @Skip LIMIT @Take";
+        var rows = await conn.QueryAsync<Company>(new CommandDefinition(sql,
+            new { Skip = skip, Take = take }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task<int> CountAsync(bool includeInactive, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var sql = "SELECT COUNT(*)::int FROM companies WHERE 1=1"
+            + (includeInactive ? "" : " AND is_active = true");
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql, cancellationToken: ct));
+    }
+
+    // Sprint 2 (T1 / Block A): user-scoped paged list. The multi-company scope is
+    // enforced via the user_companies join — only companies the given user has been
+    // assigned to are returned. The user_companies join is inner so the result is
+    // the intersection of (companies) ∩ (companies the user can see).
+    public async Task<IReadOnlyList<Company>> ListByUserAsync(Guid userId, int skip, int take, bool includeInactive, CancellationToken ct)
+    {
+        if (take < 1) take = 20;
+        if (skip < 0) skip = 0;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var sql = $@"SELECT {SelectColumns.Replace("AS ParentCompanyId", "AS ParentCompanyId")}
+                    FROM companies c
+                    INNER JOIN user_companies uc ON uc.company_id = c.id
+                    WHERE uc.user_id = @UserId"
+            + (includeInactive ? "" : " AND c.is_active = true")
+            + " ORDER BY c.code"
+            + " OFFSET @Skip LIMIT @Take";
+        var rows = await conn.QueryAsync<Company>(new CommandDefinition(sql,
+            new { UserId = userId, Skip = skip, Take = take }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task<int> CountByUserAsync(Guid userId, bool includeInactive, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        var sql = @"SELECT COUNT(*)::int FROM companies c
+                    INNER JOIN user_companies uc ON uc.company_id = c.id
+                    WHERE uc.user_id = @UserId"
+            + (includeInactive ? "" : " AND c.is_active = true");
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(sql,
+            new { UserId = userId }, cancellationToken: ct));
     }
 
     public async Task<IReadOnlyList<Company>> ListSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct)
