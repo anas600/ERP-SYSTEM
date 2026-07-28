@@ -1,7 +1,23 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-28 01:00 UTC (Cycle 5 launch)
-> **Updated by:** سيتي (Cloud)
+> **Last updated:** 2026-07-28 02:00 UTC (Mavis Local updating — Cycle 5 in progress)
+> **Updated by:** سيتي (Cloud) — initial, Mavis Local (Local) — in-progress updates
+
+## 💓 Health (last check)
+
+> Source: `docs/governance/internal/health-ping.json` (auto-updated every 10 min by `scripts/health-ping.sh` + `health-ping.yml` workflow)
+
+| Signal | Value |
+|--------|-------|
+| **Status** | 🟢 alive |
+| **Last check** | 2026-07-28T02:03:00Z (≈3 min ago) |
+| **GitHub API** | reachable |
+| **Last remote commit** | 2026-07-28 01:36:00Z (≈30 min ago) |
+| **Stale threshold** | 1800s (30 min) |
+
+> **Legend:** 🟢 alive (commit <10 min) · 🟡 idle (10-30 min) · 🔴 stuck (>30 min) · ⚪ silent (no ping >1h) · ⚫ unreachable (network down)
+
+> **Why this matters:** Cycle 1 "سيتی went dark" incident (DEC-072) was caused by no signal mechanism. This section is now the canonical "is سيتی alive?" check. See `lessons-learned.md` §3 (workflow modes) for the failure mode.
 
 ## 🔄 Current Cycle: 5 / 20
 
@@ -9,16 +25,17 @@
 |-------|-------|
 | **Title** | Smart Cron + Phase 6 Polish (real features) |
 | **Owner** | Mavis Local (Tech Lead) |
-| **Status** | 🟡 ACTIVE — Hand-off pushed, awaiting Mavis Local start |
+| **Status** | 🟡 ACTIVE — Execution in progress (T1+T3 done, T2 in progress) |
 | **Hand-off** | docs/governance/hand-offs/cycle-5.md (144 lines) |
+| **Response** | docs/governance/hand-offs/cycle-5-response.md (in progress) |
 | **DECs** | DEC-070 (admin) + DEC-071 (basic) + DEC-072 (presence) |
 
 ## 📋 Cycle 5 Tasks
 
 ### Block A (Mavis Local) — Smart Cron Implementation
-- [ ] T1: `scripts/health-ping.sh` (POSIX bash, token-free)
-- [ ] T2: board.md shows last health-ping status
-- [ ] T3: `health-ping.yml` GitHub Action (optional)
+- [x] T1: `scripts/health-ping.sh` (POSIX bash, token-free) ✅
+- [x] T3: `health-ping.yml` GitHub Action ✅
+- [x] T2: board.md shows last health-ping status ✅ (this section)
 
 ### Block B (Mavis Local) — Phase 6 Polish
 - [ ] T4: CompanySwitcher UI test (Playwright, optional)

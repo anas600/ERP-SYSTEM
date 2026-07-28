@@ -63,3 +63,10 @@ test-results/
 
 screenshots/
 
+
+# Agent / shell scratch (not project content)
+*.err
+__pycache__/
+*.pyc
+*.pyo
+
