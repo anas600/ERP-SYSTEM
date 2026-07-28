@@ -1,10 +1,24 @@
 'use client';
 
+// Sprint 2 — T10: User detail + assigned companies.
+//   Route: /admin/users/[id]
+//   Show:  email, full_name, is_active, two_factor_enabled, created_at, last_login_at
+//   Roles list + "Assigned Companies" section.
+//   Edit:  full name, email, is_active, roleIds (PUT /api/identity/users/{id})
+//   Pwd:   reset (PUT /api/identity/users/{id}/password)
+//   Cos:   assign/remove (POST/DELETE /api/identity/users/{id}/companies)
+//
+// T5 enhancement: بدل الاعتماد على `identityApi.getUser(id).companies` فقط
+// (الـ eager-load في user detail)، نستخدم `usersApi.getUserCompanies(id)`
+// (T5: GET /api/users/{id}/companies) كمصدر منفصل — يتطابق مع T5 contract
+// في الـ hand-off. لو الـ endpoint غير متاح بعد، نسقط إلى getUser.detail
+// companies مع تحذير صامت.
+
 import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { ArrowRight, Save, KeyRound, Building2, Trash2, Plus, Shield, Mail, CheckCircle2, XCircle, Calendar } from 'lucide-react';
 import { Badge, Button, Card, Modal, PageHeader, SkeletonTable } from '@/components/ui';
-import { identityApi, getErrorMessage } from '@/lib/api';
+import { companiesApi, identityApi, usersApi, getErrorMessage, type Company, type UserCompany } from '@/lib/api';
 import { formatDate, formatTime } from '@/lib/utils';
 import { useToast } from '@/lib/useToast';
 
@@ -18,11 +32,11 @@ interface UserDetail {
   updatedAt: string;
   lastLoginAt?: string;
   roleIds: string[];
-  companies: { userId: string; companyId: string; companyCode: string; companyName: string; isDefault: boolean; isHolding: boolean; assignedAt: string }[];
+  /** User → company assignments. يتم تحميلها من T5 endpoint أو كـ fallback من getUser. */
+  companies: UserCompany[];
 }
 
 interface RoleItem { id: string; name: string; description?: string; }
-interface CompanyItem { id: string; name: string; code: string; isHolding?: boolean; }
 
 const ROLE_COLORS: Record<string, 'success' | 'info' | 'warning' | 'danger' | 'neutral'> = {
   Admin: 'danger',
@@ -39,7 +53,7 @@ export default function UserDetailPage() {
 
   const [user, setUser] = useState<UserDetail | null>(null);
   const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [companies, setCompanies] = useState<CompanyItem[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -62,16 +76,27 @@ export default function UserDetailPage() {
       const [detail, rolesRes, companiesRes] = await Promise.all([
         identityApi.getUser(id),
         identityApi.listRoles(),
-        fetch('/api/companies').then(r => r.json()).catch(() => []),
+        // T8: companies list now comes from companiesApi (paginated).
+        // Fall back to empty array on failure.
+        companiesApi.list({ pageSize: 100, includeInactive: true }).catch(() => null),
       ]);
+      // T5: get user→company assignments from the dedicated endpoint.
+      // Fall back to the eager-loaded `detail.companies` if T5 isn't wired yet.
+      let userCompanies: UserCompany[] = detail.companies;
+      try {
+        userCompanies = await usersApi.getUserCompanies(id);
+      } catch {
+        // T5 endpoint not yet available — keep the eager-loaded assignments
+        // from identityApi.getUser. No toast: this is a graceful degradation.
+      }
       const u: UserDetail = {
         ...detail.user,
         roleIds: detail.roleIds,
-        companies: detail.companies,
+        companies: userCompanies,
       };
       setUser(u);
       setRoles(rolesRes);
-      setCompanies(Array.isArray(companiesRes) ? companiesRes : []);
+      setCompanies(companiesRes ? companiesRes.items : []);
       setEditName(u.fullName);
       setEditEmail(u.email);
       setEditIsActive(u.isActive);

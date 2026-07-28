@@ -26,15 +26,32 @@ public class UsersController : ControllerBase
 
     /// <summary>
     /// List users (Phase 6.1b: users are global, not tenant-scoped).
+    /// Sprint 2 (T4 / Block A): optional ?company_id={guid} filter — when present,
+    /// only users assigned to that company (via user_companies) are returned.
     /// </summary>
     [HttpGet]
     public async Task<IActionResult> List(
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50,
+        [FromQuery(Name = "company_id")] Guid? companyId = null,
         CancellationToken ct = default)
     {
-        var users = await _users.ListAsync(skip, take, ct);
-        var total = await _users.CountAsync(ct);
+        IReadOnlyList<ERPSystem.Modules.Identity.Entities.User> users;
+        int total;
+
+        if (companyId.HasValue && companyId.Value != Guid.Empty)
+        {
+            // Sprint 2 (T4): company-scoped list. The join is on user_companies,
+            // so the result is the set of users who have been assigned to the
+            // given company. Multi-company model (Constitution Article 3).
+            users = await _users.ListByCompanyAsync(companyId.Value, skip, take, ct);
+            total = await _users.CountByCompanyAsync(companyId.Value, ct);
+        }
+        else
+        {
+            users = await _users.ListAsync(skip, take, ct);
+            total = await _users.CountAsync(ct);
+        }
 
         // Enrich with role names (1 extra query per user — could be optimized)
         var result = new List<UserWithRoles>();
@@ -95,6 +112,44 @@ public class UsersController : ControllerBase
             cancellationToken: ct));
         return Ok(roles);
     }
+
+    /// <summary>
+    /// Sprint 2 (T5 / Block A): list the companies a user has access to.
+    /// Returns 200 with { items: UserCompanyInfo[] } when the user exists,
+    /// 404 when the user does not exist. The companies are returned in the
+    /// same order the UserCompanyLink rows come back (default first, then by code).
+    /// </summary>
+    [HttpGet("{id:guid}/companies")]
+    public async Task<IActionResult> GetCompanies(Guid id, CancellationToken ct = default)
+    {
+        // Existence check first — distinguishes "no companies assigned" (200, empty)
+        // from "user does not exist" (404). The UserRepository.GetUserCompaniesAsync
+        // returns an empty list for users with no company assignments, so without
+        // the existence probe we would silently return [] for non-existent users.
+        var user = await _users.GetByIdAsync(id, ct);
+        if (user == null) return NotFound();
+
+        var links = await _users.GetUserCompaniesAsync(id, ct);
+        var items = links.Select(l => new UserCompanyInfo
+        {
+            CompanyId = l.CompanyId,
+            CompanyCode = l.CompanyCode,
+            CompanyName = l.CompanyName,
+            IsDefault = l.IsDefault,
+            IsHolding = l.IsHolding,
+        }).ToList();
+
+        return Ok(new { items });
+    }
+}
+
+public sealed class UserCompanyInfo
+{
+    public Guid CompanyId { get; set; }
+    public string CompanyCode { get; set; } = string.Empty;
+    public string CompanyName { get; set; } = string.Empty;
+    public bool IsDefault { get; set; }
+    public bool IsHolding { get; set; }
 }
 
 public sealed class UserWithRoles

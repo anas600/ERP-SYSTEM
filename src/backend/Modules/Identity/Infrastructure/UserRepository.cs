@@ -120,6 +120,36 @@ public sealed class UserRepository : IUserRepository
             cancellationToken: ct));
     }
 
+    // Sprint 2 (T4 / Block A): company-scoped user list. INNER JOIN on
+    // user_companies so the result is the intersection of (users) ∩
+    // (users assigned to the given company). Used by GET /api/users?company_id={guid}.
+    public async Task<IReadOnlyList<User>> ListByCompanyAsync(Guid companyId, int skip, int take, CancellationToken ct)
+    {
+        if (take is < 1 or > 200) take = 50;
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = @"SELECT u.id, u.email, u.full_name AS FullName,
+                                    u.is_active AS IsActive, u.two_factor_enabled AS TwoFactorEnabled,
+                                    u.created_at AS CreatedAt, u.updated_at AS UpdatedAt, u.last_login_at AS LastLoginAt
+                             FROM users u
+                             INNER JOIN user_companies uc ON uc.user_id = u.id
+                             WHERE uc.company_id = @CompanyId
+                             ORDER BY u.created_at DESC
+                             OFFSET @Skip LIMIT @Take";
+        var rows = await conn.QueryAsync<User>(new CommandDefinition(sql,
+            new { CompanyId = companyId, Skip = skip, Take = take }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
+    public async Task<int> CountByCompanyAsync(Guid companyId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            @"SELECT COUNT(*)::int FROM users u
+              INNER JOIN user_companies uc ON uc.user_id = u.id
+              WHERE uc.company_id = @CompanyId",
+            new { CompanyId = companyId }, cancellationToken: ct));
+    }
+
     // ============ Phase 6.1c: user → companies (multi-company model) ============
 
     public async Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct)
