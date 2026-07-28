@@ -159,6 +159,8 @@ builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
 // DEC-053: HttpContextAccessor (for audit IP/user extraction) + AuditLogger
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ERPSystem.Host.Audit.IAuditLogger, ERPSystem.Host.Audit.AuditLogger>();
+// DEC-073: ActivityLogger (user-action log: login, refresh, logout, register)
+builder.Services.AddScoped<ERPSystem.Modules.Activity.Application.IActivityLogger, ERPSystem.Modules.Activity.Application.ActivityLogService>();
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
