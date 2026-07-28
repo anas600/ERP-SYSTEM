@@ -1,0 +1,35 @@
+{
+  "cycle": 8,
+  "title": "Notification Bell (header notification count)",
+  "owner": "Mavis Local",
+  "status": "ACTIVE",
+  "started": "2026-07-28T02:59:00Z",
+  "scope": {
+    "block_a": {
+      "name": "Backend notifications API",
+      "tasks": [
+        "T1: src/backend/Modules/Notifications/Application/NotificationService.cs (~80 lines, CRUD + unread count)",
+        "T2: src/backend/Host/Migrations/20260728_AddNotifications.cs (idempotent, with user_id + read_at)",
+        "T3: GET /api/me/notifications endpoint (returns recent 20, with unread_count)"
+      ]
+    },
+    "block_b": {
+      "name": "Frontend notification bell",
+      "tasks": [
+        "T4: src/frontend/lib/notification-store.ts (polling every 30s, badge count)",
+        "T5: src/frontend/app/_components/NotificationBell.tsx (header dropdown, ~50 lines)"
+      ]
+    }
+  },
+  "refs": {
+    "hand_off": "docs/governance/hand-offs/cycle-8.md",
+    "builds_on": ["cycle-6 (activity log)", "cycle-7 (user preferences)"],
+    "dec": ["DEC-070", "DEC-071", "DEC-072", "DEC-073"]
+  },
+  "verification": [
+    "dotnet build clean",
+    "GET /api/me/notifications returns JSON with unread_count",
+    "NotificationBell shows badge with count"
+  ],
+  "estimate_minutes": 60
+}
