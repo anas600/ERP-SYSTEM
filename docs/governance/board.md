@@ -1,57 +1,55 @@
 # 📊 Live Communication Board
 
-> **Last updated:** 2026-07-28 02:32 UTC (Cycle 6 launch)
+> **Last updated:** 2026-07-28 02:52 UTC (Cycle 7 launch)
 > **Updated by:** سيتي (Cloud)
 
-## 🔄 Current Cycle: 6 / 20
+## 🔄 Current Cycle: 7 / 20
 
 | Field | Value |
 |-------|-------|
-| **Title** | Health-Ping Implementation + First User-Facing Feature (Activity Log) |
+| **Title** | User Preferences + Theme System |
 | **Owner** | Mavis Local (Tech Lead) |
 | **Status** | 🟡 ACTIVE — Hand-off pushed, awaiting Mavis Local start |
-| **Hand-off** | docs/governance/hand-offs/cycle-6.md (156 lines) |
-| **Authority** | DEC-070 + DEC-071 + DEC-072 |
+| **Hand-off** | docs/governance/hand-offs/cycle-7.md (139 lines) |
 | **Token** | ✅ Wide-permissions GITHUB_TOKEN (active) |
 
-## 📋 Cycle 6 Tasks
+## 📋 Cycle 7 Tasks
 
-### Block A (Mavis Local) — Health-Ping Implementation
-- [ ] T1: `scripts/health-ping.sh` (POSIX bash, ~50 lines)
-- [ ] T2: `.github/workflows/health-ping.yml` (every 15 min)
-- [ ] T3: `board.md` shows last health-ping status
+### Block A (Mavis Local) — User Preferences Module
+- [ ] T1: `UserPreferenceService.cs` (CRUD + cache)
+- [ ] T2: `20260728_AddUserPreferences.cs` migration (idempotent)
+- [ ] T3: `GET /api/me/preferences` endpoint
+- [ ] T4: `PUT /api/me/preferences/{key}` endpoint
+- [ ] T5: `UserPreferenceServiceTests.cs` (1 test case)
 
-### Block B (Mavis Local) — Activity Log (First User-Facing Feature)
-- [ ] T4: `src/backend/Modules/Activity/ActivityLogService.cs` (new)
-- [ ] T5: `src/backend/Host/Migrations/20260728_AddActivityLog.cs` (idempotent)
-- [ ] T6: Wire up to `AuthService.cs` (login events)
-- [ ] T7: `src/backend/Tests/ERPSystem.Tests/Activity/ActivityLogServiceTests.cs`
+### Block B (Mavis Local) — Theme System (Frontend)
+- [ ] T6: `src/frontend/lib/theme-store.ts` (state)
+- [ ] T7: `src/frontend/app/providers/ThemeProvider.tsx` (light/dark/system)
+- [ ] T8: `src/frontend/app/_components/ThemeToggle.tsx` (header button)
 
 ## 🛡️ Permissions
 
-- ✅ Self-merge (--admin flag)
+- ✅ Self-merge (--admin)
 - ✅ --force-with-lease
 - ✅ Skip Playwright (optional)
-- ✅ Risk tolerance on develop
-- ✅ Lead Jimis
-- ✅ Wide-permissions token (no 403)
+- ✅ Wide-permissions token
 - ❌ NO staging/production (frozen)
 - ❌ NO HF Space production app
-- ❌ NO main branch
 
 ## 📈 Progress Tracking
 
-- **Started:** 02:30 UTC
-- **ETA:** 4-5 hours
-- **Estimated completion:** 2026-07-28 06:30 - 07:30 UTC
+- **Started:** 02:50 UTC
+- **ETA:** 5-6 hours
+- **Estimated completion:** 2026-07-28 07:50 - 08:50 UTC
 
-## 🔄 Previous Cycles
+## 🔄 Previous Cycles (all DONE ✅)
 
-### Cycle 1: 6.4 Documentation Sprint — DONE ✅ (PR #153)
-### Cycle 2: 6.2 Tests Refactor — DONE ✅ (PR #154)
-### Cycle 3: 6.5 CI/Hardening — DONE ✅ (PR #155)
-### Cycle 4: Governance Improvement — DONE ✅ (PR #157)
-### Cycle 5: Smart Cron + Phase 6 Polish — 🟡 IN PROGRESS (Mavis Local executing)
+- **Cycle 1**: 6.4 Documentation Sprint (PR #153)
+- **Cycle 2**: 6.2 Tests Refactor (PR #154)
+- **Cycle 3**: 6.5 CI/Hardening (PR #155)
+- **Cycle 4**: Governance Improvement (PR #157)
+- **Cycle 5**: Smart Cron + Phase 6 Polish (PR #160, health-ping)
+- **Cycle 6**: Activity Log (PR #161, first user-facing feature)
 
 ---
 
