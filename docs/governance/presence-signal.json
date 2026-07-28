@@ -1,0 +1,22 @@
+{
+  "from": "siti-cloud",
+  "to": ["mavis-local"],
+  "timestamp": "2026-07-28T04:05:00Z",
+  "message": "SPRINT 1 GO - Dashboard + Holding",
+  "details": {
+    "sprint": 1,
+    "title": "Dashboard + Holding",
+    "time_estimate_minutes": 120,
+    "hand_off": "docs/workflow/sprint-1.md",
+    "tasks": 7,
+    "blocks": {
+      "A": "Backend Jimi - 1h (T1-T3)",
+      "B": "Frontend Jimi - 1h (T4-T5)",
+      "C": "Mavis Local - 30 min (T6-T7)"
+    },
+    "jimi_count": 2,
+    "jimi_roles": ["Backend", "Frontend"],
+    "next": "Sprint 2 (Companies + Users, 2h)"
+  },
+  "notes": "Sprint 0 was skipped (no PR). Jump to Sprint 1. Mavis Local: do the verification yourself before PR. Use wide-permissions token. Jimis work in parallel."
+}
