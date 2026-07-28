@@ -1361,6 +1361,42 @@ export const dashboardApi = {
   },
 };
 
+// ============ Activity Feed API (Sprint 3 — T1) ============
+// Recent user actions (LOGIN, LOGOUT, REGISTER, COMPANY_SWITCH, PASSWORD_CHANGE, ...).
+// The backend reads from the `activity_log` table (created in Cycle 6 / DEC-073).
+// Contract: GET /api/activity/recent?limit=20 — returns ActivityItem[] DESC by timestamp.
+
+export interface ActivityItem {
+  /** bigint id as string (Postgres bigint can overflow JS number). */
+  id: string;
+  userId?: string | null;
+  userName?: string | null;
+  /** Action constant, e.g. "LOGIN_SUCCESS", "REGISTER", "COMPANY_SWITCH". */
+  action: string;
+  /** Optional entity type the action refers to (e.g. "company", "user"). */
+  entityType?: string | null;
+  entityId?: string | null;
+  /** ISO 8601 timestamp. */
+  timestamp: string;
+  /** Free-form metadata (e.g. login failure reason). */
+  metadata?: Record<string, unknown> | null;
+  ipAddress?: string | null;
+}
+
+export const activityApi = {
+  // GET /api/activity/recent?limit=20 — recent activity feed
+  // The backend may return either an array (Sprint 3 spec) or { items: [...] }
+  // (defensive — mirrors the pattern in companiesApi.list).
+  recent: async (limit = 20): Promise<ActivityItem[]> => {
+    const r = await api.get<ActivityItem[] | { items?: ActivityItem[] }>(
+      '/api/activity/recent',
+      { params: { limit } }
+    );
+    if (Array.isArray(r.data)) return r.data;
+    return r.data?.items ?? [];
+  },
+};
+
 // ============ Holdings API ============
 // Sprint 1: Holding detail view. Lists a Holding + its sub-companies.
 // Contract: GET /api/holdings/{slug} — returns the holding by URL slug.

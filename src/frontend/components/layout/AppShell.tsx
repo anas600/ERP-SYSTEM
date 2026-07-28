@@ -146,6 +146,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'قواعد الترحيل', href: '/admin/posting-rules', icon: Settings },
       { label: 'سجل التدقيق', href: '/admin/audit', icon: Shield },
       { label: 'إشعاراتي', href: '/notifications', icon: Bell },
+      // Sprint 3 — T2: user-facing activity feed (login/logout/switch timeline)
+      { label: 'سجل النشاط', href: '/activity', icon: Activity },
       { label: 'صحة النظام', href: '/admin/health', icon: Heart },
     ],
   },
