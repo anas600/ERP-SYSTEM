@@ -50,6 +50,7 @@ import {
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
+import { NotificationBell } from '@/components/layout/NotificationBell';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -280,15 +281,8 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        {/* Notification bell */}
-        <Link
-          href="/notifications"
-          className="relative p-2 rounded-lg hover:bg-gray-100 text-gray-600 hover:text-gray-800"
-          aria-label="الإشعارات"
-          title="إشعاراتي"
-        >
-          <Bell className="h-5 w-5" />
-        </Link>
+        {/* Phase 6.3 / Cycle 8: NotificationBell — real-time unread count + dropdown */}
+        <NotificationBell />
 
         <div className="relative">
           <button

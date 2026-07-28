@@ -139,6 +139,22 @@ export const ACCOUNT_TYPES: Record<number, string> = {
 };
 
 // ============ Inventory ============
+// Phase 6.3: in-app notification type (Cycle 8 / DEC-073)
+// Source: src/backend/Modules/Notifications/Entities/Notification.cs
+export interface Notification {
+  id: string;
+  companyId: string;
+  userId: string;
+  type: string;        // "LowStock" حالياً، مستقبلياً "JournalPosted", ...
+  title: string;
+  message: string;
+  referenceType?: string;
+  referenceId?: string;
+  isRead: boolean;
+  createdAt: string;
+  readAt?: string;
+}
+
 export interface Item {
   id: string;
     companyId: string;
@@ -1114,6 +1130,26 @@ export const inventoryApi = {
   listUnitsOfMeasure: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
     const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
     return r.data;
+  },
+  // ----- Notifications (Cycle 8 / DEC-073) -----
+  // GET /api/inventory/notifications — user notifications (paginated)
+  listNotifications: async (params?: { unreadOnly?: boolean; skip?: number; take?: number }): Promise<Notification[]> => {
+    const qs = new URLSearchParams();
+    if (params?.unreadOnly) qs.set('unreadOnly', 'true');
+    if (params?.skip != null) qs.set('skip', String(params.skip));
+    if (params?.take != null) qs.set('take', String(params.take));
+    const url = `/api/inventory/notifications${qs.toString() ? '?' + qs.toString() : ''}`;
+    const r = await api.get<Notification[]>(url);
+    return r.data;
+  },
+  // GET /api/inventory/notifications/unread — unread + count
+  getUnreadNotifications: async (): Promise<{ count: number; items: Notification[] }> => {
+    const r = await api.get<{ count: number; items: Notification[] }>(`/api/inventory/notifications/unread`);
+    return r.data;
+  },
+  // POST /api/inventory/notifications/{id}/mark-read — mark as read
+  markNotificationRead: async (id: string): Promise<void> => {
+    await api.post(`/api/inventory/notifications/${id}/mark-read`);
   },
 };
 
