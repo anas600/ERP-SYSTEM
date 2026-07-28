@@ -72,8 +72,11 @@ export default function ItemsPage() {
       ) : filtered.length === 0 ? (
         <EmptyState
           icon={<Package className="h-12 w-12" />}
-          title="لا توجد منتجات"
-          description="لا توجد أصناف في هذا الـ tenant. ابدأ بإضافة منتج جديد."
+          title={{ ar: 'لا توجد منتجات', en: 'No items yet' }}
+          description={{
+            ar: 'لا توجد أصناف في هذا الـ tenant. ابدأ بإضافة منتج جديد.',
+            en: 'No items in this tenant. Start by adding your first product.',
+          }}
           action={
             <Link href="/inventory/items/new">
               <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>

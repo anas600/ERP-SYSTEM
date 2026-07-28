@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
-import { Plus, Mail, Phone } from 'lucide-react';
-import { Button, Input, Table, Badge, PageHeader } from '@/components/ui';
+import { Plus, Mail, Phone, UserCog } from 'lucide-react';
+import { Button, Input, Table, Badge, PageHeader, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { hrApi, Employee, getErrorMessage } from '@/lib/api';
 
@@ -140,7 +140,23 @@ export default function EmployeesPage() {
         data={filtered}
         loading={loading}
         rowKey={(e) => e.id}
-        emptyMessage="لا يوجد موظفين. أضف أول موظف."
+        emptyMessage={
+          <EmptyState
+            icon={<UserCog className="h-12 w-12" />}
+            title={{ ar: 'لا يوجد موظفين', en: 'No employees yet' }}
+            description={{
+              ar: 'ابدأ بإضافة أول موظف لتتبع الحضور والإجازات وكشوف الرواتب.',
+              en: 'Add your first employee to track attendance, leaves, and payroll.',
+            }}
+            action={
+              <Link href="/hr/employees/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  موظف جديد
+                </Button>
+              </Link>
+            }
+          />
+        }
       />
 
       {!loading && filtered.length > 0 && (

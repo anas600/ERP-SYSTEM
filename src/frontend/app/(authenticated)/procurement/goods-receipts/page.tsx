@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { Button, Table, Badge, PageHeader } from '@/components/ui';
+import { Plus, PackageCheck } from 'lucide-react';
+import { Button, Table, Badge, PageHeader, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import {
   procurementApi,
@@ -111,7 +111,23 @@ export default function GoodsReceiptsPage() {
         loading={loading}
         rowKey={(g) => g.id}
         rowHref={(g) => `/procurement/goods-receipts/${g.id}`} // DEC-031
-        emptyMessage="لا توجد استلامات بضاعة بعد."
+        emptyMessage={
+          <EmptyState
+            icon={<PackageCheck className="h-12 w-12" />}
+            title={{ ar: 'لا توجد استلامات بضاعة', en: 'No goods receipts yet' }}
+            description={{
+              ar: 'استلامات البضاعة تُنشأ عند استلام طلبية من مورّد.',
+              en: 'Goods receipts are created when receiving a vendor shipment.',
+            }}
+            action={
+              <Link href="/procurement/goods-receipts/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  استلام جديد
+                </Button>
+              </Link>
+            }
+          />
+        }
       />
 
       {!loading && grs.length > 0 && (

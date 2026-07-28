@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil } from 'lucide-react';
-import { Input, Table, Badge, PageHeader, Button } from '@/components/ui';
+import { Plus, Pencil, BookOpen } from 'lucide-react';
+import { Input, Table, Badge, PageHeader, Button, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { financeApi, Account, ACCOUNT_TYPES } from '@/lib/api';
 
@@ -105,13 +105,19 @@ export default function AccountsPage() {
         loading={loading}
         rowKey={(a) => a.id}
         emptyMessage={
-          <div>
-            لا توجد حسابات. الحسابات الافتراضية تُنشأ تلقائياً عند الـ Register.
-            <br />
-            <button onClick={load} className="mt-3 text-blue-600 hover:underline">
-              إعادة المحاولة
-            </button>
-          </div>
+          <EmptyState
+            icon={<BookOpen className="h-12 w-12" />}
+            title={{ ar: 'لا توجد حسابات', en: 'No accounts yet' }}
+            description={{
+              ar: 'دليل الحسابات فارغ. الحسابات الافتراضية تُنشأ تلقائياً عند تسجيل أول شركة.',
+              en: 'The chart of accounts is empty. Default accounts are created automatically on first company registration.',
+            }}
+            action={
+              <Button variant="primary" onClick={load}>
+                إعادة المحاولة
+              </Button>
+            }
+          />
         }
       />
 

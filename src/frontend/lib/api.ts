@@ -783,6 +783,11 @@ export const arApi = {
 
 // ============ Error extraction helper ============
 // للحصول على رسالة خطأ أنيقة من Axios errors
+//
+// Sprint 4 (T4): نوفر دالتين:
+//   - getErrorMessage: تستخرج string واحد (AR عادةً) — موجودة للتوافق.
+//   - getBilingualErrorMessage: تُرجع { ar, en } من lib/errors.ts dictionary.
+//     الـ pages الجديدة تستعملها لعرض رسالة ثنائية اللغة.
 export interface ApiError {
   detail?: string;
   message?: string;
@@ -798,6 +803,27 @@ export function getErrorMessage(e: unknown, fallback = 'حدث خطأ غير م�
     err?.message ||
     fallback
   );
+}
+
+// Re-export the bilingual helpers from `lib/errors.ts` for convenience.
+export { mapApiError, getBilingualError, formatBilingual } from './errors';
+export type { BilingualError } from './errors';
+
+/**
+ * variant جاهز للاستخدام في الـ pages: يرجّع BilingualError مع fallback محدد.
+ *
+ *   const msg = getBilingualErrorMessage(err, 'فشل تحميل القائمة', 'Failed to load list');
+ *   toast.error(formatBilingual(msg));
+ *   <ErrorState message={msg} />
+ */
+export function getBilingualErrorMessage(
+  e: unknown,
+  fallbackAr?: string,
+  fallbackEn?: string
+): import('./errors').BilingualError {
+  // Lazy-import to keep api.ts surface clean and avoid circular references.
+  const { getBilingualError } = require('./errors') as typeof import('./errors');
+  return getBilingualError(e, fallbackAr || fallbackEn ? { ar: fallbackAr ?? '', en: fallbackEn ?? '' } : undefined);
 }
 
 // ============ API helpers ============

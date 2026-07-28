@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Mail, Phone, MapPin } from 'lucide-react';
-import { Button, Input, Table, Badge, PageHeader } from '@/components/ui';
+import { Plus, Mail, Phone, MapPin, Truck } from 'lucide-react';
+import { Button, Input, Table, Badge, PageHeader, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { procurementApi, Vendor, PAYMENT_TERMS, getErrorMessage } from '@/lib/api';
 
@@ -136,7 +136,23 @@ export default function VendorsPage() {
         data={filtered}
         loading={loading}
         rowKey={(v) => v.id}
-        emptyMessage="لا يوجد موردين. ابدأ بإضافة مورّد جديد."
+        emptyMessage={
+          <EmptyState
+            icon={<Truck className="h-12 w-12" />}
+            title={{ ar: 'لا يوجد موردين', en: 'No vendors yet' }}
+            description={{
+              ar: 'ابدأ بإضافة مورّد جديد لإدارة أوامر الشراء والفواتير.',
+              en: 'Add your first vendor to manage purchase orders and bills.',
+            }}
+            action={
+              <Link href="/procurement/vendors/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  مورّد جديد
+                </Button>
+              </Link>
+            }
+          />
+        }
       />
 
       {!loading && filtered.length > 0 && (

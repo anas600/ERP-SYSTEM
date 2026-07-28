@@ -194,8 +194,11 @@ export default function ActivityPage() {
       ) : items.length === 0 ? (
         <EmptyState
           icon={<ActivityIcon className="h-12 w-12" />}
-          title="لا توجد أنشطة حديثة"
-          description="No recent activity — لم يتم تسجيل أي نشاط على النظام خلال الفترة الأخيرة."
+          title={{ ar: 'لا توجد أنشطة حديثة', en: 'No recent activity' }}
+          description={{
+            ar: 'لم يتم تسجيل أي نشاط على النظام خلال الفترة الأخيرة.',
+            en: 'No activity has been recorded in the system recently.',
+          }}
         />
       ) : (
         <ActivityTimeline items={items} />

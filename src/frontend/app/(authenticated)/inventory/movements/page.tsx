@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Eye, ArrowRight } from 'lucide-react';
-import { Card, Badge, PageHeader, Button, Input } from '@/components/ui';
+import { Plus, Eye, ArrowRight, PackageOpen } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, Input, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -116,9 +116,21 @@ export default function StockMovementsPage() {
           <p className="mt-3 text-sm">جاري التحميل...</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد حركات مخزون.
-        </div>
+        <EmptyState
+          icon={<PackageOpen className="h-12 w-12" />}
+          title={{ ar: 'لا توجد حركات مخزون', en: 'No stock movements yet' }}
+          description={{
+            ar: 'حركات المخزون تُسجَّل تلقائياً عند استلام البضاعة أو صرفها.',
+            en: 'Stock movements are logged automatically when goods are received or issued.',
+          }}
+          action={
+            <Link href="/inventory/movements/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                حركة جديدة
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {filtered.map((m) => {

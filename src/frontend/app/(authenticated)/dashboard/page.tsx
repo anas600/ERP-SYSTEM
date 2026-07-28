@@ -23,7 +23,7 @@ import {
 import { Card, PageHeader, Button } from '@/components/ui';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { useAuth } from '@/lib/useAuth';
-import { dashboardApi, getErrorMessage } from '@/lib/api';
+import { dashboardApi, getBilingualErrorMessage } from '@/lib/api';
 
 interface KpiTile {
   key: 'companies' | 'users' | 'activities_today' | 'transactions';
@@ -83,7 +83,7 @@ export default function DashboardPage() {
     ReturnType<typeof dashboardApi.getSummary>
   > | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ ar: string; en: string } | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -92,7 +92,7 @@ export default function DashboardPage() {
       const data = await dashboardApi.getSummary();
       setSummary(data);
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'تعذّر تحميل لوحة التحكم.'));
+      setError(getBilingualErrorMessage(e, 'تعذّر تحميل لوحة التحكم.', 'Could not load dashboard.'));
     } finally {
       setLoading(false);
     }
@@ -138,7 +138,7 @@ export default function DashboardPage() {
         }
       />
 
-      {/* Error state — رسالة ودودة بالعربي لو الـ endpoint غير متاح */}
+      {/* Error state — رسالة ودودة بالعربي + الإنجليزي لو الـ endpoint غير متاح */}
       {error && !loading && (
         <div
           className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
@@ -146,9 +146,10 @@ export default function DashboardPage() {
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <p className="font-semibold">تعذّر تحميل لوحة التحكم</p>
+            <p className="font-semibold">{error.ar}</p>
+            <p className="text-sm mt-0.5" dir="ltr">{error.en}</p>
             <p className="text-sm mt-0.5">
-              {error} — Endpoint: <code className="text-xs">/api/dashboard/summary</code>
+              Endpoint: <code className="text-xs">/api/dashboard/summary</code>
             </p>
             <p className="text-xs mt-1 text-red-600">
               ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.

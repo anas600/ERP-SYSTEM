@@ -22,7 +22,7 @@ import {
   CheckCircle2,
   XCircle,
   Calendar,
-  ChevronLeft,
+  ChevronUp,
   Briefcase,
 } from 'lucide-react';
 import { Card, PageHeader, Button, Badge, EmptyState } from '@/components/ui';
@@ -317,7 +317,7 @@ export default function HoldingPage() {
       {/* Footer hint — يوضّح إن الـ active company ممكن يتغيّر من الـ CompanySwitcher */}
       {!loading && holding && holding.companies.length > 0 && (
         <div className="mt-6 text-center text-xs text-gray-400 flex items-center justify-center gap-1">
-          <ChevronLeft className="h-3 w-3" />
+          <ChevronUp className="h-3 w-3" />
           <span>
             لتغيير الشركة النشطة، استخدم زر الشركة في أعلى الصفحة.
           </span>

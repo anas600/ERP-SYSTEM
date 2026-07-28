@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Eye } from 'lucide-react';
-import { Card, Badge, PageHeader, Button, Input } from '@/components/ui';
+import { Plus, Eye, FileText } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, Input, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -114,9 +114,21 @@ export default function JournalEntriesPage() {
           <p className="mt-3 text-sm">جاري التحميل...</p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد قيود محاسبية.
-        </div>
+        <EmptyState
+          icon={<FileText className="h-12 w-12" />}
+          title={{ ar: 'لا توجد قيود محاسبية', en: 'No journal entries yet' }}
+          description={{
+            ar: 'القيود المحاسبية تُنشأ تلقائياً عند ترحيل الفواتير وسندات القبض.',
+            en: 'Journal entries are created automatically when invoices and receipts are posted.',
+          }}
+          action={
+            <Link href="/finance/journal-entries/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                قيد جديد
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((j) => {

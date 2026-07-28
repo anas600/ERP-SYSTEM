@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Eye } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { Plus, Eye, Lock } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -88,7 +88,21 @@ export default function ReservationsPage() {
           <p className="mt-3 text-sm">جاري التحميل...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">لا توجد حجوزات.</div>
+        <EmptyState
+          icon={<Lock className="h-12 w-12" />}
+          title={{ ar: 'لا توجد حجوزات', en: 'No reservations yet' }}
+          description={{
+            ar: 'حجوزات المخزون تربط الكمية بأوامر الصرف أو التحويل قبل التنفيذ.',
+            en: 'Stock reservations link quantity to issue or transfer orders before execution.',
+          }}
+          action={
+            <Link href="/inventory/reservations/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                حجز جديد
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-2">
           {items.map((r) => {

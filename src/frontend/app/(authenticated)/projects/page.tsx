@@ -60,8 +60,11 @@ export default function ProjectsPage() {
       ) : projects.length === 0 ? (
         <EmptyState
           icon={<Briefcase className="h-12 w-12" />}
-          title="لا توجد مشاريع"
-          description="ابدأ بإنشاء مشروع جديد لتنظيم أعمال الشركة."
+          title={{ ar: 'لا توجد مشاريع', en: 'No projects yet' }}
+          description={{
+            ar: 'ابدأ بإنشاء مشروع جديد لتنظيم أعمال الشركة.',
+            en: 'Create your first project to organize company work.',
+          }}
           action={
             <Link href="/projects/new">
               <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>

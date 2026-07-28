@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Package, AlertTriangle, TrendingDown, Calendar, ArrowLeft } from 'lucide-react';
+import { Package, AlertTriangle, TrendingDown, Calendar, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
@@ -67,7 +67,7 @@ export default function InventoryReportsPage() {
         description={current.en}
         actions={
           <Link href="/reports">
-            <Button variant="secondary" iconLeft={<ArrowLeft className="h-4 w-4" />}>
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>
               العودة للتقارير
             </Button>
           </Link>

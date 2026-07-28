@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { TrendingUp, FileText, BarChart3, DollarSign, ArrowLeft } from 'lucide-react';
+import { TrendingUp, FileText, BarChart3, DollarSign, ArrowRight } from 'lucide-react';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { api, getErrorMessage } from '@/lib/api';
@@ -70,7 +70,7 @@ export default function FinancialReportsPage() {
         description={current.en}
         actions={
           <Link href="/reports">
-            <Button variant="secondary" iconLeft={<ArrowLeft className="h-4 w-4" />}>
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>
               العودة للتقارير
             </Button>
           </Link>

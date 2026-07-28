@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Pencil } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { Plus, Pencil, Layers } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -80,9 +80,21 @@ export default function CostCentersPage() {
           <p className="mt-3 text-sm">جاري التحميل...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          لا توجد مراكز تكلفة في هذا الـ tenant.
-        </div>
+        <EmptyState
+          icon={<Layers className="h-12 w-12" />}
+          title={{ ar: 'لا توجد مراكز تكلفة', en: 'No cost centers yet' }}
+          description={{
+            ar: 'مراكز التكلفة تساعد في تصنيف المصروفات والإيرادات حسب القسم أو المشروع.',
+            en: 'Cost centers help classify expenses and revenue by department or project.',
+          }}
+          action={
+            <Link href="/finance/cost-centers/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                مركز جديد
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="space-y-3">
           {items.map((cc) => (

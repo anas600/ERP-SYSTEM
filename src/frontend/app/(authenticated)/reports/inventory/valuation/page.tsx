@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, Warehouse, Box } from 'lucide-react';
+import { ArrowRight, Warehouse, Box } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { reportsApi, getErrorMessage } from '@/lib/api';
@@ -34,7 +34,7 @@ export default function InventoryValuationPage() {
         description="Inventory Valuation — قيمة كل صنف × الكمية الحالية"
         actions={
           <Link href="/reports/inventory">
-            <Button variant="secondary" iconLeft={<ArrowLeft className="h-4 w-4" />}>العودة</Button>
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>العودة</Button>
           </Link>
         }
       />

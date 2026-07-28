@@ -4,8 +4,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Eye, Bell } from 'lucide-react';
-import { Card, Badge, PageHeader, Button } from '@/components/ui';
+import { Eye, Bell, BellOff } from 'lucide-react';
+import { Card, Badge, PageHeader, Button, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
 
@@ -101,9 +101,25 @@ export default function NotificationsPage() {
           <p className="mt-3 text-sm">جاري التحميل...</p>
         </div>
       ) : items.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-          {unreadOnly ? 'لا توجد إشعارات غير مقروءة.' : 'لا توجد إشعارات.'}
-        </div>
+        <EmptyState
+          icon={<BellOff className="h-12 w-12" />}
+          title={
+            unreadOnly
+              ? { ar: 'لا توجد إشعارات غير مقروءة', en: 'No unread notifications' }
+              : { ar: 'لا توجد إشعارات', en: 'No notifications yet' }
+          }
+          description={
+            unreadOnly
+              ? {
+                  ar: 'كل الإشعارات مقروءة. اعرض كل الإشعارات لمشاهدة السجل الكامل.',
+                  en: 'All caught up! Switch to "All" to see the full history.',
+                }
+              : {
+                  ar: 'ستظهر هنا الإشعارات عند توفر تنبيهات المخزون أو الموافقات المطلوبة.',
+                  en: 'Notifications will appear here for low-stock alerts or pending approvals.',
+                }
+          }
+        />
       ) : (
         <div className="space-y-2">
           {items.map((n) => {

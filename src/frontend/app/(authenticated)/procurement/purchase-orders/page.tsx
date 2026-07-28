@@ -5,8 +5,8 @@
 import { useEffect, useState } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
-import { Plus } from 'lucide-react';
-import { Button, Table, Badge, PageHeader } from '@/components/ui';
+import { Plus, ShoppingCart } from 'lucide-react';
+import { Button, Table, Badge, PageHeader, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import {
   procurementApi,
@@ -125,7 +125,23 @@ export default function PurchaseOrdersPage() {
         data={pos}
         loading={loading}
         rowKey={(p) => p.id}
-        emptyMessage="لا توجد أوامر شراء. أنشئ أول أمر شراء."
+        emptyMessage={
+          <EmptyState
+            icon={<ShoppingCart className="h-12 w-12" />}
+            title={{ ar: 'لا توجد أوامر شراء', en: 'No purchase orders yet' }}
+            description={{
+              ar: 'أنشئ أول أمر شراء لتتبع الطلبات من الموردين.',
+              en: 'Create your first purchase order to track vendor requests.',
+            }}
+            action={
+              <Link href="/procurement/purchase-orders/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  أمر شراء جديد
+                </Button>
+              </Link>
+            }
+          />
+        }
       />
 
       {!loading && pos.length > 0 && (

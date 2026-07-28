@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { FileText, ArrowLeft } from 'lucide-react';
+import { FileText, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Button, Card } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
@@ -21,7 +21,7 @@ export default function SalesReportsPage() {
         description="Sales Reports — قريباً"
         actions={
           <Link href="/reports">
-            <Button variant="secondary" iconLeft={<ArrowLeft className="h-4 w-4" />}>
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>
               العودة للتقارير
             </Button>
           </Link>

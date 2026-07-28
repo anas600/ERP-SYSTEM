@@ -124,14 +124,20 @@ export default function AttendancePage() {
         ) : !selectedEmployee ? (
           <EmptyState
             icon={<ClipboardList className="h-12 w-12" />}
-            title="اختر موظفاً لعرض السجل"
-            description="اختر موظفاً من القائمة أعلاه لعرض آخر 20 حركة حضور/انصراف."
+            title={{ ar: 'اختر موظفاً لعرض السجل', en: 'Select an employee to view history' }}
+            description={{
+              ar: 'اختر موظفاً من القائمة أعلاه لعرض آخر 20 حركة حضور/انصراف.',
+              en: 'Pick an employee from the list above to see their last 20 attendance events.',
+            }}
           />
         ) : history.length === 0 ? (
           <EmptyState
             icon={<Clock className="h-12 w-12" />}
-            title="لا توجد حركات مسجلة"
-            description="لم يتم تسجيل أي حركة حضور أو انصراف لهذا الموظف."
+            title={{ ar: 'لا توجد حركات مسجلة', en: 'No attendance events yet' }}
+            description={{
+              ar: 'لم يتم تسجيل أي حركة حضور أو انصراف لهذا الموظف.',
+              en: 'No check-in or check-out events have been recorded for this employee.',
+            }}
           />
         ) : (
           <Table

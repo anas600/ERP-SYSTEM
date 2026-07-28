@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowRight, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { reportsApi, getErrorMessage } from '@/lib/api';
@@ -33,7 +33,7 @@ export default function JournalEntriesPage() {
         description="Journal Entries — كل القيود المحاسبية"
         actions={
           <Link href="/reports/financial">
-            <Button variant="secondary" iconLeft={<ArrowLeft className="h-4 w-4" />}>العودة</Button>
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>العودة</Button>
           </Link>
         }
       />

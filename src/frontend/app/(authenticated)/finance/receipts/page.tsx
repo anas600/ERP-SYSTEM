@@ -4,8 +4,8 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
-import { Plus, CheckCircle2, RotateCcw } from 'lucide-react';
-import { Button, Input, Table, Badge, PageHeader, Card } from '@/components/ui';
+import { Plus, CheckCircle2, RotateCcw, Receipt as ReceiptIcon } from 'lucide-react';
+import { Button, Input, Table, Badge, PageHeader, Card, EmptyState } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { arApi, Receipt, PAYMENT_METHODS, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -151,7 +151,23 @@ export default function ReceiptsPage() {
         data={filtered}
         loading={loading}
         rowKey={(r) => r.id}
-        emptyMessage="لا توجد سندات قبض."
+        emptyMessage={
+          <EmptyState
+            icon={<ReceiptIcon className="h-12 w-12" />}
+            title={{ ar: 'لا توجد سندات قبض', en: 'No receipts yet' }}
+            description={{
+              ar: 'ابدأ بتسجيل أول سند قبض من عميل.',
+              en: 'Start by recording the first customer receipt.',
+            }}
+            action={
+              <Link href="/finance/receipts/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  سند قبض جديد
+                </Button>
+              </Link>
+            }
+          />
+        }
       />
 
       {!loading && filtered.length > 0 && (
