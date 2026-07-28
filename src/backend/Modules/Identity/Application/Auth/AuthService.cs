@@ -3,6 +3,7 @@ using System.Security.Claims;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Modules.Identity.Infrastructure;
+using ERPSystem.Modules.Activity.Application;
 using ERPSystem.Shared.Infrastructure;
 
 namespace ERPSystem.Modules.Identity.Application.Auth;
@@ -29,6 +30,7 @@ public sealed class AuthService : IAuthService
     private readonly ICompanyRepository _companies;
     private readonly ILogger<AuthService> _logger;
     private readonly IDbConnectionFactory _db; // P1-9: needed for the single-conn register tx
+    private readonly IActivityLogger _activity; // DEC-073: log login/refresh/register
     private readonly Guid _holdingCompanyId;
 
     public AuthService(
@@ -39,10 +41,12 @@ public sealed class AuthService : IAuthService
         ICompanyRepository companies,
         ILogger<AuthService> l,
         IDbConnectionFactory db,
-        IConfiguration config)
+        IConfiguration config,
+        IActivityLogger activity)
     {
         _users = u; _roles = r; _refreshTokens = rt; _jwt = j;
         _companies = companies; _logger = l; _db = db;
+        _activity = activity; // DEC-073
         // Phase 6.1c: Holding Company is fixed per deployment (single Holding).
         // Read from config (appsettings.json) — defaulting to the canonical
         // Phase 6.0 fixed UUID if not set.
@@ -105,13 +109,37 @@ public sealed class AuthService : IAuthService
     {
         var user = await _users.GetByEmailAsync(req.Email, ct);
         if (user == null || !user.IsActive || !BCrypt.Net.BCrypt.Verify(req.Password, user.PasswordHash))
+        {
+            // DEC-073: log failed login attempt (with email for forensics, no password).
+            await _activity.LogAsync(
+                userId: user?.Id,
+                companyId: null,
+                action: ActivityAction.LoginFailed,
+                metadata: new { email = req.Email, reason = "invalid_credentials" },
+                ct: ct);
             return AuthResult.Fail("بيانات الدخول غير صحيحة.", AuthErrorCode.InvalidCredentials);
+        }
 
         var defaultCompany = await _users.GetDefaultCompanyAsync(user.Id, ct);
         if (defaultCompany == null)
+        {
+            await _activity.LogAsync(
+                userId: user.Id,
+                companyId: null,
+                action: ActivityAction.LoginFailed,
+                metadata: new { email = req.Email, reason = "no_companies_assigned" },
+                ct: ct);
             return AuthResult.Fail("المستخدم غير مربوط بأي شركة. تواصل مع الإدارة.", AuthErrorCode.NoCompaniesAssigned);
+        }
 
         await _users.UpdateLastLoginAsync(user.Id, DateTime.UtcNow, ct);
+        // DEC-073: log successful login.
+        await _activity.LogAsync(
+            userId: user.Id,
+            companyId: defaultCompany.CompanyId,
+            action: ActivityAction.LoginSuccess,
+            metadata: new { email = req.Email, default_company_id = defaultCompany.CompanyId },
+            ct: ct);
         return AuthResult.Ok(await BuildAsync(user, _holdingCompanyId, ip, ct));
     }
 
@@ -123,7 +151,17 @@ public sealed class AuthService : IAuthService
         if (!Guid.TryParse(userIdClaim, out var userId)) return AuthResult.Fail("بيانات التوكن غير مكتملة.", AuthErrorCode.InvalidRefreshToken);
         var stored = await _refreshTokens.GetByHashAsync(_jwt.HashRefreshToken(req.RefreshToken), ct);
         if (stored == null || stored.UserId != userId) return AuthResult.Fail("Refresh Token غير صالح.", AuthErrorCode.InvalidRefreshToken);
-        if (stored.IsRevoked) { await _refreshTokens.RevokeAllForUserAsync(userId, "Reuse of revoked", ip, ct); return AuthResult.Fail("تم اكتشاف محاولة اختراق.", AuthErrorCode.RefreshTokenRevoked); }
+        if (stored.IsRevoked) {
+            await _refreshTokens.RevokeAllForUserAsync(userId, "Reuse of revoked", ip, ct);
+            // DEC-073: log the suspected attack — reuse of a revoked token.
+            await _activity.LogAsync(
+                userId: userId,
+                companyId: null,
+                action: ActivityAction.LoginFailed,
+                metadata: new { reason = "refresh_token_reuse_detected" },
+                ct: ct);
+            return AuthResult.Fail("تم اكتشاف محاولة اختراق.", AuthErrorCode.RefreshTokenRevoked);
+        }
         if (stored.IsExpired) return AuthResult.Fail("Refresh Token منتهي.", AuthErrorCode.RefreshTokenExpired);
         var user = await _users.GetByIdAsync(userId, ct);
         if (user == null || !user.IsActive) return AuthResult.Fail("المستخدم غير مفعّل.", AuthErrorCode.UserInactive);
@@ -140,6 +178,13 @@ public sealed class AuthService : IAuthService
             CreatedByIp = ip
         }, ct);
 
+        // DEC-073: log successful refresh.
+        await _activity.LogAsync(
+            userId: user.Id,
+            companyId: _holdingCompanyId,
+            action: ActivityAction.Refresh,
+            metadata: new { refresh_token_id = stored.Id },
+            ct: ct);
         return AuthResult.Ok(await BuildAsync(user, _holdingCompanyId, ip, ct));
     }
 
