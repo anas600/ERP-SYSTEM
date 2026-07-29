@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/anas600/ERP-SYSTEM/.github/workflows/mavis-coordination/state-schema.json",
+  "title": "Mavis Coordination State",
+  "description": "State file for Mavis Coordination Workflow",
+  "type": "object",
+  "required": ["version", "last_updated", "ball_location", "next_action"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {
+      "type": "string",
+      "description": "Schema version",
+      "pattern": "^\\d+\\.\\d+$",
+      "default": "1.0"
+    },
+    "last_updated": {
+      "type": "string",
+      "format": "date-time",
+      "description": "Last update timestamp (ISO-8601 UTC)"
+    },
+    "ball_location": {
+      "type": "string",
+      "enum": ["mavis-local", "mavis-cloud", "anas", "waiting", "blocked"],
+      "description": "Where the ball is (state machine)"
+    },
+    "ball_owner_session": {
+      "type": ["string", "null"],
+      "description": "Session ID of the current actor (Mavis Local: mvs_c39a4f3aaa474a9899f87a4cd49d3645, etc.)"
+    },
+    "active_sprint": {
+      "type": ["integer", "null"],
+      "minimum": 0,
+      "description": "Current active sprint number, null if no sprint"
+    },
+    "open_prs": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["number", "state"],
+        "additionalProperties": false,
+        "properties": {
+          "number": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "title": {
+            "type": "string"
+          },
+          "branch": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": ["open", "merged", "closed"]
+          },
+          "opened_by": {
+            "type": "string",
+            "enum": ["mavis-local", "mavis-cloud", "mephisto", "jimi", "anas"]
+          },
+          "opened_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "ci_status": {
+            "type": ["string", "null"],
+            "enum": ["passing", "failing", "pending", null]
+          }
+        }
+      }
+    },
+    "pending_signals": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["from", "type", "created_at"],
+        "additionalProperties": false,
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["presence", "question", "approval", "blocker"]
+          },
+          "message": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["type", "message", "detected_at"],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "token_expired",
+              "ci_failed",
+              "merge_conflict",
+              "unclear_requirements",
+              "stale_activity",
+              "external_blocker"
+            ]
+          },
+          "message": {
+            "type": "string"
+          },
+          "detected_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "fix_instructions": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "next_action": {
+      "type": "string",
+      "description": "What should happen next (free text)",
+      "minLength": 1
+    },
+    "last_communication": {
+      "type": ["string", "null"],
+      "format": "date-time",
+      "description": "Last Telegram or Channel 5 message"
+    },
+    "sprint_started_at": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    },
+    "sprint_eta": {
+      "type": ["string", "null"],
+      "format": "date-time"
+    }
+  }
+}
