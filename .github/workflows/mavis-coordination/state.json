@@ -1,66 +1,68 @@
 ﻿{
-    "version":  "1.3",
-    "last_updated":  "2026-07-29T17:15:00Z",
-    "ball_location":  "mavis-local",
-    "ball_owner_session":  "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
-    "active_sprint":  "5",
-    "open_prs":  [
-
-                 ],
-    "recent_merges":  [
-                          {
-                              "number":  172,
-                              "title":  "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
-                              "branch":  "feature/sprint-5-demo-v2",
-                              "merged_by":  "mavis-local",
-                              "merged_at":  "2026-07-29T18:51:00Z",
-                              "merge_method":  "squash",
-                              "merge_commit":  "9d148f4a5d691ab72a1e8dda24093a133d6f7188",
-                              "sprint":  "5"
-                          }
-                      ],
-    "pending_signals":  [
-                            {
-                                "from":  "anas",
-                                "type":  "directive",
-                                "message":  "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
-                                "created_at":  "2026-07-29T18:25:00Z"
-                            },
-                            {
-                                "from":  "anas",
-                                "type":  "directive",
-                                "message":  "Use scheduled tasks on the platform (not a file in the project). Mavis Local cron moved to C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (outside project). Per DEC-070 admin, Mavis Local can self-merge PRs marked \u0027self-merge per DEC-070\u0027.",
-                                "created_at":  "2026-07-29T18:42:00Z"
-                            },
-                            {
-                                "from":  "anas",
-                                "type":  "directive",
-                                "message":  "Re-emphasize: The ball is in the ACTOR\u0027s court (mavis-local / mavis-cloud / anas), NOT the cron\u0027s court. The cron is a tool that helps Mavis Local stay updated. Mavis Local has full freedom to handle the local environment + machine to achieve the development goal with the admin team.",
-                                "created_at":  "2026-07-29T18:50:00Z"
-                            }
-                        ],
-    "issues":  [
-
-               ],
-    "next_action":  "PR #172 MERGED (squash, self-merge per DEC-070) ✅\n\nMavis Local is now ready for next work. Awaiting:\n- Sprint 6 hand-off from سيتی (when ready)\n- OR new directive from Anas (e.g., \u0027unpause\u0027 or \u0027start Sprint 6\u0027)\n- OR another self-mergeable PR\n\nPer Article 2 of the active constitution: ball is at mavis-local. Cron is a tool, not an actor.\n\nProject_pause still active for the OLD constitution (CONSTITUTION.md) — the NEW constitution (mavis-coordination) is fully active until 2026-07-31 18:25 UTC.\n\nRecent work (Sprint 5):\n- BE: 4 endpoints (revenue/expenses/top customers charts + global search)\n- FE: CoA tree, dashboard charts, global search, invoice PDF, loading polish\n- 26 files, +3573/-155 lines, 11 new tests\n- All DOX-compliant (company_id only, AGENTS.md for new module)",
-    "last_communication":  "2026-07-29T17:15:00Z",
-    "sprint_started_at":  "2026-07-29T15:42:00Z",
-    "sprint_eta":  "2026-07-29T20:00:00Z",
-    "project_pause":  {
-                          "paused_constitution":  "CONSTITUTION.md",
-                          "paused_at":  "2026-07-29T18:25:00Z",
-                          "pause_until":  "2026-07-31T18:25:00Z",
-                          "reason":  "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW mavis-coordination constitution is ACTIVE for 2 days.",
-                          "paused_by":  "anas",
-                          "active_constitution":  ".github/workflows/mavis-coordination/constitution.md",
-                          "interpretation":  "PAUSED means CONSTITUTION.md is paused, not the whole project. Mavis Local can continue work under the NEW constitution until 2026-07-31 18:25 UTC."
-                      },
-    "mavis_local_cron":  {
-                             "location":  "C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1",
-                             "in_project":  false,
-                             "platform_cron_id":  "0557d4b1-f098-457f-ab9d-cccd171e00a1",
-                             "name":  "mavis-local-coordinator",
-                             "schedule":  "*/5 * * * *",
-                             "note":  "Per Anas 2026-07-29 18:42 UTC — keep crons OUT of the project repo. The cron is a TOOL that helps Mavis Local stay updated; the ball is in the ACTOR\u0027s court (mavis-local / mavis-cloud / anas), NOT the cron\u0027s."
-                         }
+  "version": "1.4",
+  "last_updated": "2026-07-29T19:21:17Z",
+  "ball_location": "mavis-local",
+  "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
+  "active_sprint": "6",
+  "open_prs": [],
+  "recent_merges": [
+    {
+      "number": 172,
+      "title": "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
+      "branch": "feature/sprint-5-demo-v2",
+      "merged_by": "mavis-local",
+      "merged_at": "2026-07-29T18:51:00Z",
+      "merge_method": "squash",
+      "merge_commit": "9d148f4a5d691ab72a1e8dda24093a133d6f7188",
+      "sprint": "5"
+    }
+  ],
+  "pending_signals": [
+    {
+      "from": "anas",
+      "type": "directive",
+      "message": "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
+      "created_at": "2026-07-29T18:25:00Z"
+    },
+    {
+      "from": "anas",
+      "type": "directive",
+      "message": "Use scheduled tasks on the platform (not a file in the project). Mavis Local cron moved to C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (outside project). Per DEC-070 admin, Mavis Local can self-merge PRs marked 'self-merge per DEC-070'.",
+      "created_at": "2026-07-29T18:42:00Z"
+    },
+    {
+      "from": "anas",
+      "type": "directive",
+      "message": "Re-emphasize: The ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's court. The cron is a tool that helps Mavis Local stay updated. Mavis Local has full freedom to handle the local environment + machine to achieve the development goal with the admin team.",
+      "created_at": "2026-07-29T18:50:00Z"
+    },
+    {
+      "from": "anas",
+      "type": "directive",
+      "message": "Sprint 6 LAUNCH. Ball is in mavis-local court. Mavis Local should: (1) keep WORKFLOW.md at the project root (always in mind), updated to point to docs/workflow/ as سيتی suggested; (2) put worker instructions for local Jimis (each Jimi documents scope in AGENTS.md + CHANGELOG.md, per old constitution custom); (3) prepare the environment, files, and delete the excess; (4) Mavis Local's role = coordinator between admin team and local Jimis.",
+      "created_at": "2026-07-29T19:13:00Z"
+    }
+  ],
+  "issues": [],
+  "next_action": "Sprint 6 constitutional prep PR in progress (branch: feature/sprint-6-constitution-cleanup).\n\nScope (per docs/workflow/sprint-6.md):\n- T1 ✅ DONE: WORKFLOW.md at root, .mavis/AGENTS.md active, AGENTS.md + CHANGELOG updated\n- T2 (next): stale-branch cleanup (delete merged local branches, prune remote)\n- T3-T5 (optional): test gap-fill, FE polish, doc polish\n- T6: verify (build + test + typecheck)\n- T7: open PR + self-merge per DEC-070\n\nBall stays at mavis-local. Cron is a tool, not an actor.",
+  "last_communication": "2026-07-29T19:13:00Z",
+  "sprint_started_at": "2026-07-29T19:15:00Z",
+  "sprint_eta": "2026-07-29T22:00:00Z",
+  "project_pause": {
+    "paused_constitution": "CONSTITUTION.md",
+    "paused_at": "2026-07-29T18:25:00Z",
+    "pause_until": "2026-07-31T18:25:00Z",
+    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md (formerly mavis-coordination) is ACTIVE for 2 days. WORKFLOW.md is now at the project root (per Anas 2026-07-29 19:13 UTC).",
+    "paused_by": "anas",
+    "active_constitution": "WORKFLOW.md",
+    "interpretation": "PAUSED means CONSTITUTION.md is paused, not the whole project. Mavis Local can continue work under WORKFLOW.md until 2026-07-31 18:25 UTC."
+  },
+  "mavis_local_cron": {
+    "location": "platform:Schedules",
+    "in_project": false,
+    "platform_cron_id": "0557d4b1-f098-457f-ab9d-cccd171e00a1",
+    "name": "mavis-local-coordinator",
+    "schedule": "*/5 * * * *",
+    "note": "Per Anas 2026-07-29 18:42 UTC — keep crons OUT of the project repo (use platform's Schedules tab). The cron is a TOOL that helps Mavis Local stay updated; the ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's."
+  }
 }
