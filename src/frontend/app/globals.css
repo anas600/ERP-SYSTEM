@@ -6,13 +6,24 @@ body {
   font-family: 'Cairo', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
 }
 
-/* ============ Print styles (Payslip) ============ */
+/* ============ Print styles (Payslip + Sprint 5 invoices) ============
+   Used by the payslip page AND the Sprint 5 invoice detail page (Phase 5.3
+   — "Print / Download PDF" button). Anything tagged with .no-print is
+   hidden in the printout, leaving a clean printable document. */
 @media print {
-  /* إخفاء sidebar + topbar + أزرار التنقل عند الطباعة */
-  header,
+  /* إخفاء sidebar + topbar + أزرار التنقل عند الطباعة.
+     Note: scoped to .no-print on Sprint 5 invoice page (where we want
+     the PageHeader title visible). Header/aside/nav are AppShell chrome
+     that the user never wants to print. */
   aside,
-  button,
+  header,
   nav {
+    display: none !important;
+  }
+
+  /* Hide the Sprint 5 "no-print" class — used on the action buttons + back
+     link in the invoice detail page so the printed invoice is clean. */
+  .no-print {
     display: none !important;
   }
 
@@ -32,5 +43,26 @@ body {
   .shadow-md,
   .shadow-lg {
     box-shadow: none !important;
+  }
+
+  /* Sprint 5 (Phase 5.3): tighten table borders and font sizes for the
+     printed invoice so it fits a single A4 page. Browsers default to
+     12pt + ugly table borders — these tweaks make the printed output
+     match the on-screen "wow" look. */
+  table {
+    font-size: 11pt !important;
+    page-break-inside: avoid;
+  }
+  th, td {
+    padding: 6px 8px !important;
+  }
+  /* Avoid splitting a card across pages */
+  .bg-white {
+    page-break-inside: avoid;
+  }
+  /* Page size + margins for the invoice (A4 portrait). */
+  @page {
+    size: A4;
+    margin: 1.5cm;
   }
 }

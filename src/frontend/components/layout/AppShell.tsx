@@ -51,6 +51,7 @@ import {
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { NotificationBell } from '@/components/layout/NotificationBell';
+import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -265,7 +266,7 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
 
   return (
     <header className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0 flex-1">
         <button
           onClick={onMenuClick}
           className="md:hidden text-gray-600 hover:text-gray-800 p-1.5 rounded-lg hover:bg-gray-100"
@@ -277,12 +278,17 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
           ERP
         </Link>
         {/* Phase 6.3: Company switcher (drives X-Company-Id on every request) */}
-        <div className="hidden md:block">
+        <div className="hidden md:block flex-shrink-0">
           <CompanySwitcher />
+        </div>
+        {/* Sprint 5 (Phase 5.1): Global search — Cmd/Ctrl+K to focus. Hidden on
+            phones (≤ sm) to keep the topbar readable. */}
+        <div className="hidden sm:block flex-1 max-w-md ms-2">
+          <GlobalSearch />
         </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-shrink-0">
         {/* Phase 6.3 / Cycle 8: NotificationBell — real-time unread count + dropdown */}
         <NotificationBell />
 

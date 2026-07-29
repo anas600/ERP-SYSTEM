@@ -1,11 +1,16 @@
 'use client';
 
 // صفحة تفاصيل فاتورة مبيعات — customer info + lines + payments
+// Sprint 5 (Phase 5.3): adds a "Print / Download PDF" button that uses
+// window.print() with a dedicated @media print block. The print stylesheet
+// hides the sidebar + topbar + action buttons, so the printed page is a
+// clean invoice document with header, line items, totals, and a footer
+// signature block.
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, ArrowLeft, Send, XCircle, FileText } from 'lucide-react';
+import { ArrowRight, ArrowLeft, Send, XCircle, FileText, Printer } from 'lucide-react';
 import { Button, Badge, Card, PageHeader } from '@/components/ui';
 import { arApi, SalesInvoice, SALES_INVOICE_STATUSES, SALES_INVOICE_STATUS_VARIANTS, getErrorMessage } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -71,6 +76,18 @@ export default function SalesInvoiceDetailPage() {
     }
   };
 
+  // Sprint 5: print handler — uses the browser's native print dialog. The
+  // @media print block in globals.css hides everything except the .printable
+  // area (sidebar, topbar, action buttons, back link) so the printed page is
+  // a clean invoice document. The user picks "Save as PDF" in the print
+  // dialog to actually generate a PDF.
+  const onPrint = () => {
+    if (typeof window === 'undefined') return;
+    // Give the browser a tick to settle any pending UI changes before
+    // opening the print dialog (otherwise the page may flash with old state).
+    setTimeout(() => window.print(), 50);
+  };
+
   if (loading) {
     return (
       <div>
@@ -95,7 +112,7 @@ export default function SalesInvoiceDetailPage() {
 
   return (
     <div>
-      <div className="mb-3">
+      <div className="mb-3 no-print">
         <button
           onClick={() => router.back()}
           className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 transition-colors"
@@ -115,10 +132,21 @@ export default function SalesInvoiceDetailPage() {
           { label: invoice.invoiceNumber },
         ]}
         actions={
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 no-print">
             <Link href="/finance/sales-invoices">
               <Button variant="ghost" iconLeft={<ArrowRight className="h-4 w-4" />}>رجوع</Button>
             </Link>
+            {/* Sprint 5 (Phase 5.3): Print / Download PDF. Hidden in print
+                output via the .no-print class — only the invoice body prints. */}
+            <Button
+              variant="secondary"
+              onClick={onPrint}
+              iconLeft={<Printer className="h-4 w-4" />}
+              title="طباعة أو حفظ كـ PDF (Ctrl+P)"
+            >
+              <span className="hidden sm:inline">طباعة / PDF</span>
+              <span className="sm:hidden">طباعة</span>
+            </Button>
             {isDraft && (
               <Button variant="primary" loading={actionLoading} onClick={onPost} iconLeft={<Send className="h-4 w-4" />}>
                 ترحيل الفاتورة
