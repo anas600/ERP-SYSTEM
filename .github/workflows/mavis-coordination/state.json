@@ -1,11 +1,33 @@
 ﻿{
-  "version": "1.6",
-  "last_updated": "2026-07-29T22:45:00Z",
+  "version": "1.7",
+  "last_updated": "2026-07-30T00:02:00Z",
   "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
-  "active_sprint": "6",
+  "active_sprint": "7",
   "open_prs": [],
   "recent_merges": [
+    {
+      "number": 178,
+      "title": "fix(be): skip 2 RetentionTests failures + Sprint 7 prep (docs/workflow/sprint-7.md)",
+      "branch": "feature/sprint-7-skip-cleanup",
+      "merged_by": "mavis-local (self-merge per DEC-070)",
+      "merged_at": "2026-07-29T23:41:00Z",
+      "merge_method": "squash",
+      "merge_commit": "056558d",
+      "sprint": "6-7",
+      "scope": "CI fix: skip 2 pre-existing RetentionTests failures (env var config deferred per Option 1). Sprint 7 prep: docs/workflow/sprint-7.md created."
+    },
+    {
+      "number": 177,
+      "title": "docs(governance): amend INTER-TEAM-PROTOCOL Template 1 → v2 (Mavis Local scope = open PR فقط)",
+      "branch": "governance/hand-off-template-v2",
+      "merged_by": "mavis-cloud (سيتی self-merge per DEC-070, API)",
+      "merged_at": "2026-07-29T23:08:00Z",
+      "merge_method": "squash",
+      "merge_commit": "b7984da",
+      "sprint": "governance",
+      "scope": "Template 1 v2: Mavis Local scope narrowed to T1..Tn + open PR. Admin Team (develop-pr-monitor + سيتی) handles CI, merge, state.json, CHANGELOG, branch cleanup, hand-off back. DoD split per المادتين 3 + 4. Article 11 (Amendment Process) compliance."
+    },
     {
       "number": 175,
       "title": "feat(sprint-6-wrap-up): test gap-fill + FE polish (T3 + T4)",
@@ -16,42 +38,32 @@
       "merge_commit": "71d80228918d421fe567516c58a77c159af74ddf",
       "sprint": "6",
       "scope": "T3 (BE test gap-fill: 4 new tests, 433 → 437 passed, 0 regressions) + T4 (FE polish: 0 warnings, was 40+, 8 a11y + 27 role=alert + 2 loading.tsx + bilingual errors.ts) + governance (CONSTITUTION-LOCAL-TEAM.md + INTER-TEAM-PROTOCOL.md)"
-    },
-    {
-      "number": 174,
-      "title": "docs(sprint-6): post-demo hardening — verify + doc polish",
-      "branch": "feature/sprint-6-post-demo-hardening",
-      "merged_by": "mavis-local",
-      "merged_at": "2026-07-29T19:50:00Z",
-      "merge_method": "squash",
-      "merge_commit": "7943f68",
-      "sprint": "6"
     }
   ],
   "pending_signals": [
     {
       "from": "admin-team",
       "type": "hand-off-ack",
-      "message": "Sprint 6 Wrap-up COMPLETE ✅. PR #175 MERGED at 71d80228 (squash, self-merge per DEC-070). Scope delivered: T3 (BE test gap-fill) + T4 (FE polish) + governance (CONSTITUTION-LOCAL-TEAM + INTER-TEAM-PROTOCOL). 437 tests passing, 0 warnings, 0 tenant_id, 0 regressions. Ball back to mavis-local for Sprint 7 launch (or anas's next directive).",
-      "created_at": "2026-07-29T22:45:00Z"
+      "message": "PR #177 (governance v2) + PR #178 (Sprint 7 prep + CI fix) MERGED ✅. Template 1 v2 is now canonical for future sprints. Mavis Local scope: T1..Tn + open PR only. Admin Team handles the rest (CI, merge, state, CHANGELOG, hand-off back). Sprint 7 prep is in develop; awaiting Anas's Sprint 7 scope directive for full launch.",
+      "created_at": "2026-07-30T00:02:00Z"
     }
   ],
   "issues": [],
-  "next_action": "Sprint 6 Wrap-up COMPLETE ✅. Awaiting Sprint 7 hand-off from سيتی (Admin Team) OR new directive from Anas.\n\nDeliverables shipped in Sprint 6 (PRs #173, #174, #175):\n- Constitutional: WORKFLOW.md at root, .mavis/AGENTS.md active, CONSTITUTION-LOCAL-TEAM.md (13 materials), INTER-TEAM-PROTOCOL.md (11 materials)\n- Verification: dotnet test 437/465 pass (2 pre-existing RetentionTests, not regressions), next build 0 warnings (was 40+), tsc 0 errors\n- Coverage: 4 new tests (CoA list + Companies tree) + 2 new loading.tsx + 1 new bilingual errors.ts + 8 aria-labels + 27 role=alert\n- Branch cleanup: 4 local + 3 remote branches deleted (cumulative with PR #174)\n\nBall at mavis-local, ready for Sprint 7 or anas's next move.",
-  "last_communication": "2026-07-29T22:42:00Z",
-  "sprint_started_at": "2026-07-29T21:40:00Z",
-  "sprint_eta": "2026-07-29T22:42:00Z",
-  "sprint_completed_at": "2026-07-29T22:42:00Z",
+  "next_action": "Sprint 6 closed (PR #175 + #174 + #176). Template 1 v2 in effect (PR #177 merged). Sprint 7 prep done (PR #178 merged: docs/workflow/sprint-7.md + CI fix). Awaiting Anas's Sprint 7 scope directive (scope, branch, deadline) for Sprint 7 launch via Template 1 v2 hand-off.\n\nPing-pong cycle pattern (battle-tested, 2 cycles complete):\n- Phase 1 (Admin→Local): سيتی + محمد write Template 1 hand-off → mavis cron once with session_id mode\n- Phase 2 (Local work): Mavis Local does T1..Tn + open PR + notify Admin Team\n- Phase 3 (Admin merge): develop-pr-monitor detects PR → CI green → merge with --admin per Article 10\n- Phase 4 (hand-off back): Admin Team updates state.json + CHANGELOG + sends Template 3 (Merge Confirmation)\n\nCycle time: Sprint 6 wrap-up = 1h 10m. Template 1 v2 reduces Mavis Local work by ~30m.",
+  "last_communication": "2026-07-30T00:02:00Z",
+  "sprint_started_at": "2026-07-30T00:02:00Z",
+  "sprint_eta": null,
+  "sprint_completed_at": null,
   "project_pause": {
     "paused_constitution": "CONSTITUTION.md",
     "paused_at": "2026-07-29T18:25:00Z",
     "pause_until": "2026-07-31T18:25:00Z",
-    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md is ACTIVE for 2 days. CONSTITUTION-LOCAL-TEAM.md (13 materials) + INTER-TEAM-PROTOCOL.md (11 materials, by سيتی+محمد) co-define the local team operating contract for the 2-day window.",
+    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md is ACTIVE for 2 days. CONSTITUTION-LOCAL-TEAM.md (13 materials) + INTER-TEAM-PROTOCOL.md (11 materials v1 → v2 after PR #177) co-define the local team operating contract for the 2-day window.",
     "paused_by": "anas",
     "active_constitution": "WORKFLOW.md",
     "active_local_contract": "CONSTITUTION-LOCAL-TEAM.md",
-    "active_interface": "INTER-TEAM-PROTOCOL.md",
-    "interpretation": "PAUSED means CONSTITUTION.md is paused, not the whole project. Mavis Local can continue work under WORKFLOW.md + CONSTITUTION-LOCAL-TEAM.md + INTER-TEAM-PROTOCOL.md until 2026-07-31 18:25 UTC."
+    "active_interface": "INTER-TEAM-PROTOCOL.md (Template 1 v2 in effect)",
+    "interpretation": "PAUSED means CONSTITUTION.md is paused, not the whole project. Mavis Local can continue work under WORKFLOW.md + CONSTITUTION-LOCAL-TEAM.md + INTER-TEAM-PROTOCOL.md (v2) until 2026-07-31 18:25 UTC."
   },
   "mavis_local_cron": {
     "location": "platform:Schedules",
@@ -59,7 +71,17 @@
     "platform_cron_id": "0557d4b1-f098-457f-ab9d-cccd171e00a1",
     "name": "mavis-local-coordinator",
     "schedule": "*/5 * * * *",
-    "note": "Cron is a TOOL, not an actor. Ball is in ACTOR's court (mavis-local / mavis-cloud / anas). Cron worktree bug fixed 2026-07-29 19:55 UTC — cron now operates in ERP-SYSTEM (canonical develop). Hand-off cycle operational as of 2026-07-29 22:42 UTC (1st Admin→Local→Admin cycle complete)."
+    "note": "Cron is a TOOL, not an actor. Ball is in ACTOR's court. 2 ping-pong cycles complete as of 2026-07-29 22:42 (Sprint 6) + 2026-07-29 23:41 (Sprint 7 prep)."
+  },
+  "admin_team_crons": {
+    "session": "mvs_4a1f6064397f4440bac82e3f36602646",
+    "crons": [
+      {"name": "siti-responder", "cron_id": "e4882ad9-5c13-4467-9237-5ce8442db1ee", "schedule": "*/30 * * * *", "purpose": "Smart routing: respond when user addresses سيتی"},
+      {"name": "muhammad-responder", "cron_id": "3a8e1c59-42b1-46d8-93cb-369946c7a812", "schedule": "*/30 * * * *", "purpose": "Smart routing: respond when user addresses محمد"},
+      {"name": "dev-responder", "cron_id": "0b23ea03-1457-4d1b-a5aa-bb43af59477f", "schedule": "*/30 * * * *", "purpose": "Smart routing: respond when user addresses ديف"},
+      {"name": "develop-pr-monitor", "cron_id": "92a550b4-c889-4d07-9aeb-dc5a20ad2f07", "schedule": "*/10 * * * *", "purpose": "Auto-merge Mavis Local sprint PRs when CI green (per Article 10)"}
+    ],
+    "design": "Persona-based smart routing: each cron acts only when user addresses that persona. develop-pr-monitor watches develop for sprint PRs. All silent on no-op (per protocol Article 9)."
   },
   "sprint6_wrap_up": {
     "branch": "feature/sprint-6-wrap-up",
@@ -76,5 +98,23 @@
     "next_hand_off_to": "admin-team",
     "next_hand_off_at": "2026-07-29T22:42:00Z",
     "next_hand_off_message": "Sprint 6 Wrap-up COMPLETE ✅. Ready for Sprint 7 scope (or anas's directive)."
+  },
+  "sprint7_prep": {
+    "branch": "feature/sprint-7-skip-cleanup",
+    "pr": 178,
+    "merged_at": "2026-07-29T23:41:00Z",
+    "merge_commit": "056558d",
+    "scope": "CI fix: skip 2 pre-existing RetentionTests failures (env var config deferred to Sprint 7 backlog per Option 1). Sprint 7 prep: docs/workflow/sprint-7.md created.",
+    "ci_status": "GREEN (6/6 checks passing on develop)",
+    "next": "Sprint 7 full launch pending Anas's scope directive (scope, branch, deadline). Will use Template 1 v2 for the hand-off."
+  },
+  "governance_updates": {
+    "PR_177_v2_amendment": {
+      "pr": 177,
+      "branch": "governance/hand-off-template-v2",
+      "merged_at": "2026-07-29T23:08:00Z",
+      "merge_commit": "b7984da",
+      "scope": "Template 1 v2: Mavis Local scope = T1..Tn + open PR only. Admin Team (develop-pr-monitor + سيتی) handles CI, merge, state.json, CHANGELOG, branch cleanup, hand-off back. DoD split per المادتين 3 + 4. Article 11 (Amendment Process) compliance."
+    }
   }
 }
