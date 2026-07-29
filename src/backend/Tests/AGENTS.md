@@ -60,6 +60,7 @@ public class CompaniesListTests
 | Path | Scope | Status |
 |------|-------|--------|
 | `src/backend/Tests/ERPSystem.Tests/` | All test classes | Active |
+| `src/backend/Tests/ERPSystem.Tests/Seed/` | Demo data seed tests (Sprint 4) | Active |
 
 ---
 

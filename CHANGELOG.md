@@ -18,6 +18,9 @@
 ### Added
 - `docs/architecture/holding-company-architecture.md` — Full architecture documentation
 - `docs/seed-sprint4-demo-data.sql` — Demo data seed (3 companies, 10 users, 100+ transactions)
+- `src/backend/Tests/ERPSystem.Tests/Seed/Sprint4SeedTests.cs` — 19 static tests (no DB) for the seed file
+- `docs/workflow/sprint-4.md` — Sprint 4 hand-off documentation
+- Child DOX entry: `src/backend/Tests/ERPSystem.Tests/Seed/` added to `Tests/AGENTS.md` index
 
 ### Changed
 - **CLEANUP AMENDMENT 2026-07-29 (per Anas):**
