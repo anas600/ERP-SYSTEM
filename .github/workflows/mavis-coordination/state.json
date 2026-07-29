@@ -1,6 +1,6 @@
 ﻿{
   "version": "1.4",
-  "last_updated": "2026-07-29T19:21:17Z",
+  "last_updated": "2026-07-29T17:26:56Z",
   "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
   "active_sprint": "6",
@@ -44,7 +44,7 @@
     }
   ],
   "issues": [],
-  "next_action": "Sprint 6 constitutional prep PR in progress (branch: feature/sprint-6-constitution-cleanup).\n\nScope (per docs/workflow/sprint-6.md):\n- T1 ✅ DONE: WORKFLOW.md at root, .mavis/AGENTS.md active, AGENTS.md + CHANGELOG updated\n- T2 (next): stale-branch cleanup (delete merged local branches, prune remote)\n- T3-T5 (optional): test gap-fill, FE polish, doc polish\n- T6: verify (build + test + typecheck)\n- T7: open PR + self-merge per DEC-070\n\nBall stays at mavis-local. Cron is a tool, not an actor.",
+  "next_action": "Sprint 6 T1 work COMPLETE on local branch feature/sprint-6-constitution-cleanup (2 unpushed commits). No PR open yet — branch has not been pushed to origin (fetch --prune confirms no remote ref).\n\nCurrent state:\n- HEAD = 37d60c9 'feat(workflow): promote WORKFLOW.md to root + activate Jimi worker contract' (tagged 'self-merge per DEC-070')\n- HEAD~1 = e0ea789 state.json bump from previous cron tick\n- Working tree: clean\n- 7 files changed vs origin/develop, +938/-88 lines (T1 deliverable)\n\nScope (per docs/workflow/sprint-6.md):\n- T1 ✅ DONE: WORKFLOW.md at root, .mavis/AGENTS.md active, AGENTS.md + CHANGELOG updated\n- T2 (next): stale-branch cleanup\n- T3-T5 (optional): test gap-fill, FE polish, doc polish\n- T6: verify (build + test + typecheck)\n- T7: push branch + open PR + self-merge per DEC-070\n\nBall stays at mavis-local. Cron is a tool, not an actor — NOT pushing/opening PR (actor's call).",
   "last_communication": "2026-07-29T19:13:00Z",
   "sprint_started_at": "2026-07-29T19:15:00Z",
   "sprint_eta": "2026-07-29T22:00:00Z",
