@@ -1,6 +1,6 @@
 ﻿{
     "version":  "1.3",
-    "last_updated":  "2026-07-29T17:10:28Z",
+    "last_updated":  "2026-07-29T17:15:00Z",
     "ball_location":  "mavis-local",
     "ball_owner_session":  "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
     "active_sprint":  "5",
@@ -43,7 +43,7 @@
 
                ],
     "next_action":  "PR #172 MERGED (squash, self-merge per DEC-070) ✅\n\nMavis Local is now ready for next work. Awaiting:\n- Sprint 6 hand-off from سيتی (when ready)\n- OR new directive from Anas (e.g., \u0027unpause\u0027 or \u0027start Sprint 6\u0027)\n- OR another self-mergeable PR\n\nPer Article 2 of the active constitution: ball is at mavis-local. Cron is a tool, not an actor.\n\nProject_pause still active for the OLD constitution (CONSTITUTION.md) — the NEW constitution (mavis-coordination) is fully active until 2026-07-31 18:25 UTC.\n\nRecent work (Sprint 5):\n- BE: 4 endpoints (revenue/expenses/top customers charts + global search)\n- FE: CoA tree, dashboard charts, global search, invoice PDF, loading polish\n- 26 files, +3573/-155 lines, 11 new tests\n- All DOX-compliant (company_id only, AGENTS.md for new module)",
-    "last_communication":  "2026-07-29T17:10:28Z",
+    "last_communication":  "2026-07-29T17:15:00Z",
     "sprint_started_at":  "2026-07-29T15:42:00Z",
     "sprint_eta":  "2026-07-29T20:00:00Z",
     "project_pause":  {
