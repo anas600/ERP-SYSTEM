@@ -13,9 +13,52 @@
 
 ---
 
+## Sprint 5 — Demo V2 (The "Wow" Version) — Backend Phase 4 + 5 (2026-07-29) 🚧 IN PROGRESS
+
+**Goal:** Polished demo V2 with dashboard charts + global search.
+
+### Added — Dashboard chart data (Phase 4 — T1/T2/T3)
+- `GET /api/dashboard/charts/revenue?months=6` — revenue vs expense per month (line chart). Filters: `company_id`, status IN (Posted/Partial/Paid), expense from accounts.type=5 with status=2 journal entries.
+- `GET /api/dashboard/charts/expenses-by-category?months=3` — pie / donut chart. One slice per Expense-type account with a fixed palette color by rank.
+- `GET /api/dashboard/charts/top-customers?limit=5` — top customers by posted invoice total, all-time within the current company.
+- New service: `Modules/Dashboard/Application/Services/DashboardChartService.cs`
+- New DTOs: `Modules/Dashboard/Application/DTOs/ChartDtos.cs`
+- New tests: `Tests/ERPSystem.Tests/Dashboard/DashboardChartTests.cs` (7 tests, 1 skipped integration)
+
+### Added — Global search (Phase 5 — T4)
+- `GET /api/search?q=&limit=20` — case-insensitive LIKE across customers, vendors, sales_invoices, and accounts. 3-tier ranking (exact > prefix > contains, scores 1.0/0.7/0.4). Per-type cap 5, total cap 20 (max 50). Always company-scoped.
+- New module: `Modules/Search/` (Endpoints, Application/Services, Application/DTOs, AGENTS.md)
+- New service: `Modules/Search/Application/Services/GlobalSearchService.cs`
+- New DTOs: `Modules/Search/Application/DTOs/SearchDtos.cs`
+- New tests: `Tests/ERPSystem.Tests/Search/GlobalSearchServiceTests.cs` (4 tests, 1 skipped integration)
+
+### Changed
+- `Host/Program.cs` — registered `IDashboardChartService` and `IGlobalSearchService` in DI.
+- `Modules/Dashboard/Endpoints/GetSummary.cs` — added 3 chart endpoint methods to the existing `DashboardController` (route `/api/dashboard`).
+
+### Notes
+- All 4 new endpoints filter on `company_id` (Constitution Article 3, no `tenant_id`).
+- Dapper only, no EF Core.
+- `[Authorize(Policy = ReadAccess)]` on every new endpoint.
+- 1 test per endpoint (per Article 11), 11 new tests total (2 skipped integration).
+- The 2 failing `RetentionTests` are pre-existing — verified by `git stash` on bare develop (auth failure to `erp_test_system` test DB, not present in local Docker). Not a regression.
+
+---
+
 ## Local Docker Demo — Setup (2026-07-29) ✅ MERGED
 
 **Goal:** Self-contained local Docker stack for client demo on Anas's machine.
+
+### PR #172 — Local dev speed boost (in progress, NOT a code PR — gitignored config)
+**Per Anas (2026-07-29):** Use local DB engine for faster dev. Switched `appsettings.Development.json` (gitignored) from Supabase to `localhost:5432` (local Docker Postgres).
+
+**Impact:**
+- Login: 30-60s (Supabase pooler) → **<1s (local)**
+- DB queries: ~100ms → <5ms
+- Works offline (no internet needed)
+- Schema/data identical to cloud (same migrations + seed)
+
+**Constraint noted:** The sprint-5 hand-off said "PostgreSQL 17 (Supabase for dev, Docker for local) | No new DB engine". This change is consistent — still PostgreSQL, just local instead of cloud. Engine unchanged. Hand-off constraint remains for non-Mavis-Local devs.
 
 ### PR #170 — Local Docker config fix (MERGED at `c57a25d`)
 - Fixed 5 docker-compose.yml bugs that blocked any local Docker usage:
