@@ -2,7 +2,7 @@
 
 > **Per-directory context for `/docs/`.** Read root AGENTS.md first.
 
-**Last updated:** 2026-07-29 (DOX framework applied)
+**Last updated:** 2026-07-29 19:35 UTC (Sprint 6 — references updated to point to WORKFLOW.md + root CHANGELOG.md)
 
 ---
 
@@ -11,10 +11,12 @@
 This directory contains **governance, roadmap, and architecture documentation** for ERP-SYSTEM.
 
 The single source of truth is:
-- **Constitution:** [`/CONSTITUTION.md`](../CONSTITUTION.md)
+- **Active Workflow Constitution (temporary permanent, 2-day window):** [`/WORKFLOW.md`](../WORKFLOW.md) (at project root, always in mind)
+- **Legacy Constitution (paused until 2026-07-31 18:25 UTC):** [`/CONSTITUTION.md`](../CONSTITUTION.md)
 - **Roadmap:** [`docs/workflow/demo-roadmap.md`](./workflow/demo-roadmap.md)
 - **Architecture:** [`docs/architecture/holding-company-architecture.md`](./architecture/holding-company-architecture.md)
-- **Changelog:** [`docs/CHANGELOG.md`](./CHANGELOG.md)
+- **Changelog (current):** [`/CHANGELOG.md`](../CHANGELOG.md) (at project root)
+- **Changelog (historical, Phase 6 and earlier):** [`docs/CHANGELOG.md`](./CHANGELOG.md) (keep for audit trail)
 
 ## Ownership
 

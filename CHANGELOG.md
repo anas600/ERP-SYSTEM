@@ -13,6 +13,25 @@
 
 ---
 
+## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS
+
+**Goal:** Constitutional cleanup ✅ done in T1. Now polishing docs and verifying (T5+T6).
+
+### Added
+- `docs/workflow/sprint-6.md` — Sprint 6 hand-off (self-planned, ball in mavis-local court)
+- Updated `docs/workflow/demo-roadmap.md` — actual completion status of Sprints 0-5
+- Updated `docs/AGENTS.md` — references now point to `WORKFLOW.md` (active) + `CONSTITUTION.md` (paused) + root `CHANGELOG.md` (current)
+
+### Notes
+- T1 (Constitutional Setup) ✅ MERGED at PR #173 `c5a37119`
+- T2 (Stale-branch cleanup) ✅ partial (4 local + 2 remote branches deleted)
+- T3-T4 (Test gap-fill, FE polish) ⏳ optional, deferred
+- T5 (Doc polish) 🟡 in progress
+- T6 (Verify) ⏳ next
+- T7 (Open PR + self-merge) ⏳ pending
+
+---
+
 ## Sprint 6 Prep — Constitutional Cleanup (2026-07-29) ✅ MERGED (self-merge per DEC-070)
 
 **Goal:** Promote the active constitution to the project root, activate the worker contract for Jimis, and launch Sprint 6.
