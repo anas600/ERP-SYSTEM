@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-07-29T16:50:00Z",
+  "ball_location": "mavis-cloud",
+  "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
+  "active_sprint": "5",
+  "open_prs": [
+    {
+      "number": 172,
+      "title": "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
+      "branch": "feature/sprint-5-demo-v2",
+      "state": "open",
+      "opened_by": "mavis-local",
+      "opened_at": "2026-07-29T16:35:00Z",
+      "ci_status": "passing"
+    }
+  ],
+  "pending_signals": [],
+  "issues": [],
+  "next_action": "Wait for سيتی to review/merge PR #172. After merge, Mavis Local will start Sprint 6 (per Anas: 'ابدأ Sprint 6 متى ما تخلص PR #172').",
+  "last_communication": "2026-07-29T16:01:00Z",
+  "sprint_started_at": "2026-07-29T15:42:00Z",
+  "sprint_eta": "2026-07-29T20:00:00Z"
+}
