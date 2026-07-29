@@ -1,63 +1,67 @@
-# 📚 docs/AGENTS.md
+# 📚 AGENTS.md — docs/
 
-> مجلد التوثيق الرئيسي للمشروع.
+> **Per-directory context for `/docs/`.**
 
-## شو فيه
-
-### 📋 Plans & Reports
-- [`PLAN.md`](PLAN.md) — الخطة الكاملة للمشروع (8-10 أسابيع)
-- [`CHANGELOG.md`](CHANGELOG.md) — سجل التغييرات الموثّقة
-- [`SETUP-LOCAL.md`](SETUP-LOCAL.md) — دليل التشغيل بدون Docker (PostgreSQL 15 محلياً) — **🆕 v4: Supabase-only (لا local PG)**
-- [`FINAL-INTEGRATION-REPORT.md`](FINAL-INTEGRATION-REPORT.md) — تقرير Phase 2.5+
-- [`RELEASE-REPORT-PHASE3.html`](RELEASE-REPORT-PHASE3.html) — 🆕 تقرير Phase 3 (HTML، RTL، Chart.js، 23KB)
-- [`RELEASE-REPORT-PHASE4.html`](RELEASE-REPORT-PHASE4.html) — 🆕 تقرير Phase 4 (HTML، RTL، 28KB)
-- [`SMOKE-TEST-REPORT.md`](SMOKE-TEST-REPORT.md) — تقرير smoke test للـ Phase 2.5+
-- [`E2E-TEST-RESULT.json`](E2E-TEST-RESULT.json) — 🆕 نتائج E2E للـ Phase 3 (12/12 PASS)
-- [`E2E-TEST-PHASE4/`](E2E-TEST-PHASE4/) — 🆕 نتائج E2E للـ Phase 4 (14/14 PASS)
-- [`LOCAL-WORK-PLAN.md`](LOCAL-WORK-PLAN.md) — 🆕 خطة العمل المحلية (Supabase + CLI-First)
-
-### 🔬 Competitive Research (Phase 3)
-- [`research/daftra-features.md`](research/daftra-features.md) — بحث Daftra (60KB)
-- [`research/erpnext-features.md`](research/erpnext-features.md) — بحث ERPNext (64KB)
-- [`research/odoo-reference.md`](research/odoo-reference.md) — مرجع Odoo (9.6KB)
-- [`research/gap-analysis.md`](research/gap-analysis.md) — تحليل الفجوات + Phase 3 Scope (31KB، 8 أقسام)
-
-## Conventions
-
-- كل ملف markdown عالي المستوى يبدأ بـ H1 واضح
-- الخطط والتقارير: استخدم التاريخ في اسم الملف (`2026-06-14-feature-name.md`)
-- القرارات المعمارية الكبيرة: اكتب ADR (Architecture Decision Record) في `docs/adr/`
-
-## لما تشتغل هنا
-
-- حدّث `PLAN.md` عند تغيير phase أو sprint
-- بعد أي تغيير كبير، تأكد أن الـ root `AGENTS.md` يعكس الوضع
-- **🆕 عند إكمال phase جديد:**
-  1. حدّث جدول `Phase Status` في الـ root AGENTS.md
-  2. أضف entry في `docs/CHANGELOG.md` (في الأعلى)
-  3. حدّث `PLAN.md` (الحالة + الـ PR)
-  4. أنشئ release report في `docs/RELEASE-REPORT-<PHASE>.html` (إن كان إطلاق كبير)
-
-## بعد التعديل
-
-- إذا أضفت ملف جديد، اربطه من `root AGENTS.md` إذا كان مهماً
-- إذا غيّرت خطة phase، حدّث جدول `Phase Status` في الـ root
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md) — التوثيق الجذر
-
+**Last updated:** 2026-07-29 (Cleanup)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## 🎯 Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+This directory contains **governance, roadmap, and architecture documentation** for ERP-SYSTEM.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+**Rules:**
 
-See root [`AGENTS.md`](../AGENTS.md) for full cross-team protocol.
+1. **One source of truth per topic:**
+   - Constitutional questions → `CONSTITUTION.md` (root, not here)
+   - Roadmap questions → `workflow/demo-roadmap.md`
+   - Architecture questions → `architecture/`
+   - Recent changes → `CHANGELOG.md`
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+2. **No per-decision, per-cycle, per-hand-off documents.** They're in CHANGELOG.md or merged into CONSTITUTION.
+
+3. **No old files.** If a doc is no longer current, delete it.
+
+---
+
+## 📁 Subdirectories
+
+| Path | Purpose |
+|------|---------|
+| `workflow/` | Roadmap + sprint plans (demo-roadmap.md, sprint-N.md) |
+| `architecture/` | Architecture documentation (Siti-authored) |
+
+---
+
+## 🚫 What's NOT in this directory anymore (deleted in 2026-07-29 cleanup)
+
+- ❌ `dec-051` through `dec-111` (per-decision folders) — merged into CONSTITUTION
+- ❌ `DEC-070`, `DEC-071`, `DEC-072` files — merged into CONSTITUTION Articles 10-12
+- ❌ `E2E-TEST-*` files — historical, not needed
+- ❌ `HANDOFF-*.md` (5 files) — replaced by sprint docs in `workflow/`
+- ❌ `PHASE6-*` (5 files) — completed, archived in CHANGELOG
+- ❌ `RELEASE-REPORT-*.html` — historical
+- ❌ `seed-*.sql` (8 files) — moved to `src/backend/Host/Bootstrap/` or `docs/seed-sprint4-demo-data.sql`
+- ❌ `SYSTEM-FUNCTIONAL-SPECIFICATION.*` — replaced by architecture doc
+- ❌ `governance/` (29 files) — simplified, key info in CONSTITUTION
+- ❌ `research/`, `runbooks/`, `workflows/` — historical
+
+**Keep it lean. One place per topic. Update, don't multiply.**
+
+---
+
+## ✏️ Adding New Documentation
+
+Before adding a new file, ask:
+
+1. Is this about the **Constitution**? → Add to `CONSTITUTION.md` instead.
+2. Is this about the **Roadmap**? → Add to `docs/workflow/demo-roadmap.md`.
+3. Is this about a **specific sprint**? → Add to `docs/workflow/sprint-N.md`.
+4. Is this about **Architecture**? → Add to `docs/architecture/`.
+5. Is this a **recent change**? → Add to `docs/CHANGELOG.md`.
+
+If none of the above, **don't add it.** Update existing.
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode), approved by Anas_
