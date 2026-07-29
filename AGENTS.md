@@ -168,8 +168,18 @@ gh pr merge <num> --squash --admin   # Mavis Local only
 
 # Local Docker
 cd local-docker
-docker compose up -d
+cp .env.example .env
+docker compose up -d --build
+# Wait for healthy
+docker compose ps
+# Apply demo seed (idempotent)
+docker cp ../docs/seed-sprint4-demo-data.sql erp-postgres-local:/tmp/seed.sql
+docker exec -it erp-postgres-local psql -U erp -d erp_system -f /tmp/seed.sql
+# Open: http://localhost:3000 — login: admin@alfajr.local / Demo1234
 ```
+
+> **For full local-docker architecture, see [`docs/workflow/local-docker.md`](./docs/workflow/local-docker.md).**
+> **For past fixes (PR #170), see [`docs/workflow/local-docker-fixes-report.md`](./docs/workflow/local-docker-fixes-report.md).**
 
 ### Crons (Cloud only)
 - `presence-check` (5 min) — watches for `docs/governance/presence-signal.json`.

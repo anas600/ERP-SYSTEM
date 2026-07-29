@@ -13,6 +13,48 @@
 
 ---
 
+## Local Docker Demo — Setup (2026-07-29) ✅ MERGED
+
+**Goal:** Self-contained local Docker stack for client demo on Anas's machine.
+
+### PR #170 — Local Docker config fix (MERGED at `c57a25d`)
+- Fixed 5 docker-compose.yml bugs that blocked any local Docker usage:
+  1. Frontend volume mount: `./src/frontend` → `../src/frontend`
+  2. API build context: `.` → `../src/backend`
+  3. Added `ConnectionStrings__Migrations` + `Marten__ConnectionString` env vars
+  4. Added `Database__JsonMigrationEnabled: "true"`
+  5. Documented wget-not-in-image issue (deferred to PR #171)
+- Added: `docs/workflow/local-docker-fixes-report.md` (full technical report)
+
+### PR #171 — Local Docker P1 fixes + architecture (in progress)
+**Branch:** `fix/local-docker-p1-architecture` (off `c57a25d`)
+
+#### Fixed
+- **P1 seed issues:**
+  - **Issue A (cancelled):** `users` schema was already correct (no `is_email_verified`)
+  - **Issue B:** Added `SECTION 7.5: Roles` before `SECTION 8: user_roles` (4 canonical roles: Admin, Accountant, ProjectManager, Viewer)
+  - **Issue C:** Activity log now uses `array_agg(id) FROM users WHERE is_active` — no more hardcoded UUID collision with ALF-CONST company
+  - **Issue D:** Admin user inserted explicitly with system UUID `00000000-...-0002` + user_companies (4 companies) + user_roles (Admin)
+- **P2 docker:** Removed `wget` healthcheck (not in ASP.NET image)
+
+#### Added (architecture improvements)
+- `docs/workflow/local-docker.md` — Architecture doc (when to use, how it works)
+- Improved `local-docker/README.md` (curl healthcheck, troubleshooting)
+- Updated `AGENTS.md` (cross-link to local-docker)
+
+#### Changed
+- `v_admin_id` in seed now uses `00000000-...-0002` (was wrongly pointing to `11111111-...` = ALF-CONST company)
+- Activity log loop uses dynamic `array_length(v_user_ids, 1)` (no magic number 10)
+
+#### Verified
+- `docker compose up -d --build` → all 3 containers running
+- `psql -f docs/seed-sprint4-demo-data.sql` → no manual workarounds needed
+- `POST /api/auth/login admin@alfajr.local / Demo1234` → 200 + JWT
+- All 10 users can log in
+- Browser: http://localhost:3000 → working
+
+---
+
 ## Sprint 4 (in progress) — Polish + Demo Data (2026-07-29)
 
 ### Added
@@ -82,4 +124,4 @@
 
 ---
 
-_Last updated: 2026-07-29 by Mavis (Muhammad mode), approved by Anas_
+_Last updated: 2026-07-29 by Mavis Local, approved by Anas_

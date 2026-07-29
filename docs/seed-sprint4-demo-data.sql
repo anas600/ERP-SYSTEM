@@ -160,7 +160,7 @@ ON CONFLICT (company_id, code) DO NOTHING;
 -- Use admin user as warehouse creator if not present
 DO $$
 DECLARE
-  v_admin_id uuid := '11111111-1111-1111-1111-111111111111';
+  v_admin_id uuid := '00000000-0000-0000-0000-000000000002';  -- system admin UUID (NOT the ALF-CONST company UUID)
 BEGIN
   UPDATE warehouses SET created_by = v_admin_id, updated_by = v_admin_id
     WHERE created_by IS NULL;
@@ -376,15 +376,19 @@ VALUES
 ON CONFLICT (company_id, code) DO NOTHING;
 
 -- =====================================================================
--- SECTION 7: 10 Users (1 existing admin + 9 new)
+-- SECTION 7: 10 Users (1 admin + 9 demo users)
 -- All use BCrypt hash of "Demo1234" so the owner (Mavis) can demo with
 -- the same password across all 10 accounts.
 -- Idempotent: ON CONFLICT (email) DO NOTHING
+-- NOTE: Admin user UUID is `00000000-0000-0000-0000-000000000002` (system UUID).
+--       Do NOT use `11111111-...` for admin — that's the ALF-CONST company UUID.
 -- =====================================================================
 INSERT INTO users (id, email, password_hash, full_name, is_active, two_factor_enabled, is_deleted, created_at, updated_at)
 VALUES
-  -- 1. (existing) admin@alfajr.local — owned by Holding Enterprise
-  -- already in DB; ON CONFLICT prevents the duplicate insert.
+  -- 1. admin@alfajr.local — Holding admin (system UUID, password "Demo1234")
+  ('00000000-0000-0000-0000-000000000002', 'admin@alfajr.local',
+   '$2a$11$FKXjp3qKKr9.Xbcfn7XjIuUMyEcmRo.TYZPFhcoQxHj4CNtnALqki',
+   'Admin — Holding Enterprise', true, false, false, now(), now()),
 
   -- 2. mohamed@alfajr.local — Admin role, full access
   ('22222222-2222-2222-2222-222222222201', 'mohamed@alfajr.local',
@@ -431,6 +435,42 @@ VALUES
    '$2a$11$FKXjp3qKKr9.Xbcfn7XjIuUMyEcmRo.TYZPFhcoQxHj4CNtnALqki',
    'نصير علي الكيلاني — مسؤول مشتريات أول', true, false, false, now(), now())
 ON CONFLICT (email) DO NOTHING;
+
+-- =====================================================================
+-- SECTION 7.5: Roles (4 canonical roles) — MUST run BEFORE SECTION 8
+-- Idempotent: ON CONFLICT (name) DO NOTHING
+-- Without this, SECTION 8 will fail with "null value in role_id" (DEC-073).
+-- =====================================================================
+INSERT INTO roles (id, name, description, created_at) VALUES
+  ('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Admin',           'Full system access',           now()),
+  ('bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb', 'Accountant',      'Financial operations',         now()),
+  ('cccccccc-cccc-cccc-cccc-cccccccccccc', 'ProjectManager',  'Project + procurement',       now()),
+  ('dddddddd-dddd-dddd-dddd-dddddddddddd', 'Viewer',          'Read-only access',            now())
+ON CONFLICT (name) DO NOTHING;
+
+-- =====================================================================
+-- SECTION 7.6: Admin user_companies (link admin to all 4 companies)
+-- Idempotent: ON CONFLICT (user_id, company_id) DO NOTHING
+-- Without this, admin login returns 401 (no company context).
+-- =====================================================================
+INSERT INTO user_companies (user_id, company_id, is_default, assigned_at) VALUES
+  -- Holding (default)
+  ('00000000-0000-0000-0000-000000000002', '00000000-0000-0000-0000-000000000001', true,  now()),
+  -- ALF-CONST
+  ('00000000-0000-0000-0000-000000000002', '11111111-1111-1111-1111-111111111111', false, now()),
+  -- ALF-TRADE
+  ('00000000-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', false, now()),
+  -- ALN-LOG
+  ('00000000-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', false, now())
+ON CONFLICT (user_id, company_id) DO NOTHING;
+
+-- =====================================================================
+-- SECTION 7.7: Admin user_roles (link admin to Admin role)
+-- Idempotent: ON CONFLICT (user_id, role_id) DO NOTHING
+-- =====================================================================
+INSERT INTO user_roles (user_id, role_id, assigned_at) VALUES
+  ('00000000-0000-0000-0000-000000000002', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', now())  -- Admin
+ON CONFLICT (user_id, role_id) DO NOTHING;
 
 -- =====================================================================
 -- SECTION 8: user_roles (assign roles to users)
@@ -852,18 +892,9 @@ END $$;
 -- =====================================================================
 DO $$
 DECLARE
-  v_user_ids uuid[] := ARRAY[
-    '11111111-1111-1111-1111-111111111111'::uuid,
-    '22222222-2222-2222-2222-222222222201'::uuid,
-    '22222222-2222-2222-2222-222222222202'::uuid,
-    '22222222-2222-2222-2222-222222222203'::uuid,
-    '22222222-2222-2222-2222-222222222204'::uuid,
-    '22222222-2222-2222-2222-222222222205'::uuid,
-    '22222222-2222-2222-2222-222222222206'::uuid,
-    '22222222-2222-2222-2222-222222222207'::uuid,
-    '22222222-2222-2222-2222-222222222208'::uuid,
-    '22222222-2222-2222-2222-222222222209'::uuid
-  ];
+  -- Dynamic user_ids: pull from `users` table (idempotent + self-healing).
+  -- This way the loop works regardless of which users exist after the seed runs.
+  v_user_ids uuid[];
   v_company_ids uuid[] := ARRAY[
     '00000000-0000-0000-0000-000000000001'::uuid,
     '11111111-1111-1111-1111-111111111111'::uuid,
@@ -884,14 +915,19 @@ DECLARE
   v_i        int;
   v_count    int;
 BEGIN
+  -- Pull active users DYNAMICALLY from the users table (idempotent + self-healing).
+  -- This avoids hardcoded UUIDs that may not exist after the seed.
+  SELECT array_agg(id ORDER BY created_at) INTO v_user_ids FROM users WHERE is_active = true;
+
   -- 5 entries per day for last 7 days = 35 entries minimum, plus 7 extras = 42 total.
   -- Idempotency: timestamps are derived from a STABLE base date (today's date at
   -- midnight UTC), NOT from now(). This guarantees re-runs produce the same
   -- timestamps and the (user, action, created_at) NOT EXISTS guard works.
-  FOR v_i IN 1..42 LOOP
-    v_user := v_user_ids[((v_i - 1) % 10) + 1];
-    v_company := v_company_ids[((v_i - 1) % 4) + 1];
-    v_action := v_actions[((v_i - 1) % 13) + 1];
+  IF v_user_ids IS NOT NULL AND array_length(v_user_ids, 1) IS NOT NULL THEN
+    FOR v_i IN 1..42 LOOP
+      v_user := v_user_ids[((v_i - 1) % array_length(v_user_ids, 1)) + 1];
+      v_company := v_company_ids[((v_i - 1) % 4) + 1];
+      v_action := v_actions[((v_i - 1) % 13) + 1];
     -- Stable base: today's date at 22:00 UTC (a fixed hour so re-runs match).
     -- v_i=1..5 → today 22:00, 21:00, 20:00, 19:00, 18:00
     -- v_i=6..10 → yesterday 22:00, 21:00, 20:00, 19:00, 18:00
@@ -920,7 +956,8 @@ BEGIN
       VALUES (v_company, v_user, v_action, '192.168.1.' || (10 + v_i % 250),
               'ERP-Demo-Client/1.0 (Sprint 4 demo seed)', v_meta, v_dt);
     END IF;
-  END LOOP;
+    END LOOP;
+  END IF;
 
   SELECT COUNT(*) INTO v_count FROM activity_log WHERE metadata->>'demo' = 'true';
   RAISE NOTICE 'Sprint 4 activity_log seeded (% rows)', v_count;
