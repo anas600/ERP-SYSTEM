@@ -39,6 +39,7 @@ using ERPSystem.Modules.Reports.Application.Services;
 using ERPSystem.Modules.Notifications.Application.Services;
 using ERPSystem.Modules.Notifications.Infrastructure;
 using ERPSystem.Modules.Dashboard.Application.Services;
+using ERPSystem.Modules.Search.Application.Services;
 using ERPSystem.Modules.Finance.Application.EventHandlers;
 using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Shared.Events;
@@ -273,6 +274,10 @@ builder.Services.AddScoped<IStockReservationService, StockReservationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 // Sprint 1 (T1 / Block A): dashboard summary KPIs (4-count payload).
 builder.Services.AddScoped<IDashboardSummaryService, DashboardSummaryService>();
+// Sprint 5 (T1-T3 / Phase 4): dashboard chart data (revenue/expenses/top-customers).
+builder.Services.AddScoped<IDashboardChartService, DashboardChartService>();
+// Sprint 5 (T4 / Phase 5): global search across customers/vendors/invoices/accounts.
+builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();

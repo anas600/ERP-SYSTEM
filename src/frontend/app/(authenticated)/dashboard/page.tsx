@@ -1,15 +1,16 @@
 ﻿'use client';
 
-// Sprint 1: Holding-level Dashboard — 4 KPI tiles (companies / users /
-// activities_today / transactions). Replaces the per-company dashboard from
-// Phase 3, which showed per-company counts (vendors / POs / employees /
-// low-stock). The new design reflects the Multi-Company / Holding model of
-// Phase 6: the active company (X-Company-Id) drives the scope, and when the
-// active company is the Holding the KPIs aggregate across all sub-companies.
+// Sprint 1 + Sprint 5 (Phase 4) — Holding-level Dashboard.
 //
-// Note: the underlying endpoint (`GET /api/dashboard/summary`) is being wired
-// by the Backend Jimi in parallel. The page shows a friendly Arabic error
-// message until that endpoint is live — no mock data is used.
+// Sprint 1: 4 KPI tiles (companies / users / activities_today / transactions).
+// Sprint 5: adds 3 Recharts visualisations (revenue line, expense pie,
+// top-customers bar) and ↑ / ↓ trend arrows on each KPI tile.
+//
+// Each chart has its own loading + empty state — we tolerate the BE being
+// down (404) by swallowing the chart errors silently (we just render the
+// empty state for that chart, not a full-page error). The main KPI summary
+// keeps the original Sprint-1 error path because it's the page's primary
+// signal.
 
 import { useEffect, useState } from 'react';
 import {
@@ -20,20 +21,39 @@ import {
   AlertCircle,
   RefreshCw,
 } from 'lucide-react';
-import { Card, PageHeader, Button } from '@/components/ui';
+import { Card, PageHeader, Button, SkeletonCard } from '@/components/ui';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { useAuth } from '@/lib/useAuth';
-import { dashboardApi, getErrorMessage } from '@/lib/api';
+import {
+  dashboardApi,
+  getErrorMessage,
+  RevenueVsExpensePoint,
+  ExpenseCategorySlice,
+  TopCustomerChartRow,
+  DashboardSummary,
+} from '@/lib/api';
+import { RevenueChart } from '@/components/charts/RevenueChart';
+import { ExpenseByCategoryChart } from '@/components/charts/ExpenseByCategoryChart';
+import { TopCustomersChart } from '@/components/charts/TopCustomersChart';
+import { KpiTrend } from '@/components/charts/KpiTrend';
 
 interface KpiTile {
-  key: 'companies' | 'users' | 'activities_today' | 'transactions';
+  key: keyof Pick<
+    DashboardSummary,
+    'companies' | 'users' | 'activities_today' | 'transactions'
+  >;
+  /** Field on DashboardSummary that carries the matching trend pct. */
+  trendKey: keyof Pick<
+    DashboardSummary,
+    | 'companiesTrendPct'
+    | 'usersTrendPct'
+    | 'activitiesTrendPct'
+    | 'transactionsTrendPct'
+  >;
   label: string;
-  /** توضيح قصير يظهر تحت الرقم */
   hint: string;
   icon: React.ComponentType<{ className?: string }>;
-  /** لون الـ accent — يطابق الـ palette الموجود في Card */
   accent: 'blue' | 'green' | 'purple' | 'yellow' | 'red';
-  /** color of the icon background ring */
   iconBg: string;
   iconColor: string;
 }
@@ -41,6 +61,7 @@ interface KpiTile {
 const KPI_TILES: KpiTile[] = [
   {
     key: 'companies',
+    trendKey: 'companiesTrendPct',
     label: 'الشركات',
     hint: 'تحت القابضة',
     icon: Building2,
@@ -50,6 +71,7 @@ const KPI_TILES: KpiTile[] = [
   },
   {
     key: 'users',
+    trendKey: 'usersTrendPct',
     label: 'المستخدمون',
     hint: 'فعّالون',
     icon: Users,
@@ -59,6 +81,7 @@ const KPI_TILES: KpiTile[] = [
   },
   {
     key: 'activities_today',
+    trendKey: 'activitiesTrendPct',
     label: 'نشاطات اليوم',
     hint: 'آخر 24 ساعة',
     icon: Activity,
@@ -68,6 +91,7 @@ const KPI_TILES: KpiTile[] = [
   },
   {
     key: 'transactions',
+    trendKey: 'transactionsTrendPct',
     label: 'المعاملات',
     hint: 'آخر 30 يوم',
     icon: ArrowLeftRight,
@@ -79,13 +103,20 @@ const KPI_TILES: KpiTile[] = [
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [summary, setSummary] = useState<Awaited<
-    ReturnType<typeof dashboardApi.getSummary>
-  > | null>(null);
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  // Sprint 5: chart state. Each chart has its own loading flag so a single
+  // 404 on one endpoint doesn't block the others.
+  const [revenue, setRevenue] = useState<RevenueVsExpensePoint[] | null>(null);
+  const [revenueLoading, setRevenueLoading] = useState(true);
+  const [expenses, setExpenses] = useState<ExpenseCategorySlice[] | null>(null);
+  const [expensesLoading, setExpensesLoading] = useState(true);
+  const [topCustomers, setTopCustomers] = useState<TopCustomerChartRow[] | null>(null);
+  const [topCustomersLoading, setTopCustomersLoading] = useState(true);
+
+  const loadSummary = async () => {
     setLoading(true);
     setError(null);
     try {
@@ -98,8 +129,36 @@ export default function DashboardPage() {
     }
   };
 
+  const loadCharts = async () => {
+    // Fire all 3 in parallel; each sets its own state so a failure on one
+    // doesn't sink the others. We swallow 404s by leaving state as-is (the
+    // chart component renders its own empty state).
+    setRevenueLoading(true);
+    setExpensesLoading(true);
+    setTopCustomersLoading(true);
+
+    void dashboardApi
+      .getRevenueChart(6)
+      .then((r) => setRevenue(r))
+      .catch(() => setRevenue([]))
+      .finally(() => setRevenueLoading(false));
+
+    void dashboardApi
+      .getExpenseByCategory(3)
+      .then((r) => setExpenses(r))
+      .catch(() => setExpenses([]))
+      .finally(() => setExpensesLoading(false));
+
+    void dashboardApi
+      .getTopCustomers(5)
+      .then((r) => setTopCustomers(r))
+      .catch(() => setTopCustomers([]))
+      .finally(() => setTopCustomersLoading(false));
+  };
+
   useEffect(() => {
-    load();
+    void loadSummary();
+    void loadCharts();
   }, []);
 
   // Format numbers with Arabic locale (so 1,234 becomes ١٬٢٣٤ visually)
@@ -115,10 +174,14 @@ export default function DashboardPage() {
 
   const firstName = (user?.fullName ?? '').split(' ')[0] || 'مستخدم';
 
+  // Single refresh handler that re-fetches summary + charts in one click.
+  const refresh = () => {
+    void loadSummary();
+    void loadCharts();
+  };
+
   return (
     <div>
-      {/* Page header — مع CompanySwitcher في الـ actions عشان الـ user يقدر
-          يبدّل بين الشركات من هنا أيضاً (إضافة لـ Topbar) */}
       <PageHeader
         title={`مرحباً، ${firstName} 👋`}
         description="نظرة عامة على نشاط القابضة والشركات التابعة"
@@ -127,7 +190,7 @@ export default function DashboardPage() {
             <CompanySwitcher />
             <Button
               variant="secondary"
-              onClick={load}
+              onClick={refresh}
               disabled={loading}
               aria-label="تحديث"
             >
@@ -154,52 +217,77 @@ export default function DashboardPage() {
               ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.
             </p>
           </div>
-          <Button variant="secondary" onClick={load} disabled={loading}>
+          <Button variant="secondary" onClick={loadSummary} disabled={loading}>
             إعادة المحاولة
           </Button>
         </div>
       )}
 
-      {/* KPI tiles — 4 بطاقات responsive (1 col mobile, 2 tablet, 4 desktop) */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        {KPI_TILES.map((tile) => {
-          const Icon = tile.icon;
-          const value = loading
-            ? null
-            : error
+      {/* Sprint 5: trend-loaded guard. The summary object always has the 4
+          number fields, but the *TrendPct fields are optional (BE may omit
+          them). We still render <KpiTrend> unconditionally — it hides itself
+          when the value is null. */}
+      {summary && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {KPI_TILES.map((tile) => {
+            const Icon = tile.icon;
+            const value = loading
               ? null
               : (summary?.[tile.key] ?? null);
+            const trendValue = summary?.[tile.trendKey];
 
-          return (
-            <Card key={tile.key} accent={tile.accent}>
-              <div className="flex items-start justify-between">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm text-gray-500">{tile.label}</p>
-                  {value == null ? (
-                    <div
-                      className="mt-2 h-9 w-20 rounded bg-gray-100 animate-pulse"
-                      role="status"
-                      aria-label="جاري التحميل"
-                    />
-                  ) : (
-                    <p className="text-3xl font-bold text-gray-800 mt-1 tabular-nums">
-                      {formatNumber(value)}
-                    </p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-1">{tile.hint}</p>
+            return (
+              <Card key={tile.key} accent={tile.accent}>
+                <div className="flex items-start justify-between">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm text-gray-500">{tile.label}</p>
+                    {value == null ? (
+                      <div
+                        className="mt-2 h-9 w-20 rounded bg-gray-100 animate-pulse"
+                        role="status"
+                        aria-label="جاري التحميل"
+                      />
+                    ) : (
+                      <p className="text-3xl font-bold text-gray-800 mt-1 tabular-nums">
+                        {formatNumber(value)}
+                      </p>
+                    )}
+                    <KpiTrend value={trendValue} loading={loading} />
+                    <p className="text-xs text-gray-400 mt-1">{tile.hint}</p>
+                  </div>
+                  <div
+                    className={`h-12 w-12 rounded-lg ${tile.iconBg} flex items-center justify-center flex-shrink-0`}
+                  >
+                    <Icon className={`h-6 w-6 ${tile.iconColor}`} />
+                  </div>
                 </div>
-                <div
-                  className={`h-12 w-12 rounded-lg ${tile.iconBg} flex items-center justify-center flex-shrink-0`}
-                >
-                  <Icon className={`h-6 w-6 ${tile.iconColor}`} />
-                </div>
-              </div>
-            </Card>
-          );
-        })}
+              </Card>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Initial loading state for the KPI grid (replaces the empty grid) */}
+      {loading && !summary && !error && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {KPI_TILES.map((tile) => (
+            <SkeletonCard key={tile.key} hasHeader={false} lines={2} />
+          ))}
+        </div>
+      )}
+
+      {/* Sprint 5 (Phase 4.1) — Charts row 1: revenue line + expenses pie */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+        <RevenueChart data={revenue} loading={revenueLoading} />
+        <ExpenseByCategoryChart data={expenses} loading={expensesLoading} />
       </div>
 
-      {/* ملخص إضافي — يعرض "as of" timestamp لو متاح من الـ backend */}
+      {/* Sprint 5 (Phase 4.1) — Charts row 2: top customers bar (full width) */}
+      <div className="mb-6">
+        <TopCustomersChart data={topCustomers} loading={topCustomersLoading} />
+      </div>
+
+      {/* Sprint 1: "as of" timestamp when present */}
       {summary?.asOf && !error && (
         <div className="text-xs text-gray-400 text-center mt-2">
           آخر تحديث: {new Date(summary.asOf).toLocaleString('en-GB')}

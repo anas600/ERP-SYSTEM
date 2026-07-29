@@ -1350,6 +1350,51 @@ export interface DashboardSummary {
   scopeCompanyId?: string;
   /** ISO timestamp للـ snapshot. */
   asOf?: string;
+  // Sprint 5: optional trend fields (vs previous month). The BE summary
+  // endpoint may or may not include them; the FE tolerates their absence.
+  /** Percent change in `companies` vs the previous period. */
+  companiesTrendPct?: number;
+  /** Percent change in `users` vs the previous period. */
+  usersTrendPct?: number;
+  /** Percent change in `activities_today` vs the previous period. */
+  activitiesTrendPct?: number;
+  /** Percent change in `transactions` vs the previous period. */
+  transactionsTrendPct?: number;
+}
+
+// ============ Sprint 5: Dashboard Chart DTOs (Phase 4.1) ============
+// Mirror the C# classes in
+// src/backend/Modules/Dashboard/Application/DTOs/ChartDtos.cs exactly. The FE
+// drops the responses straight into Recharts without any further transform.
+
+/** One month-bucket for the revenue-vs-expense line chart. */
+export interface RevenueVsExpensePoint {
+  /** ISO yyyy-MM string, UTC (e.g. "2026-02"). Sortable + locale-independent. */
+  month: string;
+  /** Absolute LYD revenue for the month (≥ 0). */
+  revenue: number;
+  /** Absolute LYD expense for the month (≥ 0). */
+  expense: number;
+  /** revenue - expense (positive = profit, negative = loss). */
+  net: number;
+}
+
+/** One expense-category slice for the pie / donut chart. */
+export interface ExpenseCategorySlice {
+  /** Account name (e.g. "Rent Expense"). */
+  category: string;
+  /** Absolute LYD amount for the slice. */
+  amount: number;
+  /** Stable palette index color from BE (CSS hex). */
+  color: string;
+}
+
+/** One row for the top-customers bar chart. */
+export interface TopCustomerChartRow {
+  customerId: string;
+  customerName: string;
+  totalSpent: number;
+  invoiceCount: number;
 }
 
 export const dashboardApi = {
@@ -1357,6 +1402,27 @@ export const dashboardApi = {
   // Active company comes from X-Company-Id header (set by the axios interceptor).
   getSummary: async (): Promise<DashboardSummary> => {
     const r = await api.get<DashboardSummary>('/api/dashboard/summary');
+    return r.data;
+  },
+  // Sprint 5 (T1): GET /api/dashboard/charts/revenue?months=6 — line chart.
+  getRevenueChart: async (months = 6): Promise<RevenueVsExpensePoint[]> => {
+    const r = await api.get<RevenueVsExpensePoint[]>('/api/dashboard/charts/revenue', {
+      params: { months },
+    });
+    return r.data;
+  },
+  // Sprint 5 (T2): GET /api/dashboard/charts/expenses-by-category?months=3 — pie.
+  getExpenseByCategory: async (months = 3): Promise<ExpenseCategorySlice[]> => {
+    const r = await api.get<ExpenseCategorySlice[]>('/api/dashboard/charts/expenses-by-category', {
+      params: { months },
+    });
+    return r.data;
+  },
+  // Sprint 5 (T3): GET /api/dashboard/charts/top-customers?limit=5 — bar.
+  getTopCustomers: async (limit = 5): Promise<TopCustomerChartRow[]> => {
+    const r = await api.get<TopCustomerChartRow[]>('/api/dashboard/charts/top-customers', {
+      params: { limit },
+    });
     return r.data;
   },
 };
@@ -1600,3 +1666,92 @@ export const usersApi = {
     return r.data;
   },
 };
+
+// ============ Sprint 5: Global Search (Phase 5.1) ============
+// Contract: GET /api/search?q=foo&limit=20 — returns a flat list of mixed-type
+// results (customer / supplier / invoice / account). Each row carries a `type`
+// discriminator + a `url` the FE can router.push() into.
+//
+// The BE returns URLs based on the original sprint-5.md plan
+// (/admin/customers, /admin/suppliers, /sales/invoices, /accounting/accounts).
+// Our existing FE pages live at /finance/customers, /procurement/vendors,
+// /finance/sales-invoices, /finance/accounts — so we IGNORE the BE-provided
+// `url` and remap by `type` in the GlobalSearch component. The contract field
+// stays in the type for forward-compat (if the BE later aligns with FE routes
+// the component can fall back to `result.url`).
+
+export type SearchResultType = 'customer' | 'supplier' | 'invoice' | 'account';
+
+export interface SearchResult {
+  type: SearchResultType;
+  id: string;
+  title: string;
+  subtitle: string;
+  /** Full client-side path to navigate to on click. BE-provided; the FE may
+   *  remap via `searchResultHref(result)` if the BE routes don't match the
+   *  deployed FE routes. */
+  url: string;
+  /** Relevance score 0..1 (BE-side ranking, not surfaced in UI). */
+  score: number;
+}
+
+export interface GlobalSearchResponse {
+  /** The merged result list (customers → suppliers → invoices → accounts). */
+  results: SearchResult[];
+  /** The original query echoed back. */
+  query: string;
+  /** How long the BE spent (ms) — useful for telemetry but not in UI. */
+  tookMs?: number;
+}
+
+export const searchApi = {
+  // GET /api/search?q=foo&limit=20 — global search across customers, suppliers,
+  // invoices, accounts. Per-type cap is 5 rows on the BE; the total cap is
+  // `limit` (default 20, max 50).
+  globalSearch: async (q: string, limit = 20): Promise<GlobalSearchResponse> => {
+    if (!q || !q.trim()) return { results: [], query: '' };
+    const r = await api.get<GlobalSearchResponse | SearchResult[]>('/api/search', {
+      params: { q: q.trim(), limit },
+    });
+    // Defensive: BE may return the array directly or wrap it in { results }.
+    if (Array.isArray(r.data)) return { results: r.data, query: q };
+    return r.data;
+  },
+};
+
+// Map a SearchResult to a FE-side route. The BE's `url` was authored against
+// the original sprint-5.md plan (admin/*, sales/*, accounting/*) and does not
+// match the deployed FE routes (finance/*, procurement/*). We override by
+// `type` so the dropdown links land on a real page. If a future BE revision
+// aligns the routes the fallback to `result.url` would just work.
+export function searchResultHref(r: SearchResult): string {
+  switch (r.type) {
+    case 'customer':
+      return `/finance/customers/${r.id}`;
+    case 'supplier':
+      // FE has no /procurement/vendors/{id} detail page — point to the edit
+      // page, which doubles as the detail view in this codebase.
+      return `/procurement/vendors/${r.id}/edit`;
+    case 'invoice':
+      return `/finance/sales-invoices/${r.id}`;
+    case 'account':
+      // No account detail page exists — land on the list (the user can use
+      // the search filter to find the account).
+      return `/finance/accounts`;
+    default:
+      return r.url;
+  }
+}
+
+// ============ Sprint 5: Dashboard Charts (Phase 4.1) ============
+// Chart DTOs + dashboardApi methods are defined in the "Dashboard
+// (Holding-level KPIs)" section above (the original Sprint 1 section was
+// extended in place). See:
+//   - interface RevenueVsExpensePoint
+//   - interface ExpenseCategorySlice
+//   - interface TopCustomerChartRow
+//   - dashboardApi.getRevenueChart / getExpenseByCategory / getTopCustomers
+//
+// This trailing block intentionally left blank — kept as a section divider
+// so future readers can grep for "Sprint 5: Dashboard Charts" and jump here.
+

@@ -2,9 +2,34 @@
 
 > **The 6 articles that govern the coordination workflow between Admin Team and Mavis Local.**
 
-**Last amended:** 2026-07-29 (Initial)
-**Status:** 🟢 ACTIVE
+**Last amended:** 2026-07-29 18:25 UTC (Anas directive: PROMOTED to temporary permanent)
+**Status:** 🟢 **ACTIVE — TEMPORARY PERMANENT** (replaces CONSTITUTION.md for 2 days)
 **Amendment requires:** Anas (Project Owner) approval
+
+> ## 📌 TEMPORARY PERMANENT STATUS (per Anas, 2026-07-29)
+>
+> This constitution is the **primary governance document** for the ERP-SYSTEM project for the next 2 days (until 2026-07-31 18:25 UTC).
+>
+> **Why:** To speed up work and coordination between teams. The "Admin Team" (سيتی + محمد + ديف) work as **Cron Jobs** coordinated by Mavis Local via the state machine in `state.json`. This eliminates the previous Telegram ping-pong between Admin Team and Mavis Local.
+>
+> **What's the same:**
+> - All 8 articles below (purpose, ball locations, update rules, schema, smart cron, emergency protocols, amendments, communication channels)
+>
+> **What's the same as CONSTITUTION.md (the old one):**
+> - Architectural constraints (company_id, Dapper, no EF Core, etc.)
+> - DOX framework
+> - CHANGELOG discipline
+>
+> **What's different in the 2-day window:**
+> - **Mavis Local = sole Tech Lead + Coordinator.** Has direct authority to coordinate with the admin team.
+> - **No hand-off files needed for small tasks** (Mavis Local can decide directly). Hand-off still required for Sprints.
+> - **No Sprint-N.md strict format** (use state.json for sprint progress tracking).
+> - **No DOX chain re-read required** for small changes (still required for new modules/AGENTS.md).
+> - **State.json is the single ping-pong point.** If you're not sure what to do, read it.
+>
+> **End of pause:** 2026-07-31 18:25 UTC. After that, revert to CONSTITUTION.md as primary.
+>
+> **The Admin Team = سيتی + محمد + ديف.** They are available as "Cron Jobs" — they pick up state.json changes and respond. Mavis Local updates state.json as the work progresses.
 
 ---
 
