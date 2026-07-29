@@ -4,8 +4,29 @@
 > This file is the permanent governance document of the ERP-SYSTEM project.
 > Any change to this file requires explicit owner (Anas) approval.
 
-**Last amended:** 2026-07-29 (Cleanup Amendment — Articles 11-14 added; hallucination reset)
-**Status:** Active (supersedes all prior implicit architectural assumptions)
+**Last amended:** 2026-07-29 18:25 UTC (Anas directive: **PROJECT PAUSED for 2 days**)
+**Status:** ⏸️ **PAUSED** (supersedes all prior implicit architectural assumptions)
+
+> ## ⚠️ PAUSED PER ANAS (2026-07-29 18:25 UTC)
+>
+> **This constitution is PAUSED for 2 days** per Anas's directive to speed up work and coordination between teams in a single environment.
+>
+> **Active (temporary permanent) constitution:** [`.github/workflows/mavis-coordination/constitution.md`](./.github/workflows/mavis-coordination/constitution.md)
+>
+> **What's the same:**
+> - Architectural constraints (company_id only, no EF Core, Dapper + FluentMigrator)
+> - Stack (.NET 9, Next.js 14, PostgreSQL, BCrypt 12)
+> - DOX framework, CHANGELOG discipline, branch protection
+>
+> **What's different (2-day temporary period):**
+> - **Coordination:** Smart cron (state.json + .github/workflows/mavis-coordination/state-cron.yml) is the primary async signal. **No Telegram ping-pong.**
+> - **Admin team (Cloud) = سيتی + محمد + ديف** work as "Cron Jobs" coordinated by Mavis Local. Their expertise is async-delivered via the state machine.
+> - **Mavis Local = sole Tech Lead + Coordinator** for the next 2 days. Has freedom to coordinate directly with the admin team via the state.json.
+> - **Sprint hand-offs:** `docs/workflow/sprint-N.md` format unchanged. **Single state file = single ping-pong point.**
+>
+> **End of pause:** 2026-07-31 18:25 UTC. After that, revert to CONSTITUTION.md as primary, demote mavis-coordination/constitution.md to secondary.
+>
+> **If you have questions or escalations:** check `.github/workflows/mavis-coordination/state.json` first (it tells you where the ball is). Then contact the relevant party per Article 2 of the active temporary constitution.
 
 ---
 

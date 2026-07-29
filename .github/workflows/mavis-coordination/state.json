@@ -1,7 +1,7 @@
 {
-  "version": "1.0",
-  "last_updated": "2026-07-29T16:50:00Z",
-  "ball_location": "mavis-cloud",
+  "version": "1.1",
+  "last_updated": "2026-07-29T18:25:00Z",
+  "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
   "active_sprint": "5",
   "open_prs": [
@@ -12,13 +12,30 @@
       "state": "open",
       "opened_by": "mavis-local",
       "opened_at": "2026-07-29T16:35:00Z",
-      "ci_status": "passing"
+      "ci_status": "passing",
+      "note": "READY FOR MERGE per DEC-070 (self-merge)"
     }
   ],
-  "pending_signals": [],
+  "pending_signals": [
+    {
+      "from": "anas",
+      "type": "directive",
+      "message": "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
+      "created_at": "2026-07-29T18:25:00Z"
+    }
+  ],
   "issues": [],
-  "next_action": "Wait for سيتی to review/merge PR #172. After merge, Mavis Local will start Sprint 6 (per Anas: 'ابدأ Sprint 6 متى ما تخلص PR #172').",
-  "last_communication": "2026-07-29T16:01:00Z",
+  "next_action": "1. CONSTITUTION.md marked PAUSED ✅\n2. mavis-coordination/constitution.md marked ACTIVE TEMPORARY PERMANENT ✅\n3. State.json updated with PAUSE directive ✅\n4. CHANGELOG.md needs entry for this constitutional amendment\n5. AGENTS.md needs cross-link to the active constitution\n6. PR #172 still open — can be self-merged per DEC-070 (since Sprint 5 is 'paused' but the PR is already done)\n7. After PR #172 merges: still no Sprint 6 — the pause is active. Mavis Local coordinates via state.json. No new hand-off files needed unless a new Sprint starts.\n8. Admin Team (Siti + Muhammad + Dev) respond to state.json changes asynchronously via the smart cron.",
+  "last_communication": "2026-07-29T18:25:00Z",
   "sprint_started_at": "2026-07-29T15:42:00Z",
-  "sprint_eta": "2026-07-29T20:00:00Z"
+  "sprint_eta": "2026-07-29T20:00:00Z",
+  "project_pause": {
+    "paused": true,
+    "paused_at": "2026-07-29T18:25:00Z",
+    "pause_until": "2026-07-31T18:25:00Z",
+    "reason": "Speed up work + coordination in single environment",
+    "paused_by": "anas",
+    "active_constitution": ".github/workflows/mavis-coordination/constitution.md",
+    "paused_constitution": "CONSTITUTION.md"
+  }
 }

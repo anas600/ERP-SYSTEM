@@ -49,6 +49,17 @@
 
 **Goal:** Self-contained local Docker stack for client demo on Anas's machine.
 
+### ⏸️ PROJECT PAUSED (2026-07-29 18:25 UTC — 2 days)
+**Per Anas's directive** to speed up work and coordination in a single environment:
+- **Active (temporary permanent) constitution:** `.github/workflows/mavis-coordination/constitution.md` (was just created by سيتی + محمد)
+- **Paused constitution:** `CONSTITUTION.md` (marked PAUSED, restored 2026-07-31 18:25 UTC)
+- **Admin Team = سيتی + محمد + ديف** (Cloud) work as "Cron Jobs" coordinated by Mavis Local via `state.json`
+- **Mavis Local = sole Tech Lead + Coordinator** for the 2-day window
+- **No Telegram ping-pong** — all async via state.json
+- **State.json is the single ping-pong point** — read it to know where the ball is
+- **Pause until:** 2026-07-31 18:25 UTC
+- **Reference:** [Anas's directive in this conversation](state.json)
+
 ### PR #172 — Local dev speed boost (in progress, NOT a code PR — gitignored config)
 **Per Anas (2026-07-29):** Use local DB engine for faster dev. Switched `appsettings.Development.json` (gitignored) from Supabase to `localhost:5432` (local Docker Postgres).
 

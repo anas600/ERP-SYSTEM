@@ -3,7 +3,19 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-07-29 (DOX framework applied per Anas mandate)
+**Last updated:** 2026-07-29 18:25 UTC (Anas mandate: PROJECT PAUSED for 2 days; mavis-coordination constitution is now active)
+
+> ## ⚠️ PROJECT PAUSED (per Anas, 2026-07-29 18:25 UTC)
+>
+> **Active constitution (temporary permanent, 2 days):**
+> **[`.github/workflows/mavis-coordination/constitution.md`](./.github/workflows/mavis-coordination/constitution.md)**
+>
+> **Paused constitution:** [CONSTITUTION.md](./CONSTITUTION.md) (marked PAUSED — restored 2026-07-31 18:25 UTC)
+>
+> **What's the same:** architectural constraints, DOX, CHANGELOG discipline, branch protection.
+> **What's different:** Smart cron + state.json is the primary async signal. Admin Team (Siti + Muhammad + Dev) work as "Cron Jobs" coordinated by Mavis Local. No Telegram ping-pong. Mavis Local is sole Tech Lead + Coordinator for the 2-day window.
+>
+> **State of the world:** read `.github/workflows/mavis-coordination/state.json` to know where the ball is. **All async coordination flows through there.**
 
 ---
 
@@ -120,10 +132,12 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 ### Environment Layers (FROZEN per Article 10)
 | Layer | Branch | DB | Status |
 |-------|--------|----|----|--------|
-| Local | any `feature/*` | Local Docker | Active |
+| Local (Mavis Local) | any `feature/*` | **Local Docker Postgres (fast)** | Active |
 | Dev | `develop` | Supabase dev | Active |
 | Staging | (none) | Supabase staging | **FROZEN** |
 | Production | `main` | Supabase production | **FROZEN** |
+
+**Mavis Local dev config (per Anas, 2026-07-29):** use `localhost:5432` (local Docker) for **10-100x faster** login + DB queries. The `appsettings.Development.json` (gitignored) is pre-configured for this. To switch back to Supabase, set `ConnectionStrings__Postgres=Host=aws-0-eu-central-1.pooler.supabase.com;...` env var.
 
 ### Secrets
 - **NEVER** in code, chat, or PRs. Use env vars or secret manager.
