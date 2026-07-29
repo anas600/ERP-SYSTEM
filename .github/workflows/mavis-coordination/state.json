@@ -1,52 +1,54 @@
-{
-  "version": "1.2",
-  "last_updated": "2026-07-29T18:42:00Z",
-  "ball_location": "mavis-local",
-  "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
-  "active_sprint": "5",
-  "open_prs": [
-    {
-      "number": 172,
-      "title": "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
-      "branch": "feature/sprint-5-demo-v2",
-      "state": "open",
-      "opened_by": "mavis-local",
-      "opened_at": "2026-07-29T16:35:00Z",
-      "ci_status": "passing",
-      "note": "READY FOR MERGE per DEC-070 (self-merge). Mavis Local can self-merge when ready."
-    }
-  ],
-  "pending_signals": [
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
-      "created_at": "2026-07-29T18:25:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Use scheduled tasks on the platform (not a file in the project). Mavis Local cron moved to C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (outside project). Per DEC-070 admin, Mavis Local can self-merge PRs marked 'self-merge per DEC-070'.",
-      "created_at": "2026-07-29T18:42:00Z"
-    }
-  ],
-  "issues": [],
-  "next_action": "1. PR #172 still open (READY FOR MERGE) — Mavis Local can self-merge per DEC-070 when ready\n2. Project paused until 2026-07-31 18:25 UTC — no new sprints\n3. Admin Team responds via state.json (smart cron handles updates)\n4. Mavis Local cron lives at C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (NOT in project). Mavis Local can run manually or set up Windows Task Scheduler if needed.\n5. No new project files for crons — keep the project clean per Anas directive.",
-  "last_communication": "2026-07-29T18:42:00Z",
-  "sprint_started_at": "2026-07-29T15:42:00Z",
-  "sprint_eta": "2026-07-29T20:00:00Z",
-  "project_pause": {
-    "paused": true,
-    "paused_at": "2026-07-29T18:25:00Z",
-    "pause_until": "2026-07-31T18:25:00Z",
-    "reason": "Speed up work + coordination in single environment",
-    "paused_by": "anas",
-    "active_constitution": ".github/workflows/mavis-coordination/constitution.md",
-    "paused_constitution": "CONSTITUTION.md"
-  },
-  "mavis_local_cron": {
-    "location": "C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1",
-    "in_project": false,
-    "note": "Per Anas 2026-07-29 18:42:00 UTC — keep crons OUT of the project repo. Use Windows Task Scheduler or manual runs."
-  }
+﻿{
+    "version":  "1.2",
+    "last_updated":  "2026-07-29T16:45:44Z",
+    "ball_location":  "mavis-local",
+    "ball_owner_session":  "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
+    "active_sprint":  "5",
+    "open_prs":  [
+                     {
+                         "number":  172,
+                         "title":  "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
+                         "branch":  "feature/sprint-5-demo-v2",
+                         "state":  "open",
+                         "opened_by":  "mavis-local",
+                         "opened_at":  "2026-07-29T16:35:00Z",
+                         "ci_status":  "passing",
+                         "note":  "READY FOR MERGE per DEC-070 (self-merge). Mavis Local can self-merge when ready."
+                     }
+                 ],
+    "pending_signals":  [
+                            {
+                                "from":  "anas",
+                                "type":  "directive",
+                                "message":  "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
+                                "created_at":  "2026-07-29T18:25:00Z"
+                            },
+                            {
+                                "from":  "anas",
+                                "type":  "directive",
+                                "message":  "Use scheduled tasks on the platform (not a file in the project). Mavis Local cron moved to C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (outside project). Per DEC-070 admin, Mavis Local can self-merge PRs marked \u0027self-merge per DEC-070\u0027.",
+                                "created_at":  "2026-07-29T18:42:00Z"
+                            }
+                        ],
+    "issues":  [
+
+               ],
+    "next_action":  "1. PR #172 still open (READY FOR MERGE) — Mavis Local can self-merge per DEC-070 when ready\n2. Project paused until 2026-07-31 18:25 UTC — no new sprints\n3. Admin Team responds via state.json (smart cron handles updates)\n4. Mavis Local cron lives at C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (NOT in project). Mavis Local can run manually or set up Windows Task Scheduler if needed.\n5. No new project files for crons — keep the project clean per Anas directive.",
+    "last_communication":  "2026-07-29T16:45:44Z",
+    "sprint_started_at":  "2026-07-29T15:42:00Z",
+    "sprint_eta":  "2026-07-29T20:00:00Z",
+    "project_pause":  {
+                          "paused":  true,
+                          "paused_at":  "2026-07-29T18:25:00Z",
+                          "pause_until":  "2026-07-31T18:25:00Z",
+                          "reason":  "Speed up work + coordination in single environment",
+                          "paused_by":  "anas",
+                          "active_constitution":  ".github/workflows/mavis-coordination/constitution.md",
+                          "paused_constitution":  "CONSTITUTION.md"
+                      },
+    "mavis_local_cron":  {
+                             "location":  "C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1",
+                             "in_project":  false,
+                             "note":  "Per Anas 2026-07-29 18:42:00 UTC — keep crons OUT of the project repo. Use Windows Task Scheduler or manual runs."
+                         }
 }
