@@ -1,12 +1,12 @@
 ﻿{
   "version": "1.4",
-  "last_updated": "2026-07-29T17:35:32Z",
+  "last_updated": "2026-07-29T17:42:24Z",
   "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
   "active_sprint": "6",
   "open_prs": [],
   "last_cron_run": {
-    "ran_at": "2026-07-29T17:35:32Z",
+    "ran_at": "2026-07-29T17:42:24Z",
     "prs_merged": 0,
     "prs_open": 0,
     "self_mergeable": 0,
@@ -62,7 +62,7 @@
     }
   ],
   "issues": [],
-  "next_action": "**Sprint 6 T1 = DONE (PR #173 MERGED at 17:25 UTC, c5a3711).**\n\nT1 deliverable (WORKFLOW.md at root + .mavis/AGENTS.md + AGENTS.md + CHANGELOG + docs/workflow/sprint-6.md + state.json refactor) is now in develop.\n\n**Local branch `feature/sprint-6-constitution-cleanup` is now REDUNDANT** — its 37d60c9 commit is functionally equivalent to c5a3711 (same 7 files, +938/-88). The 2 state.json bumps (e0ea789, d6c17f2) don't belong on a feature branch anyway.\n\n**Next (T2 — stale-branch cleanup per docs/workflow/sprint-6.md):**\n- Local feature branches to clean (post-sprint-5): `feature/sprint-4-polish-demo-data`, `feature/sprint-6-constitution-cleanup`, `feature/phase6-1c-auth-jwt` (already merged per git log), `fix/sprint3-merge-conflicts`, `fix/sprint4-merge-conflicts`\n- Also: working tree is on `feature/sprint-6-constitution-cleanup` which is no longer needed — should checkout develop\n- Mavis Local can run: `git fetch --prune && git checkout develop && git pull --ff-only && git branch -d feature/sprint-6-constitution-cleanup`\n\n**Ball stays at mavis-local.** Cron is a tool — NOT cleaning up branches, NOT switching branches, NOT pulling (actor's call).",
+  "next_action": "**Sprint 6 T1 = DONE (PR #173 MERGED at 17:25 UTC, c5a3711).**\n\n**Current state @ 17:42 UTC:**\n- Branch: `feature/sprint-6-post-demo-hardening` (tracks origin/develop, up to date at 20fca84)\n- Working tree has 3 uncommitted files (actor's T5 doc polish in progress):\n  - `CHANGELOG.md` — new Sprint 6 entry\n  - `docs/AGENTS.md` — points to WORKFLOW.md (active) + CONSTITUTION.md (paused) + root CHANGELOG.md\n  - `docs/workflow/demo-roadmap.md` — actual completion status of Sprints 0-5\n- 0 open PRs, 0 self-mergeable\n- T2 (stale-branch cleanup) was completed in prior session; T3-T4 deferred; T5 (Doc polish) is now in progress; T6 (Verify) + T7 (Open PR + self-merge) pending\n\n**Ball stays at mavis-local.** Cron is a tool — NOT switching branches, NOT stashing, NOT committing actor's WIP. The actor will commit + push the T5 doc polish changes when ready.",
   "last_communication": "2026-07-29T19:13:00Z",
   "sprint_started_at": "2026-07-29T19:15:00Z",
   "sprint_eta": "2026-07-29T22:00:00Z",
