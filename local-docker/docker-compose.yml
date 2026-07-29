@@ -28,10 +28,10 @@ services:
       timeout: 3s
       retries: 5
 
-  # Backend API — built from the project's Dockerfile
+  # Backend API — built from src/backend/Dockerfile
   api:
     build:
-      context: .
+      context: ../src/backend
       dockerfile: Dockerfile
     container_name: erp-api-local
     restart: unless-stopped
@@ -42,7 +42,10 @@ services:
       ASPNETCORE_ENVIRONMENT: Development
       ASPNETCORE_URLS: "http://+:5000"
       ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+      ConnectionStrings__Migrations: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
+      Marten__ConnectionString: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=60;Connection Pruning Interval=10;Keepalive=30;Timeout=15;Command Timeout=60"
       Database__AutoMigrate: "true"
+      Database__JsonMigrationEnabled: "true"
       JwtSettings__Secret: "LOCAL_DEV_ONLY_64_CHAR_RANDOM_SECRET_NOT_FOR_PRODUCTION_xxxxx"
     ports:
       - "5000:5000"
@@ -60,7 +63,7 @@ services:
     restart: unless-stopped
     working_dir: /app
     volumes:
-      - ./src/frontend:/app
+      - ../src/frontend:/app
     ports:
       - "3000:3000"
     command: sh -c "npm install && npm run dev"
