@@ -1,11 +1,22 @@
 ﻿{
   "version": "1.4",
-  "last_updated": "2026-07-29T17:26:56Z",
+  "last_updated": "2026-07-29T17:30:00Z",
   "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
   "active_sprint": "6",
   "open_prs": [],
   "recent_merges": [
+    {
+      "number": 173,
+      "title": "feat(workflow): Sprint 6 prep — promote WORKFLOW.md to root + Jimi worker contract",
+      "branch": "feature/sprint-6-constitution-cleanup",
+      "merged_by": "mavis-cloud (سيتی auto-merge)",
+      "merged_at": "2026-07-29T17:25:00Z",
+      "merge_method": "squash",
+      "merge_commit": "c5a3711",
+      "sprint": "6",
+      "notes": "Cloud team re-pushed the local T1 work (which was on local branch but never pushed to origin) and opened + merged PR #173. 7 files, +938/-88 (same scope as local 37d60c9)."
+    },
     {
       "number": 172,
       "title": "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
@@ -44,7 +55,7 @@
     }
   ],
   "issues": [],
-  "next_action": "Sprint 6 T1 work COMPLETE on local branch feature/sprint-6-constitution-cleanup (2 unpushed commits). No PR open yet — branch has not been pushed to origin (fetch --prune confirms no remote ref).\n\nCurrent state:\n- HEAD = 37d60c9 'feat(workflow): promote WORKFLOW.md to root + activate Jimi worker contract' (tagged 'self-merge per DEC-070')\n- HEAD~1 = e0ea789 state.json bump from previous cron tick\n- Working tree: clean\n- 7 files changed vs origin/develop, +938/-88 lines (T1 deliverable)\n\nScope (per docs/workflow/sprint-6.md):\n- T1 ✅ DONE: WORKFLOW.md at root, .mavis/AGENTS.md active, AGENTS.md + CHANGELOG updated\n- T2 (next): stale-branch cleanup\n- T3-T5 (optional): test gap-fill, FE polish, doc polish\n- T6: verify (build + test + typecheck)\n- T7: push branch + open PR + self-merge per DEC-070\n\nBall stays at mavis-local. Cron is a tool, not an actor — NOT pushing/opening PR (actor's call).",
+  "next_action": "**Sprint 6 T1 = DONE (PR #173 MERGED at 17:25 UTC, c5a3711).**\n\nT1 deliverable (WORKFLOW.md at root + .mavis/AGENTS.md + AGENTS.md + CHANGELOG + docs/workflow/sprint-6.md + state.json refactor) is now in develop.\n\n**Local branch `feature/sprint-6-constitution-cleanup` is now REDUNDANT** — its 37d60c9 commit is functionally equivalent to c5a3711 (same 7 files, +938/-88). The 2 state.json bumps (e0ea789, d6c17f2) don't belong on a feature branch anyway.\n\n**Next (T2 — stale-branch cleanup per docs/workflow/sprint-6.md):**\n- Local feature branches to clean (post-sprint-5): `feature/sprint-4-polish-demo-data`, `feature/sprint-6-constitution-cleanup`, `feature/phase6-1c-auth-jwt` (already merged per git log), `fix/sprint3-merge-conflicts`, `fix/sprint4-merge-conflicts`\n- Also: working tree is on `feature/sprint-6-constitution-cleanup` which is no longer needed — should checkout develop\n- Mavis Local can run: `git fetch --prune && git checkout develop && git pull --ff-only && git branch -d feature/sprint-6-constitution-cleanup`\n\n**Ball stays at mavis-local.** Cron is a tool — NOT cleaning up branches, NOT switching branches, NOT pulling (actor's call).",
   "last_communication": "2026-07-29T19:13:00Z",
   "sprint_started_at": "2026-07-29T19:15:00Z",
   "sprint_eta": "2026-07-29T22:00:00Z",
