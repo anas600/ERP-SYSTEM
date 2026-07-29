@@ -1,63 +1,45 @@
-# 🔔 src/backend/Modules/Notifications/AGENTS.md
+# 🔔 AGENTS.md — src/backend/Modules/Notifications/
 
-> Notifications Module — ✅ Phase 2.3 (in-app notifications).
->
-> محدّث: 2026-06-24 — إضافة Phase 3+ context
->
-> **Phase 6 (2026-07-27) — Multi-Company update:** Per Constitution Article 3, this module now uses `ICompanyContext` (instead of removed `ITenantContext`). All queries filter by `company_id` (instead of removed `tenant_id`). Users are global, companies are many. JWT carries `default_company_id` + `company_ids[]`. See root [AGENTS.md](../../../../AGENTS.md#-multi-company-convention-per-constitution-article-3) and [docs/PHASE6-RELEASE-NOTES.md](../../../../PHASE6-RELEASE-NOTES.md) for migration guide.
+> **Notifications module.** Read all parent AGENTS.md files first.
 
-## شو فيه
-
-```
-Notifications/
-├── Entities/Notification.cs
-├── Infrastructure/NotificationRepository.cs
-└── Application/Services/NotificationService.cs
-```
-
-## Domain Model
-
-`Notification` (in-DB):
-- `Type` (string): "LowStock" حالياً، مستقبلياً "JournalPosted", "HighVariance"...
-- `Title`, `Message`
-- `ReferenceType` + `ReferenceId` (optional): Item, Project, JournalEntry...
-- `IsRead`, `ReadAt`
-- `UserId` (target user — حالياً نستخدم creator، مستقبلياً Holding-wide admin)
-
-## Endpoints (3)
-
-| Method | Path | الـ Function |
-|--------|------|-------------|
-| GET | /api/inventory/notifications | user notifications (paginated) |
-| GET | /api/inventory/notifications/unread | unread + count |
-| POST | /{id}/mark-read | mark as read |
-
-## لما تشتغل هنا
-
-- إضافة Type جديد: عدّل `NotificationService.CreateAsync` calls
-- إضافة channel (email, push): أنشئ `IEmailSender` وادعوه من `NotificationService` (PR #8+)
-- تحسين targeting: Holding-wide admin list بدلاً من creator-only
-
-## مرتبطة بـ
-
-- [`../../AGENTS.md`](../../AGENTS.md)
-- [`../Inventory/AGENTS.md`](../Inventory/AGENTS.md) — يستدعي LowStock
-- [`../Finance/AGENTS.md`](../Finance/AGENTS.md) — JournalPosted alerts (PR #7)
-- [`../Procurement/AGENTS.md`](../Procurement/AGENTS.md) — Phase 3 (PO Approved, Bill Due)
-- [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5 (Leave Approved, Attendance Alert)
-- [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4 (Payroll Processed, Payslip Ready)
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+In-app notifications (bell icon, popover, full list). Per-user, optionally per-company.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../../../../AGENTS.md) for full cross-team protocol.
+| Role | Owner |
+|------|-------|
+| **Authoring** | Jimi تنفيذي |
+| **Real-time** | SignalR hub (when added) |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+### Schema
+- `notifications` — `id`, `user_id`, `company_id`, `type`, `title`, `body`, `is_read`, `read_at`, `created_at`.
+- **Soft read** via `is_read` + `read_at`.
+
+### Real-time
+- **SignalR Hub** (future): `/hubs/notifications`.
+- **Polling fallback:** every 30s when no SignalR.
+
+## Work Guidance
+
+### Adding a Notification Type
+1. Add enum in `Domain/NotificationType.cs`.
+2. Add notification service method in `Application/Services/NotificationService.cs`.
+3. Add to UI via `frontend/app/(authenticated)/notifications/`.
+
+## Verification
+
+- [ ] `dotnet test --filter "Notifications"` — all green.
+- [ ] No `tenant_id`.
+- [ ] All notifications have `user_id`.
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

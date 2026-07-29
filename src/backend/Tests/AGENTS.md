@@ -1,82 +1,66 @@
-# 🧪 src/backend/Tests/AGENTS.md
+# 🧪 AGENTS.md — src/backend/Tests/
 
-> Unit + Integration tests.
->
-> محدّث: 2026-06-24 — إضافة Phase 3+ test coverage
+> **xUnit tests.** Read `/AGENTS.md`, `/src/AGENTS.md`, and `/src/backend/AGENTS.md` first.
 
-## شو فيه
-
-```
-Tests/
-└── ERPSystem.Tests/
-    ├── ERPSystem.Tests.csproj
-    └── Auth/
-        ├── JwtTokenServiceTests.cs    # Token generation/validation
-        └── ValidatorsTests.cs          # FluentValidation rules
-```
-
-## Conventions
-
-- **xUnit** (لا NUnit ولا MSTest)
-- **FluentAssertions** للـ assertions (`result.Should().Be...`)
-- **Naming**: `<Class>Tests` لكل class يُختبر
-- **Arrange-Act-Assert** pattern بوضوح
-- **Tests مستقلة** — لا تعتمد على ترتيب التنفيذ
-- **Mock dependencies** عبر Moq أو NSubstitute (عند الحاجة لـ DB)
-
-## Types of Tests
-
-### Unit Tests (سريع، لا IO)
-
-- Pure logic: Validators، Token generation، Password hashing
-- الـ Target: `Application/`, `Shared/`
-
-### Integration Tests (يحتاج DB)
-
-- Repository queries
-- Auth flow كامل
-- الـ Target: `Infrastructure/`, `Host/Controllers/`
-- **يحتاج** Postgres test DB (موجود في CI)
-
-## لما تضيف feature جديد
-
-1. اكتب unit tests للـ services
-2. اكتب integration tests للـ endpoints (إن أمكن)
-3. تأكد: `dotnet test` يمر محلياً + على CI
-
-## 🆕 Phase 3 / 3.5 / 4 Test Coverage
-
-- **Reports (Phase 2.5):** 20 tests (FinanceReport × 7 + InventoryReport × 7 + ProjectReport × 6)
-- **Procurement (Phase 3):** ⚠️ الـ workers ركّزوا على الـ E2E (PowerShell) بدل unit tests — Tests folder لا يحوي procurement tests بعد
-- **HR (Phase 3.5):** ⚠️ نفس — يعتمد على E2E
-- **Payroll (Phase 4):** ⚠️ الـ 3 Calculators (`LibyaTaxCalculator`, `EosCalculator`, `SocialInsuranceCalculator`) pure logic ومناسبة لـ unit tests لكن لم تُكتب بعد
-
-**التوصية للـ Phase 5:** اكتب unit tests للـ Calculators أولاً (أسهل مكسب — pure logic بدون DB).
-
-## CI Integration
-
-- `dotnet test` يعمل على CI مع Postgres + Redis services
-- Test results تُرفع كـ artifact
-- Coverage report (مستقبلي)
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../Host/AGENTS.md`](../Host/AGENTS.md)
-- [`../Modules/Identity/AGENTS.md`](../Modules/Identity/AGENTS.md) — Patterns مستهدفة
-- [`../Modules/Payroll/AGENTS.md`](../Modules/Payroll/AGENTS.md) — Phase 4 (Calculators)
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+Unit + integration tests for the backend. xUnit framework. Per Constitution Article 11: **One test per endpoint (smoke) is the standard.**
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../../../AGENTS.md) for full cross-team protocol.
+| Role | Owner |
+|------|-------|
+| **Authoring** | Jimi تنفيذي (QA) |
+| **Approval** | Mavis Local (verify before PR) |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+- **One test per endpoint** (smoke). Not full coverage.
+- **Test naming:** `<ClassName>Tests` (e.g., `CompaniesListTests`).
+- **Use `FluentAssertions`** for readable assertions.
+- **Fake DB** (`FakeDbConnectionFactory`) for unit tests.
+- **Real DB** (Supabase dev) only for integration tests.
+- **No `tenant_id` in tests.** Use `company_id`.
+
+## Work Guidance
+
+### Adding a Test
+1. Create in `src/backend/Tests/ERPSystem.Tests/<Module>/<ClassName>Tests.cs`.
+2. Test one happy-path scenario.
+3. Use `FakeDb` for unit tests, real DB for integration.
+4. Name should describe what's tested, not what's mocked.
+
+### Test Pattern
+```csharp
+public class CompaniesListTests
+{
+    [Fact]
+    public async Task GetCompanies_ReturnsPaginatedList()
+    {
+        // Arrange: setup FakeDb with seed data
+        // Act: call the API
+        // Assert: verify response shape
+    }
+}
+```
+
+## Verification
+
+- [ ] `dotnet test` — all green.
+- [ ] One test per endpoint.
+- [ ] No flaky tests.
+- [ ] No `tenant_id`: `grep -r "tenant" src/backend/Tests/`.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| `src/backend/Tests/ERPSystem.Tests/` | All test classes | Active |
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

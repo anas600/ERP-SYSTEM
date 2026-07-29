@@ -1,78 +1,67 @@
-# 🚪 src/backend/Host/AGENTS.md
+# 🚪 AGENTS.md — src/backend/Host/
 
-> نقطة الدخول للـ Backend (Program.cs + Controllers + Swagger).
+> **Entry point + controllers + middleware.** Read `/AGENTS.md`, `/src/AGENTS.md`, and `/src/backend/AGENTS.md` first.
 
-## شو فيه
-
-- `Program.cs` — composition root: DI registrations، middleware pipeline
-- `Controllers/` — كل الـ HTTP endpoints
-- `Swagger/` — Swagger customizations
-- `appsettings.json` + `appsettings.Development.json` — التهيئة
-- `ERP-SYSTEM.csproj` — الـ NuGet dependencies + Compile Includes للموديولات
-
-## Conventions
-
-- **Controllers فقط في Host** — منطق الأعمال في `Application/` layers
-- **DI registrations في Program.cs** مرتبة: Logging → Config → Infrastructure → Application → Auth → API
-- **Endpoint route**: دائماً `api/<module>/<resource>` — مثال: `api/auth/login`
-- **Response shape**: إما typed DTO أو `ProblemDetails` للأخطاء
-- **Authorize**: استخدم `[Authorize]` على الـ controller أو action، استخدم `[AllowAnonymous]` فقط على `register/login/refresh`
-- **Validators**: عند إنشاء `IValidator<TRequest>` جديد، **تأكد أن** اسم الـ class هو `XRequestValidator` (مثلاً `UpdateProjectRequestValidator`) — لأن `AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>()` يكتشف فقط الـ validators الموجودة في الـ Host assembly. **أي Request DTO يُمرر للـ controller يجب أن يكون له validator مقابل** (وإلا DI يفشل بـ 500).
-
-## لما تشتغل هنا
-
-- عند إضافة module جديد:
-  1. أنشئ folder في `Modules/<Name>/`
-  2. عرّف الـ interfaces و DI registrations في Program.cs
-  3. أنشئ Controller في `Host/Controllers/<Name>Controller.cs`
-  4. أضف الـ migration في `Shared/Migrations/`
-- عند تغيير DI: حدّث قسم DI registrations في هذا الـ AGENTS.md
-
-## بعد التعديل
-
-- تأكد أن `dotnet build` نظيف
-- Swagger UI يعرض الـ endpoints الجديدة
-- Health endpoints (`/health`, `/health/live`, `/health/ready`) ترجع 200
-
-## Health Endpoints (الفعلية)
-
-| Endpoint | الـ Route | الـ Method | الغرض |
-|----------|---------|----------|-------|
-| `MapGet("/health")` | `Program.cs` | GET | Liveness (بدون controller) |
-| `HealthController.Live` | `/health/live` | GET | Liveness (في HealthController) |
-| `HealthController.Ready` | `/health/ready` | GET | Readiness (يفحص Postgres؛ Redis اختياري) |
-
-## Controllers المسجّلة (Phase 3+)
-
-- `AuthController` — Identity
-- `AccountsController`, `JournalEntriesController`, `LedgerController`, `PostingRulesController` — Finance
-- `CompaniesController`, `CostCentersController` — Companies
-- `ProjectsController`, `TasksController`, `ResourcesController` — Projects
-- `ItemsController`, `ItemCategoriesController`, `WarehousesController`, `UnitOfMeasuresController`, `StockMovementsController`, `StockLevelsController`, `StockReservationsController` — Inventory
-- `NotificationsController` — Notifications
-- `EventsController` — EventBus
-- `ReportsController` — Reports
-- **`ProcurementController`** 🆕 Phase 3 — 11 endpoints (vendors, POs, GRs, bills)
-- **`HrController`** 🆕 Phase 3.5 — 6+ endpoints (departments, employees, attendance, leaves)
-
-**Redis** مسجّل في DI فقط لو `ConnectionStrings:Redis` غير فارغ. مع `AbortOnConnectFail = false`، النظام يستمر في العمل حتى لو Redis معطّل (لـ dev). في الإنتاج، يجب تشغيل Redis واعتماده كـ dependency.
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../Shared/AGENTS.md`](../Shared/AGENTS.md)
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+ASP.NET Core host: `Program.cs`, controllers, middleware, hosted services. The "front door" of the API.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../../../AGENTS.md) for full cross-team protocol.
+| Subtree | Owner | Authority |
+|---------|-------|-----------|
+| `src/backend/Host/Controllers/` | Jimi تنفيذي | All API endpoints |
+| `src/backend/Host/Middleware/` | Jimi تنفيذي | Cross-cutting middleware (JWT, Company, Logging, Errors) |
+| `src/backend/Host/Bootstrap/` | Jimi تنفيذي | Hosted services (e.g., DemoDataSeeder) |
+| `src/backend/Host/Auth/`, `Audit/`, `Utilities/`, `data-types/` | Jimi تنفيذي | Sub-features |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+- **All endpoints** filter by `company_id` from `CompanyContext`.
+- **All controllers** use `[Authorize]` + `[CompanyAuthorize]`.
+- **All DTOs** are in `Modules/<Module>/Application/DTOs/`, not in Host.
+- **All business logic** is in `Modules/<Module>/Application/Services/`, not in Host.
+- **Middleware order** (in `Program.cs`):
+  1. GlobalException
+  2. RequestLogging
+  3. JWT Auth
+  4. CompanyContext
+  5. Authorization
+
+## Work Guidance
+
+### Adding a Controller
+1. Create `src/backend/Host/Controllers/<Resource>Controller.cs`.
+2. Inject the appropriate service from `Modules/<Module>/Application/Services/`.
+3. Use `[Authorize]` on the controller.
+4. Filter by `CompanyContext.CompanyId` in every action.
+5. Add OpenAPI attributes for documentation.
+
+### Adding Middleware
+1. Create in `src/backend/Host/Middleware/<Name>Middleware.cs`.
+2. Register in `Program.cs` pipeline.
+3. Document order in this file.
+
+## Verification
+
+- [ ] `dotnet build` — zero errors.
+- [ ] All controllers have `[Authorize]`.
+- [ ] All actions filter by `CompanyContext.CompanyId`.
+- [ ] No business logic in controllers.
+- [ ] No `tenant_id` references: `grep -r "tenant" src/backend/Host/`.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| `src/backend/Host/Controllers/` | API controllers | **TO CREATE** |
+| `src/backend/Host/Middleware/` | Cross-cutting middleware | **TO CREATE** |
+| `src/backend/Host/Bootstrap/` | Hosted services | **TO CREATE** |
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

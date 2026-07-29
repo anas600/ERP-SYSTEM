@@ -1,60 +1,56 @@
-# 🔄 .github/AGENTS.md
+# 🔄 AGENTS.md — .github/
 
-> GitHub Actions workflows + Repository automation.
->
-> محدّث: 2026-06-24 (Phase 4)
+> **GitHub workflows + templates.** Read root AGENTS.md first.
 
-## شو فيه
-
-```
-.github/
-├── workflows/
-│   └── ci.yml     # Backend + Frontend + Docker build
-└── AGENTS.md      # هذا الملف
-```
-
-> **ملاحظة:** الـ workflows انتقلت من `infra/.github/workflows/` إلى `.github/workflows/` ليقرأها GitHub Actions بشكل صحيح.
-
-## Workflows
-
-### ci.yml
-
-- **Triggers**: push / PR على main و develop
-- **Concurrency**: يلغي pipelines قديمة على نفس الـ PR
-- **Jobs**:
-  1. `backend` — restore → build → test مع Postgres + Redis services
-  2. `frontend` — install → type-check → lint → build (مع `.eslintrc.json` المثبَّت في Phase 3 لتفادي الـ non-interactive prompt)
-  3. `docker` — يبني صورة الـ API (بدون push)
-
-> **Phase 4 ملاحظة:** مع Phase 3 (`feature/phase-3-frontend`) و Phase 4، الـ CI يختبر:
-> - backend: 10 migrations (identity → finance → projects → inventory → outbox → procurement → hr → payroll)
-> - frontend: 24 صفحة عبر 4 route groups
-
-## Conventions
-
-- **Pinned versions** للـ actions (`@v4`، `@v6`، إلخ)
-- **Env vars** مشتركة في `env:` block
-- **Cache** للـ NuGet و npm
-- **Test results** تُرفع كـ artifacts
-- **Secrets** من GitHub Secrets (لا تضعها في الـ YAML)
-
-## PR Rules
-
-- كل push على `main` أو `develop` → CI يـ runs
-- كل PR → CI required check قبل الـ merge
-- الـ branch protection لازم يكون: "Require status checks to pass before merging"
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+GitHub Actions workflows, branch protection, and PR templates.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../AGENTS.md) for full cross-team protocol.
+| Role | Owner |
+|------|-------|
+| **Authoring** | Dev (DevOps mode) |
+| **Approval** | Anas (production workflows) / Mavis Local (dev) |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+### Required CI Checks (6, per Constitution Article 4)
+1. **Backend Tests (.NET 9.0)** — `dotnet test`
+2. **Frontend Build (Next.js 14)** — `npm run build`
+3. **CodeQL** — security scan
+4. **TruffleHog** — secret scan
+5. **Analyze (javascript-typescript)** — code quality
+6. **Analyze (csharp)** — code quality
+
+### Optional
+- **Playwright E2E** — not required for merge (per Constitution Article 11).
+
+## Work Guidance
+
+### Adding a Workflow
+1. Create `.github/workflows/<name>.yml`.
+2. Use pinned action versions (`@v4.1.0`, not `@main`).
+3. Document triggers and required secrets in workflow header.
+4. Add to required checks if it's a new mandatory check.
+
+## Verification
+
+- [ ] All workflows have valid YAML.
+- [ ] All actions pinned to versions.
+- [ ] No secrets hardcoded (use `${{ secrets.X }}`).
+- [ ] PR template updated if new required fields needed.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| `.github/workflows/` | CI/CD workflows | Active |
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

@@ -1,60 +1,41 @@
 # 📚 AGENTS.md — docs/
 
-> **Per-directory context for `/docs/`.**
+> **Per-directory context for `/docs/`.** Read root AGENTS.md first.
 
-**Last updated:** 2026-07-29 (Cleanup)
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🎯 Purpose
+## Purpose
 
 This directory contains **governance, roadmap, and architecture documentation** for ERP-SYSTEM.
 
-**Rules:**
+The single source of truth is:
+- **Constitution:** [`/CONSTITUTION.md`](../CONSTITUTION.md)
+- **Roadmap:** [`docs/workflow/demo-roadmap.md`](./workflow/demo-roadmap.md)
+- **Architecture:** [`docs/architecture/holding-company-architecture.md`](./architecture/holding-company-architecture.md)
+- **Changelog:** [`docs/CHANGELOG.md`](./CHANGELOG.md)
 
-1. **One source of truth per topic:**
-   - Constitutional questions → `CONSTITUTION.md` (root, not here)
-   - Roadmap questions → `workflow/demo-roadmap.md`
-   - Architecture questions → `architecture/`
-   - Recent changes → `CHANGELOG.md`
+## Ownership
 
-2. **No per-decision, per-cycle, per-hand-off documents.** They're in CHANGELOG.md or merged into CONSTITUTION.
+| Role | Owner |
+|------|-------|
+| **Authoring** | Siti (Cloud Coordinator) + Muhammad (Architect) |
+| **Approval** | Anas (Project Owner) |
+| **Cleanup** | All agents must remove stale files |
 
-3. **No old files.** If a doc is no longer current, delete it.
+## Local Contracts
 
----
+- **One source of truth per topic.** No duplicate documentation.
+- **No per-decision, per-cycle, per-hand-off documents.** They're in CHANGELOG.md or merged into CONSTITUTION.
+- **No old files.** If a doc is no longer current, delete it.
+- **No `tenant_*` references anywhere.** Use `company_*` only.
 
-## 📁 Subdirectories
+## Work Guidance
 
-| Path | Purpose |
-|------|---------|
-| `workflow/` | Roadmap + sprint plans (demo-roadmap.md, sprint-N.md) |
-| `architecture/` | Architecture documentation (Siti-authored) |
-
----
-
-## 🚫 What's NOT in this directory anymore (deleted in 2026-07-29 cleanup)
-
-- ❌ `dec-051` through `dec-111` (per-decision folders) — merged into CONSTITUTION
-- ❌ `DEC-070`, `DEC-071`, `DEC-072` files — merged into CONSTITUTION Articles 10-12
-- ❌ `E2E-TEST-*` files — historical, not needed
-- ❌ `HANDOFF-*.md` (5 files) — replaced by sprint docs in `workflow/`
-- ❌ `PHASE6-*` (5 files) — completed, archived in CHANGELOG
-- ❌ `RELEASE-REPORT-*.html` — historical
-- ❌ `seed-*.sql` (8 files) — moved to `src/backend/Host/Bootstrap/` or `docs/seed-sprint4-demo-data.sql`
-- ❌ `SYSTEM-FUNCTIONAL-SPECIFICATION.*` — replaced by architecture doc
-- ❌ `governance/` (29 files) — simplified, key info in CONSTITUTION
-- ❌ `research/`, `runbooks/`, `workflows/` — historical
-
-**Keep it lean. One place per topic. Update, don't multiply.**
-
----
-
-## ✏️ Adding New Documentation
-
+### Adding New Documentation
 Before adding a new file, ask:
-
-1. Is this about the **Constitution**? → Add to `CONSTITUTION.md` instead.
+1. Is this about the **Constitution**? → Add to `/CONSTITUTION.md` instead.
 2. Is this about the **Roadmap**? → Add to `docs/workflow/demo-roadmap.md`.
 3. Is this about a **specific sprint**? → Add to `docs/workflow/sprint-N.md`.
 4. Is this about **Architecture**? → Add to `docs/architecture/`.
@@ -62,6 +43,26 @@ Before adding a new file, ask:
 
 If none of the above, **don't add it.** Update existing.
 
+### Style
+- Concise, operational.
+- Document stable contracts, not diary entries.
+- Delete stale notes instead of explaining history.
+- Use English for technical terms; Arabic for user-facing content.
+
+## Verification
+
+- [ ] No `tenant_id` references: `grep -r "tenant_id" docs/`.
+- [ ] No files older than 90 days without explicit reason.
+- [ ] All cross-references resolve (use grep, not click).
+- [ ] CHANGELOG.md is current with this sprint.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| [`docs/architecture/`](./architecture/) | Architecture documentation (Siti-authored) | Active |
+| [`docs/workflow/`](./workflow/) | Roadmap + sprint plans | Active |
+
 ---
 
-_Last updated: 2026-07-29 by Mavis (Muhammad mode), approved by Anas_
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

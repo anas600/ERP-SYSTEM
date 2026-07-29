@@ -1,77 +1,48 @@
-# 🏗️ infra/AGENTS.md
+# 🏗️ AGENTS.md — infra/
 
-> البنية التحتية: Docker + CI/CD.
->
-> محدّث: 2026-06-24 (Phase 4)
+> **Infrastructure-as-Code.** Read root AGENTS.md first.
 
-## شو فيه
-
-```
-infra/
-├── docker/
-│   ├── docker-compose.dev.yml     # بيئة التطوير (PostgreSQL 15 + Redis 7)
-│   ├── Dockerfile.api             # 🆕 multi-stage build للـ backend
-│   └── init-scripts/              # سكربتات Postgres init (multi-DB)
-└── .github/
-    └── workflows/
-        └── ci.yml                 # GitHub Actions (jobs: backend, frontend, docker)
-```
-
-> **Phase 4 ملاحظة:** Docker Compose يستخدم PostgreSQL 15 (مُختبَر محلياً بـ 15.18). Redis اختياري (الكود يتعامل مع `AbortOnConnectFail=false`). الـ Health checks تعتمد على `/health/live` و `/health/ready`.
-
-## Conventions
-
-### Docker
-
-- **multi-stage builds** لتقليل حجم الـ images
-- **non-root user** في الـ runtime stage
-- **HEALTHCHECK** على كل service
-- **.dockerignore** (يُضاف عند الحاجة)
-- **Secrets** عبر env vars (لا تُحفظ في الـ compose file)
-
-### CI/CD
-
-- **GitHub Actions** فقط
-- **PR checks** قبل الـ merge
-- **Cache** للـ NuGet و npm
-- **Postgres + Redis services** للـ integration tests
-- **Docker build** بدون push (للتأكد من الـ Dockerfile)
-
-## لما تشتغل هنا
-
-- إضافة service جديد في `docker-compose.dev.yml`:
-  1. حدد الـ image
-  2. عرّف env vars
-  3. عرّف healthcheck
-  4. اربطه بالـ dependencies
-- إضافة workflow جديد:
-  1. حدد الـ trigger
-  2. استخدم نفس الـ env values
-  3. cache حيث أمكن
-
-## بعد التعديل
-
-- `docker compose config` يمر بدون errors
-- الـ CI يمر على main branch
-- Health checks تشتغل في الـ containers
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`docker/AGENTS.md`](docker/AGENTS.md)
-- [`../src/backend/AGENTS.md`](../src/backend/AGENTS.md)
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+Infrastructure configuration: Docker Compose, deployment scripts, init scripts.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../AGENTS.md) for full cross-team protocol.
+| Role | Owner |
+|------|-------|
+| **Authoring** | Dev (DevOps mode) |
+| **Approval** | Anas (production) / Mavis Local (dev) |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+- **All env-specific values via env vars.** NO hardcoded secrets.
+- **Docker images pinned to specific versions** (no `latest`).
+- **Idempotent init scripts** (use `IF NOT EXISTS`).
+
+## Work Guidance
+
+### Adding Docker Config
+- Create in `infra/docker/docker-compose.<env>.yml`.
+- Use named volumes for data persistence.
+- Document in `infra/docker/AGENTS.md`.
+
+## Verification
+
+- [ ] `docker compose -f infra/docker/docker-compose.dev.yml config` — valid.
+- [ ] No secrets in YAML files.
+- [ ] All init scripts idempotent.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| [`infra/docker/`](./docker/) | Docker Compose + init scripts | Active |
+| [`infra/scripts/`](./scripts/) | Deployment scripts | Active |
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

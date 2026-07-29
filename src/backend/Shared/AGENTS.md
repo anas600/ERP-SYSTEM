@@ -1,138 +1,68 @@
-# 🔧 src/backend/Shared/AGENTS.md
+# 🔄 AGENTS.md — src/backend/Shared/
 
-> كود مشترك بين كل الـ modules (لا يحتوي domain logic خاص).
->
-> محدّث: 2026-07-24 — **Npgsql Resiliency baseline (DEC-093)** + **OutboxProcessor exponential backoff**
+> **Cross-cutting concerns.** Read `/AGENTS.md`, `/src/AGENTS.md`, and `/src/backend/AGENTS.md` first.
 
-## شو فيه
-
-```
-Shared/
-├── Infrastructure/
-│   ├── IDbConnectionFactory.cs        # عقد اتصالات DB
-│   └── NpgsqlConnectionFactory.cs    # تنفيذ Npgsql
-├── MultiTenancy/
-│   ├── ICompanyContext.cs             # عقد السياق (Phase 6.1b: الـ abstraction الفعّال الوحيد)
-│   ├── CompanyContext.cs              # تنفيذ AsyncLocal
-│   └── CompanyContextMiddleware.cs    # يلتقط company_id من X-Company-Id header + JWT
-├── Migrations/                        # FluentMigrator (timestamp-based)
-│   ├── 20260614_120000_CreateIdentityTables.cs
-│   ├── 20260614_180000_CreateFinanceTables.cs
-│   ├── 20260615_020000_AddMultiCompanySupport.cs
-│   ├── 20260615_050000_CreateProjectsTables.cs
-│   ├── 20260615_070000_AddInventoryCore.cs
-│   ├── 20260615_090000_AddInventoryMovements.cs
-│   ├── 20260615_110000_AddOutboxAndProcessedEvents.cs
-│   ├── 20260623_120000_CreateProcurementTables.cs  # 🆕 Phase 3
-│   ├── 20260623_130000_CreateHRTables.cs           # 🆕 Phase 3.5
-│   └── MigrationRunnerHostedService.cs             # يشغّل الـ migrations
-└── Events/
-    └── StockEvents.cs                 # Contracts للـ Pub/Sub بين الموديولات
-```
-
-## Conventions
-
-### Infrastructure
-
-- **IDbConnectionFactory**: كل module يستخدم نفس الـ factory (Singleton)
-- **الاتصال**: `using var conn = await _factory.CreateOltpConnectionAsync(ct)` — ثم Dapper queries
-- **لا singleton** على الـ Repository — scoped (لكل request)
-- **ممنوع** استدعاء Repositories من Shared/
-
-### 🛡️ Npgsql Resiliency Baseline (DEC-093, 2026-07-24)
-
-**الإعدادات الافتراضية** تُطبَّق على كل connection يفتحه `NpgsqlConnectionFactory` (حتى لو الـ connection string ما يحويها):
-
-| Parameter | Default | Why |
-|-----------|---------|-----|
-| `CommandTimeout` | **60s** (was 30) | منع `OutboxProcessor` timeout على استعلامات طويلة (root cause لـ timeout في HF deploy) |
-| `Timeout` (connect) | **15s** | fail-fast على network issues، أحسن من default 30s |
-| `MinPoolSize` | **1** | يحافظ على connection warm للـ OutboxProcessor |
-| `MaxPoolSize` | **20** | مناسب لـ 6GB RAM local + HF Space free tier (2 vCPU 16GB) |
-| `KeepAlive` | **30s** | يمنع stale connections عبر Supabase pooler (eu-central-1) |
-| `ConnectionIdleLifetime` | **300s** (5min) | تنظيف connections الخاملة |
-| `ConnectionPruningInterval` | **10s** | فحص دوري للـ pruning |
-
-**Override:** كل قيمة قابلة للـ override من `appsettings.json` → `Database.*`:
-```json
-"Database": {
-  "CommandTimeoutSeconds": 60,
-  "ConnectionTimeoutSeconds": 15,
-  "MaxPoolSize": 20,
-  "MinPoolSize": 1,
-  "KeepaliveSeconds": 30,
-  "ConnectionIdleLifetimeSeconds": 300
-}
-```
-
-**ملاحظة:** `NpgsqlConnectionStringBuilder` ما يدعم `TcpKeepalive` في الإصدار 8.0.5 (موجود في 9.x). نعتمد على Postgres-level `KeepAlive` بدلاً.
-
-### 🔄 OutboxProcessor Exponential Backoff (DEC-093)
-
-`OutboxProcessorHostedService` يستخدم exponential backoff على مستوى الـ loop:
-- Base: 5s
-- بعد أي فشل: 5s → 10s → 20s → 40s → max 60s
-- Reset: أول batch ناجح → رجوع لـ 5s
-
-**الهدف:** منع hot-loop ضد Supabase وقت الانقطاع المؤقت (مثل pooler 504s).
-
-### MultiTenancy (Phase 6.1b)
-
-- **الـ abstraction الفعّال الوحيد:** `ICompanyContext` (يحوي `CompanyId`, `UserId`, `CompanyIds[]`)
-- **الـ middleware:** `CompanyContextMiddleware` يقرأ `X-Company-Id` header (أولوية) → JWT `default_company_id` claim → أول company في `company_ids[]`
-- **تم حذف** `ITenantContext`, `TenantContext`, `TenantMiddleware` و `TenantCache` (Phase 6.1b-4)
-- **MultiTenancy folder** الآن يحتوي فقط على `ICompanyContext`, `CompanyContext`, `CompanyContextMiddleware`
-- **لا يوجد `tenant_id` في الـ schema** بعد الآن (Phase 6.0 schema reset). الـ user→company mapping في `user_companies` table
-- **الـ entities** لم تعد تحمل `TenantId` property (سقطت من 35 entity في 6.1b-1)
-- **Repos/Services/Controllers:** أُزيل منها `Guid tenantId` parameter (6.1b-2/6.1b-3)
-- **Auth flow (AuthService/JwtTokenService):** يحوي back-compat placeholder `Guid.Empty` لـ `tenant_id` JWT claim — full rewrite في 6.1c
-- **Audit:** `audit_log.company_id` column (was `tenant_id`)
-
-Legacy (Phase 5 وما قبل): كان `ITenantContext` يحوي `TenantId` و `UserId` فقط. الـ `TenantMiddleware` كان يلتقط من claims `tenant_id` و `sub` بعد `UseAuthentication()`.
-
-### Migrations
-
-- ترقيم: `YYYYMMDD_HHMMSS_Description` (timestamp)
-- كل migration: `Up()` + `Down()` (للـ rollback)
-- **لا تعدل migration موجودة** — أنشئ جديدة دائماً
-- اسم الجداول: snake_case، plural (`users`, `roles`, `refresh_tokens`)
-- Foreign keys: حدد `OnDelete` صراحة
-
-### Events
-
-- `Shared/Events/<Name>Events.cs` يحتوي records فقط
-- اسم الحدث: ماضوي — `StockReceived`, `InvoiceCreated`
-- يحمل: `CompanyId`, `OccurredAt`, `EventId`, `Data` (per Constitution Article 3 — `TenantId` was removed in Phase 6.1b)
-- الموديولات تنشر/تشترك عبر MartenDB (inline في MVP، Kafka/RabbitMQ مستقبلياً)
-
-## لما تشتغل هنا
-
-- إضافة `IDbConnection` جديد: عرّف method في interface + تنفيذ
-- إضافة middleware: ضع هنا، و سجّله في `Host/Program.cs`
-- إضافة migration: timestamp جديد + Up + Down
-
-## بعد التعديل
-
-- حدّث هذا الـ AGENTS.md إذا أضفت folder جديد
-- إذا غيّرت Migrations naming convention، وثّقها هنا
-
-## مرتبطة بـ
-
-- [`../AGENTS.md`](../AGENTS.md)
-- [`../Host/AGENTS.md`](../Host/AGENTS.md) — تسجيل DI
-- [`../Modules/Identity/AGENTS.md`](../Modules/Identity/AGENTS.md)
-
+**Last updated:** 2026-07-29 (DOX framework applied)
 
 ---
 
-## 🤝 Cross-Team Coordination (Brainstorming Lab)
+## Purpose
 
-This project works with an analytical team via the **Brainstorming Lab**.
+Cross-cutting code shared across modules: DataTypes, Events, Infrastructure, Migrations, SeedData.
 
-- **When to read from hub**: ONLY when explicitly instructed by the analytical team
-- **Default**: Work from local context (this file + root `AGENTS.md` + source code)
-- **Hub repo**: https://github.com/anas600/brainstorming-lab/tree/main/portals/02-session-002/
+## Ownership
 
-See root [`AGENTS.md`](../../../AGENTS.md) for full cross-team protocol.
+| Subtree | Owner | Authority |
+|---------|-------|-----------|
+| `src/backend/Shared/DataTypes/` | Jimi تنفيذي | JSON schema, data types |
+| `src/backend/Shared/Events/` | Jimi تنفيذي | Domain events |
+| `src/backend/Shared/Infrastructure/` | Jimi تنفيذي | Cross-cutting infra (auth, logging) |
+| `src/backend/Shared/Migrations/` | Jimi تنفيذي | FluentMigrator migrations |
+| `src/backend/Shared/SeedData/` | Jimi تنفيذي | Default seed data |
+| `src/backend/Shared/MultiTenancy/` | Jimi تنفيذي | ⚠️ **Misleading folder name** — contains `CompanyContext.cs`. Rename to `CompanyContext/` in future refactor. |
+| `src/backend/Shared/Audit/` | Jimi تنفيذي | Audit logging |
 
-Token-efficient: ~50 tokens per cross-team directive (vs 500+ for full re-paste).
+## Local Contracts
+
+- **No business logic** in Shared. Only cross-cutting concerns.
+- **All modules** depend on Shared, not vice versa.
+- **No `tenant_id` anywhere.** Use `company_id`.
+
+## ⚠️ Folder Rename Needed
+
+`src/backend/Shared/MultiTenancy/` contains:
+- `CompanyContext.cs` (correct content)
+- `CompanyContextMiddleware.cs` (correct content)
+- `ICompanyContext.cs` (correct content)
+
+**The folder name is misleading** (per Constitution Article 3 — NO Multi-Tenancy). Future refactor should rename to `CompanyContext/`. Tracked but out of scope for current sprints.
+
+## Work Guidance
+
+### Adding to Shared
+- Only if the code is **truly cross-cutting** (used by 3+ modules).
+- Otherwise, put it in the specific module.
+- Update this AGENTS.md Child DOX Index.
+
+## Verification
+
+- [ ] `dotnet build` — zero errors.
+- [ ] No business logic in Shared.
+- [ ] No `tenant_id`: `grep -r "tenant" src/backend/Shared/`.
+- [ ] All changes documented here.
+
+## Child DOX Index
+
+| Path | Scope | Status |
+|------|-------|--------|
+| `src/backend/Shared/DataTypes/` | JSON schema, data types | Active |
+| `src/backend/Shared/Events/` | Domain events | Active |
+| `src/backend/Shared/Infrastructure/` | Cross-cutting infra | Active |
+| `src/backend/Shared/Migrations/` | FluentMigrator migrations | Active |
+| `src/backend/Shared/SeedData/` | Default seed data | Active |
+| `src/backend/Shared/MultiTenancy/` | ⚠️ CompanyContext (rename needed) | Active |
+| `src/backend/Shared/Audit/` | Audit logging | Active |
+
+---
+
+_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
