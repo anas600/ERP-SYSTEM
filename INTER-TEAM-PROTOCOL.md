@@ -3,10 +3,10 @@
 > **How Admin Team and Local Team communicate, hand off, and coordinate.**
 > **Sub-document to: [CONSTITUTION.md](/CONSTITUTION.md) (root)**
 
-**Last amended:** 2026-07-29
+**Last amended:** 2026-07-29 (Template 1 → v2, Mavis Local scope = open PR فقط)
 **Status:** 🟢 ACTIVE
 **Authors:** سيتی + محمد
-**Approved by:** Anas (Project Owner)
+**Approved by:** Anas (Project Owner, per directive @ 23:02 UTC)
 
 ---
 
@@ -131,7 +131,11 @@
 
 ## 📋 المادة 4 — Hand-off Templates
 
-### Template 1: Hand-off (Admin → Local)
+### Template 1: Hand-off (Admin → Local) — v2 (Mavis Local scope = open PR فقط)
+
+> **Last amended:** 2026-07-29 — v2 per Admin Team refinement. Mavis Local's scope narrowed to T1..Tn + open PR. Admin Team (develop-pr-monitor + سيتی) handles CI, merge, state.json, CHANGELOG, branch cleanup, hand-off back.
+>
+> **Why v2:** Sprint 6 cycle (PR #175) took 1h 10m with full self-merge workflow. v2 reduces Mavis Local's work by ~30m and centralizes merge authority on develop-pr-monitor (single source of merge per Article 10). Cleaner state machine, less dual-merge conflicts.
 
 ```markdown
 # Sprint N: <Title>
@@ -140,41 +144,64 @@
 
 **Branch:** `feature/sprint-N-...` (off `develop` @ `<sha>`)
 
-## Scope
+## Scope (Mavis Local فقط)
 
-### Block A (Backend Jimi)
+### Block A (Backend Jimi) — code + tests + verify
 - T1: <task>
 - T2: <task>
 
-### Block B (Frontend Jimi)
+### Block B (Frontend Jimi) — code + tests + verify
 - T3: <task>
 - T4: <task>
 
-### Block C (Local verification)
-- T5: <task>
+### Block C (PR open)
+- T(n+1): افتح PR على `develop` (سيتی/Admin Team يتكفّلون بالباقي)
+- T(n+2): ابعت session message لـ Admin Team: "PR #N open, ready for merge"
+
+## Out of Scope (Admin Team via develop-pr-monitor)
+- ❌ CI monitoring (develop-pr-monitor cron @ */10)
+- ❌ Merge with --admin (per Article 10)
+- ❌ state.json update (سيتی بعد merge)
+- ❌ CHANGELOG.md update (سيتی بعد merge)
+- ❌ branch delete (auto via --delete-branch flag)
+- ❌ Hand-off back to Mavis Local (سيتی بعد merge)
 
 ## Constraints
 - Constitution (15 articles)
 - Architecture: company_id only (no tenant_id)
 - One test per endpoint
 - 0 source code regressions
+- 0 EF Core
+- No secrets in code
 
 ## Time estimate
-- BE: 1.5h
-- FE: 1.5h
-- Local: 30m verify + 15m PR
+- BE (T1..Tn): ~1.5h
+- FE (T3..Tn): ~1h
+- Local (PR open + notify): ~5m
+- **Total:** ~3h (vs v1: ~3.5h)
 
-**Total:** ~3.5h
+## Definition of Done — Mavis Local
+- [ ] T1..Tn done (BE + FE via Jimis)
+- [ ] 1 test per endpoint (per Article 11)
+- [ ] 0 tenant_id references
+- [ ] 0 EF Core usage
+- [ ] 0 secrets in code
+- [ ] **PR open on develop** (not draft)
+- [ ] Session message to Admin Team: "PR #N open, ready for merge"
 
-## Definition of Done
-- [ ] PR open
-- [ ] CI green (6 required checks)
-- [ ] 19/19 tests pass
-- [ ] Architecture clean
-- [ ] Demo verified locally
+## Definition of Done — Admin Team (سيتی via develop-pr-monitor)
+- [ ] CI green (6 required checks: Backend Tests, Frontend Build, CodeQL, TruffleHog, Analyze js-ts, Analyze csharp)
+- [ ] Merge with --admin per Article 10
+- [ ] state.json v_next update
+- [ ] CHANGELOG.md entry
+- [ ] Branch delete (auto via --delete-branch)
+- [ ] Hand-off back to Mavis Local for Sprint N+1 (Template 3 format)
 
 ## Next action
-Mavis Local: start Block A + B in parallel, then verify + open PR.
+
+**Mavis Local:** T1..Tn via Jimis → open PR → notify سيتی. Admin Team handles CI + merge + state + CHANGELOG + hand-off back.
+
+**سيتی (develop-pr-monitor):** detect PR → verify CI → merge → state.json → CHANGELOG → hand-off back.
 ```
 
 ### Template 2: PR Open Notification (Local → Admin)
