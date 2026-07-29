@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "last_updated": "2026-07-29T17:30:00Z",
+  "ball_location": "mavis-local",
+  "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
+  "active_sprint": 5,
+  "open_prs": [
+    {
+      "number": 172,
+      "title": "Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
+      "branch": "feature/sprint-5-demo-v2",
+      "state": "open",
+      "opened_by": "mavis-local",
+      "opened_at": "2026-07-29T14:52:49Z",
+      "ci_status": "passing"
+    }
+  ],
+  "pending_signals": [],
+  "issues": [],
+  "next_action": "Siti: review PR #172 (Demo V2) and merge with --admin per Constitution Article 10",
+  "last_communication": "2026-07-29T17:25:00Z",
+  "sprint_started_at": "2026-07-29T15:41:00Z",
+  "sprint_eta": "2026-07-29T20:41:00Z"
+}

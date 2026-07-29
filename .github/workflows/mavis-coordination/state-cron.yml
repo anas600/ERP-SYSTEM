@@ -1,0 +1,242 @@
+# 🤖 Mavis Coordination — Smart State Cron
+#
+# This workflow:
+#   1. Reads the current state from state.json
+#   2. Fetches open PRs and recent commits from GitHub API
+#   3. Computes the new ball_location
+#   4. Updates state.json (only if state changed)
+#   5. Posts 1 comment on develop HEAD (only if state changed)
+#   6. Stays silent on no-change
+#
+# Per Constitution Article 5: "Smart Cron Behavior"
+# Per Constitution Article 6: "Emergency Protocols"
+
+name: Mavis Coordination State
+
+on:
+  schedule:
+    # Every 5 minutes (UTC) — active hours
+    - cron: '*/5 * * * *'
+  workflow_dispatch:  # Manual trigger
+
+# Required secrets:
+#   GITHUB_TOKEN: automatic (provided by GitHub Actions)
+
+permissions:
+  contents: write       # to commit state.json
+  pull-requests: write  # to post comments on PRs
+  issues: write         # to post comments on issues
+
+jobs:
+  update-state:
+    name: Update coordination state
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup jq
+        run: sudo apt-get install -y jq
+
+      - name: Read current state
+        id: read-state
+        run: |
+          STATE_FILE=".github/workflows/mavis-coordination/state.json"
+          if [ -f "$STATE_FILE" ]; then
+            echo "state=$(cat $STATE_FILE)" >> $GITHUB_OUTPUT
+            echo "current_ball=$(jq -r '.ball_location' $STATE_FILE)" >> $GITHUB_OUTPUT
+          else
+            echo "::warning::state.json not found, will be created on first run"
+            echo "state=" >> $GITHUB_OUTPUT
+            echo "current_ball=" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Fetch open PRs
+        id: fetch-prs
+        run: |
+          PR_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/pulls?state=open&per_page=10")
+          echo "prs=$PR_JSON" >> $GITHUB_OUTPUT
+          echo "pr_count=$(echo "$PR_JSON" | jq 'length')" >> $GITHUB_OUTPUT
+
+      - name: Fetch recent commits (develop)
+        id: fetch-commits
+        run: |
+          COMMITS_JSON=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/commits?sha=develop&per_page=5")
+          echo "commits=$COMMITS_JSON" >> $GITHUB_OUTPUT
+          LATEST_COMMITTER=$(echo "$COMMITS_JSON" | jq -r '.[0].commit.author.name // "unknown"')
+          echo "latest_committer=$LATEST_COMMITTER" >> $GITHUB_OUTPUT
+
+      - name: Get current develop HEAD SHA
+        id: get-head
+        run: |
+          HEAD_SHA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/git/refs/heads/develop" | jq -r '.object.sha')
+          echo "head_sha=$HEAD_SHA" >> $GITHUB_OUTPUT
+
+      - name: Check for issues (CI failures, etc.)
+        id: check-issues
+        run: |
+          # Check CI status for each open PR
+          PR_COUNT=${{ steps.fetch-prs.outputs.pr_count }}
+          ISSUES_JSON="[]"
+          
+          if [ "$PR_COUNT" -gt 0 ]; then
+            for i in $(seq 0 $((PR_COUNT - 1))); do
+              PR_NUMBER=$(echo "${{ steps.fetch-prs.outputs.prs }}" | jq -r ".[$i].number")
+              CI_STATUS=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                "https://api.github.com/repos/${{ github.repository }}/pulls/$PR_NUMBER" | jq -r '.mergeable_state // "unknown"')
+              
+              if [ "$CI_STATUS" = "blocked" ] || [ "$CI_STATUS" = "failing" ]; then
+                ISSUES_JSON=$(echo "$ISSUES_JSON" | jq ". + [{
+                  \"type\": \"ci_failed\",
+                  \"message\": \"PR #${PR_NUMBER} CI is ${CI_STATUS}\",
+                  \"detected_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",
+                  \"fix_instructions\": \"Check the Actions tab for PR #${PR_NUMBER}\"
+                }]")
+              fi
+            done
+          fi
+          
+          echo "issues=$ISSUES_JSON" >> $GITHUB_OUTPUT
+
+      - name: Compute new ball_location
+        id: compute-ball
+        run: |
+          PR_COUNT=${{ steps.fetch-prs.outputs.pr_count }}
+          LATEST_COMMITTER="${{ steps.fetch-commits.outputs.latest_committer }}"
+          ISSUES_LEN=$(echo "${{ steps.check-issues.outputs.issues }}" | jq 'length')
+          CURRENT_BALL="${{ steps.read-state.outputs.current_ball }}"
+          
+          # Decision tree (per Constitution Article 5)
+          if [ "$ISSUES_LEN" -gt 0 ]; then
+            NEW_BALL="blocked"
+          elif [ "$PR_COUNT" -gt 0 ] && [ "$CURRENT_BALL" = "mavis-local" ]; then
+            NEW_BALL="mavis-cloud"
+          elif [ "$PR_COUNT" -eq 0 ] && [ "$CURRENT_BALL" = "mavis-cloud" ]; then
+            NEW_BALL="mavis-local"
+          else
+            NEW_BALL="$CURRENT_BALL"
+          fi
+          
+          echo "new_ball=$NEW_BALL" >> $GITHUB_OUTPUT
+          echo "::notice::Ball location: $CURRENT_BALL → $NEW_BALL"
+
+      - name: Build new state.json
+        id: build-state
+        run: |
+          CURRENT_STATE="${{ steps.read-state.outputs.state }}"
+          NEW_BALL="${{ steps.compute-ball.outputs.new_ball }}"
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          PR_COUNT=${{ steps.fetch-prs.outputs.pr_count }}
+          PR_JSON="${{ steps.fetch-prs.outputs.prs }}"
+          ISSUES_JSON="${{ steps.check-issues.outputs.issues }}"
+          LATEST_COMMITTER="${{ steps.fetch-commits.outputs.latest_committer }}"
+          HEAD_SHA="${{ steps.get-head.outputs.head_sha }}"
+          
+          # Build open_prs array
+          OPEN_PRS_JSON="[]"
+          if [ "$PR_COUNT" -gt 0 ]; then
+            for i in $(seq 0 $((PR_COUNT - 1))); do
+              PR_ITEM=$(echo "$PR_JSON" | jq ".[$i] | {
+                number: .number,
+                title: .title,
+                branch: .head.ref,
+                state: .state,
+                opened_by: (.user.login | if test(\"mephisto\") then \"mephisto\" elif test(\"jimi\") then \"jimi\" else \"mavis-local\" end),
+                opened_at: .created_at,
+                ci_status: (if .mergeable_state == \"clean\" then \"passing\" elif .mergeable_state == \"blocked\" then \"failing\" else \"pending\" end)
+              }")
+              OPEN_PRS_JSON=$(echo "$OPEN_PRS_JSON" | jq ". + [$PR_ITEM]")
+            done
+          fi
+          
+          # Compose new state (preserve other fields from current)
+          NEW_STATE=$(echo "$CURRENT_STATE" | jq ". + {
+            version: \"1.0\",
+            last_updated: \"$NOW\",
+            ball_location: \"$NEW_BALL\",
+            open_prs: $OPEN_PRS_JSON,
+            pending_signals: (.pending_signals // []),
+            issues: $ISSUES_JSON,
+            next_action: (if \"$NEW_BALL\" == \"mavis-local\" then \"Mavis Local: continue Sprint work or open PR\" elif \"$NEW_BALL\" == \"mavis-cloud\" then \"Siti: review open PRs and merge\" elif \"$NEW_BALL\" == \"blocked\" then \"Resolve issues in state.issues[]\" elif \"$NEW_BALL\" == \"anas\" then \"Wait for Anas's decision\" else \"Waiting for async operation\" end),
+            last_communication: (.last_communication // null),
+            active_sprint: (.active_sprint // null),
+            sprint_started_at: (.sprint_started_at // null),
+            sprint_eta: (.sprint_eta // null),
+            ball_owner_session: (.ball_owner_session // null)
+          }")
+          
+          echo "$NEW_STATE" > /tmp/new-state.json
+          echo "new_state=$NEW_STATE" >> $GITHUB_OUTPUT
+
+      - name: Check if state changed
+        id: check-changed
+        run: |
+          CURRENT_STATE="${{ steps.read-state.outputs.state }}"
+          NEW_STATE="${{ steps.build-state.outputs.new_state }}"
+          CURRENT_BALL="${{ steps.read-state.outputs.current_ball }}"
+          NEW_BALL="${{ steps.compute-ball.outputs.new_ball }}"
+          
+          if [ -z "$CURRENT_STATE" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "reason=initial_creation" >> $GITHUB_OUTPUT
+          elif [ "$CURRENT_BALL" != "$NEW_BALL" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "reason=ball_changed" >> $GITHUB_OUTPUT
+          elif [ "$CURRENT_STATE" != "$NEW_STATE" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "reason=other_fields_changed" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "reason=no_change" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Commit state.json (only if changed)
+        if: steps.check-changed.outputs.changed == 'true'
+        run: |
+          cp /tmp/new-state.json .github/workflows/mavis-coordination/state.json
+          git config user.name "Mavis Coordination Cron"
+          git config user.email "cron@mavis.local"
+          git add .github/workflows/mavis-coordination/state.json
+          git commit -m "coordination: state updated @ $(date -u +%Y-%m-%dT%H:%M:%SZ) — ball: ${{ steps.read-state.outputs.current_ball }} → ${{ steps.compute-ball.outputs.new_ball }} (${{ steps.check-changed.outputs.reason }})"
+          git push origin develop
+
+      - name: Post comment on develop HEAD (only if state changed)
+        if: steps.check-changed.outputs.changed == 'true'
+        run: |
+          HEAD_SHA="${{ steps.get-head.outputs.head_sha }}"
+          NEW_BALL="${{ steps.compute-ball.outputs.new_ball }}"
+          CURRENT_BALL="${{ steps.read-state.outputs.current_ball }}"
+          REASON="${{ steps.check-changed.outputs.reason }}"
+          NOW=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+          ISSUES_LEN=$(echo "${{ steps.check-issues.outputs.issues }}" | jq 'length')
+          
+          COMMENT_BODY="🤖 **Mavis Coordination State Updated** @ $NOW\n\n"
+          COMMENT_BODY+="**Ball:** \`$CURRENT_BALL\` → \`$NEW_BALL\`\n"
+          COMMENT_BODY+="**Reason:** $REASON\n"
+          if [ "$ISSUES_LEN" -gt 0 ]; then
+            COMMENT_BODY+="**Issues:** $ISSUES_LEN active\n"
+          fi
+          COMMENT_BODY+="\n_Auto-generated by Mavis Coordination Cron. Silent on no-change._"
+          
+          curl -s -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            "https://api.github.com/repos/${{ github.repository }}/commits/$HEAD_SHA/comments" \
+            -d "$(jq -n --arg body "$COMMENT_BODY" '{body: $body}')"
+
+      - name: Log result
+        if: always()
+        run: |
+          echo "## Mavis Coordination Cron Run @ $(date -u +%Y-%m-%dT%H:%M:%SZ)" >> $GITHUB_STEP_SUMMARY
+          echo "- Current ball: ${{ steps.read-state.outputs.current_ball }}" >> $GITHUB_STEP_SUMMARY
+          echo "- New ball: ${{ steps.compute-ball.outputs.new_ball }}" >> $GITHUB_STEP_SUMMARY
+          echo "- PRs: ${{ steps.fetch-prs.outputs.pr_count }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Issues: $(echo "${{ steps.check-issues.outputs.issues }}" | jq 'length')" >> $GITHUB_STEP_SUMMARY
+          echo "- Changed: ${{ steps.check-changed.outputs.changed }} (${{ steps.check-changed.outputs.reason }})" >> $GITHUB_STEP_SUMMARY
+          echo "- Silent: ${{ steps.check-changed.outputs.changed == 'false' }}" >> $GITHUB_STEP_SUMMARY
