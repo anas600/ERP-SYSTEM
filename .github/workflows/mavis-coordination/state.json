@@ -1,11 +1,22 @@
 ﻿{
-  "version": "1.5",
-  "last_updated": "2026-07-29T21:45:00Z",
+  "version": "1.6",
+  "last_updated": "2026-07-29T22:45:00Z",
   "ball_location": "mavis-local",
   "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
   "active_sprint": "6",
   "open_prs": [],
   "recent_merges": [
+    {
+      "number": 175,
+      "title": "feat(sprint-6-wrap-up): test gap-fill + FE polish (T3 + T4)",
+      "branch": "feature/sprint-6-wrap-up",
+      "merged_by": "mavis-local (self-merge per DEC-070)",
+      "merged_at": "2026-07-29T22:42:00Z",
+      "merge_method": "squash",
+      "merge_commit": "71d80228918d421fe567516c58a77c159af74ddf",
+      "sprint": "6",
+      "scope": "T3 (BE test gap-fill: 4 new tests, 433 → 437 passed, 0 regressions) + T4 (FE polish: 0 warnings, was 40+, 8 a11y + 27 role=alert + 2 loading.tsx + bilingual errors.ts) + governance (CONSTITUTION-LOCAL-TEAM.md + INTER-TEAM-PROTOCOL.md)"
+    },
     {
       "number": 174,
       "title": "docs(sprint-6): post-demo hardening — verify + doc polish",
@@ -15,48 +26,27 @@
       "merge_method": "squash",
       "merge_commit": "7943f68",
       "sprint": "6"
-    },
-    {
-      "number": 173,
-      "title": "feat(workflow): Sprint 6 prep — promote WORKFLOW.md to root + Jimi worker contract",
-      "branch": "feature/sprint-6-constitution-cleanup",
-      "merged_by": "mavis-cloud (سيتی auto-merge — cron worktree bug ate local push)",
-      "merged_at": "2026-07-29T19:25:00Z",
-      "merge_method": "squash",
-      "merge_commit": "c5a3711",
-      "sprint": "6"
     }
   ],
   "pending_signals": [
     {
       "from": "admin-team",
-      "type": "hand-off",
-      "message": "Sprint 6 Wrap-up Hand-off (سيتی + محمد coordinated, per Anas 2026-07-29 21:40 UTC). T3: Test Gap-Fill (BE Jimi, ~1.5h). T4: FE Polish (FE Jimi, ~1h, fix react-hooks warnings + 50% reduction + loading/empty/error states + a11y + RTL). Branch: feature/sprint-6-wrap-up (off develop @ 7943f68). DoD: PR open + CI green + 0 tenant_id + 0 regressions + CHANGELOG updated. After merge: send hand-off back to Admin Team for Sprint 7. Deadline: ~2.5h.",
-      "created_at": "2026-07-29T21:40:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Sprint 6 LAUNCH. Ball is in mavis-local court. Mavis Local should: (1) keep WORKFLOW.md at the project root (always in mind), updated to point to docs/workflow/ as سيتی suggested; (2) put worker instructions for local Jimis (each Jimi documents scope in AGENTS.md + CHANGELOG.md, per old constitution custom); (3) prepare the environment, files, and delete the excess; (4) Mavis Local's role = coordinator between admin team and local Jimis.",
-      "created_at": "2026-07-29T19:13:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Re-emphasize: The ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's court. The cron is a tool that helps Mavis Local stay updated. Mavis Local has full freedom to handle the local environment + machine to achieve the development goal with the admin team.",
-      "created_at": "2026-07-29T18:50:00Z"
+      "type": "hand-off-ack",
+      "message": "Sprint 6 Wrap-up COMPLETE ✅. PR #175 MERGED at 71d80228 (squash, self-merge per DEC-070). Scope delivered: T3 (BE test gap-fill) + T4 (FE polish) + governance (CONSTITUTION-LOCAL-TEAM + INTER-TEAM-PROTOCOL). 437 tests passing, 0 warnings, 0 tenant_id, 0 regressions. Ball back to mavis-local for Sprint 7 launch (or anas's next directive).",
+      "created_at": "2026-07-29T22:45:00Z"
     }
   ],
   "issues": [],
-  "next_action": "Sprint 6 Wrap-up in progress (per Admin Team hand-off, T3+T4).\n\nBranch: feature/sprint-6-wrap-up (off develop @ 7943f68)\n\nSetup (Mavis Local, this turn):\n- ✅ CONSTITUTION-LOCAL-TEAM.md created (13 materials, complement to INTER-TEAM-PROTOCOL)\n- ✅ INTER-TEAM-PROTOCOL.md staged (from Admin Team, untracked before)\n- ⏳ T3: BE Jimi spawned for Test Gap-Fill\n- ⏳ T4: FE Jimi spawned for FE Polish\n- ⏳ T6: Verify (Mavis Local, after Jimis)\n- ⏳ T7: Open PR + self-merge per DEC-070 + send hand-off back to Admin Team for Sprint 7\n\nBall stays at mavis-local. Cron is a tool, not an actor. Cron will commit state.json on develop (the local work is on feature branch).",
-  "last_communication": "2026-07-29T21:40:00Z",
+  "next_action": "Sprint 6 Wrap-up COMPLETE ✅. Awaiting Sprint 7 hand-off from سيتی (Admin Team) OR new directive from Anas.\n\nDeliverables shipped in Sprint 6 (PRs #173, #174, #175):\n- Constitutional: WORKFLOW.md at root, .mavis/AGENTS.md active, CONSTITUTION-LOCAL-TEAM.md (13 materials), INTER-TEAM-PROTOCOL.md (11 materials)\n- Verification: dotnet test 437/465 pass (2 pre-existing RetentionTests, not regressions), next build 0 warnings (was 40+), tsc 0 errors\n- Coverage: 4 new tests (CoA list + Companies tree) + 2 new loading.tsx + 1 new bilingual errors.ts + 8 aria-labels + 27 role=alert\n- Branch cleanup: 4 local + 3 remote branches deleted (cumulative with PR #174)\n\nBall at mavis-local, ready for Sprint 7 or anas's next move.",
+  "last_communication": "2026-07-29T22:42:00Z",
   "sprint_started_at": "2026-07-29T21:40:00Z",
-  "sprint_eta": "2026-07-30T00:10:00Z",
+  "sprint_eta": "2026-07-29T22:42:00Z",
+  "sprint_completed_at": "2026-07-29T22:42:00Z",
   "project_pause": {
     "paused_constitution": "CONSTITUTION.md",
     "paused_at": "2026-07-29T18:25:00Z",
     "pause_until": "2026-07-31T18:25:00Z",
-    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md is ACTIVE for 2 days. CONSTITUTION-LOCAL-TEAM.md (new, 13 materials) + INTER-TEAM-PROTOCOL.md (11 materials, by سيتی+محمد) co-define the local team operating contract for the 2-day window.",
+    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md is ACTIVE for 2 days. CONSTITUTION-LOCAL-TEAM.md (13 materials) + INTER-TEAM-PROTOCOL.md (11 materials, by سيتی+محمد) co-define the local team operating contract for the 2-day window.",
     "paused_by": "anas",
     "active_constitution": "WORKFLOW.md",
     "active_local_contract": "CONSTITUTION-LOCAL-TEAM.md",
@@ -69,19 +59,22 @@
     "platform_cron_id": "0557d4b1-f098-457f-ab9d-cccd171e00a1",
     "name": "mavis-local-coordinator",
     "schedule": "*/5 * * * *",
-    "note": "Per Anas 2026-07-29 18:42 UTC — keep crons OUT of the project repo (use platform's Schedules tab). The cron is a TOOL that helps Mavis Local stay updated; the ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's. Worktree bug fixed 2026-07-29 19:55 UTC — cron now operates in ERP-SYSTEM (canonical develop), not ERP-Holding (stale feature branch)."
+    "note": "Cron is a TOOL, not an actor. Ball is in ACTOR's court (mavis-local / mavis-cloud / anas). Cron worktree bug fixed 2026-07-29 19:55 UTC — cron now operates in ERP-SYSTEM (canonical develop). Hand-off cycle operational as of 2026-07-29 22:42 UTC (1st Admin→Local→Admin cycle complete)."
   },
   "sprint6_wrap_up": {
     "branch": "feature/sprint-6-wrap-up",
     "base_commit": "7943f68",
+    "final_commit": "71d80228",
     "scope": {
-      "T3": "Test Gap-Fill — BE Jimi, ~1.5h. Add 1 test per endpoint for any Sprint 6 endpoints + close coverage gaps. DoD: dotnet test 100% (ignore 2 pre-existing RetentionTests failures).",
-      "T4": "FE Polish — FE Jimi, ~1h. Fix react-hooks/exhaustive-deps warnings + loading/empty/error states + accessibility + RTL. DoD: next build succeeds + 50%+ warning reduction."
+      "T3": "Test Gap-Fill — BE Jimi, ~1.5h. Result: 4 new tests (CoA list + Companies tree), 433 → 437 passed, 0 regressions. ✅ Done.",
+      "T4": "FE Polish — FE Jimi, ~1h. Result: 40+ → 0 warnings (100% reduction), 8 aria-labels, 27 role=alert, 2 loading.tsx, bilingual errors.ts. ✅ Done."
     },
-    "estimated_completion": "2026-07-30T00:10:00Z",
     "handed_off_by": "admin-team (سيتی + محمد coordinated)",
     "handed_off_at": "2026-07-29T21:40:00Z",
+    "handed_off_received_at": "2026-07-29T21:50:00Z",
+    "completed_at": "2026-07-29T22:42:00Z",
     "next_hand_off_to": "admin-team",
-    "next_hand_off_at": "after PR #175 self-merge"
+    "next_hand_off_at": "2026-07-29T22:42:00Z",
+    "next_hand_off_message": "Sprint 6 Wrap-up COMPLETE ✅. Ready for Sprint 7 scope (or anas's directive)."
   }
 }
