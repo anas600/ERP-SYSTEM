@@ -92,6 +92,53 @@ npm run test                      # Jest
 - [ ] RTL works correctly (test in browser).
 - [ ] X-Company-Id header set on all API calls.
 
+## Jimi Scope — 2026-07-29 (T4 FE Polish)
+
+**Jimi type:** FE
+**Sprint / Cycle:** Sprint 6 Wrap-up / Cycle 2
+**T# tasks:** T4 (FE Polish)
+**Branch:** `feature/sprint-6-wrap-up` (off `origin/develop @ 7943f68`)
+
+**Files I will touch:**
+- `src/frontend/app/(authenticated)/**/page.tsx` — fix `react-hooks/exhaustive-deps` warnings (the most common `load` missing dep pattern) in ~30+ files. Use `useCallback` to stabilize function references; never use `eslint-disable`.
+- `src/frontend/app/(authenticated)/**/loading.tsx` — add skeletons (not spinners) for top-level routes missing them. AR + EN bilingual.
+- `src/frontend/app/(authenticated)/**/error.tsx` — add bilingual error boundary where missing. AR + EN.
+- `src/frontend/lib/errors.ts` — new file: bilingual error helper extracted from the `load` pattern (single source of truth for AR/EN messages used by `loading.tsx`/`error.tsx`).
+- `src/frontend/components/ui/*` — add `aria-label` to icon-only buttons where missing (search, close, etc.).
+- `CHANGELOG.md` — append to existing Sprint 6 entry.
+
+**Files I will NOT touch:**
+- `WORKFLOW.md`, `CONSTITUTION.md`, `CONSTITUTION-LOCAL-TEAM.md`, `INTER-TEAM-PROTOCOL.md` (governance, Anas-only)
+- `src/backend/**` (BE Jimi's scope)
+- `.github/workflows/mavis-coordination/state.json` (Mavis Local's job, never the Jimis')
+- `src/frontend/e2e/**` (Abdo's team)
+
+**Tests I will add:**
+- No new component tests this sprint (Sprint 7+ candidate). The task is polish, not features.
+- Verify with `npx tsc --noEmit` (0 errors) and `npx next build` (success).
+
+**Constitution articles I must respect:**
+- Article 3 (company_id only — no tenant_id anywhere)
+- Article 8 Rule 9 (Frontend-First Errors — AR + EN)
+- Article 8 Rule 10 (Document in AGENTS.md — this block IS that)
+- Article 11 (One Test Per Endpoint — N/A, this is FE-only polish)
+
+**Baseline (before this Jimi starts):**
+- 40 `react-hooks/exhaustive-deps` warnings in `next build`
+- 0 TypeScript errors
+- 0 Next.js build errors
+- 105 `page.tsx` files; 30 `loading.tsx`; 1 `error.tsx` (only at root of `(authenticated)`)
+- 0 `lib/errors.ts` (task says "created in Sprint 4" but it doesn't exist — creating it now)
+
+**Target (after this Jimi finishes):**
+- ≤ 19 warnings (50%+ reduction)
+- 0 new warnings introduced
+- 0 TS errors
+- 0 build errors
+- All top-level authenticated routes have `loading.tsx` + `error.tsx`
+
+---
+
 ## Child DOX Index
 
 | Path | Scope | Status |
@@ -105,4 +152,4 @@ npm run test                      # Jest
 
 ---
 
-_Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
+_Last updated: 2026-07-29 by FE Jimi (Sprint 6 T4) — Jimi scope block added; baseline 40 → target ≤ 19 warnings_

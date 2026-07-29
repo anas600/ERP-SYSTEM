@@ -2,7 +2,7 @@
 
 // صفحة تقرير أعمار الذمم المدينة (AR Aging) — جدول per-customer + 5 buckets
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Clock, Users } from 'lucide-react';
 import { Card, PageHeader, Input, Table, Badge } from '@/components/ui';
 import { arApi, ArAgingReport, getErrorMessage } from '@/lib/api';
@@ -15,7 +15,7 @@ export default function AgingArPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async (date: string) => {
+  const load = useCallback(async (date: string) => {
     setLoading(true);
     setError(null);
     try {
@@ -27,9 +27,9 @@ export default function AgingArPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(asOfDate); }, []);
+  useEffect(() => { load(asOfDate); }, [asOfDate, load]);
 
   const onDateChange = (newDate: string) => {
     setAsOfDate(newDate);

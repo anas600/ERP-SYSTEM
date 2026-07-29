@@ -13,6 +13,47 @@
 
 ---
 
+## Sprint 6 — Wrap-up (2026-07-29) 🟡 IN PROGRESS
+
+**Goal:** Test gap-fill per sprint-6.md T3. Add 1 smoke test per uncovered Sprint 4-6 endpoint + meaningful tests for any other real-risk coverage gap.
+
+### Added (BE Jimi)
+- `src/backend/Tests/ERPSystem.Tests/Companies/CompanyTreeTests.cs` — 2 smoke tests for `GET /api/companies/tree` (CompanyService.GetTreeAsync). **The endpoint had zero test coverage in the Tests project** (only CompaniesListTests for ListPagedAsync exists). Fills a real Sprint 4+5 gap.
+  - `GetTreeAsync_HoldingAndTwoSubsidiaries_BuildsOneRootWithTwoChildren` — happy path: 1 Holding + 2 subsidiaries → tree has 1 root with 2 children (verifies the recursive `BuildTree` helper, not just the wrapping call)
+  - `GetTreeAsync_EmptyRepository_ReturnsEmptyRootsList` — edge case: empty repo → 0 roots (the FE's "no Holding yet" empty-state contract)
+- `src/backend/Tests/ERPSystem.Tests/Finance/ChartOfAccountsServiceTests.cs` — 2 smoke tests for `GET /api/finance/accounts` (ChartOfAccountsService.ListAsync). **The CoA service had zero test coverage in the Tests project** (only Validators + DoubleEntryValidation exist under Tests/Finance/). Starts the coverage; remaining 4 CoA endpoints (GetById, GetByCode, Create, Delete) flagged as a follow-up.
+  - `ListAsync_HappyPath_MapsAllAccountsToResponses` — happy path: 3 accounts → 3 mapped responses with Id/Code/Name/Type/IsActive all preserved through the service's `MapToResponse` helper
+  - `ListAsync_EmptyRepository_ReturnsEmptyList` — edge case: empty repo → `200 OK` with `[]` (not null, not 404)
+- `src/backend/AGENTS.md` — added `## Jimi Scope — 2026-07-29 (BE Jimi, Sprint 6 Wrap-up T3)` block per the `.mavis/AGENTS.md` worker contract
+
+### Notes
+- **Sprint 5+6 endpoints with 1+ test per endpoint (per Article 11):** all 4 chart/search endpoints already had smoke tests from Sprint 5 (verified, no additions needed). The 4 new tests cover 2 new endpoints (Companies tree, CoA list) that had ZERO coverage.
+- **Test counts:** 433 → 437 passed (+4); 2 failed (same pre-existing `RetentionTests`, NOT introduced); 30 skipped (unchanged).
+- **Out-of-scope discoveries** (flagged in `src/backend/AGENTS.md` scope block, NOT absorbed):
+  - 4 of 5 CoA service methods (`GetById`, `GetByCode`, `Create`, `Delete`) still untested — recommended for a focused follow-up.
+  - `FakeDbConnectionFactory` does not honor SQL `AS` aliases — this is a project-wide limitation. My CompanyTreeTests works around it by using the projected column names in `AddRow`. A FakeDb enhancement would unlock property-level assertions for the existing `CompaniesListTests` (which currently only asserts on count, not on mapped values).
+
+### Added (FE Jimi)
+- **`src/frontend/lib/errors.ts`** — bilingual (AR + EN) error message catalog + `formatApiError(e, fallback, locale)` helper that picks a key by HTTP status (401/403/404/408/422/5xx → dedicated bilingual messages; everything else → `GENERIC`). Centralizes the wording used by toasts and inline error divs so "فشل التحميل" / "تعذّر التحميل" / "خطأ في الجلب" stop drifting across pages. Includes `t(key, locale)` and `tBilingual(key)` for static UI (empty states, error boundaries).
+- **`src/frontend/app/(authenticated)/holding/loading.tsx`** — top-level route skeleton (was missing; 105 page.tsx + 30 loading.tsx → 32 now).
+- **`src/frontend/app/(authenticated)/profile/loading.tsx`** — top-level route skeleton with avatar + field rows (was missing).
+
+### Fixed (FE Jimi)
+- **40 → 0 `react-hooks/exhaustive-deps` warnings (100% reduction).** Every fix uses `useCallback` to stabilize the `load` function, then `useEffect` depends on `[load, ...originalTriggerDeps]`. NO `eslint-disable` introduced. Files touched (high-impact, 38 unique):
+  - Reports (17 files): all `app/(authenticated)/reports/financial/**` + `reports/inventory/valuation` + `reports/procurement/*` + `reports/projects/*` + `reports/sales/*`
+  - CRUD detail/list (18 files): `admin/notifications` (list + detail), `finance/{aging-ar, customers/[id], receipts/[id], sales-invoices/[id]}`, `hr/{attendance, employees/[id], leaves/new, payroll, payroll/[id]}`, `inventory/{items/[id], movements/[id], reservations/[id]}`, `procurement/{bills/[id], goods-receipts/[id], purchase-orders/[id]}`, `projects/[id]`
+  - Composite reports (3 files): `reports/financial/{page, general-ledger, inventory/page, projects/page}` — these had `useEffect(..., [authLoading, reportType])` with a free `load` (now `useCallback` with `[reportType, fromDate, toDate]` as appropriate)
+  - Special case `reports/financial/general-ledger/page.tsx`: first effect that does `financeApi.listAccounts().then(... setAccountId(... !accountId))` rewritten to use the functional setState `setAccountId((current) => current ? current : a[0]?.id ?? '')` so the effect no longer needs `accountId` in its deps.
+- **8 icon-only `<Button>` got `aria-label`** (Arabic, action-oriented): Eye buttons on `admin/notifications`, `finance/journal-entries`, `inventory/{movements, reservations, stock-levels}`; Pencil buttons on `inventory/items`, `projects`, `finance/cost-centers`.
+- **27 inline error `<div>`s got `role="alert"`** for screen-reader announcement (across reports + admin + inventory pages).
+
+### Verified
+- `npx tsc --noEmit` → 0 errors.
+- `npx next build` → success, 83 static pages, 0 warnings (was 40).
+- No `tenant_id` introduced; all 8 governance files untouched.
+
+---
+
 ## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS
 
 **Goal:** Constitutional cleanup ✅ done in T1. Now polishing docs and verifying (T5+T6).

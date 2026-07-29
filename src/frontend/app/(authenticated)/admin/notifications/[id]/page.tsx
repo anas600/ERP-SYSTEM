@@ -2,7 +2,7 @@
 
 // تفاصيل إشعار (Notification Detail) + Mark as read
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, Check } from 'lucide-react';
@@ -38,7 +38,7 @@ export default function NotificationDetailPage() {
   const [actionRunning, setActionRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch('/api/inventory/notifications', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
@@ -52,9 +52,9 @@ export default function NotificationDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [params.id]);
+  useEffect(() => { load(); }, [params.id, load]);
 
   const handleMarkRead = async () => {
     if (!item) return;
@@ -98,7 +98,7 @@ export default function NotificationDetailPage() {
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
       <Card className="max-w-3xl">
         <div className="grid grid-cols-2 gap-4 text-sm">

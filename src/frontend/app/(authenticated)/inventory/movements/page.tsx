@@ -148,7 +148,7 @@ export default function StockMovementsPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Link href={`/inventory/movements/${m.id}`}>
-                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} />
+                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} aria-label="عرض الحركة" />
                     </Link>
                     <Badge variant={t.variant}>{t.label}</Badge>
                     <Badge variant={m.status === 2 ? 'success' : m.status === 3 ? 'neutral' : 'warning'}>

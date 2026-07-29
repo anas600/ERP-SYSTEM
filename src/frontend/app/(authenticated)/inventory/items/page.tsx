@@ -93,7 +93,7 @@ export default function ItemsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Link href={`/inventory/items/${item.id}/edit`}>
-                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} aria-label="تعديل الصنف" />
                   </Link>
                   <span className="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded">
                     {item.itemType}

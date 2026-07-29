@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { TrendingUp, FileText, BarChart3, DollarSign, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
@@ -31,12 +31,7 @@ export default function FinancialReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (authLoading) return;
-    load();
-  }, [authLoading, reportType]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -53,7 +48,12 @@ export default function FinancialReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportType, fromDate, toDate]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    load();
+  }, [authLoading, load]);
 
   const reportNames = {
     pl: { title: 'قائمة الدخل', en: 'Profit & Loss Statement', icon: TrendingUp, color: 'green' },

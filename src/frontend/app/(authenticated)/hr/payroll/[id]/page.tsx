@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, FileText, RefreshCw } from 'lucide-react';
@@ -16,9 +16,8 @@ export default function HrPayrollIdPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, [id]);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true); setError(null);
     try {
       const url = "/api/hr/payroll/runs/{id}".replace('{id}', encodeURIComponent(id || ''));
@@ -26,8 +25,9 @@ export default function HrPayrollIdPage() {
       setItem(r.data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل البيانات.'));
-    } finally { setLoading(false); }
-  };
+    } finally { setLoading(false); }  }, [id]);
+
+  useEffect(() => { load(); }, [id, load]);
 
   if (loading) {
     return (

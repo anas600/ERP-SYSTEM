@@ -2,7 +2,7 @@
 
 // قائمة الإشعارات (Notifications)
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { Eye, Bell } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
@@ -36,12 +36,7 @@ export default function NotificationsPage() {
   const [error, setError] = useState<string | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
 
-  useEffect(() => {
-    if (authLoading) return;
-    load();
-  }, [authLoading, unreadOnly]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -56,7 +51,12 @@ export default function NotificationsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [unreadOnly]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    load();
+  }, [authLoading, load]);
 
   const toggleUnread = () => setUnreadOnly(!unreadOnly);
 
@@ -80,7 +80,7 @@ export default function NotificationsPage() {
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
 
       {!loading && items.length > 0 && (
         <div className="grid grid-cols-2 gap-4 mb-4">
@@ -124,7 +124,7 @@ export default function NotificationsPage() {
                     </p>
                   </div>
                   <Link href={`/admin/notifications/${n.id}`}>
-                    <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} />
+                    <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} aria-label="عرض التفاصيل" />
                   </Link>
                 </div>
               </Card>

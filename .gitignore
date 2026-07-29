@@ -55,6 +55,12 @@ head_gitignore.txt
 
 
 **/TODO-STATE.md
+**/TODO-*.md
+
+
+# Jimi working scripts (helper Python scripts Jimi uses to apply fixes;
+# keep them in working tree for re-runs but never commit)
+src/frontend/fix-*.py
 
 
 node_modules/

@@ -3,7 +3,7 @@
 // صفحة قائمة دورات الرواتب (Payroll Runs) — جدول + زر "دورة جديدة"
 // الحالات: Draft → Processing → Posted | Cancelled
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { formatDate } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, Calendar, FileText, PlayCircle, CheckCircle2, Banknote } from 'lucide-react';
@@ -24,12 +24,7 @@ export default function PayrollListPage() {
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>('');
 
-  useEffect(() => {
-    if (authLoading) return;
-    load();
-  }, [authLoading, statusFilter]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -41,7 +36,12 @@ export default function PayrollListPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    load();
+  }, [authLoading, load]);
 
   
   const formatMoney = (n: number) => n?.toLocaleString(undefined, { minimumFractionDigits: 2 }) || '0.00';

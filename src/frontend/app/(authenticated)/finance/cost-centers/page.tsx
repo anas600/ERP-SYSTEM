@@ -95,7 +95,7 @@ export default function CostCentersPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Link href={`/finance/cost-centers/${cc.id}/edit`}>
-                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} aria-label="تعديل مركز التكلفة" />
                   </Link>
                   <Badge variant={cc.isActive ? 'success' : 'neutral'}>
                     {CC_TYPES[cc.type] || `Type ${cc.type}`}

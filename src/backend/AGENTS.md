@@ -109,4 +109,52 @@ public class AddCompaniesTable : Migration
 
 ---
 
+## Jimi Scope — 2026-07-29 (BE Jimi, Sprint 6 Wrap-up T3)
+
+**Jimi type:** BE
+**Sprint / Cycle:** Sprint 6 Wrap-up / Cycle N
+**T# tasks:** T3 (Test Gap-Fill)
+**Branch:** `feature/sprint-6-wrap-up`
+**Off:** `origin/develop @ 7943f68`
+
+### Files I created (4)
+- `src/backend/Tests/ERPSystem.Tests/Companies/CompanyTreeTests.cs` (new) — 2 smoke tests for `GET /api/companies/tree` (CompanyService.GetTreeAsync). The endpoint had ZERO test coverage; this fills a real Sprint 4+5 gap.
+- `src/backend/Tests/ERPSystem.Tests/Finance/ChartOfAccountsServiceTests.cs` (new) — 2 smoke tests for `GET /api/finance/accounts` (ChartOfAccountsService.ListAsync). The CoA service had ZERO test coverage in the Tests project; this starts the coverage.
+- `CHANGELOG.md` (modified) — added `## Sprint 6 — Wrap-up (2026-07-29)` section per worker contract.
+- `src/backend/AGENTS.md` (this file, modified) — added this scope block per worker contract.
+
+### Files I will NOT touch (out of scope)
+- `src/backend/Host/` — no production code changes for test gap-fill
+- `src/backend/Modules/` — no production code changes
+- `src/backend/Shared/` — no production code changes
+- `src/frontend/**` — FE Jimi's scope (T4)
+- `docs/workflow/**` — already in CHANGELOG and sprint hand-off
+- `.github/workflows/mavis-coordination/state.json` — cron's territory (already modified by cron tick, NOT staged by me)
+- `WORKFLOW.md`, `CONSTITUTION.md`, `CONSTITUTION-LOCAL-TEAM.md`, `INTER-TEAM-PROTOCOL.md` — governance files (Mavis Local only)
+
+### Tests I added (4 new, 0 modified, 0 removed)
+- `CompanyTreeTests.GetTreeAsync_HoldingAndTwoSubsidiaries_BuildsOneRootWithTwoChildren` — happy path: 1 Holding + 2 subsidiaries → tree has 1 root with 2 children
+- `CompanyTreeTests.GetTreeAsync_EmptyRepository_ReturnsEmptyRootsList` — edge case: empty repo → 0 roots
+- `ChartOfAccountsServiceTests.ListAsync_HappyPath_MapsAllAccountsToResponses` — happy path: 3 accounts → 3 mapped responses with all fields preserved
+- `ChartOfAccountsServiceTests.ListAsync_EmptyRepository_ReturnsEmptyList` — edge case: empty repo → empty list (not null, not 404)
+
+### Pre-existing test status
+- Baseline before this scope: 465 tests, 433 passed, 2 failed (pre-existing RetentionTests), 30 skipped
+- After this scope: 469 tests, 437 passed (+4), 2 failed (same pre-existing RetentionTests, NOT introduced by me), 30 skipped
+- Zero regressions introduced.
+
+### Out-of-scope discoveries (flag for Mavis Local, not absorbed)
+- **CoA service has 4 of 5 endpoints still untested:** `GetByIdAsync`, `GetByCodeAsync`, `CreateAsync`, `DeleteAsync` on `ChartOfAccountsService` are still uncovered. Adding tests for them is a non-trivial follow-up (Create needs a happy + duplicate-code + missing-parent test; Delete needs has-postings + has-children + happy test). Recommended for a focused T3.5 task in a future sprint.
+- **`FakeDbConnectionFactory` does not support SQL column aliases** — this is a project-wide limitation that silently breaks any test which asserts on columns aliased in SQL (e.g. `legal_name AS LegalName`, `parent_company_id AS ParentCompanyId`). My CompanyTreeTests works around this by using the projected column names in `AddRow`. A FakeDb enhancement to honor `AS` aliases would unlock property-level assertions for the existing CompaniesListTests (which currently only asserts on count, not on mapped values).
+- **Two `RetentionTests` fail on local Docker** (`password authentication failed for user "postgres"`) — confirmed pre-existing per Sprint 5 + 6 CHANGELOG (the `erp_test_system` test DB is not in the local Docker stack). Not in my scope; not a regression. CI runs them against a real Postgres and they pass there.
+
+### Constitution articles I respected
+- Article 3 (`company_id` only) — no `tenant_id` added (verified by `grep`)
+- Article 6 (one branch) — committed to `feature/sprint-6-wrap-up` only
+- Article 8 Rule 4 (one test per endpoint) — 1 test per new endpoint covered
+- Article 8 Rule 6 (no EF Core) — Dapper + xUnit only
+- Article 8 Rule 10 (document in AGENTS.md) — this scope block
+
+---
+
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_

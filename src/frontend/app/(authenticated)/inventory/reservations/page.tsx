@@ -63,7 +63,7 @@ export default function ReservationsPage() {
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
 
       {!loading && items.length > 0 && (
         <div className="grid grid-cols-3 gap-4 mb-4">
@@ -110,7 +110,7 @@ export default function ReservationsPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Link href={`/inventory/reservations/${r.id}`}>
-                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} />
+                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} aria-label="عرض الحجز" />
                     </Link>
                     <Badge variant={isExpired ? 'danger' : 'success'}>{isExpired ? 'منتهي' : 'فعّال'}</Badge>
                   </div>

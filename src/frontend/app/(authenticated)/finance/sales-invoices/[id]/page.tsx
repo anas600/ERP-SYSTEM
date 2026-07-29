@@ -7,7 +7,7 @@
 // clean invoice document with header, line items, totals, and a footer
 // signature block.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, ArrowLeft, Send, XCircle, FileText, Printer } from 'lucide-react';
@@ -27,7 +27,7 @@ export default function SalesInvoiceDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -37,10 +37,9 @@ export default function SalesInvoiceDetailPage() {
       setError(getErrorMessage(e, 'تعذّر تحميل الفاتورة.'));
     } finally {
       setLoading(false);
-    }
-  };
+    }  }, [id]);
 
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => { load(); }, [id, load]);
 
   const onPost = async () => {
     if (!invoice) return;
