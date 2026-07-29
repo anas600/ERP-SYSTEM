@@ -8,17 +8,36 @@
 
 ---
 
-## 📅 Timeline
+## 📅 Timeline (actual status)
 
-| Hour | Sprint | Title | Focus |
-|------|--------|-------|-------|
-| 0.0 | 0 | Setup + Plan | Architecture + Demo data |
-| 0.5 | 1 | Dashboard + Holding | Top-level views |
-| 2.5 | 2 | Companies + Users | Multi-company mgmt |
-| 4.5 | 3 | Activity + Notifications | User engagement |
-| 6.0 | 4 | Polish + Demo Data | Final touches |
-| 8.0 | — | Verification + Deploy | Final QA |
-| 10.0 | — | **Demo Ready** | ✅ |
+| Hour | Sprint | Title | Focus | Status | PR |
+|------|--------|-------|-------|--------|-----|
+| 0.0 | 0 | Setup + Plan | Architecture + Demo data | ✅ Done | (pre-PR) |
+| 0.5 | 1 | Dashboard + Holding | Top-level views | ✅ Merged | #165 |
+| 2.5 | 2 | Companies + Users | Multi-company mgmt | ✅ Merged | #166 |
+| 4.5 | 3 | Activity + Notifications | User engagement | ✅ Merged | #167 |
+| 6.0 | 4 | Polish + Demo Data | Final touches | ✅ Merged | #168 |
+| 8.0 | 5 | Demo V2 (Wow version) | CoA tree + charts + search + PDF | ✅ Merged | #172 |
+| ~10.0 | 6 | Post-Demo Hardening | Constitutional cleanup + polish | 🟡 In Progress | #173 merged (constitutional) |
+| — | — | Demo Ready | (Past 2026-07-28 13:53 UTC) | ✅ Shipped | — |
+
+**Demo was originally targeted for 2026-07-28 13:53 UTC. Demo V2 (Sprint 5) was the final demo build.**
+
+---
+
+## 🏃 Sprint 6: Post-Demo Hardening (2026-07-29 →)
+
+**Owner:** Mavis Local (self-planned; ball in mavis-local court per active WORKFLOW.md)
+**Goal:** Post-demo cleanup, code quality, test coverage, and small UX polish. **NOT** new features — the demo already shipped (Sprint 5 "Wow" version).
+
+**Tasks (T0–T7, see `sprint-6.md` for the full hand-off):**
+- [x] T1 — Constitutional Setup (PR #173 ✅ merged at `c5a37119`): WORKFLOW.md at root, .mavis/AGENTS.md active, AGENTS.md + CHANGELOG updated
+- [x] T2 — Stale-branch cleanup: 4 local + 2 remote branches deleted (merged)
+- [ ] T3 — Test gap-fill (BE Jimi, ~1h, optional)
+- [ ] T4 — FE polish (FE Jimi, ~1h, optional)
+- [x] T5 — Doc polish (Mavis Local, ~30 min): this file
+- [ ] T6 — Verify (build + test + typecheck)
+- [ ] T7 — Open PR + self-merge
 
 ---
 
