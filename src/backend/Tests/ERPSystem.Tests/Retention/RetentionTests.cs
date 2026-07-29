@@ -18,7 +18,7 @@ public class RetentionTests
             ?? "Host=localhost;Database=erp_test_system;Username=erp_test;Password=erp_test_pw";
     }
 
-    [Fact]
+    [Fact(Skip = "Integration test — requires erp_test_system Postgres DB (not present in local Docker setup; auth fails with 28P01: password authentication failed for user 'postgres'). Run on CI where the test DB is provisioned. Per Anas 2026-07-29 23:33 UTC surgical intervention: skip + document + continue Sprint 7 prep.")]
     public async Task PartitionedAuditLog_AcceptsInserts()
     {
         // Verify the partitioned table works (P2 migration)
@@ -46,7 +46,7 @@ public class RetentionTests
         Assert.NotNull(id);
     }
 
-    [Fact]
+    [Fact(Skip = "Integration test — requires erp_test_system Postgres DB (not present in local Docker setup; auth fails with 28P01: password authentication failed for user 'postgres'). Run on CI where the test DB is provisioned. Per Anas 2026-07-29 23:33 UTC surgical intervention: skip + document + continue Sprint 7 prep.")]
     public async Task ArchiveMetadata_InsertAndQuery()
     {
         // Verify archive_metadata table works
