@@ -3,19 +3,26 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-07-29 18:25 UTC (Anas mandate: PROJECT PAUSED for 2 days; mavis-coordination constitution is now active)
+**Last updated:** 2026-07-29 19:15 UTC (Constitutional update per Anas mandate: WORKFLOW.md promoted to project root, .mavis/AGENTS.md activated, Sprint 6 launched)
 
-> ## ⚠️ PROJECT PAUSED (per Anas, 2026-07-29 18:25 UTC)
+> ## 📜 ACTIVE GOVERNANCE (per Anas, 2026-07-29 19:13 UTC)
 >
-> **Active constitution (temporary permanent, 2 days):**
-> **[`.github/workflows/mavis-coordination/constitution.md`](./.github/workflows/mavis-coordination/constitution.md)**
+> **Active workflow constitution (temporary permanent, 2 days):**
+> **[`WORKFLOW.md`](./WORKFLOW.md)** — at the project root, always in mind.
 >
-> **Paused constitution:** [CONSTITUTION.md](./CONSTITUTION.md) (marked PAUSED — restored 2026-07-31 18:25 UTC)
+> **Paused legacy constitution:** [CONSTITUTION.md](./CONSTITUTION.md) (marked PAUSED — restored 2026-07-31 18:25 UTC).
 >
-> **What's the same:** architectural constraints, DOX, CHANGELOG discipline, branch protection.
-> **What's different:** Smart cron + state.json is the primary async signal. Admin Team (Siti + Muhammad + Dev) work as "Cron Jobs" coordinated by Mavis Local. No Telegram ping-pong. Mavis Local is sole Tech Lead + Coordinator for the 2-day window.
+> **Sprint hand-offs:** [`docs/workflow/sprint-N.md`](./docs/workflow/) — سيتی writes them, Mavis Local executes.
 >
-> **State of the world:** read `.github/workflows/mavis-coordination/state.json` to know where the ball is. **All async coordination flows through there.**
+> **State machine (the ping-pong point):** [`.github/workflows/mavis-coordination/state.json`](./.github/workflows/mavis-coordination/state.json) — the single source of truth for "where the ball is."
+>
+> **Worker (Jimi) instructions:** [`.mavis/AGENTS.md`](./.mavis/AGENTS.md) — every Jimi reads this before starting.
+>
+> **What's the same:** architectural constraints (company_id, Dapper, no EF Core, etc.), DOX framework, CHANGELOG discipline, branch protection.
+>
+> **What's different in the 2-day window:** Smart cron + state.json is the primary async signal. Admin Team (سيتی + محمد + ديف) work as "Cron Jobs" coordinated by Mavis Local. No Telegram ping-pong. Mavis Local is sole Tech Lead + Coordinator.
+>
+> **🚨 Critical (per Anas, 2026-07-29 18:50 UTC):** The ball is in the **ACTOR's** court (mavis-local / mavis-cloud / anas), **NOT** the cron's. The cron is a tool that helps Mavis Local stay updated.
 
 ---
 
@@ -149,14 +156,15 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 ## Work Guidance
 
 ### Sprint Model
-1. **Cloud (Siti)** writes hand-off → `docs/workflow/sprint-N.md` (push to develop).
-2. **Mavis Local** pulls develop, spawns Jimis (BE + FE parallel).
-3. **Jimis** execute, Mavis Local verifies.
-4. **Mavis Local** opens PR (`feature/sprint-N-*` → develop).
-5. **Cloud** auto-merges when CI green.
-6. **Develop** updated → next sprint.
+1. **Cloud (Siti)** writes hand-off → `docs/workflow/sprint-N.md` (push to develop). For small tasks in the 2-day window, Mavis Local can self-plan.
+2. **Mavis Local** pulls develop, spawns Jimis (BE + FE parallel). See [`.mavis/AGENTS.md`](./.mavis/AGENTS.md) for the worker contract.
+3. **Jimis** execute, each one **declares their scope** in the nearest AGENTS.md (per worker contract) and **adds a CHANGELOG entry**.
+4. **Mavis Local** verifies (T6: build + test + typecheck).
+5. **Mavis Local** opens PR (`feature/sprint-N-*` → develop).
+6. **Mavis Local** self-merges (per DEC-070 admin) or **Cloud** auto-merges when CI green.
+7. **Develop** updated → next sprint.
 
-**Sprint duration:** 1.5-2 hours.
+**Sprint duration:** 1.5-2 hours (sprints up to 4-6h for big demo work).
 
 ### Commands
 ```bash
@@ -195,12 +203,10 @@ docker exec -it erp-postgres-local psql -U erp -d erp_system -f /tmp/seed.sql
 > **For full local-docker architecture, see [`docs/workflow/local-docker.md`](./docs/workflow/local-docker.md).**
 > **For past fixes (PR #170), see [`docs/workflow/local-docker-fixes-report.md`](./docs/workflow/local-docker-fixes-report.md).**
 
-### Crons (Cloud only)
-- `presence-check` (5 min) — watches for `docs/governance/presence-signal.json`.
-- `monitor-sprint-N-pr` (2 min) — auto-merges + self-cleans when PR is green.
-- `bridge-cron` (6h) — HOLD FIRE per DEC-038.
-
-**Local MUST NOT have coordination crons.** (Per Constitution Article 6.)
+### Crons (Cloud only + Local tool)
+- **Cloud (GitHub Action `state-cron.yml`):** runs every 5 min, updates `state.json` on no-change, posts to develop on change. **The cron is a tool, not an actor — it does not own the ball.**
+- **Local (platform `mavis-local-coordinator`):** runs every 5 min during active hours (08:00–22:00 Africa/Tripoli). Helps Mavis Local stay updated. **The cron is a tool, not an actor — the ball stays with mavis-local / mavis-cloud / anas.**
+- **Crons are NEVER in the project repo** (per Anas 2026-07-29 18:42). They live on the platform's Schedules tab.
 
 ---
 
@@ -234,7 +240,7 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/src/backend/AGENTS.md`](./src/backend/AGENTS.md) | Backend (.NET) | Active |
 | [`/src/frontend/AGENTS.md`](./src/frontend/AGENTS.md) | Frontend (Next.js) | Active |
 | [`/.github/AGENTS.md`](./.github/AGENTS.md) | GitHub workflows | Active |
-| [`/.mavis/AGENTS.md`](./.mavis/AGENTS.md) | Mavis orchestration | **TO CREATE** |
+| [`/.mavis/AGENTS.md`](./.mavis/AGENTS.md) | Mavis orchestration (worker instructions for Jimis) | Active |
 
 **Note:** `src/backend/Modules/<module>/` and `src/frontend/app/<route>/` have their own AGENTS.md (created when modules become durable boundaries).
 

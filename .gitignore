@@ -44,8 +44,12 @@ src/backend/Tools/**/obj/
 
 
 # Agent scratch
-.mavis/
+.mavis/plans/
 gen-hash/
+
+# Docker build artifacts (the frontend mounts at runtime, so package-lock.json
+# gets generated inside local-docker/src/ when docker compose builds)
+local-docker/src/
 head_gitignore.txt
 .env.local
 
