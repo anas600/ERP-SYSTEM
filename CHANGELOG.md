@@ -13,6 +13,28 @@
 
 ---
 
+## Sprint 6 — Wrap-up (2026-07-29) 🟡 IN PROGRESS
+
+**Goal:** Test gap-fill per sprint-6.md T3. Add 1 smoke test per uncovered Sprint 4-6 endpoint + meaningful tests for any other real-risk coverage gap.
+
+### Added (BE Jimi)
+- `src/backend/Tests/ERPSystem.Tests/Companies/CompanyTreeTests.cs` — 2 smoke tests for `GET /api/companies/tree` (CompanyService.GetTreeAsync). **The endpoint had zero test coverage in the Tests project** (only CompaniesListTests for ListPagedAsync exists). Fills a real Sprint 4+5 gap.
+  - `GetTreeAsync_HoldingAndTwoSubsidiaries_BuildsOneRootWithTwoChildren` — happy path: 1 Holding + 2 subsidiaries → tree has 1 root with 2 children (verifies the recursive `BuildTree` helper, not just the wrapping call)
+  - `GetTreeAsync_EmptyRepository_ReturnsEmptyRootsList` — edge case: empty repo → 0 roots (the FE's "no Holding yet" empty-state contract)
+- `src/backend/Tests/ERPSystem.Tests/Finance/ChartOfAccountsServiceTests.cs` — 2 smoke tests for `GET /api/finance/accounts` (ChartOfAccountsService.ListAsync). **The CoA service had zero test coverage in the Tests project** (only Validators + DoubleEntryValidation exist under Tests/Finance/). Starts the coverage; remaining 4 CoA endpoints (GetById, GetByCode, Create, Delete) flagged as a follow-up.
+  - `ListAsync_HappyPath_MapsAllAccountsToResponses` — happy path: 3 accounts → 3 mapped responses with Id/Code/Name/Type/IsActive all preserved through the service's `MapToResponse` helper
+  - `ListAsync_EmptyRepository_ReturnsEmptyList` — edge case: empty repo → `200 OK` with `[]` (not null, not 404)
+- `src/backend/AGENTS.md` — added `## Jimi Scope — 2026-07-29 (BE Jimi, Sprint 6 Wrap-up T3)` block per the `.mavis/AGENTS.md` worker contract
+
+### Notes
+- **Sprint 5+6 endpoints with 1+ test per endpoint (per Article 11):** all 4 chart/search endpoints already had smoke tests from Sprint 5 (verified, no additions needed). The 4 new tests cover 2 new endpoints (Companies tree, CoA list) that had ZERO coverage.
+- **Test counts:** 433 → 437 passed (+4); 2 failed (same pre-existing `RetentionTests`, NOT introduced); 30 skipped (unchanged).
+- **Out-of-scope discoveries** (flagged in `src/backend/AGENTS.md` scope block, NOT absorbed):
+  - 4 of 5 CoA service methods (`GetById`, `GetByCode`, `Create`, `Delete`) still untested — recommended for a focused follow-up.
+  - `FakeDbConnectionFactory` does not honor SQL `AS` aliases — this is a project-wide limitation. My CompanyTreeTests works around it by using the projected column names in `AddRow`. A FakeDb enhancement would unlock property-level assertions for the existing `CompaniesListTests` (which currently only asserts on count, not on mapped values).
+
+---
+
 ## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS
 
 **Goal:** Constitutional cleanup ✅ done in T1. Now polishing docs and verifying (T5+T6).
