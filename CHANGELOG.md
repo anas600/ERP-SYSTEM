@@ -13,6 +13,29 @@
 
 ---
 
+## Sprint 6 — Post-Skip Cleanup (2026-07-29) ✅ Done
+
+**Per Anas's surgical intervention (2026-07-29 23:33 UTC):** Skip the 2 pre-existing `RetentionTests` failures, document why, merge PR, continue Sprint 7 prep.
+
+### Fixed
+- **`src/backend/Tests/ERPSystem.Tests/Retention/RetentionTests.cs`** — added `[Fact(Skip = "...")]` to 2 tests that were failing due to missing `erp_test_system` test DB:
+  - `PartitionedAuditLog_AcceptsInserts` — requires `erp_test_system` Postgres DB (not in local Docker; auth fails `28P01: password authentication failed for user 'postgres'`)
+  - `ArchiveMetadata_InsertAndQuery` — same
+  - **Skip reason documented inline** in the attribute (visible in test runner output + IDE tooltips)
+  - These are integration tests that should run on CI where the test DB is provisioned
+
+### Verified
+- `dotnet test` after the fix: **437 passed, 0 failed, 32 skipped** (was 437 passed, 2 failed, 30 skipped)
+- All other tests untouched and still passing
+- The 2 tests can be re-enabled by removing the `[Fact(Skip = ...)]` attribute + provisioning `erp_test_system` locally
+
+### Notes
+- This addresses the long-standing "2 RetentionTests failures" that have been noise in every Sprint 4+ T6 verify. Now they're explicitly skipped with documented reason.
+- Per the spirit of the new WORKFLOW.md + INTER-TEAM-PROTOCOL: the ball is in the **actor's** court, and a failing test that's not relevant to the current work shouldn't block progress.
+- Per Template 1 v2 (informational, per Anas 2026-07-29 23:02 UTC): Mavis Local's scope = T1..Tn + open PR + notify Admin. Admin Team handles CI, merge, state, hand-off. This PR is the surgical cleanup.
+
+---
+
 ## Sprint 6 — Wrap-up (2026-07-29) 🟡 IN PROGRESS
 
 **Goal:** Test gap-fill per sprint-6.md T3. Add 1 smoke test per uncovered Sprint 4-6 endpoint + meaningful tests for any other real-risk coverage gap.
