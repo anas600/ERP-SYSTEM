@@ -49,12 +49,10 @@ services:
       JwtSettings__Secret: "LOCAL_DEV_ONLY_64_CHAR_RANDOM_SECRET_NOT_FOR_PRODUCTION_xxxxx"
     ports:
       - "5000:5000"
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:5000/api/health/live"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 60s
+    # Healthcheck removed: `wget` is not in mcr.microsoft.com/dotnet/aspnet:9.0 image.
+    # Use `curl` (requires multi-stage build to copy from sdk image) OR check the
+    # container status via `docker ps` (status flag is cosmetic). The /api/health/live
+    # endpoint is verified separately by the smoke-test script.
 
   # Frontend (Next.js)
   frontend:
