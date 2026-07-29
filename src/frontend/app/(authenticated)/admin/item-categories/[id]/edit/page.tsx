@@ -112,7 +112,7 @@ export default function EditCategoryPage() {
       />
 
       <Card className="max-w-2xl">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <Input label="الاسم *" value={form.name} onChange={onChange('name')} required />

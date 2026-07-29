@@ -145,7 +145,7 @@ export default function StockLevelsPage() {
                     </div>
                   </div>
                   <Link href={`/inventory/stock-levels/${sl.id}`}>
-                    <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} />
+                    <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} aria-label="عرض المخزون" />
                   </Link>
                 </div>
                 <div className="mt-2 pt-2 border-t flex items-center justify-between text-xs">

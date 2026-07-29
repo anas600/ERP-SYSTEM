@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { ArrowLeft, TrendingDown, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Button } from '@/components/ui';
@@ -14,9 +14,8 @@ export default function BudgetVsActualPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => { load(); }, []);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -27,7 +26,8 @@ export default function BudgetVsActualPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [from, to]);
+  useEffect(() => { load(); }, [load]);
 
   return (
     <div>
@@ -61,7 +61,7 @@ export default function BudgetVsActualPage() {
         </div>
       </Card>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
 
       {loading || !report ? (
         <Card className="p-12 text-center text-gray-500">

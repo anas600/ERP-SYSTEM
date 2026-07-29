@@ -2,7 +2,7 @@
 
 // صفحة الحضور (Attendance) — CheckIn / CheckOut + history
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { formatDate, formatTime } from '@/lib/utils';
 import { LogIn, LogOut as LogOutIcon, Clock, ClipboardList } from 'lucide-react';
 import { Button, Select, Table, Badge, Card, PageHeader, EmptyState, SkeletonTable } from '@/components/ui';
@@ -25,15 +25,7 @@ export default function AttendancePage() {
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [actionLoading, setActionLoading] = useState<1 | 2 | null>(null);
 
-  useEffect(() => {
-    loadEmployees();
-  }, []);
-
-  useEffect(() => {
-    if (selectedEmployee) loadHistory();
-  }, [selectedEmployee]);
-
-  const loadEmployees = async () => {
+  const loadEmployees = useCallback(async () => {
     try {
       const data = await hrApi.listEmployees();
       setEmployees(data);
@@ -45,9 +37,9 @@ export default function AttendancePage() {
     } catch {
       // ignore
     }
-  };
+  }, [user]);
 
-  const loadHistory = async () => {
+  const loadHistory = useCallback(async () => {
     setLoadingHistory(true);
     try {
       const data = await hrApi.listAttendance({ employeeId: selectedEmployee });
@@ -58,7 +50,15 @@ export default function AttendancePage() {
     } finally {
       setLoadingHistory(false);
     }
-  };
+  }, [selectedEmployee, toast]);
+
+  useEffect(() => {
+    loadEmployees();
+  }, [loadEmployees]);
+
+  useEffect(() => {
+    if (selectedEmployee) loadHistory();
+  }, [selectedEmployee, loadHistory]);
 
   const handleAction = async (type: 1 | 2) => {
     if (!selectedEmployee) {

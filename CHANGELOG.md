@@ -33,6 +33,25 @@
   - 4 of 5 CoA service methods (`GetById`, `GetByCode`, `Create`, `Delete`) still untested — recommended for a focused follow-up.
   - `FakeDbConnectionFactory` does not honor SQL `AS` aliases — this is a project-wide limitation. My CompanyTreeTests works around it by using the projected column names in `AddRow`. A FakeDb enhancement would unlock property-level assertions for the existing `CompaniesListTests` (which currently only asserts on count, not on mapped values).
 
+### Added (FE Jimi)
+- **`src/frontend/lib/errors.ts`** — bilingual (AR + EN) error message catalog + `formatApiError(e, fallback, locale)` helper that picks a key by HTTP status (401/403/404/408/422/5xx → dedicated bilingual messages; everything else → `GENERIC`). Centralizes the wording used by toasts and inline error divs so "فشل التحميل" / "تعذّر التحميل" / "خطأ في الجلب" stop drifting across pages. Includes `t(key, locale)` and `tBilingual(key)` for static UI (empty states, error boundaries).
+- **`src/frontend/app/(authenticated)/holding/loading.tsx`** — top-level route skeleton (was missing; 105 page.tsx + 30 loading.tsx → 32 now).
+- **`src/frontend/app/(authenticated)/profile/loading.tsx`** — top-level route skeleton with avatar + field rows (was missing).
+
+### Fixed (FE Jimi)
+- **40 → 0 `react-hooks/exhaustive-deps` warnings (100% reduction).** Every fix uses `useCallback` to stabilize the `load` function, then `useEffect` depends on `[load, ...originalTriggerDeps]`. NO `eslint-disable` introduced. Files touched (high-impact, 38 unique):
+  - Reports (17 files): all `app/(authenticated)/reports/financial/**` + `reports/inventory/valuation` + `reports/procurement/*` + `reports/projects/*` + `reports/sales/*`
+  - CRUD detail/list (18 files): `admin/notifications` (list + detail), `finance/{aging-ar, customers/[id], receipts/[id], sales-invoices/[id]}`, `hr/{attendance, employees/[id], leaves/new, payroll, payroll/[id]}`, `inventory/{items/[id], movements/[id], reservations/[id]}`, `procurement/{bills/[id], goods-receipts/[id], purchase-orders/[id]}`, `projects/[id]`
+  - Composite reports (3 files): `reports/financial/{page, general-ledger, inventory/page, projects/page}` — these had `useEffect(..., [authLoading, reportType])` with a free `load` (now `useCallback` with `[reportType, fromDate, toDate]` as appropriate)
+  - Special case `reports/financial/general-ledger/page.tsx`: first effect that does `financeApi.listAccounts().then(... setAccountId(... !accountId))` rewritten to use the functional setState `setAccountId((current) => current ? current : a[0]?.id ?? '')` so the effect no longer needs `accountId` in its deps.
+- **8 icon-only `<Button>` got `aria-label`** (Arabic, action-oriented): Eye buttons on `admin/notifications`, `finance/journal-entries`, `inventory/{movements, reservations, stock-levels}`; Pencil buttons on `inventory/items`, `projects`, `finance/cost-centers`.
+- **27 inline error `<div>`s got `role="alert"`** for screen-reader announcement (across reports + admin + inventory pages).
+
+### Verified
+- `npx tsc --noEmit` → 0 errors.
+- `npx next build` → success, 83 static pages, 0 warnings (was 40).
+- No `tenant_id` introduced; all 8 governance files untouched.
+
 ---
 
 ## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS

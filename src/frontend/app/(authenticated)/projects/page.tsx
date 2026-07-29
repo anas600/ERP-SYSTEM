@@ -82,7 +82,7 @@ export default function ProjectsPage() {
                 </div>
                 <div className="flex items-center gap-1">
                   <Link href={`/projects/${p.id}/edit`}>
-                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} />
+                    <Button variant="ghost" size="sm" iconLeft={<Pencil className="h-3 w-3" />} aria-label="تعديل المشروع" />
                   </Link>
                   <Badge variant="info">{PROJECT_STATUSES[p.status] || p.status}</Badge>
                 </div>

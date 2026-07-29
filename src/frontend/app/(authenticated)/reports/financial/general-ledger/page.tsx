@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { ArrowLeft, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Button } from '@/components/ui';
@@ -19,13 +19,11 @@ export default function GeneralLedgerPage() {
   useEffect(() => {
     financeApi.listAccounts().then((a) => {
       setAccounts(a);
-      if (a.length > 0 && !accountId) setAccountId(a[0].id);
+      setAccountId((current) => (current ? current : a[0]?.id ?? ''));
     });
   }, []);
 
-  useEffect(() => { if (accountId) load(); }, [accountId]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     if (!accountId) return;
     setLoading(true); setError(null);
     try {
@@ -34,7 +32,9 @@ export default function GeneralLedgerPage() {
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل التقرير.'));
     } finally { setLoading(false); }
-  };
+  }, [accountId, from, to]);
+
+  useEffect(() => { if (accountId) load(); }, [accountId, load]);
 
   return (
     <div>
@@ -73,7 +73,7 @@ export default function GeneralLedgerPage() {
         </div>
       </Card>
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">{error}</div>}
 
       {loading ? (
         <Card className="p-12 text-center text-gray-500">جاري التحميل...</Card>

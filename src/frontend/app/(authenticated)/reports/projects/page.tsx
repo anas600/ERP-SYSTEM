@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Briefcase, TrendingUp, BarChart3, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
@@ -28,12 +28,7 @@ export default function ProjectsReportsPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (authLoading) return;
-    load();
-  }, [authLoading, reportType]);
-
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -46,7 +41,12 @@ export default function ProjectsReportsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [reportType]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    load();
+  }, [authLoading, load]);
 
   const reportMeta: Record<ReportType, { title: string; en: string; icon: any; color: string }> = {
     summary: { title: 'ملخص المشاريع', en: 'Project Summary', icon: Briefcase, color: 'blue' },

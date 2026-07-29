@@ -138,7 +138,7 @@ export default function JournalEntriesPage() {
                   </div>
                   <div className="flex items-center gap-1">
                     <Link href={`/finance/journal-entries/${j.id}`}>
-                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} />
+                      <Button variant="ghost" size="sm" iconLeft={<Eye className="h-3 w-3" />} aria-label="عرض القيد" />
                     </Link>
                     <Badge variant={statusInfo.variant}>{statusInfo.label}</Badge>
                   </div>

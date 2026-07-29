@@ -2,7 +2,7 @@
 
 // تفاصيل حجز مخزون + إلغاء (Reservation Detail with Cancel)
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowRight, X } from 'lucide-react';
@@ -30,7 +30,7 @@ export default function ReservationDetailPage() {
   const [actionRunning, setActionRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const res = await fetch('/api/inventory/reservations', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
@@ -43,9 +43,9 @@ export default function ReservationDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id]);
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, [params.id]);
+  useEffect(() => { load(); }, [params.id, load]);
 
   const handleCancel = async () => {
     if (!item) return;
@@ -90,7 +90,7 @@ export default function ReservationDetailPage() {
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+      {error && <div role="alert" className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
       <Card className="max-w-3xl">
         <div className="grid grid-cols-2 gap-4 text-sm">
