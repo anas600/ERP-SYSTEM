@@ -1,8 +1,0 @@
-{
-  "last_check": "2026-07-28T00:03:51Z",
-  "last_check_epoch": 1785197031,
-  "status": "alive",
-  "github_api": "reachable",
-  "last_remote_commit_epoch": 1785196865,
-  "stale_threshold_seconds": 1800
-}
