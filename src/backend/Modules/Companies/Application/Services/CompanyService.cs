@@ -1,4 +1,5 @@
 using System.Data;
+using ERPSystem.Modules.Companies.Application.DTOs;
 using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Infrastructure;
@@ -23,8 +24,15 @@ public interface ICompanyService
     // result to companies the user has access to via user_companies. When null, all
     // companies are returned (admin view).
     Task<CompanyResult<CompanyPage>> ListPagedAsync(int page, int pageSize, bool includeInactive, Guid? userId, CancellationToken ct);
-    Task<CompanyResult<IReadOnlyList<Company>>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
-    Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(CancellationToken ct);
+    Task<CompanyResult<SubsidiaryListDto>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct);
+    // Sprint 11 T2 (BE Jimi): the FE contract expects a flat recursive DTO
+    // (CompanyTreeNodeDto), not the legacy `CompanyTreeNode { Company, Children }`
+    // wrapper. The Holding is the root (is_group=true AND parent_company_id IS NULL);
+    // its children are the subsidiaries; each subsidiary may have its own children.
+    // Returns the Holding's direct children so the FE can build a tree
+    // (a Holding has exactly one row at the top by definition; the FE renders
+    // it as a single root node).
+    Task<CompanyResult<IReadOnlyList<CompanyTreeNodeDto>>> GetTreeAsync(CancellationToken ct);
     Task<CompanyResult<bool>> DeactivateAsync(Guid id, CancellationToken ct);
     // Sprint 1 (T2 / Block A): slug-based Holding lookup, returns Holding + child companies.
     Task<CompanyResult<HoldingDetail>> GetHoldingBySlugAsync(string slug, CancellationToken ct);
@@ -87,7 +95,6 @@ public sealed class HoldingCompanySummary
     public bool IsActive { get; set; }
 }
 
-public sealed class CompanyTreeNode { public Company Company { get; set; } = null!; public List<CompanyTreeNode> Children { get; set; } = new(); }
 public sealed class CompanyResult<T> { public bool Succeeded { get; init; } public T? Value { get; init; } public string? Error { get; init; } public CompanyErrorCode? ErrorCode { get; init; } public static CompanyResult<T> Ok(T v) => new() { Succeeded = true, Value = v }; public static CompanyResult<T> Fail(string e, CompanyErrorCode c) => new() { Succeeded = false, Error = e, ErrorCode = c }; }
 public enum CompanyErrorCode { NotFound, AlreadyExists, ValidationError, InUse, Internal }
 
@@ -284,13 +291,54 @@ public sealed class CompanyService : ICompanyService
         var result = System.Text.RegularExpressions.Regex.Replace(sb.ToString(), "-+", "-").Trim('-');
         return result;
     }
-    public async Task<CompanyResult<IReadOnlyList<Company>>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct) =>
-        CompanyResult<IReadOnlyList<Company>>.Ok(await _companies.ListSubsidiariesAsync(parentCompanyId, ct));
-    public async Task<CompanyResult<CompanyTreeNode>> GetTreeAsync(CancellationToken ct)
+    public async Task<CompanyResult<SubsidiaryListDto>> GetSubsidiariesAsync(Guid parentCompanyId, CancellationToken ct)
     {
-        var all = await _companies.ListAsync(true, ct);
-        var tree = all.Where(c => c.ParentCompanyId == null).Select(r => BuildTree(r, all)).ToList();
-        return CompanyResult<CompanyTreeNode>.Ok(new CompanyTreeNode { Children = tree });
+        var subs = await _companies.ListSubsidiariesAsync(parentCompanyId, ct);
+        return CompanyResult<SubsidiaryListDto>.Ok(new SubsidiaryListDto
+        {
+            ParentCompanyId = parentCompanyId,
+            Subsidiaries = subs,
+        });
+    }
+    // Sprint 11 T2 (BE Jimi): Holding tree builder. The Holding is the single row
+    // where is_group=true AND parent_company_id IS NULL. Its direct children are
+    // the subsidiaries; each subsidiary may have nested children. We return the
+    // list of direct children of the Holding (the FE renders the Holding as a
+    // single root node wrapping the list). The DTO is flat (id/code/name/parentId/
+    // isGroup/isActive/children) so the FE can drop it straight into a tree widget
+    // without further projection. Includes inactive rows so the FE can show them
+    // greyed-out (the admin tree shows all companies, not just active ones).
+    public async Task<CompanyResult<IReadOnlyList<CompanyTreeNodeDto>>> GetTreeAsync(CancellationToken ct)
+    {
+        var all = await _companies.ListAsync(includeInactive: true, ct);
+        // Index children by parent for O(N) recursion.
+        var byParent = all
+            .Where(c => c.ParentCompanyId.HasValue)
+            .GroupBy(c => c.ParentCompanyId!.Value)
+            .ToDictionary(g => g.Key, g => g.ToList());
+        CompanyTreeNodeDto Build(Company n) => new(
+            Id: n.Id,
+            Code: n.Code,
+            Name: n.Name,
+            ParentCompanyId: n.ParentCompanyId,
+            IsGroup: n.IsGroup,
+            IsActive: n.IsActive,
+            Children: byParent.TryGetValue(n.Id, out var kids)
+                ? kids.Select(Build).ToList()
+                : new List<CompanyTreeNodeDto>());
+        // The Holding root: is_group=true AND parent_company_id IS NULL.
+        var holding = all.FirstOrDefault(c => c.IsGroup && c.ParentCompanyId == null);
+        if (holding == null)
+        {
+            // No Holding in the system — return an empty list. The FE renders the
+            // tree empty state; we don't 404 because the route is collection-shaped
+            // and the FE will need it to keep working before the bootstrap creates
+            // the first Holding.
+            return CompanyResult<IReadOnlyList<CompanyTreeNodeDto>>.Ok(new List<CompanyTreeNodeDto>());
+        }
+        return CompanyResult<IReadOnlyList<CompanyTreeNodeDto>>.Ok(byParent.TryGetValue(holding.Id, out var subs)
+            ? subs.Select(Build).ToList()
+            : new List<CompanyTreeNodeDto>());
     }
     public async Task<CompanyResult<bool>> DeactivateAsync(Guid id, CancellationToken ct)
     {
@@ -333,5 +381,4 @@ public sealed class CompanyService : ICompanyService
         };
         return CompanyResult<HoldingDetail>.Ok(detail);
     }
-    private static CompanyTreeNode BuildTree(Company n, IReadOnlyList<Company> all) => new() { Company = n, Children = all.Where(c => c.ParentCompanyId == n.Id).Select(c => BuildTree(c, all)).ToList() };
 }

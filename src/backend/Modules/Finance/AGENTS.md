@@ -101,7 +101,24 @@ The `FakeDbDataReader` parses the SELECT clause and projects the underlying Data
 - `NoAsAlias_FallsBackToDirectColumns` — backward compatibility
 - `AsAlias_HandlesMultipleColumnsIncludingExpression` — expression alias edge case
 
+## Jimi Scope — 2026-07-31 (Sprint 11 T2)
+
+**Jimi type:** BE
+**Sprint / Cycle:** Sprint 11 (Full Demo Coverage)
+**T# tasks:** T2 (BE endpoints matching FE contract)
+**Branch:** `feature/sprint-11-fe-be-parallel` (off `origin/develop @ 64efaac`)
+
+**Files I added/touched in this module:**
+- `src/backend/Modules/Finance/Application/FinanceDtos.cs` (MODIFIED) — added `HoldingDashboardDto`, `AccountDto` (string enums), `TransactionDto`
+- `src/backend/Modules/Finance/Application/Services/FinanceService.cs` (NEW) — `IFinanceService` with `GetConsolidatedKpisAsync` / `GetRecentTransactionsAsync` / `ListAccountsAsync` / `GetAccountByIdAsync`
+
+**Constitution articles I respected:**
+- Article 3 — `company_id` only (no `tenant_id`)
+- Article 6 (Dapper only, no EF Core)
+- Article 10 (LOCAL-ONLY commit, no push/PR per Anas mandate)
+
 ---
 
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
 _2026-07-31: Sprint 8 T2 — added Test Pattern: SQL AS Alias Support (Local Team takeover)_
+_2026-07-31: Sprint 11 T2 — added BE Jimi scope declaration (Mavis Local)_

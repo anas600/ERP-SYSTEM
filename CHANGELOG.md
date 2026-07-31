@@ -1,4 +1,4 @@
-# 📜 CHANGELOG — ERP-SYSTEM
+﻿# 📜 CHANGELOG — ERP-SYSTEM
 
 > **Per-sprint changelog.** Newest first. Concise.
 
@@ -12,6 +12,102 @@
 ```
 
 ---
+## Sprint 11 T1 — Full Demo Coverage (FE) (2026-07-31) ✅ DONE
+
+**Goal:** Add the FE surfaces for the new demo pages (Holding KPIs, Company tree, Chart of Accounts hub, Recent Transactions, Saved Reports) + extend the API contract. Per Sprint 11 hand-off (Admin Team v1.8). **LOCAL-ONLY MODE** — committed locally, not pushed (per Anas 2026-07-31 06:47 UTC mandate). The BE worker is in parallel on the same branch.
+
+### Added (FE Jimi — T1, frontend demo pages)
+- **`src/frontend/lib/api-types.ts`** (NEW, 7 types + re-exports) — the user-facing contract. New types: `CompanyTreeNode`, `HoldingDashboard`, `AccountDto`, `TransactionDto`, `ReportDto`, `SubsidiaryListDto`, `ActivityFeedItemDto`, `NotificationDto`. Plus string-union helpers `AccountType` and `NormalBalance`. Re-exports legacy `HoldingDetail`, `Company`, etc. from `api.ts` so the new pages can import everything from one place.
+- **`src/frontend/lib/api.ts`** (EXTEND) — 6 new typed wrappers at the bottom of the file:
+  - `getHoldingDashboard()` — `GET /api/holdings/dashboard` (falls back to `/api/dashboard/holding` on 404)
+  - `getCompanyTree()` — `GET /api/companies/tree`
+  - `getAccounts()` — `GET /api/accounts` (new flat DTO shape)
+  - `getRecentTransactions(limit)` — `GET /api/transactions/recent?limit=N`
+  - `getReports()` — `GET /api/reports`
+  - `getSubsidiaries(companyId)` — `GET /api/companies/{id}/subsidiaries`
+  - `getActivityFeed(limit)` — `GET /api/activity/recent?limit=N` (new DTO)
+  - `getUnreadNotifications()` — `GET /api/inventory/notifications/unread` (new DTO)
+- **`src/frontend/app/(authenticated)/holding/page.tsx`** (UPDATE) — added a `HoldingKpiPanel` above the sub-companies grid. Shows 5 consolidated KPIs (revenue, expenses, net profit, employees, treasury balance) + a feed of the 5 most recent transactions. Soft-fails if the BE endpoint isn't wired yet.
+- **`src/frontend/app/(authenticated)/admin/companies/page.tsx`** (UPDATE) — added a hierarchical tree view section above the existing paginated table. Uses `getCompanyTree()`. Recursive `TreeNodeRow` component, auto-expands root nodes. Soft-fails if the BE endpoint isn't wired yet.
+- **`src/frontend/app/(authenticated)/accounts/page.tsx`** (NEW) — top-level Accounts hub page. New flat DTO `AccountDto[]`, tree view, type filter, search, stats cards. Complements the existing `/finance/accounts` page (legacy numeric-enum DTO).
+- **`src/frontend/app/(authenticated)/transactions/page.tsx`** (NEW) — top-level Transactions hub page. Lists the most-recent journal lines using the new `TransactionDto` DTO. Debit/Credit totals, balanced check, filters.
+- **`src/frontend/app/(authenticated)/reports/page.tsx`** (UPDATE) — added a `SavedReportsPanel` above the existing tabs. Lists the most-recent generated reports from `getReports()`. Soft-fails if the BE endpoint isn't wired yet.
+- **`src/frontend/components/layout/AppShell.tsx`** (UPDATE) — added nav items for the new pages:
+  - `الحسابات (مبسّط)` → `/accounts` (in المالية group)
+  - `المعاملات الأخيرة` → `/transactions` (in المالية group)
+
+### Notes
+- Branch: `feature/sprint-11-fe-be-parallel` (off `origin/develop @ 64efaac`)
+- **LOCAL-ONLY** — committed locally, no push, no PR (per Anas mandate 2026-07-31 06:47 + 07:00 UTC)
+- The cron is disabled during LOCAL-ONLY mode; safe to commit
+- **FE is the source of truth for the DTOs** (per Sprint 11 hand-off). The BE worker will rebase on top of this commit and align the C# DTOs to match the flat shapes here.
+- 1 OTHER Jimi (BE) is working in parallel on the same branch. They will rebase AFTER this commit (api-types conflicts: FE wins).
+- No `tenant_id` introduced; `company_id` only.
+- No new packages installed.
+- No BE files touched (per scope rule).
+
+### Pending (after local verify)
+- [x] `npm run type-check` — verify 0 errors ✅
+- [x] `npm run build` — verify success ✅
+- [x] Wait for BE Jimi to rebase + add matching BE endpoints ✅
+- [x] Open PR (when user says so) ✅ — PR opened by Mavis (admin self-merge per Anas 2026-07-31 18:31 UTC)
+
+---
+
+## Sprint 11 T2 — BE endpoints matching FE contract (2026-07-31) ✅ DONE (local-only)
+
+**Goal:** Add BE endpoints + DTOs that match the FE contract in `src/frontend/lib/api-types.ts` (T1, FE Jimi). LOCAL-ONLY commit (no push, no PR — per Anas mandate 2026-07-31 06:47 / 07:00 UTC). Branch: `feature/sprint-11-fe-be-parallel` (off `origin/develop @ 64efaac`).
+
+### Added (BE Jimi — T2, matching BE endpoints)
+- **`src/backend/Modules/Companies/Application/DTOs/CompanyDto.cs`** (NEW) — `CompanyTreeNodeDto` record (flat recursive DTO for the Holding tree) + `SubsidiaryListDto` (wrapper for `/api/companies/{id}/subsidiaries` returning `{parentCompanyId, subsidiaries}`).
+- **`src/backend/Modules/Companies/Application/Services/CompanyService.cs`** — `GetTreeAsync()` refactored to return `IReadOnlyList<CompanyTreeNodeDto>` (flat shape matching the FE's `CompanyTreeNode` interface). `GetSubsidiariesAsync()` refactored to return `SubsidiaryListDto` (carries the parent id). Removed the legacy `CompanyTreeNode` wrapper class.
+- **`src/backend/Modules/Finance/Application/FinanceDtos.cs`** — added `HoldingDashboardDto`, `AccountDto` (string enums: `'Asset'/'Liability'/'Equity'/'Revenue'/'Expense'`, `'Debit'/'Credit'`), `TransactionDto` (with display-only `accountCode` / `accountName`).
+- **`src/backend/Modules/Finance/Application/Services/FinanceService.cs`** (NEW) — `IFinanceService` with 4 methods:
+  - `GetConsolidatedKpisAsync()` — Holding-level revenue/expenses/net/companyCount/employeeCount/treasuryBalance + last 10 journal lines. Aggregates across all sub-companies (`c.parent_company_id IS NOT NULL`). Empty-state: zero-filled DTO (no 404).
+  - `GetRecentTransactionsAsync(limit)` — per-company recent journal lines.
+  - `ListAccountsAsync(includeInactive)` — per-company flat CoA list with string enums.
+  - `GetAccountByIdAsync(id)` — single account.
+- **`src/backend/Host/Controllers/HoldingController.cs`** (NEW) — `GET /api/holdings/dashboard` + `GET /api/dashboard/holding` (alias). ReadAccess policy. Empty-state: 200 OK with default.
+- **`src/backend/Host/Controllers/AccountsController.cs`** — **refactored**: kept the legacy `/api/finance/accounts` routes (existing FE) and added new `/api/accounts` + `/api/accounts/{id}` (FE demo contract). Both routes on the same controller (clean DI graph).
+- **`src/backend/Host/Controllers/TransactionsController.cs`** (NEW) — `GET /api/transactions/recent?limit=N` + `GET /api/transactions?limit=N` (alias). ReadAccess policy.
+- **`src/backend/Host/Program.cs`** — registered `IFinanceService` in DI.
+- **`src/backend/Tests/ERPSystem.Tests/Companies/CompanyTreeTests.cs`** (NEW) — 3 tests:
+  - `GetTreeAsync_OneHoldingTwoSubsidiaries_ReturnsOneRootWithTwoChildren`
+  - `GetTreeAsync_DeepHierarchy_BuildsNestedChildren`
+  - `GetTreeAsync_EmptyRepository_ReturnsEmptyList`
+
+### Verified
+- `dotnet build`: 0 errors (Host + Tests projects).
+- `dotnet test`: **439 passed, 2 failed, 30 skipped** (was 436/2/30 before T2; +3 new CompanyTreeTests; 2 pre-existing `RetentionTests` failures are DB connection issues — NOT introduced by T2; verified per Sprint 8 T2 baseline).
+- `npm run type-check`: 0 errors.
+- No `tenant_id` introduced (only documentation comments mention "no `tenant_id`" per Article 3).
+- No secrets in code.
+
+### Notes
+- All DTOs match the FE contract in `src/frontend/lib/api-types.ts` (T1, FE Jimi) — `CompanyTreeNode`, `HoldingDashboard`, `AccountDto`, `TransactionDto`, `SubsidiaryListDto`.
+- Holding-level queries are NOT scoped to a single company; they aggregate across all sub-companies (filter: `c.parent_company_id IS NOT NULL`).
+- Per-company queries (CoA list, recent transactions) are scoped via `ICompanyContext.CompanyId` (no X-Company-Id → empty list, not 404).
+- The legacy `/api/finance/accounts` route is preserved so the existing FE pages still work; the new `/api/accounts` route is for the demo.
+- `treasuryBalance` reads `bank_accounts.balance`; if the table is missing on older deployments, the dashboard returns 0 (defensive try/catch).
+- All empty states return 200 OK with default (zero / empty list) — never 404 — so the FE can render the demo even before the bootstrap seeds the Holding.
+- LOCAL-ONLY commit (no push, no PR). PR opened by Mavis (admin self-merge per Anas 2026-07-31 18:31 UTC: "انت الادمن على الجت هوب").
+
+---
+
+## Sprint 11 T3 — Retrospective + Sprint 12 hand-off (2026-07-31) ✅ DONE
+
+**Goal:** Write the Sprint 11 retrospective and Sprint 12 hand-off per governance v2.0 (per-sprint analysis required).
+
+### Added
+- **`docs/team-charters/retrospectives/sprint-11-retro.md`** (NEW) — full retrospective. 5 lessons learned: (L1) file scope separation > "intentional overlap", (L2) contract-first beats code-first for parallel work, (L3) real DB for local tests is a P0 infra gap, (L4) "FE wins" refined to "FE wins on contract shape" not "FE commits first", (L5) per-sprint retros compounding value.
+- **`docs/workflow/sprint-12-handoff.md`** (NEW) — Sprint 12 plan. P0: local test infrastructure (real psql via local-docker Postgres) + `no-tenant-id` CI guard. Architecture reaffirmation per Anas 2026-07-31 07:46 UTC: "تطوير نظام الشركة القابضة وليس مالتي تينانت".
+
+### Notes
+- All retro lessons applied to Sprint 12 hand-off.
+- LOCAL-ONLY commit. PR opened by Mavis (admin self-merge per Anas 2026-07-31 18:31 UTC).
+
+---
+
 
 ## Sprint 10 — Holding Refactor Phase 2 + 3 (2026-07-31) 🟡 IN PROGRESS (LOCAL-ONLY)
 
