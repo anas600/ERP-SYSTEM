@@ -118,12 +118,23 @@ Since `mavis` CLI is broken, these crons are set up via the platform's Schedule 
 
 | Cron | Schedule | Status | Cron ID |
 |------|----------|--------|---------|
-| `sprint-pr-review-v1.8` | `*/15 * * * *` (08:00-22:00 Africa/Tripoli) | ✅ ENABLED | `28e88987-10d6-43c6-abad-654e68a867d5` |
+| `sprint-pr-review-v1.8` | `*/15 * * * *` (08:00-22:00 Africa/Tripoli) | ❌ **DISABLED** (06:47 UTC) | `28e88987-10d6-43c6-abad-654e68a867d5` |
 | `state-cron` | `*/5 * * * *` | ⏳ Pending (next) | — |
 | `coordinator-watchdog` | `*/10 * * * *` | ⏳ Pending | — |
 | `sprint-archive-cleanup` | `0 2 * * *` | ⏳ Pending | — |
 
-**Note on `sprint-pr-review-v1.8`:** Runs every 15 min, checks for new PRs on develop, reviews them, merges if green (squash, --admin, --delete-branch). Per the v2.0 governance, Mavis Local can self-merge with --admin when needed.
+**Note on `sprint-pr-review-v1.8`:** ❌ **DISABLED at 06:47 UTC** per Anas's new directive ("the merge step slows down project development"). The auto-merge workflow was too eager — it would merge PRs every 15 min, which interrupted the developer's flow when they wanted to keep iterating locally.
+
+**New strategy (per Anas 2026-07-31 06:47 UTC):**
+- Local-only development for future sprints
+- No push to cloud, no PR to develop
+- PRs only at the end ("اخيرا يرفع بي ار ع الجت هوب")
+- Goal: speed up work locally, reach stable state, then push once
+
+**What remains valid:**
+- The 3 other crons (state-cron, coordinator-watchdog, sprint-archive-cleanup) can be enabled when local work needs monitoring
+- They are TOOLS, not ACTORS — they help, not push
+- Default to "monitoring" crons, not "action" crons, unless explicitly approved
 
 ---
 
