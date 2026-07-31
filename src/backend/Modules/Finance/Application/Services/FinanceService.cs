@@ -31,7 +31,7 @@ using Dapper;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Finance.Application.Services;
