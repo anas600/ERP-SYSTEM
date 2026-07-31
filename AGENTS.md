@@ -151,9 +151,20 @@ See [`docs/personas/`](./docs/personas/) for full role definitions.
 - Squash merge only.
 
 ### Branch Protection (per Constitution Article 4)
-- Required checks (6): Backend Tests, Frontend Build, CodeQL, TruffleHog, Analyze (js-ts), Analyze (csharp).
-- Required reviews: 1 (admin bypass ON).
-- Playwright E2E: optional (per Constitution Article 11).
+
+**Per Anas 2026-07-31 23:16 UTC directive** — branch architecture reset to align with 3-Layer Model:
+
+| Branch | Role | Protection |
+|--------|------|-----------|
+| `develop` | **DEFAULT** — all active work (Layer 1 + Layer 2) | 6 required checks (Backend Tests, Frontend Build, Analyze csharp, Analyze js-ts, TruffleHog, **Architecture Guard — no tenant_id**) + 1 review + linear history + conversation resolution + enforce admins |
+| `main` | **FROZEN** — anchored at `v1.0.0-archive` tag (pre-Layer-3) | **LOCKED** (lock_branch=true) + 1 review + linear history + no force-push + no deletions + enforce admins. Can only be modified via Owner (Anas) explicit action. |
+| `v0.0.0-pre-branch-reset` (tag) | Safety anchor — state of main before reset (governance v2.0 + Sprint 8 T4 refactor proposal) | Immutable tag |
+| `v1.0.0-archive` (tag) | Work anchor — 3-Layer Model implementation: Sprint 10 (Holding rename + scoped DI), Sprint 11 (full FE+BE demo), Sprint 12 (local psql + no-tenant-id guard), Sprint 13 (Layer 2 MVP container) | Immutable tag |
+
+- Required checks on `develop` (6): Backend Tests, Frontend Build, CodeQL (Analyze csharp + js-ts), TruffleHog, **Architecture Guard — no tenant_id** (Sprint 12 addition).
+- Required reviews: 1 (admin bypass ON for Mavis Local per Article 10).
+- `main` is **LOCKED** — no commits, no force-pushes, no deletions. To change `main`, Owner (Anas) must unlock via GitHub UI.
+- Force-push only with `--force-with-lease` (on feature/* branches, never on develop/main).
 
 ### Environment Layers (FROZEN per Article 10)
 | Layer | Branch | DB | Status |
