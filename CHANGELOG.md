@@ -28,6 +28,24 @@
   - Added end-of-section note pointing to Sprint 8 T4 refactor proposal (single-table self-referencing, not the original two-table design)
   - **Scope:** Section 6 only (~32 lines added, 26 lines removed); Sections 1-5 and 7-17 untouched per Rule 1
 
+### Changed (BE Jimi 2 — T2, Phase 3 scoped DI)
+- **`src/backend/Shared/CompanyContext/CompanyContext.cs`** — rewritten to use `IHttpContextAccessor` + `HttpContext.Items` instead of the static `AsyncLocal<CompanyHolder>`:
+  - Constructor now takes `IHttpContextAccessor http` (was parameterless)
+  - Storage uses three `HttpContext.Items` keys: `CompanyIdKey`, `UserIdKey`, `CompanyIdsKey` (all `internal const string` to avoid string-typo bugs)
+  - `Set` / `Clear` now read/write `HttpContext.Items` (with null-guard for `BackgroundService` scopes that have no `HttpContext`)
+  - **`ICompanyContext` interface is UNCHANGED** — `Set` / `Clear` still on the interface (kept for backward compat; the 28 referencing files needed zero changes for this)
+  - Removed the private `CompanyHolder` nested class (no longer needed)
+- **`src/backend/Tests/ERPSystem.Tests/Auth/CompanyContextTests.cs`** — fully rewritten to use a mocked `IHttpContextAccessor` + `DefaultHttpContext`:
+  - Added `Build()` helper: returns a `(CompanyContext, DefaultHttpContext)` pair backed by a fresh `HttpContext` per test
+  - Replaced `AsyncLocal_DoesNotLeakAcrossTasks` with **`Scoped_DoesNotLeakAcrossHttpContexts`** + **`ParallelHttpContexts_DoNotLeakCompany`** — same isolation contract, but verified against `HttpContext.Items` (the new storage) rather than AsyncLocal (the old implementation detail)
+  - Added **`Clear_OnlyAffectsCurrentHttpContext`** — defensive: `Clear()` on request A must not affect request B
+  - Added **`Set_WithNullHttpContext_DoesNotThrow`** — `BackgroundService` / `HostedService` work has no `HttpContext`; `Set` must be a no-op, not a crash
+  - All other existing tests (4 Cycle-2 + 3 happy/error path) preserved with the new `Build()` helper
+- **`src/backend/Tests/ERPSystem.Tests/Dashboard/DashboardSummaryTests.cs`** — comment-only fix: removed stale "(AsyncLocal)" wording in the "Why Moq" header comment, replaced with "Sprint 10 Phase 3: HttpContext.Items via IHttpContextAccessor". No code changes.
+- **`src/backend/Shared/AGENTS.md`** — updated `CompanyContext` subtree row: `AsyncLocal — Phase 2 done, scoped DI planned` → `Phase 2 rename done, Phase 3 scoped DI done`. Updated Phase 3 plan note to record completion (interface unchanged, tests rewritten).
+- **`src/backend/Host/Program.cs`** — NO CHANGES NEEDED. `AddHttpContextAccessor()` was already on line 162, and `AddScoped<ICompanyContext, CompanyContext>()` was already on line 241 (both from Sprint 6.1b). The scope was always correct — only the implementation was AsyncLocal-backed.
+- **`src/backend/Shared/CompanyContext/CompanyContextMiddleware.cs`** — NO CHANGES NEEDED. The middleware receives `ICompanyContext companyContext` (now the scoped instance) as a parameter and calls `Set` / `Clear` on it. With the new scoped-DI implementation, those calls write to `HttpContext.Items` for the current request — behavior is identical to before, just implemented via DI instead of static state.
+
 ### Notes
 - This is a docs-only change. No code modified, no tests affected, no `tenant_id` introduced.
 - Out-of-scope discovery (flagged for Mavis Local — NOT included in this PR slice per Rule 1):

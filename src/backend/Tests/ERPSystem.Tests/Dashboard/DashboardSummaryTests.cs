@@ -17,9 +17,9 @@
 //
 // Why Moq for ICompanyContext: the FakeDbConnectionFactory is already the
 // project convention for table-driven service tests, but ICompanyContext is
-// request-scoped (AsyncLocal) and cannot be easily faked; Moq is the right
-// tool. The project already references Moq (csproj line 18) and uses it in
-// other tests (e.g. HoldingSmokeTest).
+// request-scoped (Sprint 10 Phase 3: HttpContext.Items via IHttpContextAccessor)
+// and cannot be easily faked; Moq is the right tool. The project already
+// references Moq (csproj line 18) and uses it in other tests (e.g. HoldingSmokeTest).
 //
 // COUNT(*) support: the FakeDbCommand.ExecuteScalar override in
 // Common/FakeDbConnectionFactory.cs (Sprint 1 hotfix) recognises
@@ -27,7 +27,7 @@
 // clause is still ignored — that's the integration test's job (below).
 
 using ERPSystem.Modules.Dashboard.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Tests.Common;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
