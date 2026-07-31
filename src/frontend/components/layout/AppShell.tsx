@@ -47,6 +47,7 @@ import {
   ShoppingBag,
   Package,
   FileSpreadsheet,
+  ArrowRightLeft,
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
@@ -80,8 +81,12 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'المالية',
     items: [
       { label: 'دليل الحسابات', href: '/finance/accounts', icon: Wallet },
+      // Sprint 11 T1: top-level Accounts hub (new flat DTO + tree view).
+      { label: 'الحسابات (مبسّط)', href: '/accounts', icon: Wallet },
       { label: 'مراكز التكلفة', href: '/finance/cost-centers', icon: FolderTree },
       { label: 'قيود اليومية', href: '/finance/journal-entries', icon: GitBranch },
+      // Sprint 11 T1: top-level Transactions hub (recent journal feed).
+      { label: 'المعاملات الأخيرة', href: '/transactions', icon: ArrowRightLeft },
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },

@@ -1,15 +1,22 @@
 'use client';
 
-// Sprint 1: Holding view — Holding header + sub-companies grid.
-// Shows the holding the active user belongs to, lists its sub-companies, and
-// lets the user switch the active company via the <CompanySwitcher /> already
-// present in the Topbar (we re-render it inline for explicit placement).
+// Sprint 1 + Sprint 11 (T1): Holding view — Holding header + sub-companies grid
+// + consolidated KPIs panel.
 //
-// Contract: GET /api/holdings/{slug}
-// For the demo, the slug is "mfa-holding" (MFA Holding). The page is
-// slug-driven: a future holding-switcher could read the slug from a
-// `?slug=` query param or from the user's holding. For now we hard-code
-// it as a constant so the demo link is stable.
+// Sprint 1: shows the holding the active user belongs to, lists its sub-
+// companies, and lets the user switch the active company via <CompanySwitcher />.
+//
+// Sprint 11 T1: adds a "Holding KPIs" panel above the sub-companies grid that
+// uses `getHoldingDashboard()` to surface consolidated revenue, expenses, net
+// profit, company count, employee count, treasury balance, and a recent-
+// transactions feed. The panel gracefully handles BE 404s (the endpoint may
+// not be wired yet on the parallel branch).
+//
+// Contract:
+//   GET /api/holdings/{slug}             (Sprint 1 — sub-companies grid)
+//   GET /api/holdings/dashboard          (Sprint 11 T1 — consolidated KPIs)
+//
+// Demo slug is hard-coded as "mfa-holding" so the demo link is stable.
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -24,11 +31,24 @@ import {
   Calendar,
   ChevronLeft,
   Briefcase,
+  TrendingUp,
+  TrendingDown,
+  Users,
+  Landmark,
+  Activity,
+  DollarSign,
 } from 'lucide-react';
 import { Card, PageHeader, Button, Badge, EmptyState } from '@/components/ui';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
-import { holdingsApi, getErrorMessage, HoldingDetail, HoldingCompany } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import {
+  holdingsApi,
+  getErrorMessage,
+  getHoldingDashboard,
+  HoldingDetail,
+  HoldingCompany,
+} from '@/lib/api';
+import type { HoldingDashboard, TransactionDto } from '@/lib/api-types';
+import { formatDate, formatCurrency } from '@/lib/utils';
 
 // الـ slug الـ demo (MFA Holding). قابل للاستبدال لاحقاً بمصدر ديناميكي.
 const DEMO_HOLDING_SLUG = 'mfa-holding';
@@ -129,6 +149,11 @@ export default function HoldingPage() {
   const [holding, setHolding] = useState<HoldingDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // Sprint 11 T1: consolidated KPIs (separate load to keep the legacy path
+  // working even when the new endpoint isn't wired yet on the BE).
+  const [dashboard, setDashboard] = useState<HoldingDashboard | null>(null);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -143,8 +168,25 @@ export default function HoldingPage() {
     }
   };
 
+  const loadDashboard = async () => {
+    setDashboardLoading(true);
+    setDashboardError(null);
+    try {
+      const data = await getHoldingDashboard();
+      setDashboard(data);
+    } catch (e: unknown) {
+      // Soft-fail: the new endpoint may not be wired yet on the parallel
+      // branch. We render an empty KPI panel rather than a hard error.
+      setDashboardError(getErrorMessage(e, 'تعذّر تحميل مؤشرات القابضة.'));
+      setDashboard(null);
+    } finally {
+      setDashboardLoading(false);
+    }
+  };
+
   useEffect(() => {
     load();
+    loadDashboard();
   }, []);
 
   // الـ gradient مستقر للـ holding (لا يتغير بين renders) — يُحسب مرة واحدة
@@ -205,6 +247,16 @@ export default function HoldingPage() {
           </Button>
         </div>
       )}
+
+      {/* Sprint 11 T1: Holding KPIs panel — consolidated metrics.
+          Renders above the holding hero. If the BE endpoint isn't wired yet
+          (404), the panel shows zeros + a small badge hint. */}
+      <HoldingKpiPanel
+        dashboard={dashboard}
+        loading={dashboardLoading}
+        error={dashboardError}
+        onRefresh={loadDashboard}
+      />
 
       {/* Hero section — Holding name + gradient logo + meta */}
       <Card className="mb-6 overflow-hidden">
@@ -324,5 +376,166 @@ export default function HoldingPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ============ HoldingKpiPanel (Sprint 11 T1) ============
+//
+// Shows 5 consolidated KPIs (revenue, expenses, net profit, employees,
+// treasury) + a feed of recent transactions. Designed to degrade gracefully:
+// if the BE endpoint isn't wired yet, the panel shows zeros + a hint.
+
+interface HoldingKpiPanelProps {
+  dashboard: HoldingDashboard | null;
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}
+
+function HoldingKpiPanel({ dashboard, loading, error, onRefresh }: HoldingKpiPanelProps) {
+  const d = dashboard;
+  const netPositive = (d?.netProfit ?? 0) >= 0;
+  return (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+          <Activity className="h-5 w-5 text-blue-500" />
+          مؤشرات القابضة المجمّعة
+        </h3>
+        <div className="flex items-center gap-2">
+          {error && (
+            <Badge variant="neutral">غير متاح بعد</Badge>
+          )}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={onRefresh}
+            disabled={loading}
+            iconLeft={<RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />}
+          >
+            تحديث
+          </Button>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-3">
+        <KpiCard
+          label="إجمالي الإيرادات"
+          value={formatCurrency(d?.totalRevenue, d?.currency)}
+          icon={<TrendingUp className="h-4 w-4" />}
+          accent="green"
+          loading={loading}
+        />
+        <KpiCard
+          label="إجمالي المصروفات"
+          value={formatCurrency(d?.totalExpenses, d?.currency)}
+          icon={<TrendingDown className="h-4 w-4" />}
+          accent="red"
+          loading={loading}
+        />
+        <KpiCard
+          label="صافي الربح"
+          value={formatCurrency(d?.netProfit, d?.currency)}
+          icon={<DollarSign className="h-4 w-4" />}
+          accent={netPositive ? 'green' : 'red'}
+          loading={loading}
+        />
+        <KpiCard
+          label="عدد الموظفين"
+          value={d?.employeeCount?.toLocaleString('en') ?? '—'}
+          icon={<Users className="h-4 w-4" />}
+          accent="blue"
+          loading={loading}
+        />
+        <KpiCard
+          label="رصيد الخزينة"
+          value={formatCurrency(d?.treasuryBalance, d?.currency)}
+          icon={<Landmark className="h-4 w-4" />}
+          accent="purple"
+          loading={loading}
+        />
+      </div>
+
+      {/* Recent transactions feed — compact list, max 5 rows. */}
+      <Card>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="font-semibold text-gray-800 flex items-center gap-2 text-sm">
+            <Activity className="h-4 w-4 text-gray-500" />
+            آخر المعاملات
+          </h4>
+          {d?.recentTransactions && d.recentTransactions.length > 0 && (
+            <span className="text-xs text-gray-500">
+              {d.recentTransactions.length} معاملة
+            </span>
+          )}
+        </div>
+        {loading && !d ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-8 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : !d || d.recentTransactions.length === 0 ? (
+          <div className="text-center py-4 text-sm text-gray-500">
+            لا توجد معاملات حديثة لعرضها.
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {d.recentTransactions.slice(0, 5).map((t: TransactionDto) => (
+              <li key={t.id} className="py-2 flex items-center gap-3 text-sm">
+                <div className="flex-shrink-0 text-xs text-gray-400 w-24">
+                  {formatDate(t.createdAt)}
+                </div>
+                <div className="flex-1 min-w-0 truncate text-gray-700">
+                  {t.description || t.accountName || '—'}
+                </div>
+                <div className="flex-shrink-0 font-mono text-xs">
+                  {Number(t.debit || 0) > 0 && (
+                    <span className="text-green-700">
+                      +{Number(t.debit).toLocaleString('en', { minimumFractionDigits: 2 })}
+                    </span>
+                  )}
+                  {Number(t.credit || 0) > 0 && (
+                    <span className="text-red-700">
+                      {' '}−{Number(t.credit).toLocaleString('en', { minimumFractionDigits: 2 })}
+                    </span>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+// Single KPI tile — small + reusable.
+interface KpiCardProps {
+  label: string;
+  value: string;
+  icon: React.ReactNode;
+  accent: 'green' | 'red' | 'blue' | 'purple';
+  loading?: boolean;
+}
+function KpiCard({ label, value, icon, accent, loading }: KpiCardProps) {
+  const accentMap: Record<string, string> = {
+    green: 'text-green-600 bg-green-50',
+    red: 'text-red-600 bg-red-50',
+    blue: 'text-blue-600 bg-blue-50',
+    purple: 'text-purple-600 bg-purple-50',
+  };
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-1">
+        <span className={`p-1 rounded ${accentMap[accent]}`}>{icon}</span>
+        <span className="text-xs text-gray-500">{label}</span>
+      </div>
+      {loading ? (
+        <div className="h-7 w-24 bg-gray-100 rounded animate-pulse" />
+      ) : (
+        <div className="text-lg font-bold text-gray-800 tabular-nums">{value}</div>
+      )}
+    </Card>
   );
 }

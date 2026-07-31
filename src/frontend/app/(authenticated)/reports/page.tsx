@@ -1,13 +1,16 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  BarChart3, TrendingUp, Package, Briefcase, FileText, Calendar, Download, Filter
+  BarChart3, TrendingUp, Package, Briefcase, FileText, Calendar, Download, Filter, RefreshCw, AlertCircle, Clock
 } from 'lucide-react';
 import { PageHeader, Card, Badge, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
+import { getReports, getErrorMessage } from '@/lib/api';
+import type { ReportDto } from '@/lib/api-types';
+import { formatDateTime } from '@/lib/utils';
 
 type ReportTab = 'overview' | 'financial' | 'sales' | 'inventory' | 'projects';
 
@@ -50,6 +53,33 @@ export default function ReportsPage() {
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
 
+  // Sprint 11 T1: saved reports list (separate state so the page works
+  // even when the BE endpoint isn't wired yet on the parallel branch).
+  const [reports, setReports] = useState<ReportDto[]>([]);
+  const [reportsLoading, setReportsLoading] = useState(true);
+  const [reportsError, setReportsError] = useState<string | null>(null);
+
+  const loadReports = async () => {
+    setReportsLoading(true);
+    setReportsError(null);
+    try {
+      const data = await getReports();
+      setReports(Array.isArray(data) ? data : []);
+    } catch (e: unknown) {
+      setReportsError(getErrorMessage(e, 'تعذّر تحميل التقارير المحفوظة.'));
+      setReports([]);
+    } finally {
+      setReportsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!authLoading) {
+      void loadReports();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [authLoading]);
+
   if (authLoading) {
     return <div className="text-center py-12 text-gray-500">جاري التحميل...</div>;
   }
@@ -59,6 +89,25 @@ export default function ReportsPage() {
       <PageHeader
         title="📊 التقارير"
         description="Reports — كل التقارير المالية والمبيعات والمخزون والمشاريع"
+        actions={
+          <Button
+            variant="secondary"
+            onClick={loadReports}
+            disabled={reportsLoading}
+            iconLeft={<RefreshCw className={`h-4 w-4 ${reportsLoading ? 'animate-spin' : ''}`} />}
+          >
+            تحديث
+          </Button>
+        }
+      />
+
+      {/* Sprint 11 T1: Saved reports list (above the tabs).
+          Surfaces the most recently generated reports. */}
+      <SavedReportsPanel
+        reports={reports}
+        loading={reportsLoading}
+        error={reportsError}
+        onRefresh={loadReports}
       />
 
       {/* Date Range Filter */}
@@ -176,5 +225,86 @@ function ReportGrid({ title, reports, color }: { title: string; reports: any[]; 
         ))}
       </div>
     </div>
+  );
+}
+
+// ============ SavedReportsPanel (Sprint 11 T1) ============
+//
+// Shows the list of recently generated/saved reports. Soft-fails if the BE
+// endpoint isn't wired yet on the parallel branch.
+
+interface SavedReportsPanelProps {
+  reports: ReportDto[];
+  loading: boolean;
+  error: string | null;
+  onRefresh: () => void;
+}
+
+function SavedReportsPanel({ reports, loading, error, onRefresh }: SavedReportsPanelProps) {
+  return (
+    <Card className="mb-4">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+          <FileText className="h-4 w-4 text-blue-600" />
+          التقارير المحفوظة
+          {reports.length > 0 && (
+            <span className="text-xs text-gray-500 font-normal">
+              ({reports.length})
+            </span>
+          )}
+        </h3>
+        {error && <Badge variant="neutral">غير متاح بعد</Badge>}
+      </div>
+      {error ? (
+        <div className="bg-amber-50 border border-amber-100 text-amber-800 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
+          <AlertCircle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-xs">{error}</p>
+            <p className="text-xs mt-0.5 text-amber-700">
+              ملاحظة: قد يكون الـ endpoint <code>/api/reports</code> غير مُفعَّل بعد على الفرع المتوازي.
+            </p>
+          </div>
+        </div>
+      ) : loading && reports.length === 0 ? (
+        <div className="space-y-2">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-9 bg-gray-100 rounded animate-pulse" />
+          ))}
+        </div>
+      ) : reports.length === 0 ? (
+        <div className="text-center py-4 text-sm text-gray-500">
+          لا توجد تقارير محفوظة بعد. أنشئ تقريراً من الفئات أدناه.
+        </div>
+      ) : (
+        <ul className="divide-y divide-gray-100">
+          {reports.slice(0, 10).map((r) => (
+            <li key={r.id} className="py-2 flex items-center gap-3 text-sm">
+              <FileText className="h-4 w-4 text-blue-500 flex-shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-gray-800 truncate">{r.title}</div>
+                <div className="text-xs text-gray-500 flex items-center gap-2 mt-0.5">
+                  <Badge variant="info">{r.type}</Badge>
+                  <span className="flex items-center gap-1">
+                    <Clock className="h-3 w-3" />
+                    {formatDateTime(r.generatedAt)}
+                  </span>
+                </div>
+              </div>
+              {r.downloadUrl && (
+                <a
+                  href={r.downloadUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                >
+                  <Download className="h-3 w-3" />
+                  تنزيل
+                </a>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

@@ -1755,3 +1755,116 @@ export function searchResultHref(r: SearchResult): string {
 // This trailing block intentionally left blank — kept as a section divider
 // so future readers can grep for "Sprint 5: Dashboard Charts" and jump here.
 
+// ============ Sprint 11: Full Demo Coverage (T1, FE Jimi) ============
+//
+// These typed wrappers cover the new demo pages added in Sprint 11:
+//   - /holding       → getHoldingDashboard (consolidated KPIs)
+//   - /admin/companies → getCompanyTree (hierarchical view)
+//   - /accounts      → getAccounts (CoA in the new DTO shape)
+//   - /transactions  → getRecentTransactions (journal feed)
+//   - /reports       → getReports (saved reports list)
+//
+// The DTOs are defined in `api-types.ts` (FE is the source of truth per
+// Sprint 11 hand-off). The endpoints are wired by the BE worker on the
+// parallel branch. If the BE endpoint is not ready yet, the wrappers
+// gracefully fall through to the next attempt.
+//
+// Backed by: `src/frontend/lib/api-types.ts` (Sprint 11 T1).
+
+import type {
+  CompanyTreeNode,
+  HoldingDashboard,
+  AccountDto,
+  TransactionDto,
+  ReportDto,
+  SubsidiaryListDto,
+  ActivityFeedItemDto,
+  NotificationDto,
+} from './api-types';
+
+/** GET /api/holdings/dashboard — consolidated KPIs across the holding.
+ *  Falls back to /api/dashboard/holding if the BE uses the alternative route. */
+export async function getHoldingDashboard(): Promise<HoldingDashboard> {
+  try {
+    const r = await api.get<HoldingDashboard>('/api/holdings/dashboard');
+    return r.data;
+  } catch (e: unknown) {
+    const err = e as { response?: { status?: number } };
+    if (err?.response?.status === 404) {
+      // Try the alternative route the BE might use.
+      const r2 = await api.get<HoldingDashboard>('/api/dashboard/holding');
+      return r2.data;
+    }
+    throw e;
+  }
+}
+
+/** GET /api/companies/tree — hierarchical company tree.
+ *  Returns the root nodes (children of the holding). */
+export async function getCompanyTree(): Promise<CompanyTreeNode[]> {
+  const r = await api.get<CompanyTreeNode[] | { children: CompanyTreeNode[] }>(
+    '/api/companies/tree'
+  );
+  if (Array.isArray(r.data)) return r.data;
+  // Defensive: the BE may wrap the list in { children: [...] }.
+  return r.data?.children ?? [];
+}
+
+/** GET /api/accounts — flat Chart of Accounts (new Sprint 11 DTO).
+ *  Note: this is distinct from `financeApi.listAccounts()` which returns
+ *  the legacy `Account` shape (numeric enums for type/normalBalance). */
+export async function getAccounts(): Promise<AccountDto[]> {
+  const r = await api.get<AccountDto[]>('/api/accounts');
+  return r.data;
+}
+
+/** GET /api/transactions/recent?limit=N — most recent journal transactions. */
+export async function getRecentTransactions(limit = 50): Promise<TransactionDto[]> {
+  const r = await api.get<TransactionDto[] | { items: TransactionDto[] }>(
+    '/api/transactions/recent',
+    { params: { limit } }
+  );
+  if (Array.isArray(r.data)) return r.data;
+  return r.data?.items ?? [];
+}
+
+/** GET /api/reports — list of generated/saved reports. */
+export async function getReports(): Promise<ReportDto[]> {
+  const r = await api.get<ReportDto[] | { items: ReportDto[] }>('/api/reports');
+  if (Array.isArray(r.data)) return r.data;
+  return r.data?.items ?? [];
+}
+
+/** GET /api/companies/{id}/subsidiaries — children of a specific company. */
+export async function getSubsidiaries(companyId: string): Promise<SubsidiaryListDto> {
+  const r = await api.get<SubsidiaryListDto>(
+    `/api/companies/${encodeURIComponent(companyId)}/subsidiaries`
+  );
+  return r.data;
+}
+
+/** GET /api/activity/recent?limit=N — recent activity feed items.
+ *  Mirrors the existing `activityApi.recent` but returns the new
+ *  `ActivityFeedItemDto` shape (metadata is `string | null`, not parsed). */
+export async function getActivityFeed(limit = 20): Promise<ActivityFeedItemDto[]> {
+  const r = await api.get<ActivityFeedItemDto[] | { items: ActivityFeedItemDto[] }>(
+    '/api/activity/recent',
+    { params: { limit } }
+  );
+  if (Array.isArray(r.data)) return r.data;
+  return r.data?.items ?? [];
+}
+
+/** GET /api/inventory/notifications/unread — current user's unread notifications.
+ *  Returns the new `NotificationDto` shape (string `type`, optional `linkUrl`). */
+export async function getUnreadNotifications(): Promise<{
+  count: number;
+  items: NotificationDto[];
+}> {
+  const r = await api.get<{ count: number; items: NotificationDto[] }>(
+    '/api/inventory/notifications/unread'
+  );
+  return r.data;
+}
+
+

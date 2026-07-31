@@ -255,6 +255,7 @@ builder.Services.AddScoped<CompanyService>();
 builder.Services.AddScoped<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
 builder.Services.AddScoped<ICostCenterService, CostCenterService>();
 builder.Services.AddScoped<IChartOfAccountsService, ChartOfAccountsService>();
+builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
