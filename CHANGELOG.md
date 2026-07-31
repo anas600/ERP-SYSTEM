@@ -13,6 +13,37 @@
 
 ---
 
+## Sprint 8 T4 — Holding Company Refactor Proposal (2026-07-31) 🟡 PROPOSAL
+
+**Goal:** Per Anas mandate 2026-07-31 04:55 UTC, Mavis (محمد mode — Strategic Advisor) reviewed the Holding Company architecture and identified 5 architectural debts. This is a PROPOSAL, not an implementation.
+
+### Findings (Architectural Debt)
+1. **Holding as separate entity vs self-referencing (CRITICAL)** — Architecture doc says two-table (`holdings` + `companies.holding_id`); actual code is single-table self-referencing (`companies.parent_company_id` + `is_group` flag).
+2. **`Companies/AGENTS.md` says `holding_id`** but actual schema has `parent_company_id` — major doc-vs-code drift.
+3. **Misleading folder name** `Shared/MultiTenancy/` (already flagged in root AGENTS.md).
+4. **`CompanyContext` uses `AsyncLocal`** — works but fragile for background jobs and parallel async.
+5. **Mixed naming conventions** — snake_case (DB), PascalCase (C#), kebab-case (URLs).
+
+### Added
+- **`docs/architecture/holding-company-refactor-proposal.md`** — 13KB proposal with 3-phase refactor plan:
+  - **Phase 1 (Sprint 9):** Documentation alignment (1-2 days, zero risk)
+  - **Phase 2 (Sprint 10):** Rename `Shared/MultiTenancy/` → `Shared/CompanyContext/` (2-3 days, low risk)
+  - **Phase 3 (Sprint 11+):** Replace `AsyncLocal` with scoped DI (1 week, medium risk)
+
+### Decision Required
+- **Option A:** All 3 phases (~2 weeks) — ⭐ Recommended
+- **Option B:** Phases 1+2 only (~1 week) — Acceptable
+- **Option C:** Phase 1 only (1-2 days) — Minimal
+- **Option D:** No refactor (status quo) — ❌ Not recommended
+
+### Notes
+- This is a **proposal only** — no code changes yet
+- Awaiting Anas's decision (Option A/B/C/D)
+- Per v2.0 governance: Admin Team verifies, Local Team executes after approval
+- Sprint 8 T2 (FakeDb AS alias) was DONE in parallel — see separate entry
+
+---
+
 ## Sprint 8 T3 — Governance v2.0 (2026-07-31) ✅ DONE
 
 **Goal:** Per Anas mandate 2026-07-31 04:25 UTC — rework the team model. 3-tier governance with persona files. Admin Team = 1 team 3 personas. Local Team = spawned workers. Coordinator = governance.
