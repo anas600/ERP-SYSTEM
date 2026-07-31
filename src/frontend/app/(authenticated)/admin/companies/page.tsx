@@ -5,8 +5,14 @@
 // table-based with explicit pagination controls (page + pageSize) and a
 // "Create Company" button that opens a modal form posting to T3.
 //
-// Backend contract (T1, T3):
+// Sprint 11 T1: adds a hierarchical tree view of all companies above the
+// paginated table. The tree uses `getCompanyTree()` (GET /api/companies/tree)
+// and gracefully degrades to a "not available" state if the BE endpoint
+// isn't wired yet on the parallel branch.
+//
+// Backend contract (T1, T3, T11):
 //   GET  /api/companies?page=N&pageSize=20&includeInactive=true
+//   GET  /api/companies/tree                            (Sprint 11 T1)
 //   POST /api/companies
 //   GET  /api/companies/{id}             (T8 detail view)
 //   PUT  /api/companies/{id}             (T8 edit)
@@ -23,8 +29,13 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronRight as ChevronRightIcon,
   RefreshCw,
   AlertCircle,
+  GitBranch,
+  Folder,
+  FolderOpen,
 } from 'lucide-react';
 import {
   Badge,
@@ -40,7 +51,14 @@ import {
 import { Table, type TableColumn } from '@/components/ui';
 import { useToast } from '@/lib/useToast';
 import { useAuth } from '@/lib/useAuth';
-import { companiesApi, getErrorMessage, type Company, type CreateCompanyRequest } from '@/lib/api';
+import {
+  companiesApi,
+  getErrorMessage,
+  getCompanyTree,
+  type Company,
+  type CreateCompanyRequest,
+} from '@/lib/api';
+import type { CompanyTreeNode } from '@/lib/api-types';
 import { formatDate } from '@/lib/utils';
 
 const DEFAULT_PAGE_SIZE = 20;
@@ -105,9 +123,16 @@ export default function CompaniesAdminPage() {
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
+  // Sprint 11 T1: tree view state
+  const [tree, setTree] = useState<CompanyTreeNode[] | null>(null);
+  const [treeLoading, setTreeLoading] = useState(true);
+  const [treeError, setTreeError] = useState<string | null>(null);
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+
   useEffect(() => {
     if (authLoading) return;
     void load();
+    void loadTree();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, page, pageSize, includeInactive, search]);
 
@@ -130,6 +155,33 @@ export default function CompaniesAdminPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadTree = async () => {
+    setTreeLoading(true);
+    setTreeError(null);
+    try {
+      const data = await getCompanyTree();
+      setTree(data);
+      // Auto-expand all root nodes so the user sees the structure immediately.
+      setExpandedIds(new Set(data.map((n) => n.id)));
+    } catch (e: unknown) {
+      // Soft-fail: the new endpoint may not be wired yet on the parallel
+      // branch. We show a hint instead of a hard error.
+      setTreeError(getErrorMessage(e, 'تعذّر تحميل شجرة الشركات.'));
+      setTree(null);
+    } finally {
+      setTreeLoading(false);
+    }
+  };
+
+  const toggleExpanded = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
   };
 
   // Derived stats — مفيدة للـ summary
@@ -320,6 +372,44 @@ export default function CompaniesAdminPage() {
           </div>
         }
       />
+
+      {/* Sprint 11 T1: Hierarchical tree view (above the stats + table).
+          Shows the company parent → child relationships in a collapsible
+          tree. Soft-fails if the BE endpoint isn't wired yet. */}
+      <Card className="mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold text-gray-800 flex items-center gap-2">
+            <GitBranch className="h-4 w-4 text-blue-600" />
+            شجرة الشركات
+          </h3>
+          {treeError && (
+            <Badge variant="neutral">غير متاح بعد</Badge>
+          )}
+        </div>
+        {treeLoading && !tree ? (
+          <div className="space-y-2">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-7 bg-gray-100 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : !tree || tree.length === 0 ? (
+          <div className="text-center py-4 text-sm text-gray-500">
+            لا توجد شركات لعرضها في الشجرة.
+          </div>
+        ) : (
+          <ul className="space-y-0.5 text-sm" dir="rtl">
+            {tree.map((node) => (
+              <TreeNodeRow
+                key={node.id}
+                node={node}
+                depth={0}
+                expandedIds={expandedIds}
+                onToggle={toggleExpanded}
+              />
+            ))}
+          </ul>
+        )}
+      </Card>
 
       {/* Stats — تعرض ما في الصفحة الحالية (للـ quick view) */}
       {!loading && items.length > 0 && (
@@ -605,5 +695,77 @@ export default function CompaniesAdminPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+// ============ TreeNodeRow (Sprint 11 T1) ============
+//
+// Recursive tree row. Clicking a node toggles its children. Each node shows
+// the code, name, and a status badge.
+
+interface TreeNodeRowProps {
+  node: CompanyTreeNode;
+  depth: number;
+  expandedIds: Set<string>;
+  onToggle: (id: string) => void;
+}
+
+function TreeNodeRow({ node, depth, expandedIds, onToggle }: TreeNodeRowProps) {
+  const hasChildren = !!node.children && node.children.length > 0;
+  const expanded = expandedIds.has(node.id);
+  return (
+    <li>
+      <div
+        className="flex items-center gap-2 py-1 hover:bg-gray-50 rounded px-1"
+        style={{ paddingRight: `${depth * 20}px` }}
+      >
+        {hasChildren ? (
+          <button
+            type="button"
+            onClick={() => onToggle(node.id)}
+            className="text-gray-400 hover:text-gray-700"
+            aria-label={expanded ? 'طي' : 'فتح'}
+          >
+            {expanded ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRightIcon className="h-4 w-4" />
+            )}
+          </button>
+        ) : (
+          <span className="w-4 inline-block" />
+        )}
+        {hasChildren ? (
+          expanded ? (
+            <FolderOpen className="h-4 w-4 text-blue-500" />
+          ) : (
+            <Folder className="h-4 w-4 text-blue-500" />
+          )
+        ) : (
+          <Building2 className="h-4 w-4 text-gray-400" />
+        )}
+        <span className="font-mono text-xs text-gray-500">{node.code}</span>
+        <span className="text-gray-800 flex-1 truncate">{node.name}</span>
+        {node.isGroup && <Badge variant="info">مجموعة</Badge>}
+        {node.isActive ? (
+          <Badge variant="success">فعّالة</Badge>
+        ) : (
+          <Badge variant="neutral">معطّلة</Badge>
+        )}
+      </div>
+      {hasChildren && expanded && (
+        <ul className="space-y-0.5">
+          {node.children!.map((child) => (
+            <TreeNodeRow
+              key={child.id}
+              node={child}
+              depth={depth + 1}
+              expandedIds={expandedIds}
+              onToggle={onToggle}
+            />
+          ))}
+        </ul>
+      )}
+    </li>
   );
 }
