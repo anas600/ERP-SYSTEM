@@ -133,6 +133,7 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 
 ### Branch Protection (per Constitution Article 4)
 - Required checks (6): Backend Tests, Frontend Build, CodeQL, TruffleHog, Analyze (js-ts), Analyze (csharp).
+- **Architecture Guard — no tenant_id** (added Sprint 12): workflow file at `.github/workflows/no-tenant-id.yml` greps `src/` for `\btenant_id\b`, `TenantContext`, and `class Tenant` patterns. Fails the PR if any are found. The workflow exists in the repo but is not yet activated in GitHub branch protection UI — Owner (Anas) must add it on github.com. Until then, the check is informational; admin should still review.
 - Required reviews: 1 (admin bypass ON).
 - Playwright E2E: optional (per Constitution Article 11).
 
