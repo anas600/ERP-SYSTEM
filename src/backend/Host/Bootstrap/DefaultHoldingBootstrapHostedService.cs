@@ -51,7 +51,19 @@ namespace ERPSystem.Host.Bootstrap;
 /// <list type="bullet">
 ///   <item><c>Deployment:DefaultHoldingName</c> — اسم الـ Holding (الافتراضي: "Holding Enterprise").</item>
 ///   <item><c>Deployment:DefaultCurrency</c> — العملة الأساسية (الافتراضي: "LYD").</item>
+///   <item><c>Bootstrap:CreateDefaultAdmin</c> — لو true، ينشئ admin user افتراضي (الافتراضي: false).</item>
+///   <item><c>Bootstrap:DefaultAdminEmail</c> — ايميل الـ admin (الافتراضي: "admin@erp.local").</item>
+///   <item><c>Bootstrap:DefaultAdminPassword</c> — كلمة مرور الـ admin (مطلوبة لو CreateDefaultAdmin=true).</item>
+///   <item><c>Bootstrap:DefaultAdminFullName</c> — اسم الـ admin الكامل (الافتراضي: "Administrator").</item>
 /// </list>
+/// </para>
+/// <para>
+/// <b>Why the env-driven admin user (Sprint 14, per Anas 2026-07-31 directive)</b>: the 3-Layer Model
+/// requires Layer 2 (Containerized MVP) to be a <i>clean</i> install — no manual seed data.
+/// Without a default admin, the client cannot log in. The bootstrap now creates a default
+/// admin user + user_companies entry on first run when the env flag is set. The same
+/// pattern is used by ERPNext (Administrator) and Odoo (admin). Idempotent: skips if a
+/// user with the configured email already exists.
 /// </para>
 /// </summary>
 public sealed class DefaultHoldingBootstrapHostedService : IHostedService
@@ -162,6 +174,16 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             _logger.LogInformation(
                 "[P6-0b] Default Item Categories seeded (count={Count}, holdingId={HoldingId})",
                 catCount, holdingId);
+
+            // 5) Sprint 14: Optionally create a default admin user (env-driven).
+            //    Layer 2 (Containerized MVP) needs a login-able user on first run.
+            //    By default this is OFF (security: no default credentials in production).
+            //    Set Bootstrap:CreateDefaultAdmin=true in the deployment config to enable.
+            if (await TrySeedDefaultAdminAsync(conn, holdingId, cancellationToken))
+            {
+                _logger.LogInformation(
+                    "[P6-0b] Default admin user seeded (see logs above for credentials)");
+            }
 
             _logger.LogInformation(
                 "[P6-0b] DefaultHoldingBootstrap completed successfully (holdingId={HoldingId})",
@@ -407,6 +429,91 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         }, cancellationToken: ct));
 
         return inserted;
+    }
+
+    // ============ Sprint 14: Default admin user (env-driven) ============
+
+    /// <summary>
+    /// لو <c>Bootstrap:CreateDefaultAdmin=true</c>، ينشئ admin user (BCrypt-hashed password)
+    /// ويربطه بالـ Holding عبر <c>user_companies</c>. Idempotent: لو الـ user موجود بالفعل
+    /// (نفس الإيميل)، يتخطى. لو الـ flag=false أو الـ password غير معطى، يفعل nothing.
+    /// <para>
+    /// الـ workFactor = 12 (يطابق <see cref="AuthService"/>).
+    /// </para>
+    /// </summary>
+    /// <returns>true إذا تم إنشاء admin جديد فعلاً، false إذا تخطّى.</returns>
+    private async Task<bool> TrySeedDefaultAdminAsync(
+        System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
+    {
+        var create = _config.GetValue<bool>("Bootstrap:CreateDefaultAdmin", false);
+        if (!create) return false;
+
+        var email = (_config["Bootstrap:DefaultAdminEmail"] ?? "admin@erp.local").Trim().ToLowerInvariant();
+        var password = _config["Bootstrap:DefaultAdminPassword"];
+        var fullName = _config["Bootstrap:DefaultAdminFullName"] ?? "Administrator";
+
+        if (string.IsNullOrWhiteSpace(password))
+        {
+            _logger.LogError(
+                "[P6-0b] Bootstrap:CreateDefaultAdmin=true but Bootstrap:DefaultAdminPassword is empty — skipping admin user creation. " +
+                "Set the password in your env vars or disable the flag.");
+            return false;
+        }
+
+        // Idempotency check
+        var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM users WHERE email = @Email LIMIT 1",
+            new { Email = email }, cancellationToken: ct));
+        if (existing.HasValue)
+        {
+            _logger.LogInformation(
+                "[P6-0b] Default admin user already exists (email={Email}, id={Id}) — skipping",
+                email, existing.Value);
+            return false;
+        }
+
+        var userId = Guid.NewGuid();
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(password, workFactor: 12);
+        var now = DateTime.UtcNow;
+
+        // 1) Insert the user
+        await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO users
+                (id, email, password_hash, full_name, is_active,
+                 two_factor_enabled, is_deleted, created_at, updated_at)
+            VALUES
+                (@Id, @Email, @PasswordHash, @FullName, true,
+                 false, false, @Now, @Now)",
+            new
+            {
+                Id = userId,
+                Email = email,
+                PasswordHash = passwordHash,
+                FullName = fullName,
+                Now = now,
+            }, cancellationToken: ct));
+
+        // 2) Link to the Holding (is_default = true so it appears in the user's company list)
+        await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO user_companies
+                (user_id, company_id, is_default, assigned_at)
+            VALUES
+                (@UserId, @CompanyId, true, @Now)
+            ON CONFLICT (user_id, company_id) DO NOTHING;",
+            new
+            {
+                UserId = userId,
+                CompanyId = holdingId,
+                Now = now,
+            }, cancellationToken: ct));
+
+        _logger.LogInformation(
+            "[P6-0b] Default admin user created (id={Id}, email={Email}, fullName={FullName}, holdingId={HoldingId}, workFactor=12)",
+            userId, email, fullName, holdingId);
+        _logger.LogWarning(
+            "[P6-0b] SECURITY: default admin enabled via env var. CHANGE THE PASSWORD after first login in any non-demo deployment.");
+
+        return true;
     }
 
     // ============ Row records (avoid dynamic casting) ============

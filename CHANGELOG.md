@@ -12,8 +12,59 @@
 ```
 
 ---
+## Sprint 14 — Layer 2 hardening (clean install + browser login) (2026-08-01) ✅ DONE (LOCAL-ONLY)
 
-## Sprint 13 — Containerized MVP (Layer 2 of 3-Layer Model) (2026-07-31) ✅ DONE (LOCAL-ONLY)
+**Goal:** Per **Anas 2026-08-01 01:19 UTC** — fix two issues found in the mvp-docker end-to-end test:
+1. **Layer purity:** the smoke test was inserting a user via manual SQL (a "seed" that violated the 3-Layer Model's "clean install" principle)
+2. **Browser login failed:** the frontend's `NEXT_PUBLIC_API_URL` env var was set at runtime but Next.js inlines `process.env.NEXT_PUBLIC_*` at **build time** — so the bundled JS had `baseURL: ""`
+
+Branch: `feature/sprint-14-bootstrap-admin` (off `origin/develop @ c318217`). LOCAL-ONLY (no push, no PR until Anas says "ادفع").
+
+### Changed
+
+**P0a — `src/backend/Host/Bootstrap/DefaultHoldingBootstrapHostedService.cs` (env-driven default admin):**
+- New `Bootstrap:CreateDefaultAdmin` config flag (default `false` — security: no default credentials in production unless explicitly enabled)
+- New `Bootstrap:DefaultAdminEmail` / `Bootstrap:DefaultAdminPassword` / `Bootstrap:DefaultAdminFullName` config
+- New `TrySeedDefaultAdminAsync` method: when enabled, creates an admin user with BCrypt-hashed password (workFactor 12 — matches `AuthService`) and a `user_companies` entry linked to the Holding. Idempotent (skips if user with the email already exists)
+- Updated the XML doc comment to document the new config keys
+- The mvp-docker is now a **CLEAN install** — no manual seed data, no manual SQL — every piece of seed comes from the bootstrap service controlled by env vars (same pattern as ERPNext's "Administrator" or Odoo's "admin")
+
+**P0b — `src/frontend/Dockerfile` (NEXT_PUBLIC_API_URL build-time):**
+- New `ARG NEXT_PUBLIC_API_URL=http://localhost:5000` declared before the build stage
+- New `ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL` set before `npm run build`
+- The frontend's `process.env.NEXT_PUBLIC_API_URL` is now correctly inlined at compile time
+- The browser login now works (was failing because the bundled JS had `baseURL: ""`)
+
+**P0c — `mvp-docker/docker-compose.yml`:**
+- New `Bootstrap__CreateDefaultAdmin` / `Bootstrap__DefaultAdminEmail` / `Bootstrap__DefaultAdminPassword` / `Bootstrap__DefaultAdminFullName` env vars on the `api` service (read from `.env` with sensible defaults)
+- New `args: NEXT_PUBLIC_API_URL=...` for the `frontend` build (passed to the Dockerfile ARG)
+- New runtime env `NEXT_PUBLIC_API_URL=...` on the `frontend` service (for any client-side code that re-reads it at runtime)
+
+**P0d — `mvp-docker/.env.example`:**
+- Documented the new env vars with clear instructions: "Sprint 14: env-driven default admin user. Set BOOTSTRAP_CREATE_DEFAULT_ADMIN=true to enable. Default is false (no admin created). When enabled, the bootstrap service creates an admin user on first run (Layer 2 = CLEAN install). CHANGE THE PASSWORD after first login in any non-demo deployment."
+- Sample credentials: `admin@erp.local` / `ChangeMe1234!` / `Administrator`
+
+**P0e — `mvp-docker/smoke-test.ps1`:**
+- **Removed** the old "DB: insert test admin user" hack (no more manual seed)
+- Updated login credentials to read from `BOOTSTRAP_DEFAULT_ADMIN_EMAIL` / `BOOTSTRAP_DEFAULT_ADMIN_PASSWORD` env vars (with sensible defaults matching `.env.example`)
+- **New** "DB: bootstrap admin user exists (no manual seed)" check — verifies the bootstrap service did its job
+- Updated summary to show env-var-based credentials
+
+### Verified
+- Backend build: 0 errors, 2 pre-existing warnings
+- YAML syntax of `mvp-docker/docker-compose.yml`: valid
+- PowerShell syntax of `mvp-docker/smoke-test.ps1`: valid
+- All work adheres to **Constitution Article 3** — no `tenant_id` introduced (Dapper only, no EF Core)
+- No secrets in committed code (real `.env` is gitignored; only `.env.example` is committed)
+
+### Notes
+- The mvp-docker now follows the **3-Layer Model principle**: Layer 2 is a CLEAN install driven by code (bootstrap) + env vars. No manual SQL needed.
+- For **local-docker** (Layer 1, dev), the bootstrap admin flag is OFF (defaults). Developers create their own users via the registration flow or the local seed.
+- For **mvp-docker** (Layer 2, MVP), the bootstrap admin flag is ON (set in `.env.example`). The first run creates the admin. CHANGE THE PASSWORD after first login in any non-demo deployment.
+- For **Production** (Layer 3, when active), the flag should be OFF (default). Real production deployments should use SSO / proper onboarding flows, not env-var-based admin creation.
+
+---
+
 
 **Goal:** Per **Anas's 2026-07-31 21:51 UTC directive** — implement Layer 2 of the 3-Layer Model. Layer 1 (Development) is fast iteration on the host with test data. Layer 2 is a clean containerized MVP that mimics the client deliverable. Layer 3 (Production) is FROZEN ("لا اهتم بيها الان"). Branch: `feature/sprint-13-mvp-container` (off `origin/develop @ 10237c6`).
 

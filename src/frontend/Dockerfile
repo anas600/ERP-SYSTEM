@@ -14,7 +14,14 @@ FROM node:20-alpine AS build
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED=1
+
+# Sprint 14 fix: NEXT_PUBLIC_API_URL must be set at BUILD time
+# (Next.js inlines process.env.NEXT_PUBLIC_* at compile time, not runtime).
+# Override with --build-arg NEXT_PUBLIC_API_URL=... in docker build.
+ARG NEXT_PUBLIC_API_URL=http://localhost:5000
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+    NEXT_TELEMETRY_DISABLED=1
+
 RUN npm run build
 
 # ---- Stage 3: production runner ----
