@@ -1,0 +1,4 @@
+# mvp-docker — local secrets (do NOT commit)
+.env
+.env.local
+.env.*.local

@@ -12,6 +12,53 @@
 ```
 
 ---
+
+## Sprint 13 — Containerized MVP (Layer 2 of 3-Layer Model) (2026-07-31) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **Anas's 2026-07-31 21:51 UTC directive** — implement Layer 2 of the 3-Layer Model. Layer 1 (Development) is fast iteration on the host with test data. Layer 2 is a clean containerized MVP that mimics the client deliverable. Layer 3 (Production) is FROZEN ("لا اهتم بيها الان"). Branch: `feature/sprint-13-mvp-container` (off `origin/develop @ 10237c6`).
+
+### Added
+
+**P0a — `mvp-docker/` (Layer 2 — Containerized MVP):**
+- **`mvp-docker/docker-compose.yml`** (NEW) — separate from `local-docker/`. Clean schema (no seed), production ASPNETCORE_ENVIRONMENT, distinct container names (`erp-mvp-*`), distinct Postgres data volume (`mvp_postgres_data`). Coexists with `local-docker/` — different volumes, no collision.
+- **`mvp-docker/.env.example`** (NEW) — template for `JWT_SECRET` and DB creds. The real `.env` is gitignored.
+- **`mvp-docker/README.md`** (NEW) — quick start + comparison with `local-docker/` + troubleshooting + the Layer 1→2→3 workflow per Anas's directive.
+
+**P0b — Production frontend Dockerfile:**
+- **`src/frontend/Dockerfile`** (NEW) — multi-stage build (`deps` → `build` → `runner`), Next.js standalone output, non-root user (`nextjs:1001`), `NODE_ENV=production`. **Layer 1's frontend (dev server via volume mount) is unchanged.** This is the production-mode image for Layer 2.
+
+**P0c — Smoke test script:**
+- **`mvp-docker/smoke-test.ps1`** (NEW) — verifies the MVP container end-to-end:
+  1. Waits for API `/api/health/live` (up to 90s)
+  2. Checks `/api/health/live` + `/api/health/ready` (200)
+  3. Logs in as bootstrap admin (`admin@erp.local / Admin1234!`) — retries once after 5s for first-run bootstrap delay
+  4. Frontend serves HTML at `http://localhost:3000`
+  5. **Database is clean** (no `local-docker` seed contamination) — `SELECT count(*) FROM companies;` must return `0`
+  6. Swagger reachable at `/swagger`
+  - Exits 0 on success, 1 on any failure.
+
+**P1 — AGENTS.md updates (3-Layer Model documented):**
+- **AGENTS.md** (UPDATED) — added new section "3-Layer Model (per Anas 2026-07-31 21:51 UTC directive)" with table + workflow. Old "Environment Layers (FROZEN per Article 10)" section kept as "Legacy" reference (the Supabase Dev tier is still used by CI `dotnet test` — that hasn't changed). Child DOX Index updated to include `mvp-docker/`.
+
+### Verified
+- YAML syntax of `docker-compose.yml` files verified via `pyyaml`.
+- PowerShell syntax of `smoke-test.ps1` validated.
+- `mvp-docker/.env.example` is committed; the real `.env` is gitignored.
+- All work adheres to **Constitution Article 3** — no `tenant_id` introduced (verified via `git grep`).
+- Dapper only, no EF Core.
+- No secrets in committed code (the docker-compose.yml uses env-var references `${JWT_SECRET:-...}`).
+
+### Notes
+- **No `local-docker/` changes** — the existing Layer 1 setup is preserved. Both can run side-by-side.
+- **The smoke test only works on the local machine** — it's tied to `localhost:5000` / `localhost:3000` / `docker exec erp-mvp-postgres`. CI integration is out of scope for Sprint 13 (Testcontainers is the future direction).
+- **Bootstrap admin:** the `DefaultHoldingBootstrapHostedService` creates an `admin@erp.local` user on first run with password `Admin1234!`. This is the only seeded data in Layer 2. The smoke test relies on this.
+- LOCAL-ONLY commit (no push, no PR). Admin Team will push when Anas says "ادفع".
+- **3 crons cleaned up** as part of sprint work (per Anas 2026-07-31 21:51 UTC):
+  - Deleted: `monitor-sprint10-jimis-local-only` (Sprint 10 done)
+  - Deleted: `monitor-sprint11-fe-be-parallel` (Sprint 11 done)
+  - Deleted: `sprint-10-11-pushed-2h-check` (2h check done)
+  - Kept: `monitor-sprint12-jimi` (Sprint 12 still LOCAL-ONLY, awaiting push)
+
 ## Sprint 12 — Local psql test infrastructure + no-tenant-id CI guard (2026-07-31) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per **Anas's 2026-07-31 07:46 UTC directive** — "يجب العمل على قاعدة البيانات psql" (development must use real psql DB) + architecture reaffirmation "تطوير نظام الشركة القابضة وليس مالتي تينانت" (Holding Company, not multi-tenancy). **LOCAL-ONLY MODE** — committed locally, not pushed (per Anas 2026-07-31 06:47 UTC mandate + 18:31 UTC "push & merge" pattern). Branch: `feature/sprint-12-local-test-psql` (off `origin/develop @ 10237c6`).
