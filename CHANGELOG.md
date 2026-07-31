@@ -13,28 +13,69 @@
 
 ---
 
+## Sprint 9 — Demo Polish (2026-07-31) 🟡 IN PROGRESS
+
+**Goal:** Final UI/UX polish on the holding-company demo — error boundary, loading skeletons, AR+EN i18n foundation, company-switcher feedback.
+
+### Added (FE Jimi 3 — T3)
+- `src/frontend/lib/i18n.ts` — i18n foundation: `useTranslation()` hook + `t(key, locale)` helper + AR/EN dictionary (6 keys: `error.{unexpected,network,unauthorized,forbidden}`, `loading.{companies,dashboard,holding}`). Default locale `ar` (Arabic primary per Constitution).
+- `src/frontend/components/ui/ErrorBoundary.tsx` — React class-based error boundary with bilingual default fallback. Composable wrapper for client component trees (complements Next.js route-level `error.tsx` files).
+
+### Changed (FE Jimi 3 — T3)
+- `src/frontend/app/(authenticated)/layout.tsx` — wraps `AppShell` in `<ErrorBoundary>`. `SessionTimeoutModal` kept as sibling (outside boundary) so a page-tree crash doesn't disable the session-timeout safety net.
+- `src/frontend/components/layout/CompanySwitcher.tsx` — added `switching` state with visual feedback (`Loader2` spinner + `aria-busy`) during `router.refresh()`. Trigger button is disabled while the refresh is in flight, so the user sees a spinner instead of a frozen UI between "click company" and "data reload".
+- `src/frontend/app/(authenticated)/holding/page.tsx` — replaced inline `CompanyCardSkeleton` with the shared `<SkeletonCard />` from `@/components/ui` (consistency win; removes a duplicate definition).
+
+### Notes
+- T1 (BE Jimi 1) — pending; CHANGELOG entry to be added by Jimi 1.
+- T2 (FE Jimi 2) — pending; CHANGELOG entry to be added by Jimi 2.
+- T3 (FE Jimi 3 — this entry) — done; awaiting `npm run type-check` + `npm run build` verification.
+- Existing `SkeletonCard`, `SkeletonTable`, `SkeletonPage`, `TableSkeleton` and route-level `error.tsx` files were already in place from prior sprints — T3 adds the composable `<ErrorBoundary>` and i18n foundation on top.
+
+### Added (BE Jimi 2 — T2, BE-FE contracts)
+- `src/frontend/lib/api-types.ts` (NEW, 400 lines) — TypeScript types mirroring C# DTOs (Guid→string, DateTime→string, nullable markers). Hand-written (not NSwag-generated) to keep the demo simple.
+- `src/backend/Host/Program.cs` — Swashbuckle registered with `IncludeXmlComments` for Swagger UI docs.
+- `src/backend/Host/Controllers/AccountsController.cs` — `[ProducesResponseType]` attributes for OpenAPI annotation.
+- `src/backend/Host/Controllers/CompaniesController.cs` — `[ProducesResponseType]` attributes.
+- `src/backend/Host/Controllers/UsersController.cs` — `[ProducesResponseType]` attributes.
+- `src/backend/Host/ERP-SYSTEM.csproj` — `Swashbuckle.AspNetCore` package reference.
+- `src/backend/Modules/Companies/Application/DTOs/CompanyDto.cs` (NEW) — explicit C# DTO with XML doc comments.
+- `src/backend/Modules/Finance/Application/FinanceDtos.cs` — XML doc comments + typed result wrappers.
+
+### Notes (BE Jimi 2 — T2)
+- No new dependencies beyond `Swashbuckle.AspNetCore`.
+- Contract is hand-maintained (not auto-generated). Future: NSwag for full automation.
+- `api-types.ts` and the C# DTOs must be kept in sync manually until NSwag is wired.
+
+### Changed (BE Jimi 1 — T1, docs alignment)
+- `src/backend/Modules/Companies/AGENTS.md` — Schema section rewritten to match actual code (`parent_company_id`, `is_group`, `slug`, `base_currency`). Removed incorrect `holding_id` reference.
+- `docs/architecture/holding-company-architecture.md` — Sections 5+7 (and Section 5 consolidated-report SQL example) updated to reflect the single-table self-referencing model. Added "Known discrepancy" note pointing to the Sprint 8 T4 refactor proposal. ERD replaced; `holdings` reference removed from the 34-table category list.
+
+### Notes (BE Jimi 1 — T1)
+- NO code changes (Phase 1 is docs-only).
+- The refactor proposal file `docs/architecture/holding-company-refactor-proposal.md` was referenced in the new docs but does not yet exist in the repo — out-of-scope follow-up for the Admin Team.
+- Section 6 of the architecture doc still contains the legacy `companies` SQL with `holding_id` (FK → `holdings`); same fix pattern as T1 should be applied in a follow-up.
+
+---
+
 ## Sprint 8 T2 — FakeDb AS Alias Enhancement (2026-07-31) ✅ DONE
 
 **Goal:** Remove known technical debt in `FakeDbConnectionFactory` that forces tests to use projected column names as a workaround for SQL `AS` aliases. Per T2 hand-off (Admin Team v1.8, محمد mode, approved by Anas 04:08 UTC).
 
 ### Added
-- **`FakeDbDataReader.ProjectColumns(string sql, DataSet ds, string tableName)`** — internal static helper in `src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactory.cs`. Parses the SELECT clause and projects the underlying DataTable's columns to the alias names. Falls back to the direct table when SELECT has no AS aliases (backward compatibility).
-- **`SplitColumns(string columnList)`** — depth/quote-aware state machine for splitting the SELECT column list on top-level commas (ignores commas inside parens/quotes).
+- **`FakeDbDataReader.ProjectColumns(string sql, DataSet ds, string tableName)`** — internal static helper in `src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactory.cs`. Parses the SELECT clause and projects the underlying DataTable's columns to the alias names.
+- **`SplitColumns(string columnList)`** — depth/quote-aware state machine for splitting the SELECT column list.
 - **`Unquote(string s)`** — strips surrounding double-quotes from SQL identifiers.
-- **`StripTableAlias(string s)`** — strips `a.id` → `id`, `accounts.code` → `code`. Required because tests use table-qualified column references like `a.user_id AS UserId`.
-- **`FindSourceOrdinal(DataTable source, string columnName)`** — case-insensitive source column lookup. Required because the source DataTable column names may be in PascalCase (`UserId`) while the SQL uses snake_case (`user_id`).
-- **`src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactoryTests.cs`** — 3 new tests:
-  - `AsAlias_RenamesColumnsInReader` — happy path: `id AS "AccountId"` renames the reader's column
-  - `NoAsAlias_FallsBackToDirectColumns` — backward compat: `SELECT id, name` (no AS) keeps the source names
-  - `AsAlias_HandlesMultipleColumnsIncludingExpression` — `(code || '-' || name) AS "DisplayName"` creates the column with the alias name, value is DBNull (FakeDb does not simulate expressions)
-- **Modified `FakeDbDataReader` constructor** — tries `ProjectColumns` first, falls back to direct table if SELECT parsing fails or no AS aliases are present.
-- **`src/backend/Modules/Finance/AGENTS.md`** — new "Test Pattern: SQL AS Alias Support" section documenting the new pattern + edge cases.
+- **`StripTableAlias(string s)`** — strips `a.id` → `id`, etc.
+- **`FindSourceOrdinal(DataTable source, string columnName)`** — case-insensitive source column lookup.
+- **`src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactoryTests.cs`** — 3 new tests (`AsAlias_RenamesColumnsInReader`, `NoAsAlias_FallsBackToDirectColumns`, `AsAlias_HandlesMultipleColumnsIncludingExpression`).
+- **Modified `FakeDbDataReader` constructor** — tries `ProjectColumns` first, falls back to direct table.
+- **`src/backend/Modules/Finance/AGENTS.md`** — "Test Pattern: SQL AS Alias Support" section.
 
 ### Verified
 - `dotnet build`: 0 errors
 - `dotnet test --filter "FakeDbConnectionFactoryTests"`: 3/3 pass
-- `dotnet test --filter "FakeDbConnectionFactoryTests|ActivityFeedTests"`: 6/6 pass (regression test confirmed: existing tests using `a.id AS Id` pattern still work because `FindSourceOrdinal` tries the ALIAS name first, then the SQL source name)
-- `dotnet test` (full suite): **436 passed, 2 failed, 30 skipped** (was 433/2/30 before T2; +3 new tests; 2 pre-existing RetentionTests failures are DB connection issues — not introduced by T2)
+- `dotnet test` (full suite): **436 passed, 2 failed, 30 skipped** (2 pre-existing RetentionTests DB issues)
 - No `tenant_id` introduced
 
 ### Notes

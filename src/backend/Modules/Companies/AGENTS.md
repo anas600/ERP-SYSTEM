@@ -2,13 +2,13 @@
 
 > **Companies module** (Multi-Company). Read all parent AGENTS.md files first.
 
-**Last updated:** 2026-07-29 (DOX framework applied)
+**Last updated:** 2026-07-31 (Sprint 9 T1 — docs aligned with actual code)
 
 ---
 
 ## Purpose
 
-Manages the `companies` table and related entities. The "C" in Multi-Company. Companies belong to exactly one Holding.
+Manages the `companies` table and related entities. The "C" in Multi-Company. The Holding itself is also a row in this table (single-table self-referencing hierarchy).
 
 ## Ownership
 
@@ -20,14 +20,15 @@ Manages the `companies` table and related entities. The "C" in Multi-Company. Co
 ## Local Contracts
 
 ### Schema
-- `companies` — `id`, `holding_id` (FK), `name`, `name_ar`, `legal_name`, `tax_id`, `currency`, `is_active`.
-- **Constraint:** `UNIQUE (holding_id, name)`.
+- `companies` — `id`, `code` (unique), `name`, `slug` (unique), `legal_name`, `parent_company_id` (self-FK), `is_group` (boolean), `base_currency`, `is_active`.
+- **Holding identification:** A company with `is_group = true` AND `parent_company_id IS NULL` is THE Holding (single-row per the architecture, code = '000').
+- **Constraint:** `UNIQUE (code)` and `UNIQUE (slug)`.
+- **Self-referencing hierarchy:** `parent_company_id → companies.id` allows any-depth tree. The Holding is the root (parent = null).
 - **Soft delete** via `is_active = false`. No hard deletes.
-
-### Boundaries
-- **Each company has exactly ONE `holding_id`.**
+- **No `holding_id` column** — the architecture doc describes a two-table model; the actual code is single-table self-referencing. See `docs/architecture/holding-company-refactor-proposal.md` for Phase 2 (rename MultiTenancy) and Phase 3 (scoped DI).
+- **Each company has exactly one parent** (which may be the Holding, or another company for nested structures).
 - **Each user has 0..N companies** (via `user_companies`).
-- **No company is a tenant.** All data is `holding_id + company_id` scoped.
+- **No company is a tenant.** All data is `company_id` scoped.
 
 ## Work Guidance
 

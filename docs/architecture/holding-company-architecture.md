@@ -218,25 +218,36 @@ CHANGELOG.md (تاريخ التغييرات)
 
 ### 🏢 الـ Holding ككيان من الدرجة الأولى
 
-الـ **Holding ليس tenant** — هو **شركة فعلية** في الـ schema، لكن بـ flag:
+الـ **Holding ليس tenant** — هو **شركة فعلية** في الـ schema، لكن بـ flag.
+
+> **⚠️ Known discrepancy (Sprint 9, 2026-07-31):** v1.0 من هذه الوثيقة وصف الـ Holding في **جدول منفصل `holdings`** (two-table design). الـ **كود الفعلي** يستخدم **single-table self-referencing** — الـ Holding هو صف في `companies` بـ `is_group = true` و `parent_company_id IS NULL`. هذه الوثيقة الآن تعكس الكود الفعلي. الـ السياق التاريخي في [`docs/architecture/holding-company-refactor-proposal.md`](./holding-company-refactor-proposal.md).
 
 ```sql
--- holdings table
-CREATE TABLE holdings (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name TEXT NOT NULL,
-  name_ar TEXT,                    -- Arabic name
-  base_currency CHAR(3) NOT NULL,  -- e.g. LYD
-  fiscal_year_start DATE,          -- e.g. '01-01'
-  timezone TEXT DEFAULT 'Africa/Tripoli',
-  locale TEXT DEFAULT 'ar-LY',     -- Arabic (Libya)
-  settings JSONB DEFAULT '{}',
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+-- Holding كصف في companies (is_group = true, parent_company_id IS NULL)
+-- لا يوجد جدول holdings منفصل في الكود الفعلي
+-- (الـ SQL أدناه للتوثيق فقط — يطابق entities/Company.cs + data-types/companies.json)
+INSERT INTO companies (
+  id, code, name, slug, legal_name, parent_company_id, is_group, base_currency, is_active
+) VALUES (
+  '00000000-0000-0000-0000-000000000001',   -- معرّف الـ Holding الثابت
+  '000',                                    -- code فريد
+  'Al Fajr Holding',                        -- name
+  'holding-alfajr',                         -- slug فريد
+  'Al Fajr Holding Company',                -- legal_name
+  NULL,                                     -- لا parent
+  TRUE,                                     -- is_group = true (الـ Holding)
+  'LYD',                                    -- base_currency
+  TRUE
 );
+
+-- الشركات التابعة (parent_company_id → companies.id)
+INSERT INTO companies (id, code, name, slug, parent_company_id, is_group, base_currency)
+VALUES
+  (gen_random_uuid(), '001', 'Alfajr Steel', 'alfajr-steel', '00000000-0000-0000-0000-000000000001', FALSE, 'LYD'),
+  (gen_random_uuid(), '002', 'Alfajr Cement','alfajr-cement','00000000-0000-0000-0000-000000000001', FALSE, 'LYD');
 ```
 
-**ملاحظة:** عندنا **holding واحد فقط** (per CONSTITUTION Article 3). لو زاد → يحتاج amendment.
+**ملاحظة:** عندنا **holding واحد فقط** (per CONSTITUTION Article 3). لو زاد → يحتاج amendment. الهيراركي self-referencing يسمح بأي عمق (`parent_company_id → companies.id`).
 
 ### 🎯 الـ Holding Dashboard
 
@@ -255,15 +266,18 @@ CREATE TABLE holdings (
 ### 📊 الـ Consolidated Reports
 
 ```sql
--- مثال: تقرير موحد لكل الشركات
+-- مثال: تقرير موحد لكل الشركات (الـ Holding هو الصف بـ is_group = true)
+-- joined via parent_company_id self-FK
 SELECT 
   c.id AS company_id,
   c.name AS company_name,
   COALESCE(SUM(t.credit), 0) AS total_revenue,
   COALESCE(SUM(t.debit), 0) AS total_expenses
 FROM companies c
+LEFT JOIN companies h  ON h.id = c.parent_company_id AND h.is_group = TRUE
 LEFT JOIN transactions t ON t.company_id = c.id
-WHERE c.holding_id = $1
+WHERE h.id = $1  -- $1 = معرّف الـ Holding
+   OR (c.is_group = TRUE AND c.id = $1)
 GROUP BY c.id, c.name;
 ```
 
@@ -350,45 +364,56 @@ DB: Row-Level Security (defense in depth)
 
 ### 📊 الـ ERD (مختصر)
 
+> **⚠️ Sprint 9 (2026-07-31):** الـ ERD أدناه يحلّ محلّ الإصدار القديم الذي كان يعرض جدول `holdings` منفصل. الـ Holding الآن **صف في `companies`** بـ `is_group = true` و `parent_company_id IS NULL` (self-referencing). لا يوجد جدول `holdings` في الكود الفعلي.
+
 ```
-┌──────────────┐         ┌──────────────┐
-│   holdings   │ 1     N │   companies  │
-│              ├─────────┤              │
-│ - id         │         │ - id         │
-│ - name       │         │ - holding_id │
-│ - currency   │         │ - name       │
-└──────┬───────┘         │ - currency   │
-       │ 1               └──────┬───────┘
-       │ N                      │ N
-       │                        │ N
-       │                        │
-       ↓ 1                    N ↓
-┌──────────────┐         ┌──────────────┐
-│    users     │  M    N │  user_companies│
-│              ├─────────┤              │
-│ - id         │         │ - user_id    │
-│ - email      │         │ - company_id │
-│ - name       │         │ - role       │
-└──────┬───────┘         │ - is_primary │
-       │ 1               └──────────────┘
-       │ N
-       ↓
-┌──────────────┐  N
-│ transactions ├──── 1 → companies
-│              │
-│ - id         │
-│ - company_id │ (FK)
-│ - account_id │
-│ - amount     │
-└──────────────┘
+                          ┌──────────────────────────┐
+                          │        companies         │
+                          │  (self-referencing tree) │
+                          │                          │
+                          │ - id (PK)                │
+                          │ - code        (UNIQUE)   │
+                          │ - name                   │
+                          │ - slug        (UNIQUE)   │
+                          │ - legal_name             │
+                          │ - parent_company_id (FK)─┼──┐
+                          │ - is_group               │  │ self-FK
+                          │ - base_currency          │  │
+                          │ - is_active              │  │
+                          └──────┬────────┬──────────┘  │
+                                 │ 1      │ N            │
+                                 │        └──────────────┘
+                                 │ N
+                                 │
+              ┌──────────────────┼──────────────────┐
+              ↓                  ↓                  ↓
+       ┌──────────────┐   ┌──────────────┐   (الشركات التابعة)
+       │  user_       │ M │ transactions │
+       │  companies   ├─N │              │
+       │              │   │ - company_id │ (FK → companies.id)
+       │ - user_id    │   │ - account_id │
+       │ - company_id │   │ - amount     │
+       │ - role       │   └──────────────┘
+       │ - is_primary │
+       └──────┬───────┘
+              │ M
+              ↓ 1
+       ┌──────────────┐
+       │    users     │
+       │ - id         │
+       │ - email      │
+       │ - name       │
+       └──────────────┘
 ```
+
+**الـ Holding:** صف في `companies` حيث `is_group = true` AND `parent_company_id IS NULL` (code = `'000'`, id = `'00000000-0000-0000-0000-000000000001'`). الهيراركي self-referencing يسمح بأي عمق شجرة (`parent_company_id → companies.id`).
 
 ### 🗂️ الـ 34 جدول (categories)
 
 | الفئة | الجداول |
 |------|---------|
 | **Identity** | `users`, `user_companies`, `roles`, `permissions`, `refresh_tokens` |
-| **Organization** | `holdings`, `companies`, `departments`, `positions` |
+| **Organization** | `companies` (الـ Holding = صف بـ `is_group = true` و `parent_company_id IS NULL`)، `departments`, `positions` |
 | **Finance** | `accounts`, `transactions`, `bank_accounts`, `currencies`, `exchange_rates` |
 | **Customers/Suppliers** | `customers`, `suppliers`, `contacts` |
 | **Sales/Purchases** | `invoices`, `invoice_lines`, `purchase_orders` |
