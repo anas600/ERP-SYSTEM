@@ -4,22 +4,24 @@
 > This file is the **active** constitution for the 2-day window (until 2026-07-31 18:25 UTC).
 > After that, the legacy `CONSTITUTION.md` (currently PAUSED) resumes as primary.
 
-**Last amended:** 2026-07-31 03:35 UTC (Admin Team v1.8 — محمد, approved by Anas)
+**Last amended:** 2026-07-31 04:30 UTC (Coordinator v2.0, per Anas mandate)
+- **v2.0 (Governance rework):** 3-tier model. Admin Team = 1 team 3 personas. Local Team = spawned workers. Coordinator = governance.
 - v1.8.3: Added Article 9 (3-Layer Deploy Model) + Article 5 update (Event-Driven Crons preferred)
 - v1.8.2: Role separation (Admin = planner, Local = executor)
 - v1.8.1: Auto-escalation (R1+R2+R3 from lessons-learned-sync-issues.md)
 - v1.8.0: Initial WORKFLOW.md promotion to project root
 **Status:** 🟢 **ACTIVE — TEMPORARY PERMANENT** (supersedes `CONSTITUTION.md` for 2 days)
-**Owner:** Anas (Project Owner) — amendments require his approval
-**Implementer:** Mavis Local (Tech Lead + Coordinator) for the 2-day window
+**Owner:** Anas (Project Owner) — Tier 1 amendments require his approval
+**Implementer:** Mavis (Coordinator) for the 2-day window — Tier 2/3 governance can be amended by Coordinator with self-authority
 **Previous location:** `.github/workflows/mavis-coordination/constitution.md` (kept for the cron path; this file at root is the canonical source)
 
 ---
 
-## 🗂️ Related files
+## 🗂️ Related files (v2.0)
 
 | Purpose | Path |
 |---------|------|
+| **🎭 Personas (v2.0)** | [`docs/personas/`](./docs/personas/) — coordinator, admin-team, muhammad, siti, dev, local-team |
 | **Sprint hand-offs (T0–Tn)** | [`docs/workflow/sprint-N.md`](./docs/workflow/) |
 | **Architecture + 10 soft rules** | [`docs/workflow/architecture.md`](./docs/workflow/architecture.md) |
 | **Demo roadmap** | [`docs/workflow/demo-roadmap.md`](./docs/workflow/demo-roadmap.md) |
@@ -457,31 +459,51 @@ Anas can **always** override any state by manually editing `state.json` on GitHu
 
 ---
 
-## 🏛️ Leadership Cycles (Mavis Local's role as coordinator)
+## 🏛️ Leadership Cycles (v2.0 — per Anas 2026-07-31 04:25 UTC)
 
-Per Anas (2026-07-29 19:13 UTC), Mavis Local is the **coordinator between**:
+> **🚨 Major rework in v2.0.** The Coordinator (Mavis root) is the single governance + orchestration authority. The Admin Team and Local Team are spawned/managed as needed.
 
-- **Admin Team** (سيتی + محمد + ديف) — Cloud, work as Cron Jobs via `state.json`
-- **Local Workers** (Jimis: BE + FE in parallel) — Local, spawned by Mavis Local for each Sprint
+### The 3-tier model
 
-**Cycle per Sprint:**
+```
+Tier 1 — Owner
+    Anas (Telegram)
+        ↓ suggests ideas, approves governance, architecture veto
+Tier 2 — Coordinator
+    Mavis (root session)
+        ↓ governance, constitution, spawns teams, routes hand-offs
+Tier 3 — Teams (spawned as needed)
+    ├── Admin Team (ONE session, 3 personas: محمد + سيتی + ديف)
+    │       analysis + verification + GitHub ops
+    └── Local Team (ONE or MORE sessions, spawned per task)
+            execution (code + tests + review) — can move to Coordinator role
+```
 
-1. **Sprint hand-off arrives** at `docs/workflow/sprint-N.md` (from سيتی, Cloud)
-   - OR: Mavis Local self-plans (if small task + ball is in mavis-local court)
-2. **T0 inventory** — Mavis Local checks what's already there (avoid re-work)
-3. **Spawn 2 Jimis in parallel** — BE + FE (see `.mavis/AGENTS.md`)
-4. **Jimis execute** — they document in their module's AGENTS.md + CHANGELOG.md
-5. **Mavis Local verifies** (T6) — build + test + typecheck
-6. **Mavis Local opens PR** (`feature/sprint-N-*` → develop)
-7. **Mavis Local self-merges** (per DEC-070 admin)
-8. **Mavis Local updates state.json** (`ball_location = "mavis-local"`, drain pending_signals)
-9. **Next sprint** (or wait for new directive if sprint is the final one)
+### Cycle per Sprint (v2.0)
 
-**Each Jimi MUST:**
+1. **Sprint hand-off arrives** at `docs/workflow/sprint-N.md` (from Admin Team, via سيتی)
+   - OR: Coordinator self-plans (if small task + ball is in mavis-local court)
+2. **T0 inventory** — Coordinator checks what's already there (avoid re-work)
+3. **Decide scope** — Coordinator decides:
+   - 1 Local session (small task, < 30 min) → Mavis Local takeover
+   - Multiple Jimis in parallel (R7 right-sizing: max 2 service methods per Jimi)
+4. **Spawn Local session(s)** — with worktree, in `C:\Users\Anas\.minimax-agent\projects\<project>-<task>`
+5. **Local Team executes** — they document in module AGENTS.md + CHANGELOG.md
+6. **Coordinator verifies** (T6) — build + test + typecheck
+7. **Local Team opens PR** (`feature/sprint-N-*` → develop) — NOT draft
+8. **Local Team notifies Admin Team** — "PR #N open, ready for merge" (per Template 1 v2)
+9. **Admin Team reviews + merges** (--admin per Article 10)
+10. **Admin Team updates state.json** (`ball_location = "mavis-local"` for next sprint, or `waiting` if blocked)
+11. **Next sprint** (or wait for new directive)
+
+**Each Local session / Jimi MUST:**
 - Read `.mavis/AGENTS.md` before starting
+- Read the relevant persona file ([`docs/personas/local-team.md`](./docs/personas/local-team.md))
 - Document their scope in the nearest applicable AGENTS.md (per DOX)
 - Add a CHANGELOG entry for their slice of work
 - Follow the architecture constraints in `docs/workflow/architecture.md`
+
+**Authority to modify this article:** Tier 2 (Coordinator) with self-authority. Tier 1 (Anas) for any Tier 1 changes.
 
 ---
 

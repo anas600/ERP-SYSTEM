@@ -3,26 +3,37 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-07-29 19:15 UTC (Constitutional update per Anas mandate: WORKFLOW.md promoted to project root, .mavis/AGENTS.md activated, Sprint 6 launched)
+**Last updated:** 2026-07-31 04:30 UTC (Constitutional update per Anas mandate: **Governance v2.0** — Coordinator + Admin Team (3 personas) + Local Team (spawned workers))
 
-> ## 📜 ACTIVE GOVERNANCE (per Anas, 2026-07-29 19:13 UTC)
+> ## 📜 ACTIVE GOVERNANCE (v2.0 — per Anas, 2026-07-31 04:25 UTC)
 >
-> **Active workflow constitution (temporary permanent, 2 days):**
-> **[`WORKFLOW.md`](./WORKFLOW.md)** — at the project root, always in mind.
+> **3-tier model:**
+>
+> | Tier | Role | Authority |
+> |------|------|-----------|
+> | **1 — Owner** | **Anas** (Telegram) | Strategic direction, governance veto, architecture decisions |
+> | **2 — Coordinator** | **Mavis** (root session) | Governance + constitution + spawns teams |
+> | **3 — Teams** | **Admin Team** + **Local Team** | Execution, analysis, GitHub ops |
+>
+> **🎭 Personas (governance v2.0):** See [`docs/personas/`](./docs/personas/)
+> - [`coordinator.md`](./docs/personas/coordinator.md) — Mavis Coordinator (root)
+> - [`admin-team.md`](./docs/personas/admin-team.md) — Admin Team (combined, ONE team on GitHub)
+> - [`muhammad.md`](./docs/personas/muhammad.md) — Strategic Advisor (persona)
+> - [`siti.md`](./docs/personas/siti.md) — Cloud Coordinator (persona)
+> - [`dev.md`](./docs/personas/dev.md) — DevOps (persona)
+> - [`local-team.md`](./docs/personas/local-team.md) — Local Team Lead + workers
+>
+> **Active workflow constitution:** **[`WORKFLOW.md`](./WORKFLOW.md)** — at the project root, always in mind.
 >
 > **Paused legacy constitution:** [CONSTITUTION.md](./CONSTITUTION.md) (marked PAUSED — restored 2026-07-31 18:25 UTC).
 >
-> **Sprint hand-offs:** [`docs/workflow/sprint-N.md`](./docs/workflow/) — سيتی writes them, Mavis Local executes.
+> **Sprint hand-offs:** [`docs/workflow/sprint-N.md`](./docs/workflow/) — Admin Team (سيتی) writes them, Coordinator routes to Local Team for execution.
 >
 > **State machine (the ping-pong point):** [`.github/workflows/mavis-coordination/state.json`](./.github/workflows/mavis-coordination/state.json) — the single source of truth for "where the ball is."
 >
 > **Worker (Jimi) instructions:** [`.mavis/AGENTS.md`](./.mavis/AGENTS.md) — every Jimi reads this before starting.
 >
-> **What's the same:** architectural constraints (company_id, Dapper, no EF Core, etc.), DOX framework, CHANGELOG discipline, branch protection.
->
-> **What's different in the 2-day window:** Smart cron + state.json is the primary async signal. Admin Team (سيتی + محمد + ديف) work as "Cron Jobs" coordinated by Mavis Local. No Telegram ping-pong. Mavis Local is sole Tech Lead + Coordinator.
->
-> **🚨 Critical (per Anas, 2026-07-29 18:50 UTC):** The ball is in the **ACTOR's** court (mavis-local / mavis-cloud / anas), **NOT** the cron's. The cron is a tool that helps Mavis Local stay updated.
+> **🚨 Critical (per Anas, 2026-07-29 18:50 UTC, reaffirmed v2.0):** The ball is in the **ACTOR's** court (mavis-coordinator / mavis-admin / mavis-local / anas), **NOT** the cron's. The cron is a tool that helps the teams stay updated.
 
 ---
 
@@ -69,19 +80,27 @@ The **single source of truth for architecture** is `/docs/architecture/holding-c
 
 ---
 
-## Ownership
+## Ownership (v2.0)
 
-| Layer | Owner | Authority |
-|-------|-------|-----------|
-| **Project Owner** | Anas (anas600) | Constitution, staging/production, architecture changes |
-| **Cloud Coordinator** | Siti (Mavis mode) | Plan, hand-offs, verify, merge, governance files |
-| **Architect / Strategic Advisor** | Muhammad (Mavis mode) | Analysis, decisions, retrospectives |
-| **Tech Lead (Local)** | Mavis Local (Windows) | Implementation, Jimis, PRs, --admin merge on develop |
-| **DevOps** | Dev (Mavis mode) | CI, infra, crons |
-| **External Tech Lead (sandbox)** | Mephisto | Independent work on `feature/sprint-4-polish-demo-data` (see `docs/AGENTS.md` for context) |
-| **E2E team** | Abdo's team | Playwright verification on `feature/abdo-team` |
+| Tier | Role | Owner | Authority | Persona file |
+|------|------|-------|-----------|--------------|
+| **1** | **Project Owner** | **Anas** (anas600) | Constitution veto, architecture, staging/production | (Telegram) |
+| **2** | **Coordinator** | **Mavis** (root) | Governance, spawns teams, modifies constitution, routes hand-offs | [`coordinator.md`](./docs/personas/coordinator.md) |
+| **3a** | **Admin Team** (ONE team, 3 personas) | **Mavis — محمد/سيتی/ديف mode** | Hand-offs, plan, review, merge, state.json, CHANGELOG, crons | [`admin-team.md`](./docs/personas/admin-team.md) |
+| **3a.1** | ↳ Strategic Advisor | Mavis (محمد mode) | Architecture analysis, retrospectives, recommendations | [`muhammad.md`](./docs/personas/muhammad.md) |
+| **3a.2** | ↳ Cloud Coordinator | Mavis (سيتی mode) | Sprint hand-offs, verify, merge, state updates | [`siti.md`](./docs/personas/siti.md) |
+| **3a.3** | ↳ DevOps | Mavis (ديف mode) | CI, infra, crons, deploys (with approval) | [`dev.md`](./docs/personas/dev.md) |
+| **3b** | **Local Team** (spawned workers) | **Mavis Local** (spawned per task) | Code execution, tests, PR open, review | [`local-team.md`](./docs/personas/local-team.md) |
+| **External** | Sandbox Tech Lead | Mephisto | Independent work on `feature/sprint-4-polish-demo-data` | (external) |
+| **External** | E2E team | Abdo's team | Playwright verification on `feature/abdo-team` | (external) |
 
-Only Anas can change the Constitution. Everything else flows through the sprint model.
+**Key v2.0 changes:**
+- The 3 Admin personas (محمد + سيتی + ديف) are **for discussion only** — they act as ONE Admin Team on GitHub
+- The Local Team is **spawned per task** by the Coordinator — not a permanent session
+- The Coordinator (Mavis root) has explicit governance authority to modify constitution files
+- **Only Anas can change Tier 1 (project direction).** The Coordinator can change Tier 2/3 governance with self-authority (v2.0). Admin Team changes governance via Coordinator approval.
+
+See [`docs/personas/`](./docs/personas/) for full role definitions.
 
 ---
 

@@ -13,6 +13,38 @@
 
 ---
 
+## Sprint 8 T3 — Governance v2.0 (2026-07-31) ✅ DONE
+
+**Goal:** Per Anas mandate 2026-07-31 04:25 UTC — rework the team model. 3-tier governance with persona files. Admin Team = 1 team 3 personas. Local Team = spawned workers. Coordinator = governance.
+
+### Added
+- **`docs/personas/`** directory (new governance home — supersedes `docs/team-charters/`):
+  - `README.md` — persona index + 3-tier model + how teams interact
+  - `coordinator.md` — Mavis Coordinator (root, governance, spawns teams)
+  - `admin-team.md` — Admin Team (combined, ONE team on GitHub, 3 personas for discussion)
+  - `muhammad.md` — Strategic Advisor (persona: architecture, retrospectives)
+  - `siti.md` — Cloud Coordinator (persona: hand-offs, plan, merge, state.json)
+  - `dev.md` — DevOps (persona: CI, crons, infra, deploys)
+  - `local-team.md` — Local Team Lead + workers (Coder, spawned per task)
+- **`docs/personas/README.md`** — 3-tier model diagram + spawn model + hand-off flow
+
+### Changed
+- **`AGENTS.md`** — Ownership table restructured to 3 tiers (Owner / Coordinator / Teams). Points to `docs/personas/` for full role definitions. Active Governance block rewritten to v2.0.
+- **`WORKFLOW.md`** — Related Files table now references `docs/personas/`. "Leadership Cycles" section rewritten to v2.0 (Coordinator orchestrates, Admin Team + Local Team spawned as needed). Last amended line bumped to 2026-07-31 04:30 UTC.
+- **Governance model** — Mavis Coordinator (root) has explicit authority to modify Tier 2/3 governance files (constitution, persona files). Tier 1 (project direction, architecture) still requires Anas approval.
+
+### Out of Scope (defer to Sprint 9+)
+- Delete `docs/team-charters/` (legacy v1.8 — kept for history)
+- Update `INTER-TEAM-PROTOCOL.md` to reference personas (file lives in old ERP-SYSTEM repo, not in current ERP-Holding)
+- Wire persona files into agent personas (mavis `agent update` with `persona` field)
+
+### Notes
+- This is a **governance-only sprint** — no code changes
+- The new model makes the Coordinator the single governance authority, reducing the "Local Team stuck" failure mode (Local is now spawned per task, not a permanent session)
+- Admin Team's 3 personas are for **internal discussion** — on GitHub they act as ONE team
+
+---
+
 ## Sprint 8 — Governance Hardening (2026-07-31) 🟡 IN PROGRESS
 
 **Goal:** Per Muhammad's recommendation: governance hardening + ONE strategic feature. Avoid pure-execution sprint.
