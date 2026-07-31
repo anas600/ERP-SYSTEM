@@ -13,6 +13,31 @@
 
 ---
 
+## Sprint 10 — Holding Refactor Phase 2 + 3 (2026-07-31) 🟡 IN PROGRESS (LOCAL-ONLY)
+
+**Goal:** Continue Holding Company refactor (Sprint 8 T4) — Phase 2 (rename `Shared/MultiTenancy/`) + Phase 3 (scoped DI for `CompanyContext`) + docs Section 6 follow-up. Per Anas mandate 2026-07-31 06:47 UTC, all work is **LOCAL-ONLY** until the end (no push, no PR). Branch: `feature/sprint-10-refactor-multi-tenancy-rename` (off `origin/develop @ 64efaac`).
+
+### Changed (BE Jimi 3 — T3, Section 6 fix)
+- `docs/architecture/holding-company-architecture.md` — **Section 6 (Multi-Company) rewritten** to match the actual self-referencing `companies` schema (per `src/backend/Host/data-types/companies.json`):
+  - Removed legacy `holding_id UUID NOT NULL REFERENCES holdings(id)` FK
+  - Added `code VARCHAR(20)`, `slug VARCHAR(100)`, `parent_company_id` (self-FK → `companies.id`), `is_group BOOLEAN`, `base_currency CHAR(3)`
+  - Dropped obsolete fields: `name_ar`, `tax_id`, `country`, `city`, `address`, `phone`, `email`
+  - Replaced constraint `uk_companies_name_holding` → `uk_companies_code`
+  - Replaced indexes: `idx_companies_holding` → `ix_companies_parent`, `idx_companies_active` → `ix_companies_slug`
+  - Added prose paragraph (Arabic) explaining the self-referencing hierarchy: Holding = `companies` row with `is_group=true` + `parent_company_id IS NULL`; لا جدول `holdings` منفصل
+  - Added end-of-section note pointing to Sprint 8 T4 refactor proposal (single-table self-referencing, not the original two-table design)
+  - **Scope:** Section 6 only (~32 lines added, 26 lines removed); Sections 1-5 and 7-17 untouched per Rule 1
+
+### Notes
+- This is a docs-only change. No code modified, no tests affected, no `tenant_id` introduced.
+- Out-of-scope discovery (flagged for Mavis Local — NOT included in this PR slice per Rule 1):
+  - **Section 7** (ERD) still shows `holdings` table with 1:N → `companies` (now inconsistent with Section 6)
+  - **Section 9** (JWT Structure) example still includes a `holding_id` field (now inconsistent)
+  - **Section 5** (Holding) still has a `holdings` table SQL block with a "per CONSTITUTION Article 3 we have only one Holding" caveat
+  - These are pre-existing inconsistencies that predate Sprint 9 T1 and were intentionally left out of scope.
+
+---
+
 ## Sprint 8 T2 — FakeDb AS Alias Enhancement (2026-07-31) ✅ DONE
 
 **Goal:** Remove known technical debt in `FakeDbConnectionFactory` that forces tests to use projected column names as a workaround for SQL `AS` aliases. Per T2 hand-off (Admin Team v1.8, محمد mode, approved by Anas 04:08 UTC).
