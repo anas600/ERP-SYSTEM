@@ -1,0 +1,64 @@
+using System.Security.Claims;
+using ERPSystem.Modules.Finance.Application;
+using ERPSystem.Modules.Finance.Application.Services;
+using ERPSystem.Modules.Finance.Entities;
+using FluentValidation;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+
+namespace ERPSystem.Host.Controllers;
+
+[ApiController]
+[Route("api/finance/posting-rules")]
+[Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+public class PostingRulesController : ControllerBase
+{
+    private readonly IPostingRulesService _service;
+    private readonly IValidator<CreatePostingRuleRequest> _validator;
+
+    public PostingRulesController(
+        IPostingRulesService service,
+        IValidator<CreatePostingRuleRequest> validator)
+    {
+        _service = service;
+        _validator = validator;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> List(CancellationToken ct)
+    {
+        var r = await _service.ListAsync(ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    [HttpPost]
+    public async Task<IActionResult> Create([FromBody] CreatePostingRuleRequest request, CancellationToken ct)
+    {
+        var v = await _validator.ValidateAsync(request, ct);
+        if (!v.IsValid) return ValidationProblem(new ValidationProblemDetails(
+            v.Errors.GroupBy(e => e.PropertyName).ToDictionary(
+                g => g.Key,
+                g => g.Select(e => e.ErrorMessage).ToArray())));
+
+        var r = await _service.CreateAsync(request, ct);
+        return r.Succeeded ? CreatedAtAction(nameof(List), new { }, r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>محاكاة/تشغيل حدث على القواعد (للاختبار والتجريب)</summary>
+    [HttpPost("trigger/{eventType}")]
+    public async Task<IActionResult> Trigger(TriggeringEvent eventType, [FromBody] EventPayload payload, CancellationToken ct)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")?.Value;
+        if (!Guid.TryParse(userId, out var uid)) return Unauthorized();
+
+        var count = await _service.ApplyRulesAsync(uid, eventType, payload, ct);
+        return Ok(new { eventType, entriesCreated = count });
+    }
+
+    private static ProblemDetails Problem<T>(FinanceResult<T> r) => new()
+    {
+        Title = "Posting Rule Error",
+        Status = StatusCodes.Status400BadRequest,
+        Detail = r.Error,
+    };
+}

@@ -1,0 +1,28 @@
+{
+  "name": "GoodsReceipt",
+  "table": "goods_receipts",
+  "version": "1.0.0",
+  "module": "Procurement",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "gr_number", "type": "varchar(50)", "nullable": false },
+    { "name": "purchase_order_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "purchase_orders", "column": "id", "on_delete": "restrict" } },
+    { "name": "status", "type": "varchar(20)", "nullable": false, "default": "'Draft'" },
+    { "name": "received_date", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "warehouse_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "warehouses", "column": "id", "on_delete": "restrict" } },
+    { "name": "notes", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "created_by", "type": "uuid", "nullable": false },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "updated_by", "type": "uuid", "nullable": true }
+  ],
+  "indexes": [
+    { "name": "ix_goods_receipts_company_number", "columns": ["company_id", "gr_number"], "unique": true },
+    { "name": "ix_goods_receipts_company_po", "columns": ["company_id", "purchase_order_id"] },
+    { "name": "ix_goods_receipts_company_status", "columns": ["company_id", "status"] }
+  ]
+}

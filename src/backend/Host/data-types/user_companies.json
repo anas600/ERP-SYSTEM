@@ -1,0 +1,19 @@
+{
+  "name": "UserCompany",
+  "table": "user_companies",
+  "version": "1.0.0",
+  "module": "Identity",
+  "primary_key": ["user_id", "company_id"],
+  "fields": [
+    { "name": "user_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "users", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "cascade" } },
+    { "name": "is_default", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "assigned_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_user_companies_company", "columns": ["company_id"] },
+    { "name": "ix_user_companies_default", "columns": ["user_id"] }
+  ]
+}

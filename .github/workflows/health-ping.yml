@@ -1,0 +1,89 @@
+name: Health Ping (token-free)
+
+# DEC-072 implementation: token-free health monitoring.
+# Runs the bash script on a schedule, writes a JSON status file,
+# and surfaces a build status check in the PR. No secrets, no LLM calls.
+
+on:
+  schedule:
+    # Every 10 minutes. Cheap (just a git fetch + curl). No auth.
+    - cron: '*/10 * * * *'
+  workflow_dispatch:        # Manual trigger
+  push:
+    branches: [develop]    # Re-check after every push to develop
+
+concurrency:
+  group: health-ping
+  cancel-in-progress: true
+
+env:
+  HEALTH_FILE: docs/governance/internal/health-ping.json
+
+jobs:
+  health-ping:
+    name: Token-Free Health Ping
+    runs-on: ubuntu-latest
+    timeout-minutes: 2   # Cycle 5 hardening: cap at 2 min (script should take <30s)
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Need full history for git log origin/develop -1 --format=%ct
+          fetch-depth: 5
+
+      - name: Run health-ping.sh
+        run: |
+          chmod +x scripts/health-ping.sh
+          bash scripts/health-ping.sh
+        # Exit codes:
+        #   0 = alive or idle (good)
+        #   1 = stuck (warn)
+        #   2 = unreachable (fail)
+        continue-on-error: true
+
+      - name: Read health-ping.json
+        id: read
+        run: |
+          if [ -f "$HEALTH_FILE" ]; then
+            echo "status=$(jq -r .status $HEALTH_FILE)" >> "$GITHUB_OUTPUT"
+            echo "last_check=$(jq -r .last_check $HEALTH_FILE)" >> "$GITHUB_OUTPUT"
+            echo "github_api=$(jq -r .github_api $HEALTH_FILE)" >> "$GITHUB_OUTPUT"
+          else
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+            echo "last_check=never" >> "$GITHUB_OUTPUT"
+            echo "github_api=unknown" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Status report
+        if: always()
+        run: |
+          echo "## 💓 Health Ping (Cycle 5 / DEC-072)"
+          echo ""
+          echo "- **Status:** ${{ steps.read.outputs.status }}"
+          echo "- **Last check:** ${{ steps.read.outputs.last_check }}"
+          echo "- **GitHub API:** ${{ steps.read.outputs.github_api }}"
+          echo ""
+          echo "(token-free, no LLM, no secrets)"
+
+      - name: Commit if changed
+        # Auto-commit the health-ping.json if it changed. Token-free.
+        # Skipped on schedule to avoid spamming commits every 10 min.
+        if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
+        run: |
+          if git diff --quiet $HEALTH_FILE; then
+            echo "no change"
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add $HEALTH_FILE
+            git commit -m "chore(health): update health-ping.json"
+            git push
+          fi
+        continue-on-error: true
+
+      - name: Fail if stuck
+        if: steps.read.outputs.status == 'stuck'
+        run: |
+          echo "::error::Health ping reports status=stuck for >30 min"
+          echo "سيتی may be offline. See docs/governance/lessons-learned.md"
+          exit 1

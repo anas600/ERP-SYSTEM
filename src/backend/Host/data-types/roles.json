@@ -1,0 +1,15 @@
+{
+  "name": "Role",
+  "table": "roles",
+  "version": "1.0.0",
+  "module": "Identity",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "name", "type": "varchar(100)", "nullable": false },
+    { "name": "description", "type": "varchar(500)", "nullable": false, "default": "''" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_roles_name", "columns": ["name"], "unique": true }
+  ]
+}

@@ -1,0 +1,72 @@
+# ERP-SYSTEM — Local Docker Setup
+# Single command: docker compose up
+# Self-contained, no external dependencies
+#
+# Per DEC-068 Decision 4 (Anas: 2026-07-22)
+# Local Docker ONLY — for Anas's personal computer
+# By: Mavis (Coordinator) | 2026-07-25
+
+version: '3.9'
+
+services:
+  # PostgreSQL — local DB (auto-creates schema on first run)
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp-postgres-local
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp_local_password
+      POSTGRES_DB: erp_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp_system"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Backend API — built from src/backend/Dockerfile
+  api:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: erp-api-local
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_URLS: "http://+:5000"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+      ConnectionStrings__Migrations: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
+      Marten__ConnectionString: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=60;Connection Pruning Interval=10;Keepalive=30;Timeout=15;Command Timeout=60"
+      Database__AutoMigrate: "true"
+      Database__JsonMigrationEnabled: "true"
+      JwtSettings__Secret: "LOCAL_DEV_ONLY_64_CHAR_RANDOM_SECRET_NOT_FOR_PRODUCTION_xxxxx"
+    ports:
+      - "5000:5000"
+    # Healthcheck removed: `wget` is not in mcr.microsoft.com/dotnet/aspnet:9.0 image.
+    # Use `curl` (requires multi-stage build to copy from sdk image) OR check the
+    # container status via `docker ps` (status flag is cosmetic). The /api/health/live
+    # endpoint is verified separately by the smoke-test script.
+
+  # Frontend (Next.js)
+  frontend:
+    image: node:20-alpine
+    container_name: erp-frontend-local
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ../src/frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && npm run dev"
+    depends_on:
+      - api
+
+volumes:
+  postgres_data:

@@ -1,0 +1,26 @@
+{
+  "name": "StockReservation",
+  "table": "stock_reservations",
+  "version": "1.0.0",
+  "module": "Inventory",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "item_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "items", "column": "id", "on_delete": "restrict" } },
+    { "name": "warehouse_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "warehouses", "column": "id", "on_delete": "restrict" } },
+    { "name": "quantity", "type": "numeric(18,4)", "nullable": false },
+    { "name": "reference_type", "type": "varchar(50)", "nullable": false },
+    { "name": "reference_id", "type": "uuid", "nullable": false },
+    { "name": "expires_at", "type": "timestamptz", "nullable": false },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "created_by", "type": "uuid", "nullable": false }
+  ],
+  "indexes": [
+    { "name": "ix_stock_reservations_company_reference", "columns": ["company_id", "reference_type", "reference_id"] },
+    { "name": "ix_stock_reservations_company_item_warehouse", "columns": ["company_id", "item_id", "warehouse_id"] },
+    { "name": "ix_stock_reservations_expires", "columns": ["expires_at"] }
+  ]
+}
