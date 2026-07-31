@@ -25,7 +25,7 @@ import {
   ChevronLeft,
   Briefcase,
 } from 'lucide-react';
-import { Card, PageHeader, Button, Badge, EmptyState } from '@/components/ui';
+import { Card, PageHeader, Button, Badge, EmptyState, SkeletonCard } from '@/components/ui';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
 import { holdingsApi, getErrorMessage, HoldingDetail, HoldingCompany } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -109,20 +109,11 @@ function CompanyCard({ company }: { company: HoldingCompany }) {
   );
 }
 
-// Sub-company skeleton — يُعرض أثناء تحميل التفاصيل
+// Sprint 9 T3 (FE Jimi 3): replaced the inline CompanyCardSkeleton with the
+// shared <SkeletonCard /> from @/components/ui — keeps the loading state
+// consistent with the rest of the app and removes a duplicate definition.
 function CompanyCardSkeleton() {
-  return (
-    <Card>
-      <div className="flex items-start gap-3">
-        <div className="h-12 w-12 rounded-lg bg-gray-100 animate-pulse flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div className="h-4 w-2/3 bg-gray-100 rounded animate-pulse" />
-          <div className="h-3 w-1/3 bg-gray-100 rounded animate-pulse" />
-          <div className="h-3 w-1/2 bg-gray-100 rounded animate-pulse" />
-        </div>
-      </div>
-    </Card>
-  );
+  return <SkeletonCard hasHeader={false} lines={3} />;
 }
 
 export default function HoldingPage() {

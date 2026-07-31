@@ -6,10 +6,15 @@
 // - Persists the active company id in localStorage (currentCompanyId).
 // - On change: updates localStorage + reloads the current view so the
 //   new company context takes effect across all loaded data.
+//
+// Sprint 9 T3 (FE Jimi 3): visual feedback during the switch — the trigger
+// button shows a spinner and is disabled while `router.refresh()` is in
+// flight, so the user knows the page is reloading instead of seeing a
+// frozen UI between "click" and "data reload".
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Building2, Check, ChevronDown } from 'lucide-react';
+import { Building2, Check, ChevronDown, Loader2 } from 'lucide-react';
 import { authApi, GetUserCompaniesResponse, UserCompanyInfo } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -23,6 +28,8 @@ export function CompanySwitcher({ className }: CompanySwitcherProps) {
   const [companies, setCompanies] = useState<UserCompanyInfo[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  // Sprint 9 T3 — "switching" state: true while router.refresh() is in flight.
+  const [switching, setSwitching] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Load on mount + when dropdown opens (so we always have fresh data).
@@ -66,6 +73,16 @@ export function CompanySwitcher({ className }: CompanySwitcherProps) {
     return () => document.removeEventListener('mousedown', handler);
   }, [open]);
 
+  // Sprint 9 T3 — when router.refresh() finishes, clear the switching flag.
+  // Next.js doesn't expose a promise from router.refresh(), so we use a
+  // microtask + short delay heuristic. The spinner is purely cosmetic —
+  // the actual refresh is driven by the framework.
+  useEffect(() => {
+    if (!switching) return;
+    const t = setTimeout(() => setSwitching(false), 600);
+    return () => clearTimeout(t);
+  }, [switching]);
+
   const active = companies.find((c) => c.companyId === activeId) ?? null;
 
   if (loading) {
@@ -82,26 +99,42 @@ export function CompanySwitcher({ className }: CompanySwitcherProps) {
     <div ref={dropdownRef} className={cn('relative', className)}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-white hover:bg-gray-50 text-sm"
+        onClick={() => !switching && setOpen((v) => !v)}
+        disabled={switching}
+        className={cn(
+          'flex items-center gap-2 h-9 px-3 rounded-lg border border-gray-200 bg-white text-sm transition-colors',
+          switching ? 'opacity-70 cursor-wait' : 'hover:bg-gray-50'
+        )}
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-busy={switching}
+        aria-label={switching ? 'جاري التبديل...' : 'تبديل الشركة'}
       >
-        <Building2 className="h-4 w-4 text-gray-400" />
+        {switching ? (
+          <Loader2 className="h-4 w-4 text-blue-500 animate-spin" />
+        ) : (
+          <Building2 className="h-4 w-4 text-gray-400" />
+        )}
         <div className="text-right min-w-0">
           <p className="text-sm font-medium text-gray-800 truncate leading-tight">
-            {active?.name ?? 'شركة غير محددة'}
+            {switching ? 'جاري التبديل...' : active?.name ?? 'شركة غير محددة'}
           </p>
-          {active && (
+          {active && !switching && (
             <p className="text-[10px] text-gray-500 leading-tight">
               {active.isHolding ? 'الشركة القابضة' : active.code}
             </p>
           )}
         </div>
-        <ChevronDown className={cn('h-4 w-4 text-gray-400 transition-transform', open && 'rotate-180')} />
+        <ChevronDown
+          className={cn(
+            'h-4 w-4 text-gray-400 transition-transform',
+            open && !switching && 'rotate-180',
+            switching && 'opacity-30'
+          )}
+        />
       </button>
 
-      {open && (
+      {open && !switching && (
         <ul
           role="listbox"
           className="absolute left-0 mt-2 w-64 max-h-80 overflow-y-auto bg-white rounded-lg shadow-lg border border-gray-100 py-1 z-30"
@@ -122,6 +155,7 @@ export function CompanySwitcher({ className }: CompanySwitcherProps) {
                     setOpen(false);
                     // Reload the current route so server-side / context-derived
                     // data reloads against the new company.
+                    setSwitching(true);
                     router.refresh();
                   }}
                   className={cn(
