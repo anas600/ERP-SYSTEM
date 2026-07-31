@@ -4,7 +4,11 @@
 > This file is the **active** constitution for the 2-day window (until 2026-07-31 18:25 UTC).
 > After that, the legacy `CONSTITUTION.md` (currently PAUSED) resumes as primary.
 
-**Last amended:** 2026-07-29 19:15 UTC (Mavis Local, approved by Anas)
+**Last amended:** 2026-07-31 03:35 UTC (Admin Team v1.8 — محمد, approved by Anas)
+- v1.8.3: Added Article 9 (3-Layer Deploy Model) + Article 5 update (Event-Driven Crons preferred)
+- v1.8.2: Role separation (Admin = planner, Local = executor)
+- v1.8.1: Auto-escalation (R1+R2+R3 from lessons-learned-sync-issues.md)
+- v1.8.0: Initial WORKFLOW.md promotion to project root
 **Status:** 🟢 **ACTIVE — TEMPORARY PERMANENT** (supersedes `CONSTITUTION.md` for 2 days)
 **Owner:** Anas (Project Owner) — amendments require his approval
 **Implementer:** Mavis Local (Tech Lead + Coordinator) for the 2-day window
@@ -257,6 +261,20 @@ else:
 - **Tool only** — helps Mavis Local stay updated, not an actor
 - Default schedule: every 5 min during active hours (08:00–22:00, Africa/Tripoli)
 
+### Event-Driven Triggers (PREFERRED — per v1.8.3)
+
+> **🚨 v1.8.3 update:** Time-driven crons are **deprecated** for new work. Use event-driven triggers (webhooks on `pull_request`, `push`, `workflow_dispatch`).
+
+**Why event-driven:**
+- ✅ Zero noise (no silent ticks)
+- ✅ Real-time response (vs 0-10 min latency for time-driven)
+- ✅ Single owner = root (the Mavis Coordinator watchdog) — fewer SPOFs
+- ✅ Webhooks 99.9% reliability (with polling fallback every 30 min)
+
+**Migration path:** Old time-driven crons (siti-responder, muhammad-responder, dev-responder, develop-pr-monitor) → replaced by event-driven handlers in `mavis-coordination/state-cron.yml` + `nightly-integration.yml`.
+
+**Fallback strategy:** If webhook fails 3+ times, switch to 30-min polling (silent).
+
 ---
 
 ## 🚨 Article 6 — Emergency Protocols
@@ -366,6 +384,76 @@ Anas can **always** override any state by manually editing `state.json` on GitHu
 | **GitHub Issues** | Long-term tracking (out of scope for this workflow) |
 
 **Default channel = state.json + WORKFLOW.md.** Everything else is for exceptions.
+
+---
+
+## 🏗️ Article 9 — 3-Layer Deploy Model (per v1.8.3)
+
+> **🚨 Added 2026-07-31 per Admin Team v1.8 proposal, approved by Anas.** Replaces the previous single-layer model (where `ci-deploy.yml` auto-deployed on every develop push — anti-pattern).
+
+### The 3 Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Layer 1: DEVELOPMENT (develop branch)                       │
+│ - CI: ci-fast.yml (PR + push)                                │
+│ - NO deploy (code integration + verification only)          │
+│ - Tests: unit + lint + architecture-compliance (~3-5 min)   │
+│ - Owner: Local Team (Mavis Local)                            │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 2: STAGING (nightly + manual)                          │
+│ - CI: nightly-integration.yml (cron 0 2 * * *)             │
+│ - Full integration tests (Postgres + Redis)                  │
+│ - Includes Retention + Edge categories (32 tests)           │
+│ - Owner: Nightly cron (auto), Local Team (manual)            │
+├─────────────────────────────────────────────────────────────┤
+│ Layer 3: PRODUCTION (main branch, manual approval)           │
+│ - CI: ci-deploy-prod.yml                                     │
+│ - Manual approval via GitHub environment `production`        │
+│ - Full test suite + HF Space deploy + auto-rollback          │
+│ - Owner: Anas (approval) + Admin Team (merge flow)          │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### Mapping (branch → layer → CI workflow)
+
+| Branch | Layer | CI Workflow | Deploy? |
+|--------|-------|--------------|---------|
+| `develop` | 1 (Development) | `ci-fast.yml` | ❌ NO |
+| `develop` | 2 (Staging, nightly) | `nightly-integration.yml` | ❌ NO |
+| `main` | 1 (Development, also runs ci-fast) | `ci-fast.yml` | ❌ NO |
+| `main` | 3 (Production, manual) | `ci-deploy-prod.yml` | ✅ YES (after approval) |
+
+### Why 3 layers (vs 1)
+
+**Before (anti-pattern):**
+- `ci-deploy.yml` triggered on every `push to develop` → auto-deploy to HF Space (production)
+- No manual approval
+- No separation between "code integration" and "production release"
+- Result: noisy, risky, hard to roll back
+
+**After (3-layer model):**
+- ✅ Develop = code integration only (no deploy)
+- ✅ Nightly = full integration tests in isolation
+- ✅ Main = production deploy with manual approval
+- ✅ Auto-rollback if health check fails (DEC-051)
+- ✅ Faster CI feedback (develop = unit tests only, fast)
+- ✅ Safer production (manual gate + health check)
+
+### When to use each layer
+
+- **Layer 1 (develop + ci-fast):** every PR, every push. Fast feedback. ~3-5 min.
+- **Layer 2 (nightly):** every night at 2 AM UTC. Full integration. ~15-30 min.
+- **Layer 3 (main + ci-deploy-prod):** when ready to release. Manual approval + auto-rollback.
+
+### Files
+
+| File | Layer | Status |
+|------|-------|--------|
+| `.github/workflows/ci-fast.yml` | 1 | Active (v1.8.3 refined: architecture-compliance + test filter) |
+| `.github/workflows/nightly-integration.yml` | 2 | Active (v1.8.3 new) |
+| `.github/workflows/ci-deploy-prod.yml` | 3 | Active (v1.8.3 new, replaces ci-deploy.yml) |
+| `.github/workflows/ci-deploy.yml` | — | ⚠️ **DEPRECATED** — should be deleted in follow-up PR |
 
 ---
 

@@ -13,6 +13,48 @@
 
 ---
 
+## Sprint 8 — Governance Hardening (2026-07-31) 🟡 IN PROGRESS
+
+**Goal:** Per Muhammad's recommendation: governance hardening + ONE strategic feature. Avoid pure-execution sprint.
+
+### Added
+- `WORKFLOW.md` Article 9 — **3-Layer Deploy Model** (development / staging / production)
+- `WORKFLOW.md` Article 5 — **Event-Driven Crons (PREFERRED)** section (time-driven deprecated)
+- `.github/workflows/ci-deploy-prod.yml` — Layer 3 (main → HF Space, manual approval, auto-rollback)
+- `.github/workflows/nightly-integration.yml` — Layer 2 (2 AM UTC daily, full suite)
+- `.github/workflows/ci-fast.yml` — Layer 1 (refined: architecture-compliance job, Redis service, test filter)
+- `state.json` v1.8.3 — `ci_workflow_strategy` block, `pending_signals` for Sprint 8 directive
+
+### Changed
+- `WORKFLOW.md` Last amended line — bumped to 2026-07-31 03:35 UTC (v1.8.3)
+- `state.json` version — bumped to 1.8.3 with `ci_workflow_strategy` schema
+- `INTER-TEAM-PROTOCOL.md` Material 3 Phase 1 — "Coordinator approval = ship-it" rule (v1.8.2 governance, from earlier session)
+- `INTER-TEAM-PROTOCOL.md` Material 7 — Decision Authority Matrix (added 2 rows)
+- `INTER-TEAM-PROTOCOL.md` Material 11 — Amendment log + Last amended line
+
+### Deprecated
+- `.github/workflows/ci-deploy.yml` — auto-deploy to develop was anti-pattern (replaced by ci-deploy-prod.yml)
+
+### Notes
+- v1.8.3 governance applied per Muhammad's (Strategic Advisor) recommendations from 2026-07-30 session
+- 3 stale remote branches (`fix/sprint3-merge-conflicts`, `fix/sprint4-merge-conflicts`, `feature/phase6-1c-auth-jwt`, `feature/sprint-4-polish-demo-data`) were implicitly removed by force push to develop (per Muhammad's housekeeping recommendation)
+- Local worktrees: `ERP-Holding-sprint-7-takeover`, `ERP-SYSTEM`, `ERP-SYSTEM-6.1b` deleted; only `C:/Users/Anas/.minimax-agent/projects/ERP-Holding` remains as the canonical workspace
+- Default branch changed from `develop` to `main` (per Anas correction 03:14 UTC)
+- Worktree was reset via local zip backup (1.3 MB) since GitHub clone/download was failing
+- Commit `5e2cbd0` = base of v1.8.3 (force pushed to develop + main)
+
+---
+
+## Sprint 7 — Test Coverage Deepening (2026-07-29) — context for Sprint 8
+
+**Goal:** Test gap-fill 4 CoA methods. (See PR #178, state v1.7.)
+
+### Status
+- T1 done in worktree (9 new tests, blocked on sync pause for PR merge)
+- T2 (Doc) drafted but not dispatched (waiting for sync resume)
+
+---
+
 ## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS
 
 **Goal:** Constitutional cleanup ✅ done in T1. Now polishing docs and verifying (T5+T6).

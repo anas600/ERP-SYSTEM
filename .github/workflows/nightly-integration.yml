@@ -1,0 +1,103 @@
+name: Nightly Integration Tests (full suite + DB)
+
+# Layer 2 of the 3-layer model: NIGHTLY INTEGRATION.
+# Runs the FULL test suite (including Retention, Edge categories that need real DB).
+# CI fast (ci-fast.yml) skips these for speed; nightly picks them up.
+# Schedule: 2 AM UTC daily + manual trigger.
+
+on:
+  schedule:
+    - cron: '0 2 * * *'  # 2 AM UTC daily
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-integration
+  cancel-in-progress: false
+
+env:
+  DOTNET_VERSION: '9.0.x'
+  NODE_VERSION: '20'
+
+jobs:
+  nightly-tests:
+    name: Nightly Full Integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: src/backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: erp_test
+          POSTGRES_PASSWORD: erp_test_pw
+          POSTGRES_DB: erp_test_system
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U erp_test -d erp_test_system"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      ConnectionStrings__Postgres: "Host=localhost;Port=5432;Database=erp_test_system;Username=erp_test;Password=erp_test_pw"
+      ConnectionStrings__Redis: "localhost:6379"
+      JwtSettings__Secret: "CI_NIGHTLY_TEST_SECRET_REPLACE_32CHARS_xxxxxxxxxxxxxx"
+      Database__AutoMigrate: "true"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      - name: Restore Backend
+        run: dotnet restore Host/ERP-SYSTEM.csproj
+
+      - name: Restore Tests
+        run: dotnet restore Tests/ERPSystem.Tests/ERPSystem.Tests.csproj
+
+      - name: Build Backend
+        run: dotnet build Host/ERP-SYSTEM.csproj --no-restore --configuration Release
+
+      - name: Build Tests
+        run: dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj --no-restore --configuration Release
+
+      - name: Run FULL test suite (no filter — includes Retention + Edge)
+        run: |
+          dotnet test Tests/ERPSystem.Tests/ERPSystem.Tests.csproj \
+            --no-build --configuration Release \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=nightly-test-results.trx" \
+            --logger "console;verbosity=normal"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-test-results
+          path: '**/TestResults/**/*.trx'
+          retention-days: 30
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "🌙 Nightly integration test run complete."
+          echo "📊 Check artifacts for detailed results."
+          if [ "${{ job.status }}" = "failure" ]; then
+            echo "❌ Nightly run failed — check logs."
+            exit 1
+          fi

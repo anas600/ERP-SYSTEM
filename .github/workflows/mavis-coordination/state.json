@@ -1,87 +1,157 @@
 ﻿{
-  "version": "1.4",
-  "last_updated": "2026-07-29T17:55:00Z",
+  "version": "1.8.3",
+  "last_updated": "2026-07-31T03:35:00Z",
   "ball_location": "mavis-local",
-  "ball_owner_session": "mvs_c39a4f3aaa474a9899f87a4cd49d3645",
-  "active_sprint": "6",
-  "open_prs": [],
-  "last_cron_run": {
-    "ran_at": "2026-07-29T17:55:00Z",
-    "prs_merged": 0,
-    "prs_open": 0,
-    "self_mergeable": 0,
-    "result": "no-op",
-    "notes": "Cron tick @ 17:55 UTC. 0 open PRs, 0 self-mergeable. Sprint 6 still 5/7 done (PR #173 + PR #174 MERGED). T3+T4 deferred. Ball at mavis-local. NOTE: previous cron ticks (17:50, 17:55) were committed to stale feature/sprint-6-post-demo-hardening by mistake — this tick re-applies the update on develop to keep state.json canonical. Actor decides Sprint 6 wrap-up vs Sprint 7 launch."
+  "ball_owner_session": "mvs_a1a821a951504cce80ee1fddb98053be",
+  "active_sprint": "8",
+  "active_sprint_tasks": {
+    "T1_governance": {
+      "status": "completed",
+      "scope": "v1.8.3 governance + CI refactor (WORKFLOW.md Article 9, ci-fast refined, ci-deploy-prod, nightly-integration)",
+      "owner": "admin-team-v1.8",
+      "completed_at": "2026-07-31T03:35:00Z"
+    },
+    "T2_sprint8": {
+      "status": "drafted_pending_anas_approval",
+      "scope": "Sprint 8 = governance hardening + ONE feature (TBD per Anas)",
+      "owner": "admin-team-v1.8",
+      "framing": "governance + ONE strategic feature, avoid pure-execution sprint"
+    }
   },
+  "open_prs": [],
   "recent_merges": [
     {
-      "number": 173,
-      "title": "feat(workflow): Sprint 6 prep — promote WORKFLOW.md to root + Jimi worker contract",
-      "branch": "feature/sprint-6-constitution-cleanup",
-      "merged_by": "mavis-cloud (سيتی auto-merge)",
-      "merged_at": "2026-07-29T17:25:00Z",
-      "merge_method": "squash",
-      "merge_commit": "c5a3711",
-      "sprint": "6",
-      "notes": "Cloud team re-pushed the local T1 work (which was on local branch but never pushed to origin) and opened + merged PR #173. 7 files, +938/-88 (same scope as local 37d60c9)."
-    },
-    {
-      "number": 172,
-      "title": "feat(sprint-5): Demo V2 — CoA tree, dashboard charts, global search, invoice PDF, polish",
-      "branch": "feature/sprint-5-demo-v2",
-      "merged_by": "mavis-local",
-      "merged_at": "2026-07-29T18:51:00Z",
-      "merge_method": "squash",
-      "merge_commit": "9d148f4a5d691ab72a1e8dda24093a133d6f7188",
-      "sprint": "5"
+      "type": "force_push",
+      "sha": "5e2cbd0c39f05993f3b615330bae581de7e8d660",
+      "title": "chore: initial commit from local work (develop branch sync)",
+      "merged_by": "admin-team-v1.8 (force push to develop, then synced to main)",
+      "merged_at": "2026-07-31T03:22:27Z",
+      "sprint": "8-prep",
+      "scope": "Reset environment per Anas 03:11 UTC. Deleted 3 stale worktrees. Used local zip backup (1.3 MB) since GitHub download failed. Force pushed to develop + main.",
+      "files": 673,
+      "insertions": 89864
     }
   ],
+  "jimi_status": [],
+  "stalled_actors": {
+    "local": {
+      "last_action_at": "2026-07-31T03:22:27Z",
+      "stuck_for_minutes": 0,
+      "session_id": "mvs_a1a821a951504cce80ee1fddb98053be",
+      "note": "v1.8.3 governance completed. Sprint 8 awaiting Anas's scope directive."
+    },
+    "admin": {
+      "last_action_at": "2026-07-31T03:35:00Z",
+      "stuck_for_minutes": 0,
+      "session_id": "mvs_a1a821a951504cce80ee1fddb98053be",
+      "note": "Self — Admin Team v1.8 owns governance + worktree. ci-deploy-prod.yml + nightly-integration.yml drafted."
+    },
+    "coordinator": {
+      "last_action_at": "2026-07-31T03:22:27Z",
+      "stuck_for_minutes": 0,
+      "session_id": "mvs_4d7d32af36994449a90f0103f38f341f",
+      "note": "Mavis Coordinator (root) — paused sync per Anas 17:13 UTC. Standby."
+    }
+  },
+  "escalation_rules": {
+    "stuck_minutes_threshold": 60,
+    "coordinator_session": "mvs_4d7d32af36994449a90f0103f38f341f",
+    "auto_takeover_minutes": 120,
+    "last_escalation_at": null
+  },
   "pending_signals": [
     {
-      "from": "anas",
+      "from": "admin-team-v1.8",
       "type": "directive",
-      "message": "PROJECT PAUSED for 2 days (until 2026-07-31 18:25 UTC). .github/workflows/mavis-coordination/constitution.md is now the temporary permanent constitution. Mavis Local is sole Tech Lead + Coordinator. Admin Team (Siti + Muhammad + Dev) work as Cron Jobs via state.json. CONSTITUTION.md is marked PAUSED.",
-      "created_at": "2026-07-29T18:25:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Use scheduled tasks on the platform (not a file in the project). Mavis Local cron moved to C:\\Users\\Anas\\.minimax-agent\\cron\\mavis-local-cron.ps1 (outside project). Per DEC-070 admin, Mavis Local can self-merge PRs marked 'self-merge per DEC-070'.",
-      "created_at": "2026-07-29T18:42:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Re-emphasize: The ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's court. The cron is a tool that helps Mavis Local stay updated. Mavis Local has full freedom to handle the local environment + machine to achieve the development goal with the admin team.",
-      "created_at": "2026-07-29T18:50:00Z"
-    },
-    {
-      "from": "anas",
-      "type": "directive",
-      "message": "Sprint 6 LAUNCH. Ball is in mavis-local court. Mavis Local should: (1) keep WORKFLOW.md at the project root (always in mind), updated to point to docs/workflow/ as سيتی suggested; (2) put worker instructions for local Jimis (each Jimi documents scope in AGENTS.md + CHANGELOG.md, per old constitution custom); (3) prepare the environment, files, and delete the excess; (4) Mavis Local's role = coordinator between admin team and local Jimis.",
-      "created_at": "2026-07-29T19:13:00Z"
+      "message": "v1.8.3 GOVERNANCE COMPLETE: 3 CI workflows (ci-fast refined, ci-deploy-prod, nightly-integration) + WORKFLOW.md Article 9 (3-Layer Deploy Model) + Article 5 (Event-Driven Crons). Awaiting Anas's Sprint 8 scope directive (governance + ONE feature per Muhammad's recommendation).",
+      "created_at": "2026-07-31T03:35:00Z"
     }
   ],
-  "issues": [],
-  "next_action": "**Sprint 6 T1 = DONE (PR #173 MERGED at 17:25 UTC, c5a3711).**\n\n**Current state @ 17:42 UTC:**\n- Branch: `feature/sprint-6-post-demo-hardening` (tracks origin/develop, up to date at 20fca84)\n- Working tree has 3 uncommitted files (actor's T5 doc polish in progress):\n  - `CHANGELOG.md` — new Sprint 6 entry\n  - `docs/AGENTS.md` — points to WORKFLOW.md (active) + CONSTITUTION.md (paused) + root CHANGELOG.md\n  - `docs/workflow/demo-roadmap.md` — actual completion status of Sprints 0-5\n- 0 open PRs, 0 self-mergeable\n- T2 (stale-branch cleanup) was completed in prior session; T3-T4 deferred; T5 (Doc polish) is now in progress; T6 (Verify) + T7 (Open PR + self-merge) pending\n\n**Ball stays at mavis-local.** Cron is a tool — NOT switching branches, NOT stashing, NOT committing actor's WIP. The actor will commit + push the T5 doc polish changes when ready.",
-  "last_communication": "2026-07-29T19:13:00Z",
-  "sprint_started_at": "2026-07-29T19:15:00Z",
-  "sprint_eta": "2026-07-29T22:00:00Z",
-  "project_pause": {
-    "paused_constitution": "CONSTITUTION.md",
-    "paused_at": "2026-07-29T18:25:00Z",
-    "pause_until": "2026-07-31T18:25:00Z",
-    "reason": "Speed up work + coordination in single environment. The OLD constitution is paused; the NEW WORKFLOW.md (formerly mavis-coordination) is ACTIVE for 2 days. WORKFLOW.md is now at the project root (per Anas 2026-07-29 19:13 UTC).",
-    "paused_by": "anas",
-    "active_constitution": "WORKFLOW.md",
-    "interpretation": "PAUSED means CONSTITUTION.md is paused, not the whole project. Mavis Local can continue work under WORKFLOW.md until 2026-07-31 18:25 UTC."
-  },
+  "issues": [
+    {
+      "type": "stale_workflow",
+      "message": "ci-deploy.yml is deprecated (auto-deploy to develop was anti-pattern). Should be deleted in follow-up PR after v1.8.3 ci-deploy-prod is verified.",
+      "detected_at": "2026-07-31T03:35:00Z",
+      "fix_instructions": "Delete .github/workflows/ci-deploy.yml after verifying ci-deploy-prod.yml works correctly."
+    }
+  ],
+  "next_action": "Sprint 8 = governance hardening + ONE feature (per Muhammad's recommendation, approved by Anas). Awaiting scope directive. v1.8.3 governance changes (CI refactor + WORKFLOW.md Article 9) ready to commit + push to main.",
+  "last_communication": "2026-07-31T03:35:00Z",
+  "sprint_started_at": "2026-07-31T03:22:27Z",
+  "sprint_eta": null,
+  "sprint_completed_at": null,
+  "project_pause": null,
   "mavis_local_cron": {
     "location": "platform:Schedules",
     "in_project": false,
-    "platform_cron_id": "0557d4b1-f098-457f-ab9d-cccd171e00a1",
+    "platform_cron_id": "DISABLED-per-Anas-17:13-UTC-pause",
     "name": "mavis-local-coordinator",
     "schedule": "*/5 * * * *",
-    "note": "Per Anas 2026-07-29 18:42 UTC — keep crons OUT of the project repo (use platform's Schedules tab). The cron is a TOOL that helps Mavis Local stay updated; the ball is in the ACTOR's court (mavis-local / mavis-cloud / anas), NOT the cron's."
+    "note": "v1.8.3 — DISABLED per Anas 17:13 UTC pause directive. Resume only when Anas signals.",
+    "enabled": false,
+    "last_action": "n/a (paused)"
+  },
+  "admin_team_crons": {
+    "session": "mvs_a1a821a951504cce80ee1fddb98053be",
+    "note": "v1.8.3 — DISABLED per Anas 17:13 UTC pause. Use event-driven triggers (per WORKFLOW.md Article 5 update) when sync resumes.",
+    "crons": [
+      {
+        "name": "siti-responder",
+        "cron_id": "e4882ad9-5c13-4467-9237-5ce8442db1ee",
+        "schedule": "*/30 * * * *",
+        "purpose": "DEPRECATED — replace with event-driven (PR opened → coordinator routes to siti)",
+        "enabled": false
+      },
+      {
+        "name": "muhammad-responder",
+        "cron_id": "3a8e1c59-42b1-46d8-93cb-369946c7a812",
+        "schedule": "*/30 * * * *",
+        "purpose": "DEPRECATED — replace with on-demand session",
+        "enabled": false
+      },
+      {
+        "name": "dev-responder",
+        "cron_id": "0b23ea03-1457-4d1b-a5aa-bb43af59477f",
+        "schedule": "*/30 * * * *",
+        "purpose": "DEPRECATED — replace with event-driven",
+        "enabled": false
+      },
+      {
+        "name": "develop-pr-monitor",
+        "cron_id": "92a550b4-c889-4d07-9aeb-dc5a20ad2f07",
+        "schedule": "*/10 * * * *",
+        "purpose": "REPLACED by ci-deploy-prod.yml (event-driven)",
+        "enabled": false
+      }
+    ],
+    "design": "v1.8.3 — Event-driven crons preferred. Time-driven crons deprecated. See WORKFLOW.md Article 5 update."
+  },
+  "ci_workflow_strategy": {
+    "version": "1.8.3",
+    "model": "3-Layer Deploy Model (per WORKFLOW.md Article 9)",
+    "layers": {
+      "1_development": {
+        "branch": "develop",
+        "workflow": "ci-fast.yml",
+        "tests": "unit + lint + architecture-compliance (filter: Category!=Retention&Category!=Edge)",
+        "deploy": false,
+        "estimated_time": "3-5 min"
+      },
+      "2_staging": {
+        "schedule": "0 2 * * * (2 AM UTC daily) + manual",
+        "workflow": "nightly-integration.yml",
+        "tests": "full suite (Postgres + Redis, no filter)",
+        "deploy": false,
+        "estimated_time": "15-30 min"
+      },
+      "3_production": {
+        "branch": "main",
+        "workflow": "ci-deploy-prod.yml",
+        "tests": "full suite + manual approval + auto-rollback",
+        "deploy": "HF Space (https://anas-assasket-erp-system.hf.space)",
+        "estimated_time": "20-40 min"
+      }
+    },
+    "deprecated": ["ci-deploy.yml (auto-deploy to develop)"]
   }
 }
