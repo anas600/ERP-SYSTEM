@@ -13,6 +13,41 @@
 
 ---
 
+## Sprint 8 T2 — FakeDb AS Alias Enhancement (2026-07-31) ✅ DONE
+
+**Goal:** Remove known technical debt in `FakeDbConnectionFactory` that forces tests to use projected column names as a workaround for SQL `AS` aliases. Per T2 hand-off (Admin Team v1.8, محمد mode, approved by Anas 04:08 UTC).
+
+### Added
+- **`FakeDbDataReader.ProjectColumns(string sql, DataSet ds, string tableName)`** — internal static helper in `src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactory.cs`. Parses the SELECT clause and projects the underlying DataTable's columns to the alias names. Falls back to the direct table when SELECT has no AS aliases (backward compatibility).
+- **`SplitColumns(string columnList)`** — depth/quote-aware state machine for splitting the SELECT column list on top-level commas (ignores commas inside parens/quotes).
+- **`Unquote(string s)`** — strips surrounding double-quotes from SQL identifiers.
+- **`StripTableAlias(string s)`** — strips `a.id` → `id`, `accounts.code` → `code`. Required because tests use table-qualified column references like `a.user_id AS UserId`.
+- **`FindSourceOrdinal(DataTable source, string columnName)`** — case-insensitive source column lookup. Required because the source DataTable column names may be in PascalCase (`UserId`) while the SQL uses snake_case (`user_id`).
+- **`src/backend/Tests/ERPSystem.Tests/Common/FakeDbConnectionFactoryTests.cs`** — 3 new tests:
+  - `AsAlias_RenamesColumnsInReader` — happy path: `id AS "AccountId"` renames the reader's column
+  - `NoAsAlias_FallsBackToDirectColumns` — backward compat: `SELECT id, name` (no AS) keeps the source names
+  - `AsAlias_HandlesMultipleColumnsIncludingExpression` — `(code || '-' || name) AS "DisplayName"` creates the column with the alias name, value is DBNull (FakeDb does not simulate expressions)
+- **Modified `FakeDbDataReader` constructor** — tries `ProjectColumns` first, falls back to direct table if SELECT parsing fails or no AS aliases are present.
+- **`src/backend/Modules/Finance/AGENTS.md`** — new "Test Pattern: SQL AS Alias Support" section documenting the new pattern + edge cases.
+
+### Verified
+- `dotnet build`: 0 errors
+- `dotnet test --filter "FakeDbConnectionFactoryTests"`: 3/3 pass
+- `dotnet test --filter "FakeDbConnectionFactoryTests|ActivityFeedTests"`: 6/6 pass (regression test confirmed: existing tests using `a.id AS Id` pattern still work because `FindSourceOrdinal` tries the ALIAS name first, then the SQL source name)
+- `dotnet test` (full suite): **436 passed, 2 failed, 30 skipped** (was 433/2/30 before T2; +3 new tests; 2 pre-existing RetentionTests failures are DB connection issues — not introduced by T2)
+- No `tenant_id` introduced
+
+### Notes
+- T2 = Option B (per محمد's recommendation, approved by Anas 04:08 UTC)
+- Mavis Local takeover (per the v2.0 governance model; the Coordinator can move to Local role)
+- Branch: `feature/sprint-8-t2-fakedb-as-alias` (off `origin/develop @ 5e2cbd0`)
+- Removes known technical debt (T1 tests needed projected column names workaround)
+- Existing tests unaffected (additive change with backward-compat fallback)
+- Sprint 9+ tests can use real AS aliases naturally
+- The "alias-first, then source name" lookup order in `FindSourceOrdinal` is the key insight that makes the new code work with both the old "projected column names" pattern and the new "real SQL" pattern.
+
+---
+
 ## Sprint 6 — Post-Demo Hardening (2026-07-29) 🟡 IN PROGRESS
 
 **Goal:** Constitutional cleanup ✅ done in T1. Now polishing docs and verifying (T5+T6).
