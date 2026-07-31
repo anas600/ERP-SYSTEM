@@ -1,0 +1,70 @@
+# ERP-SYSTEM — MVP Docker Setup (Layer 2 of 3-Layer Model)
+# Clean schema, no test data, browsable on localhost:3000
+# Mimics the initial MVP deliverable for the client
+# Per Anas 2026-07-31 21:51 UTC directive: 3-layer model, Layer 2 is containerized MVP
+# By: Mavis (Admin Team) | 2026-07-31
+
+version: '3.9'
+
+services:
+  # PostgreSQL — clean database (schema only, no seed)
+  postgres:
+    image: postgres:15-alpine
+    container_name: erp-mvp-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: erp
+      POSTGRES_PASSWORD: erp_mvp_password
+      POSTGRES_DB: erp_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - mvp_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U erp -d erp_system"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Backend API — built from src/backend/Dockerfile (production mode)
+  api:
+    build:
+      context: ../src/backend
+      dockerfile: Dockerfile
+    container_name: erp-mvp-api
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: "http://+:5000"
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_mvp_password;Include Error Detail=true"
+      ConnectionStrings__Migrations: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_mvp_password;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
+      Marten__ConnectionString: "Host=postgres;Port=5432;Database=erp_system;Username=erp;Password=erp_mvp_password;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=60;Connection Pruning Interval=10;Keepalive=30;Timeout=15;Command Timeout=60"
+      Database__AutoMigrate: "true"
+      Database__JsonMigrationEnabled: "true"
+      # NOTE: No JwtSettings__Secret here. Must be set via env file or container env.
+      # The MVP gets a default Admin user created by the bootstrap service on first run
+      # (see src/backend/Host/Bootstrap/DefaultHoldingBootstrapHostedService.cs).
+      JwtSettings__Secret: "${JWT_SECRET:-MVP_DEFAULT_SECRET_64_CHARS_REPLACE_IN_PRODUCTION_xxxxxxxxxxxx}"
+    ports:
+      - "5000:5000"
+
+  # Frontend (Next.js production build)
+  frontend:
+    build:
+      context: ../src/frontend
+      dockerfile: Dockerfile
+    container_name: erp-mvp-frontend
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NODE_ENV: production
+    ports:
+      - "3000:3000"
+
+volumes:
+  mvp_postgres_data:

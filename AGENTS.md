@@ -137,11 +137,36 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 - Required reviews: 1 (admin bypass ON).
 - Playwright E2E: optional (per Constitution Article 11).
 
-### Environment Layers (FROZEN per Article 10)
+### 3-Layer Model (per Anas 2026-07-31 21:51 UTC directive)
+
+| Layer | Purpose | Setup | Branch | DB | Status |
+|-------|---------|-------|--------|----|----|
+| **1. Development** | Local backend on host, with test data, fast iteration | `local-docker/` (with seed) or direct host runs | any `feature/*` | Local Docker Postgres | **Active** |
+| **2. Staging / Containerized MVP** | Clean schema in Docker, browsable, no test data — client deliverable | `mvp-docker/` (production build, no seed) | `develop` after merge | Local Docker Postgres (clean) | **Active** |
+| **3. Production** | Client production | (FROZEN — out of scope per Anas 2026-07-31 21:51 UTC "لا اهتم بيها الان") | `main` | Supabase production | **FROZEN** |
+
+**Workflow between layers** (per Anas 2026-07-31 21:51 UTC):
+
+1. **Local Team** develops in **Layer 1** — direct host + test data (fast)
+2. **Sprint done in Layer 1** → Local Team merges to `develop` via PR
+3. **Admin Team** (Mavis) takes over:
+   - Pull new commit
+   - `cd mvp-docker && docker compose up -d --build`
+   - `./smoke-test.ps1` (verifies clean MVP runs)
+   - **Notify Anas** to browse the system
+4. **Anas** browses the system, decides: continue development, or hand to client
+5. **Strategic Advisor محمد (Mavis)** decides when to transition Layer 1 → Layer 2
+
+**Why two layers?** Layer 1 is for **speed** (Local Team iterates fast with test data on the host). Layer 2 is for **cleanliness** (a fresh container with a real schema, no test data, mimics what the client will receive). Both run on the local machine; Layer 1 uses dev data, Layer 2 uses clean data.
+
+### Environment Layers (Legacy — pre-3-Layer Model)
+
+> ⚠️ The following 4-layer model (Local / Dev / Staging / Production with Supabase) was the **old** model. The 3-Layer Model above supersedes it as of Sprint 13. The Supabase Dev tier is still the **default DB for `dotnet test` in CI** — that hasn't changed.
+
 | Layer | Branch | DB | Status |
 |-------|--------|----|----|--------|
 | Local (Mavis Local) | any `feature/*` | **Local Docker Postgres (fast)** | Active |
-| Dev | `develop` | Supabase dev | Active |
+| Dev | `develop` | Supabase dev | Active (CI only) |
 | Staging | (none) | Supabase staging | **FROZEN** |
 | Production | `main` | Supabase production | **FROZEN** |
 
@@ -236,7 +261,8 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/infra/AGENTS.md`](./infra/AGENTS.md) | Infrastructure-as-Code | Active |
 | [`/infra/docker/AGENTS.md`](./infra/docker/AGENTS.md) | Docker configs | Active |
 | [`/scripts/AGENTS.md`](./scripts/AGENTS.md) | Build/utility scripts | **TO CREATE** |
-| [`/local-docker/AGENTS.md`](./local-docker/AGENTS.md) | Local dev environment | **TO CREATE** |
+| [`/local-docker/AGENTS.md`](./local-docker/AGENTS.md) | Local dev environment (Layer 1) | **TO CREATE** |
+| [`/mvp-docker/AGENTS.md`](./mvp-docker/AGENTS.md) | Containerized MVP (Layer 2) — Sprint 13 | **TO CREATE** |
 | [`/src/AGENTS.md`](./src/AGENTS.md) | Source code root | Active |
 | [`/src/backend/AGENTS.md`](./src/backend/AGENTS.md) | Backend (.NET) | Active |
 | [`/src/frontend/AGENTS.md`](./src/frontend/AGENTS.md) | Frontend (Next.js) | Active |
