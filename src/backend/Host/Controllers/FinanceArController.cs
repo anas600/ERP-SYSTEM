@@ -3,7 +3,7 @@ using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Application.Services;
 using ERPSystem.Modules.AccountsReceivable.Entities;
 using ERPSystem.Modules.Reports.Application;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

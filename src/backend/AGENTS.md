@@ -32,7 +32,7 @@ Tech Lead (Mavis Local) coordinates. Cloud (Siti) verifies.
 ### Architecture (Constitution Article 3)
 - ✅ `company_id` everywhere, NO `tenant_id`.
 - ✅ `Company` entity, `user_companies` join table.
-- ✅ `CompanyContext` (in `Shared/MultiTenancy/CompanyContext.cs` — folder should be renamed in future refactor).
+- ✅ `CompanyContext` (in `Shared/CompanyContext/CompanyContext.cs` — renamed in Sprint 10 Phase 2 to align folder name with artifact).
 - ✅ JWT `company_ids[]` + `X-Company-Id` header.
 - ✅ Idempotent migrations.
 - ✅ Batch inserts via `unnest()` for ≥ 10 rows.

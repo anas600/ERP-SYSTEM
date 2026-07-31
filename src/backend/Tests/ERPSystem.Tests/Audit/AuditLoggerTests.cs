@@ -1,6 +1,6 @@
 using ERPSystem.Shared.Audit;
 using ERPSystem.Shared.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Tests.Common;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

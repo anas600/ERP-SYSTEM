@@ -33,7 +33,7 @@
 using Dapper;
 using ERPSystem.Modules.Dashboard.Application.DTOs;
 using ERPSystem.Shared.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Dashboard.Application.Services;

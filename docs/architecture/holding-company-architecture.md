@@ -273,30 +273,32 @@ GROUP BY c.id, c.name;
 
 ### 🏢 الشركات (Companies)
 
+الشركات تشكل **تسلسل هرمي ذاتي المرجع** (`self-referencing hierarchy`):
+- **الـ Holding** (الجذر) = صف في `companies` بـ `is_group = true` و `parent_company_id IS NULL`.
+- **الشركات التابعة** تشير لـ parent عبر `parent_company_id` (Self-FK → `companies.id`).
+- **الشركات الوسيطة** (subsidiaries of subsidiaries) = صف بـ `is_group = false` و `parent_company_id` يشير لشركة أخرى.
+- **لا يوجد جدول `holdings` منفصل** — كل الكيانات في `companies` (single-table design).
+
 ```sql
--- companies table
+-- companies table (single-table self-referencing hierarchy)
 CREATE TABLE companies (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  holding_id UUID NOT NULL REFERENCES holdings(id),
-  name TEXT NOT NULL,
-  name_ar TEXT,
-  legal_name TEXT,                    -- الاسم القانوني
-  tax_id TEXT,                        -- الرقم الضريبي
-  currency CHAR(3) DEFAULT 'LYD',
-  country CHAR(2) DEFAULT 'LY',
-  city TEXT,
-  address TEXT,
-  phone TEXT,
-  email TEXT,
-  is_active BOOLEAN DEFAULT true,
+  code VARCHAR(20) NOT NULL,
+  name VARCHAR(200) NOT NULL,
+  slug VARCHAR(100),                          -- URL-friendly, unique (added Sprint 1)
+  legal_name VARCHAR(200),
+  parent_company_id UUID                      -- self-FK (the Holding is parent_company_id = NULL with is_group = true)
+    REFERENCES companies(id) ON DELETE SET NULL,
+  is_group BOOLEAN NOT NULL DEFAULT false,    -- Holding identification: is_group=true + parent_company_id IS NULL
+  base_currency CHAR(3) NOT NULL DEFAULT 'LYD',
+  is_active BOOLEAN NOT NULL DEFAULT true,
   settings JSONB DEFAULT '{}',
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
-  CONSTRAINT uk_companies_name_holding UNIQUE (holding_id, name)
+  CONSTRAINT uk_companies_code UNIQUE (code)
 );
-
-CREATE INDEX idx_companies_holding ON companies(holding_id);
-CREATE INDEX idx_companies_active ON companies(holding_id, is_active);
+CREATE INDEX ix_companies_parent ON companies(parent_company_id);
+CREATE INDEX ix_companies_slug ON companies(slug);
 ```
 
 ### 👥 المستخدمون والشركات (user_companies)
@@ -343,6 +345,8 @@ Repository: WHERE company_id = $current_company
    ↓
 DB: Row-Level Security (defense in depth)
 ```
+
+> **ملاحظة (Sprint 10 — Jimi 3 fix):** Per Sprint 8 T4 refactor proposal — the architecture is single-table self-referencing, not the original two-table design. الـ Holding = `companies` row بـ `is_group=true`، لا جدول منفصل. انظر أيضاً: `docs/workflow/sprint-10-holding-refactor-phase-2.md` للـ Phase 2 (rename `Shared/MultiTenancy/`) و Phase 3 (scoped DI).
 
 ---
 

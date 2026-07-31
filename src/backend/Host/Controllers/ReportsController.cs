@@ -1,7 +1,7 @@
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Modules.Reports.Application;
 using ERPSystem.Modules.Reports.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

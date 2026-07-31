@@ -255,7 +255,7 @@ Abdo's commit `fbf5a02` أضاف/حدّث 18 صفحة تقرير في `src/front
 ## Dependencies
 
 - `IDbConnectionFactory` (from `Shared/`)
-- `ICompanyContext` (from `Shared/MultiTenancy/` — الـ folder اسمه legacy؛ الـ artifact الوحيد هو `ICompanyContext` per Phase 6.1b-4)
+- `ICompanyContext` (from `Shared/CompanyContext/` — renamed from `Shared/MultiTenancy/` in Sprint 10 Phase 2 to align folder name with the artifact)
 - Dapper (raw SQL)
 - `IProjectRepository`, `IProjectBudgetRepository` (Project module — للـ ProjectReportService فقط)
 - `IAccountRepository`, `IJournalEntryRepository` (Finance module)

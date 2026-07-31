@@ -29,7 +29,7 @@ using System.Data;
 using Dapper;
 using ERPSystem.Modules.Search.Application.DTOs;
 using ERPSystem.Shared.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Search.Application.Services;

@@ -19,7 +19,7 @@
 // rows), so UserName comes from the column we add directly.
 
 using ERPSystem.Modules.Activity.Application;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Tests.Common;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

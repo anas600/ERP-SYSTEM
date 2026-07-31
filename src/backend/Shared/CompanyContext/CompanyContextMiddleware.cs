@@ -1,6 +1,6 @@
 using System.Security.Claims;
 
-namespace ERPSystem.Shared.MultiTenancy;
+namespace ERPSystem.Shared.CompanyContext;
 
 /// <summary>
 /// Middleware يلتقط CompanyId من X-Company-Id header + UserId من JWT.

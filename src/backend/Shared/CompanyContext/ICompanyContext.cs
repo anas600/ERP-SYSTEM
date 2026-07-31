@@ -1,4 +1,4 @@
-namespace ERPSystem.Shared.MultiTenancy;
+namespace ERPSystem.Shared.CompanyContext;
 
 /// <summary>
 /// سياق الشركة (Company) النشطة داخل الـ request
