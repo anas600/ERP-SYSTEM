@@ -109,10 +109,21 @@ Since `mavis` CLI is broken, these crons are set up via the platform's Schedule 
 | Step | Action | Owner | Status |
 |------|--------|-------|--------|
 | 1 | Document the 4 crons (this file) | سيتی (me) | ✅ Done |
-| 2 | Set up the 4 crons in platform Schedule UI | Admin Team v1.8 | ⏳ Pending (CLI broken) |
+| 2 | Set up the 4 crons in platform Schedule UI | Admin Team v1.8 | 🟡 In progress (1/4 done via MCP) |
 | 3 | Test each cron (run-now + verify output) | Admin Team v1.8 | ⏳ Pending |
-| 4 | Enable the schedules | Admin Team v1.8 | ⏳ Pending |
+| 4 | Enable the schedules | Admin Team v1.8 | 🟡 1 enabled (`sprint-pr-review-v1.8`) |
 | 5 | Monitor for 1 week, then adjust schedules | Coordinator + Admin | ⏳ Pending |
+
+## ✅ Crons Already Created (per Anas 2026-07-31 05:42 UTC directive — full authority granted)
+
+| Cron | Schedule | Status | Cron ID |
+|------|----------|--------|---------|
+| `sprint-pr-review-v1.8` | `*/15 * * * *` (08:00-22:00 Africa/Tripoli) | ✅ ENABLED | `28e88987-10d6-43c6-abad-654e68a867d5` |
+| `state-cron` | `*/5 * * * *` | ⏳ Pending (next) | — |
+| `coordinator-watchdog` | `*/10 * * * *` | ⏳ Pending | — |
+| `sprint-archive-cleanup` | `0 2 * * *` | ⏳ Pending | — |
+
+**Note on `sprint-pr-review-v1.8`:** Runs every 15 min, checks for new PRs on develop, reviews them, merges if green (squash, --admin, --delete-branch). Per the v2.0 governance, Mavis Local can self-merge with --admin when needed.
 
 ---
 
