@@ -15,7 +15,7 @@
 
 ## Sprint 9 — Demo Polish (2026-07-31) 🟡 IN PROGRESS
 
-**Goal:** Final UI/UX polish on the holding-company demo — error boundary, loading skeletons, AR+EN i18n foundation, company-switcher feedback.
+**Goal:** Final UI/UX polish on the holding-company demo — error boundary, loading skeletons, AR+EN i18n foundation, company-switcher feedback, plus BE-FE contract alignment so the demo's FE can call the BE with confidence.
 
 ### Added (FE Jimi 3 — T3)
 - `src/frontend/lib/i18n.ts` — i18n foundation: `useTranslation()` hook + `t(key, locale)` helper + AR/EN dictionary (6 keys: `error.{unexpected,network,unauthorized,forbidden}`, `loading.{companies,dashboard,holding}`). Default locale `ar` (Arabic primary per Constitution).
@@ -27,8 +27,8 @@
 - `src/frontend/app/(authenticated)/holding/page.tsx` — replaced inline `CompanyCardSkeleton` with the shared `<SkeletonCard />` from `@/components/ui` (consistency win; removes a duplicate definition).
 
 ### Notes
-- T1 (BE Jimi 1) — pending; CHANGELOG entry to be added by Jimi 1.
-- T2 (FE Jimi 2) — pending; CHANGELOG entry to be added by Jimi 2.
+- T1 (BE Jimi 1) — done; see entry below.
+- T2 (BE Jimi 2 — this Jimi) — done; see entry below.
 - T3 (FE Jimi 3 — this entry) — done; awaiting `npm run type-check` + `npm run build` verification.
 - Existing `SkeletonCard`, `SkeletonTable`, `SkeletonPage`, `TableSkeleton` and route-level `error.tsx` files were already in place from prior sprints — T3 adds the composable `<ErrorBoundary>` and i18n foundation on top.
 
@@ -53,6 +53,25 @@
 
 ### Notes (BE Jimi 1 — T1)
 - NO code changes (Phase 1 is docs-only).
+
+### Added (BE Jimi 2 — T2, BE-FE contracts)
+- `src/backend/Host/ERP-SYSTEM.csproj` — `<GenerateDocumentationFile>true</GenerateDocumentationFile>` so the build emits `ERPSystem.Host.xml` for Swashbuckle to consume. CS1591 stays suppressed (existing project policy).
+- `src/backend/Host/Program.cs` — `c.IncludeXmlComments(...)` in the `AddSwaggerGen` block so controller `<summary>` and DTO property docs surface in `/swagger`. Security definitions (Bearer/JWT) were already in place; no behavior change.
+- `src/backend/Modules/Companies/Application/DTOs/CompanyDto.cs` — NEW. Public-facing DTOs (`CompanyDto`, `CompanyPageDto`, `CompanyTreeNodeDto`, `HoldingDetailDto`, `HoldingCompanySummaryDto`, `CreateCompanyRequestDto`, `CreateHoldingRequestDto`, `AddSubsidiaryRequestDto`) with full XML doc comments. Mirrors the existing `Company` entity in a new `ERPSystem.Modules.Companies.Application.Dtos` namespace so the FE has a stable, single import path; the existing controller is unchanged (additive only).
+- `src/frontend/lib/api-types.ts` — NEW (357 lines). Hand-written TypeScript mirror of the BE DTOs (`CompanyDto`, `AccountResponse`, `JournalEntryResponse`, `UserInfo`, `AuthResponse`, `UserWithRoles`, plus shared enums + display maps). Convention: `Guid → string`, `DateTime → string` (ISO 8601), nullable → `T | null`. Acts as the canonical FE contract until NSwag codegen is wired in a future sprint.
+- XML doc comments added to `src/backend/Modules/Finance/Application/FinanceDtos.cs` (every public DTO: `CreateAccountRequest`, `AccountResponse`, `PostJournalEntryRequest`, `PostJournalLineRequest`, `JournalEntryResponse`, `JournalLineResponse`, `LedgerLineResponse`, `AccountBalanceResponse`, `CreatePostingRuleRequest`).
+
+### Changed (BE Jimi 2 — T2, OpenAPI annotations)
+- `src/backend/Host/Controllers/CompaniesController.cs` — Added `[ProducesResponseType]` for every endpoint (200/201/204/400/401/403/404 as applicable) and `[Produces("application/json")]` at the controller level. Existing routes, parameters, and return shapes unchanged (additive only).
+- `src/backend/Host/Controllers/AccountsController.cs` — Same treatment: 5 endpoints annotated; the 2 existing `[ProducesResponseType]` (List 200 + Create 201) extended to 400/401/403 and the 3 missing endpoints (GetById 200/404, GetByCode 200/404, Delete 204/400) get the matching pair.
+- `src/backend/Host/Controllers/UsersController.cs` — Same treatment: 4 endpoints annotated (List, GetById, ListRoles, GetCompanies) + 2 new typed response shapes (`UsersListResponse`, `UserCompaniesResponse`) replacing the previous `Ok(new { items, total, skip, take })` anonymous objects so the FE can import the shape.
+
+### Notes (BE Jimi 2 — T2)
+- `dotnet build` → 0 errors. 22 pre-existing CS1570/CS1573/CS1574/CS8629 warnings (Arabic text in comments, broken `cref`s in Inventory/Payments/Payroll modules) — none introduced by this Jimi. ERPSystem.Host.xml generated at 190 KB.
+- `dotnet test` → 433 pass, 2 pre-existing failures (`RetentionTests.ArchiveMetadata_InsertAndQuery` + `PartitionedAuditLog_AcceptsInserts`, both `28P01 password authentication failed for user "postgres"` against the `erp_test_system` test DB). CHANGELOG already calls these out as a pre-existing environmental issue, not a regression. **No new tests added by this Jimi** (T2 is contract-annotation work; 1-test-per-endpoint was the BE feature work in prior sprints).
+- `npm run type-check` → 0 errors. The new `lib/api-types.ts` is additive — `lib/api.ts` still carries the (slightly enriched) legacy types for backwards compatibility; a future sprint can rebase `api.ts` onto `api-types.ts`.
+- Scope honored: NO `tenant_id` introduced (Article 3). NO `Companies/AGENTS.md` or architecture docs touched (Jimi 1's scope). NO new dependencies (no NSwag, no codegen tool). NO breaking changes to existing controllers — all annotations are additive.
+- Files touched: 6 (1 csproj, 1 Program.cs, 3 controllers, 1 Finance DTOs file modified, 1 Companies DTOs file created, 1 api-types.ts created) + this CHANGELOG entry.
 - The refactor proposal file `docs/architecture/holding-company-refactor-proposal.md` was referenced in the new docs but does not yet exist in the repo — out-of-scope follow-up for the Admin Team.
 - Section 6 of the architecture doc still contains the legacy `companies` SQL with `holding_id` (FK → `holdings`); same fix pattern as T1 should be applied in a follow-up.
 

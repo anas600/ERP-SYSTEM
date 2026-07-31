@@ -541,6 +541,10 @@ builder.Services.AddSwaggerGen(c =>
             Array.Empty<string>()
         }
     });
+    // Sprint 9 (Jimi 2 — T2): surface controller <summary> + DTO property docs
+    // in /swagger. Requires <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    // in ERP-SYSTEM.csproj (emits ERPSystem.Host.xml next to the assembly).
+    c.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "ERPSystem.Host.xml"), includeControllerXmlComments: true);
 });
 
 var app = builder.Build();

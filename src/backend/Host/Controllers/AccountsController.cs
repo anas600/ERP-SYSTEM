@@ -9,6 +9,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/finance/accounts")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
+[Produces("application/json")]
 public class AccountsController : ControllerBase
 {
     private readonly IChartOfAccountsService _service;
@@ -24,6 +25,9 @@ public class AccountsController : ControllerBase
 
     [HttpGet]
     [ProducesResponseType(typeof(IReadOnlyList<AccountResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
         var r = await _service.ListAsync(includeInactive, ct);
@@ -31,6 +35,10 @@ public class AccountsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _service.GetByIdAsync(id, ct);
@@ -38,6 +46,10 @@ public class AccountsController : ControllerBase
     }
 
     [HttpGet("by-code/{code}")]
+    [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetByCode(string code, CancellationToken ct)
     {
         var r = await _service.GetByCodeAsync(code, ct);
@@ -46,6 +58,10 @@ public class AccountsController : ControllerBase
 
     [HttpPost]
     [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ValidationProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] CreateAccountRequest request, CancellationToken ct)
     {
         var v = await _validator.ValidateAsync(request, ct);
@@ -63,6 +79,10 @@ public class AccountsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken ct)
     {
         var r = await _service.DeleteAsync(id, ct);

@@ -13,6 +13,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[Produces("application/json")]
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _users;
@@ -30,6 +31,9 @@ public class UsersController : ControllerBase
     /// only users assigned to that company (via user_companies) are returned.
     /// </summary>
     [HttpGet]
+    [ProducesResponseType(typeof(UsersListResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(
         [FromQuery] int skip = 0,
         [FromQuery] int take = 50,
@@ -72,13 +76,17 @@ public class UsersController : ControllerBase
             });
         }
 
-        return Ok(new { items = result, total, skip, take });
+        return Ok(new UsersListResponse { Items = result, Total = total, Skip = skip, Take = take });
     }
 
     /// <summary>
     /// Get a single user with their roles.
     /// </summary>
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(UserWithRoles), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct = default)
     {
         var user = await _users.GetByIdAsync(id, ct);
@@ -103,6 +111,9 @@ public class UsersController : ControllerBase
     /// List all available roles.
     /// </summary>
     [HttpGet("roles")]
+    [ProducesResponseType(typeof(IReadOnlyList<RoleInfo>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ListRoles(CancellationToken ct = default)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
@@ -120,6 +131,10 @@ public class UsersController : ControllerBase
     /// same order the UserCompanyLink rows come back (default first, then by code).
     /// </summary>
     [HttpGet("{id:guid}/companies")]
+    [ProducesResponseType(typeof(UserCompaniesResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetCompanies(Guid id, CancellationToken ct = default)
     {
         // Existence check first — distinguishes "no companies assigned" (200, empty)
@@ -139,8 +154,23 @@ public class UsersController : ControllerBase
             IsHolding = l.IsHolding,
         }).ToList();
 
-        return Ok(new { items });
+        return Ok(new UserCompaniesResponse { Items = items });
     }
+}
+
+/// <summary>Sprint 9 (Jimi 2 — T2): typed response shape for <c>GET /api/users</c>.</summary>
+public sealed class UsersListResponse
+{
+    public IReadOnlyList<UserWithRoles> Items { get; set; } = Array.Empty<UserWithRoles>();
+    public int Total { get; set; }
+    public int Skip { get; set; }
+    public int Take { get; set; }
+}
+
+/// <summary>Sprint 9 (Jimi 2 — T2): typed response shape for <c>GET /api/users/{id}/companies</c>.</summary>
+public sealed class UserCompaniesResponse
+{
+    public IReadOnlyList<UserCompanyInfo> Items { get; set; } = Array.Empty<UserCompanyInfo>();
 }
 
 public sealed class UserCompanyInfo

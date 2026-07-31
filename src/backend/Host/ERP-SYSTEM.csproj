@@ -6,6 +6,11 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>ERPSystem.Host</RootNamespace>
     <AssemblyName>ERPSystem.Host</AssemblyName>
+    <!-- Sprint 9 (Jimi 2 — T2): emit XML documentation file so Swashbuckle
+         IncludeXmlComments in Program.cs surfaces controller summaries and
+         DTO property docs in /swagger. CS1591 stays suppressed (existing
+         policy) so we don't have to annotate every public member project-wide. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);NU1903;NU1904;CS1591</NoWarn>
   </PropertyGroup>
 

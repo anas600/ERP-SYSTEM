@@ -1,4 +1,5 @@
 using ERPSystem.Modules.Companies.Application.Services;
+using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Shared.MultiTenancy;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -8,6 +9,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/companies")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[Produces("application/json")]
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyService _service;
@@ -24,6 +26,10 @@ public class CompaniesController : ControllerBase
     // without a user_id see ALL companies (the call goes through without the
     // user filter).
     [HttpGet]
+    [ProducesResponseType(typeof(CompanyPage), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> List(
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
@@ -36,6 +42,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpGet("tree")]
+    [ProducesResponseType(typeof(CompanyTreeNode), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Tree(CancellationToken ct = default)
     {
         var r = await _service.GetTreeAsync(ct);
@@ -43,6 +53,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(Company), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _service.GetByIdAsync(id, ct);
@@ -50,6 +64,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpGet("{id:guid}/subsidiaries")]
+    [ProducesResponseType(typeof(IReadOnlyList<Company>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetSubsidiaries(Guid id, CancellationToken ct)
     {
         var r = await _service.GetSubsidiariesAsync(id, ct);
@@ -60,6 +78,11 @@ public class CompaniesController : ControllerBase
     // 200 with the existing company if a row with the same code already exists).
     // On a fresh create, returns 201 with a Location header pointing to /api/companies/{id}.
     [HttpPost]
+    [ProducesResponseType(typeof(Company), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(Company), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Create([FromBody] CreateCompanyRequest req, CancellationToken ct)
     {
         if (req == null)
@@ -86,6 +109,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpPost("holding")]
+    [ProducesResponseType(typeof(Company), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateHolding([FromBody] CreateHoldingRequest req, CancellationToken ct)
     {
         var r = await _service.CreateHoldingAsync(req.Code, req.Name, req.LegalName ?? req.Name, req.BaseCurrency, ct);
@@ -95,6 +122,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpPost("subsidiary")]
+    [ProducesResponseType(typeof(Company), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> AddSubsidiary([FromBody] AddSubsidiaryRequest req, CancellationToken ct)
     {
         var r = await _service.AddSubsidiaryAsync(req.ParentCompanyId, req.Code, req.Name, req.LegalName, ct);
@@ -104,6 +135,10 @@ public class CompaniesController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
         var r = await _service.DeactivateAsync(id, ct);
