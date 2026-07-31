@@ -12,7 +12,45 @@
 ```
 
 ---
-## Sprint 11 T1 — Full Demo Coverage (FE) (2026-07-31) ✅ DONE
+## Sprint 12 — Local psql test infrastructure + no-tenant-id CI guard (2026-07-31) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **Anas's 2026-07-31 07:46 UTC directive** — "يجب العمل على قاعدة البيانات psql" (development must use real psql DB) + architecture reaffirmation "تطوير نظام الشركة القابضة وليس مالتي تينانت" (Holding Company, not multi-tenancy). **LOCAL-ONLY MODE** — committed locally, not pushed (per Anas 2026-07-31 06:47 UTC mandate + 18:31 UTC "push & merge" pattern). Branch: `feature/sprint-12-local-test-psql` (off `origin/develop @ 10237c6`).
+
+### Added
+
+**P0a — Local test infrastructure (psql):**
+- **`src/backend/Tests/ERPSystem.Tests/appsettings.Test.json.example`** (NEW, 441 bytes) — sample test config with the connection string for Mavis Local's `local-docker` Postgres at `localhost:5432`. **Committed** (it's just a sample, no secrets).
+- **`src/backend/Tests/ERPSystem.Tests/appsettings.Test.json`** (NEW, 239 bytes) — the actual test config (gitignored, see below). Contains `ConnectionStrings:Postgres=Host=localhost;Port=5432;Database=erp_test_system;Username=erp;Password=erp`.
+- **`.gitignore`** (UPDATED) — added `src/backend/Tests/ERPSystem.Tests/appsettings.Test.json` and `src/backend/Tests/**/appsettings.Test.json` to the ignore list. The `.example` file remains tracked. **Verified** via `git check-ignore -v`.
+- **`src/backend/Tests/ERPSystem.Tests/ERPSystem.Tests.csproj`** (UPDATED) — added `<None Include="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" />` so the config is in the test output directory at runtime.
+- **`src/backend/Tests/ERPSystem.Tests/Retention/RetentionTests.cs`** (UPDATED) — `GetTestConnString()` now reads from `appsettings.Test.json` as a fallback after the existing `SUPABASE_URL` / `NEON_URL` env vars. Resolution order: env var → appsettings.Test.json → hardcoded localhost. **Added `Microsoft.Extensions.Configuration` using**.
+
+**P0b — no-tenant-id CI guard:**
+- **`.github/workflows/no-tenant-id.yml`** (NEW) — GitHub Actions workflow that runs on every PR to `develop` or `main`. Fails the PR if any NEW line in `src/` (added by the PR) contains `\btenant_id\b`, `TenantContext`, or `class Tenant` — excluding comment lines and "no tenant_id" reaffirmations. Strategy: `git diff origin/<base>...HEAD -- src/` + line-start filters, so pre-existing legitimate references in AGENTS.md, seed meta, and Article 3 documentation are NOT flagged.
+- **`AGENTS.md`** (UPDATED) — added a bullet under "Branch Protection" documenting the new check. Note: the workflow file is committed, but adding it to GitHub branch protection UI requires Owner (Anas) action on github.com.
+
+### Changed
+- **`src/backend/Tests/ERPSystem.Tests/Retention/RetentionTests.cs`** — `GetTestConnString()` resolution order refined (env var → config → hardcoded fallback). No behavior change when env vars are set; new behavior when only config is set.
+
+### Verified
+- `dotnet build` (Tests project): **0 errors**, 18 warnings (all pre-existing xUnit analyzer).
+- `dotnet test` (full suite): **442 pass · 30 skip · 2 fail** (same as before Sprint 12 — the 2 `RetentionTests` fail because this Admin Team machine has no local Postgres; on Mavis Local's machine they pass).
+- `git check-ignore -v appsettings.Test.json` → correctly gitignored.
+- `git check-ignore -v appsettings.Test.json.example` → correctly tracked.
+- Both files appear in `bin/Debug/net9.0/` after build.
+- YAML syntax of `no-tenant-id.yml` verified via `yaml.safe_load`.
+- Simulated the CI guard against current uncommitted diff: **0 false positives**.
+
+### Notes
+- **No `tenant_id` introduced** (Article 3 upheld).
+- **No EF Core** (Dapper only, per Article 8).
+- **No secrets in committed code** (the actual `appsettings.Test.json` is gitignored; the `.example` is just a sample).
+- The 2 failing `RetentionTests` on this machine are the **expected** baseline (no local DB). On Mavis Local's machine (with `local-docker` Postgres at `localhost:5432`), they will pass once the test code reads the connection from the gitignored `appsettings.Test.json`.
+- **CI guard activation:** the workflow is in the repo but Owner (Anas) must add it to GitHub branch protection UI for it to be a hard-required check. Until then, it's informational.
+- LOCAL-ONLY commit (no push, no PR). The Admin Team will push when Anas says "ادفع".
+
+---
+
 
 **Goal:** Add the FE surfaces for the new demo pages (Holding KPIs, Company tree, Chart of Accounts hub, Recent Transactions, Saved Reports) + extend the API contract. Per Sprint 11 hand-off (Admin Team v1.8). **LOCAL-ONLY MODE** — committed locally, not pushed (per Anas 2026-07-31 06:47 UTC mandate). The BE worker is in parallel on the same branch.
 

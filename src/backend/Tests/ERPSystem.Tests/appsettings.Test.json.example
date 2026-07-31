@@ -1,0 +1,12 @@
+{
+  "ConnectionStrings": {
+    "Postgres": "Host=localhost;Port=5432;Database=erp_test_system;Username=erp;Password=erp"
+  },
+  "Logging": {
+    "LogLevel": {
+      "Default": "Warning",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "_comment": "Sample test config — copy to appsettings.Test.json (gitignored) and adjust. Used by RetentionTests when ASPNETCORE_ENVIRONMENT=Testing and SUPABASE_URL/NEON_URL env vars are not set."
+}

@@ -26,4 +26,10 @@
     <ProjectReference Include="..\..\Host\ERP-SYSTEM.csproj" />
   </ItemGroup>
 
+  <!-- Sprint 12: copy test config to output so RetentionTests can read it at runtime -->
+  <ItemGroup>
+    <None Include="appsettings.Test.json" CopyToOutputDirectory="PreserveNewest" Condition="Exists('appsettings.Test.json')" />
+    <None Include="appsettings.Test.json.example" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

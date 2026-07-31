@@ -1,0 +1,55 @@
+name: Architecture Guard — no tenant_id
+
+# Sprint 12 (per docs/workflow/sprint-12-handoff.md)
+# Enforces Constitution Article 3: company_id only, NO tenant_id, NO multi-tenancy.
+# Strategy: only fail on NEW additions in the PR diff (not the entire repo), and
+# skip lines that are comments (//, *, #, <!--). Pre-existing legitimate
+# "no tenant_id" reaffirmations in comments / docs / migrations / seed meta
+# are NOT flagged.
+
+on:
+  pull_request:
+    branches: [develop, main]
+
+jobs:
+  no-tenant-id:
+    name: No new tenant_id in PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect new tenant_id references
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          set +e
+          git fetch origin "${BASE_REF}" --depth=1
+          # Lines added in the PR (start with + but not +++). Filter to src/ files only.
+          # Skip obvious comment lines (//, *, #, <!--) — they reaffirm the rule.
+          HITS=$(git diff "origin/${BASE_REF}...HEAD" -- src/ \
+            | grep -E '^\+' \
+            | grep -vE '^\+\+\+' \
+            | grep -E '\btenant_id\b|TenantContext|class[[:space:]]+Tenant\b' \
+            | grep -vE '^\+[[:space:]]*//' \
+            | grep -vE '^\+[[:space:]]*\*' \
+            | grep -vE '^\+[[:space:]]*#' \
+            | grep -vE '^\+[[:space:]]*<!--' \
+            | grep -vE 'no[[:space:]]+`?tenant_id' \
+            | grep -vE 'no[[:space:]]+tenant_id' \
+            | grep -vE 'NO[[:space:]]+`?tenant_id' \
+            | grep -vE 'No[[:space:]]+`?tenant_id' \
+          )
+          set -e
+          if [ -n "$HITS" ]; then
+            echo "::error::Found new tenant_id / TenantContext / class Tenant references in PR (Constitution Article 3: company_id only)."
+            echo ""
+            echo "Diff lines:"
+            echo "$HITS"
+            echo ""
+            echo "If you have a legitimate reason, Owner (Anas) must explicitly approve the change AND update the Constitution."
+            exit 1
+          fi
+          echo "OK: no new tenant_id / TenantContext / class Tenant references in this PR"

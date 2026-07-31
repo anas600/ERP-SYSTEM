@@ -2,6 +2,7 @@
 // Tests Tier 1 cleanup + Tier 2 archive logic
 
 using ERPSystem.Shared.Infrastructure;
+using Microsoft.Extensions.Configuration;
 using Npgsql;
 using System.Text.Json;
 using Xunit;
@@ -13,9 +14,23 @@ public class RetentionTests
 {
     private string GetTestConnString()
     {
-        return Environment.GetEnvironmentVariable("SUPABASE_URL")
-            ?? Environment.GetEnvironmentVariable("NEON_URL")
-            ?? "Host=localhost;Database=erp_test_system;Username=erp_test;Password=erp_test_pw";
+        // Resolution order (Sprint 12):
+        //   1. SUPABASE_URL env var (CI / pre-existing convention)
+        //   2. NEON_URL env var (CI / pre-existing convention)
+        //   3. appsettings.Test.json (local dev — Mavis Local's local-docker Postgres)
+        //   4. hardcoded fallback (Host=localhost)
+        var fromEnv = Environment.GetEnvironmentVariable("SUPABASE_URL")
+            ?? Environment.GetEnvironmentVariable("NEON_URL");
+        if (!string.IsNullOrEmpty(fromEnv)) return fromEnv;
+
+        var fromConfig = new ConfigurationBuilder()
+            .SetBasePath(AppContext.BaseDirectory)
+            .AddJsonFile("appsettings.Test.json", optional: true, reloadOnChange: false)
+            .Build()
+            .GetConnectionString("Postgres");
+        if (!string.IsNullOrEmpty(fromConfig)) return fromConfig;
+
+        return "Host=localhost;Database=erp_test_system;Username=erp_test;Password=erp_test_pw";
     }
 
     [Fact]

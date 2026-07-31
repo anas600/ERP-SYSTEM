@@ -22,6 +22,9 @@ src/backend/Tools/EntityRepoEnhance/bin/
 src/frontend/.env*.local
 src/backend/Host/appsettings.Development.json
 src/backend/Host/appsettings.*.Production.json
+# Test config (Sprint 12) — only the .example is committed; the real file with the test DB password is gitignored
+src/backend/Tests/ERPSystem.Tests/appsettings.Test.json
+src/backend/Tests/**/appsettings.Test.json
 playwright/.cache/
 playwright-report/
 test-results/
