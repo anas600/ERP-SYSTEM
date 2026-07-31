@@ -48,7 +48,7 @@ using ERPSystem.Shared.Events.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
 using ERPSystem.Shared.SeedData;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using FluentMigrator.Runner;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;

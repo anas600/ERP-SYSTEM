@@ -26,7 +26,7 @@
 
 using ERPSystem.Modules.Dashboard.Application.DTOs;
 using ERPSystem.Modules.Dashboard.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Tests.Common;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;

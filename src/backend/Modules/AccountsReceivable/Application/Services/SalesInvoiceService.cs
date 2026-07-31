@@ -5,7 +5,7 @@ using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.AccountsReceivable.Application.Services;

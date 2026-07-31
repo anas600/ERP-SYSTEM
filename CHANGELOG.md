@@ -17,6 +17,54 @@
 
 **Goal:** Continue Holding Company refactor (Sprint 8 T4) — Phase 2 (rename `Shared/MultiTenancy/`) + Phase 3 (scoped DI for `CompanyContext`) + docs Section 6 follow-up. Per Anas mandate 2026-07-31 06:47 UTC, all work is **LOCAL-ONLY** until the end (no push, no PR). Branch: `feature/sprint-10-refactor-multi-tenancy-rename` (off `origin/develop @ 64efaac`).
 
+### Changed (BE Jimi 1 — T1, Phase 2 rename)
+
+**Goal:** Pure namespace rename — eliminate the misleading `MultiTenancy/` folder name (per Constitution Article 3, this is a Multi-Company ERP, NOT Multi-Tenant). No behavior change; the `AsyncLocal` implementation is **untouched** here (that's Phase 3 / Jimi 2).
+
+- **Folder rename** `src/backend/Shared/MultiTenancy/` → `src/backend/Shared/CompanyContext/`:
+  - `CompanyContext.cs` — concrete implementation (note: the AsyncLocal version was here pre-Sprint 10; Jimi 2's commit `a59ec48` rewrote it in place with the HttpContext-based implementation, both in the same `CompanyContext/` path)
+  - `ICompanyContext.cs` — interface
+  - `CompanyContextMiddleware.cs` — middleware
+- **Namespace** updated in those 3 files: `ERPSystem.Shared.MultiTenancy` → `ERPSystem.Shared.CompanyContext`.
+- **Using-directive updates** in **25 referencing files** (`using ERPSystem.Shared.MultiTenancy;` → `using ERPSystem.Shared.CompanyContext;`):
+  - `Host/Program.cs`
+  - `Host/Controllers/{Admin,Audit,Companies,Events,FinanceAr,FinanceReports,Procurement,Reports,SoftDelete}Controller.cs` (9 files)
+  - `Host/Audit/AuditLogger.cs` (not in the original proposal list — found via `grep -r`)
+  - `Shared/Audit/AuditLogger.cs`
+  - `Modules/AccountsReceivable/Application/Services/{Receipt,SalesInvoice}Service.cs`
+  - `Modules/Activity/Application/ActivityFeedService.cs`
+  - `Modules/Dashboard/Application/Services/{DashboardChart,DashboardSummary}Service.cs`
+  - `Modules/Procurement/Application/Services/PurchaseOrderService.cs`
+  - `Modules/Search/Application/Services/GlobalSearchService.cs`
+  - `Tests/ERPSystem.Tests/Activity/ActivityFeedTests.cs`
+  - `Tests/ERPSystem.Tests/Audit/AuditLoggerTests.cs`
+  - `Tests/ERPSystem.Tests/Auth/CompanyContextTests.cs`
+  - `Tests/ERPSystem.Tests/Dashboard/{DashboardChart,DashboardSummary}Tests.cs`
+  - `Tests/ERPSystem.Tests/Search/GlobalSearchServiceTests.cs`
+- **DOX pass** (per `.mavis/AGENTS.md` Rule 6) on the **2 AGENTS.md files within my scope**:
+  - `src/backend/AGENTS.md` — Article 3 architecture bullet: `CompanyContext` reference path updated to `Shared/CompanyContext/CompanyContext.cs`.
+  - `src/backend/Modules/Reports/AGENTS.md` — `ICompanyContext` dependency line: `Shared/MultiTenancy/` → `Shared/CompanyContext/` (with a "(renamed in Sprint 10 Phase 2)" note).
+  - Note: `src/backend/Shared/AGENTS.md` was already updated by Jimi 2's commit (also covers the rename rationale + the Phase 3 done note). I did **not** modify it in my slice to avoid conflict with Jimi 2's work.
+
+### Verified
+- `grep -r "Shared.MultiTenancy" src/` → 0 matches (excluding the historical-context note in `Shared/AGENTS.md` and `Modules/Reports/AGENTS.md` that mention the rename) ✅
+- `grep -r "Shared.CompanyContext" src/` → 28 matches (3 namespace declarations + 25 using directives) ✅
+- `dotnet build` (Host) → 0 errors, 2 warnings (pre-existing, unrelated) ✅
+- `dotnet build` (Tests) → 0 errors, 15 warnings (pre-existing, unrelated) ✅
+- `dotnet test` (full suite, on top of Jimi 2's commit) → **436 passed, 2 failed, 30 skipped, 0 regressions** ✅
+  - 2 failures are pre-existing `RetentionTests` (DB connection: `password authentication failed for user "postgres"`). Same baseline as Sprint 8 T2 + Jimi 2's commit.
+- `npm run type-check` (frontend) → 0 errors ✅
+- No `tenant_id` introduced ✅
+- No secrets, no EF Core ✅
+
+### Notes (coordinación + out-of-scope discoveries)
+- **LOCAL-ONLY dev (per Anas 2026-07-31 06:47 UTC):** no push, no PR. The cron is disabled. The PR (with all 3 phases) opens at the end.
+- **Concurrent worktree race (CRITICAL for Mavis Coordinator):** Jimi 1, 2, 3 all share the same worktree `C:\Users\Anas\.minimax-agent\projects\ERP-Holding-sprint-10` on the same branch `feature/sprint-10-refactor-multi-tenancy-rename`. While I was editing the `Shared/MultiTenancy/CompanyContext.cs` (namespace change only), Jimi 2 overwrote the same file with the Phase 3 implementation in another process. The result: at one point both the old AsyncLocal version and the new HttpContext version of `CompanyContext` existed in the working tree in different folders. I used `git stash -u` to preserve my changes, then re-applied them after Jimi 2 committed. The final state in my commit: **only my pure-rename changes** (25 using statements + 2 AGENTS.md updates + the 3 files at the new path) — Jimi 2's Phase 3 work is in their separate commit `a59ec48`.
+- **Git rename detection:** git detected the move of `CompanyContextMiddleware.cs` and `ICompanyContext.cs` as renames (R in the commit stats) because the content is identical except for the namespace line. `CompanyContext.cs` shows as add+delete (not a rename) because Jimi 2's commit had already changed its content.
+- **Out-of-scope discovery (for Mavis Coordinator — not in my PR slice per Rule 1):** the **root `/AGENTS.md`** still has the "⚠️ **MISLEADING FOLDER**" note pointing to the now-renamed path. This is a governance-level doc and per the worker contract rule 8 I did not modify it. The Coordinator (or a future Jimi with governance authority) should update that line.
+- Branch: `feature/sprint-10-refactor-multi-tenancy-rename` (off `origin/develop @ 64efaac`)
+- Commit base: `a59ec48` (Jimi 2's Phase 3 commit, applied on top of `b72c7b5` and `809955e`)
+
 ### Changed (BE Jimi 3 — T3, Section 6 fix)
 - `docs/architecture/holding-company-architecture.md` — **Section 6 (Multi-Company) rewritten** to match the actual self-referencing `companies` schema (per `src/backend/Host/data-types/companies.json`):
   - Removed legacy `holding_id UUID NOT NULL REFERENCES holdings(id)` FK

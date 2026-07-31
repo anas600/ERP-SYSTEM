@@ -3,7 +3,7 @@ using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Reports.Application;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;

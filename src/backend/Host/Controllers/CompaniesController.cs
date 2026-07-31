@@ -1,5 +1,5 @@
 using ERPSystem.Modules.Companies.Application.Services;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 

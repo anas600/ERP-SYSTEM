@@ -6,7 +6,7 @@ using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
-using ERPSystem.Shared.MultiTenancy;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.SeedData;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
