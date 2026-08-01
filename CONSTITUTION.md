@@ -4,29 +4,30 @@
 > This file is the permanent governance document of the ERP-SYSTEM project.
 > Any change to this file requires explicit owner (Anas) approval.
 
-**Last amended:** 2026-07-29 18:25 UTC (Anas directive: **PROJECT PAUSED for 2 days**)
-**Status:** ⏸️ **PAUSED** (supersedes all prior implicit architectural assumptions)
+**Last amended:** 2026-08-01 (Sprint 18: governance cleanup — removed PAUSED header, updated Articles 14/15, codified Two-Mode Workflow)
+**Status:** ✅ **ACTIVE** (Two-Mode Workflow per Sprint 17 + Article 10)
 
-> ## ⚠️ PAUSED PER ANAS (2026-07-29 18:25 UTC)
+> ## ✅ ACTIVE GOVERNANCE
 >
-> **This constitution is PAUSED for 2 days** per Anas's directive to speed up work and coordination between teams in a single environment.
+> **This constitution is ACTIVE and supersedes the 2-day temporary pause directive (which ended 2026-07-31 18:25 UTC).**
 >
-> **Active (temporary permanent) constitution:** [`.github/workflows/mavis-coordination/constitution.md`](./.github/workflows/mavis-coordination/constitution.md)
+> **Active governance model (Sprint 17+):**
+> - **Two-Mode Workflow** (Article 10): Mode 1 (Development, default) + Mode 2 (Release, triggered by Anas's "ادفع")
+> - **Mavis Local = sole Tech Lead + Admin + Coordinator** for all active work
+> - **Muhammad = Strategic Advisor** (architectural guidance, not implementation)
+> - **Single source of truth for governance:** this document (CONSTITUTION.md)
+> - **Single source of truth for architecture:** [`/docs/architecture/holding-company-architecture.md`](./docs/architecture/holding-company-architecture.md)
+> - **Sprint hand-offs:** `docs/workflow/sprint-N.md` (historical) + `docs/team-charters/retrospectives/sprint-N-retro.md`
+> - **Branch architecture:** `develop` = active work, `main` = LOCKED archive (per branch architecture reset 2026-07-31)
+> - **CI/CD:** GitHub Actions (6 required checks on `develop`) + auto-rebuild cron (every 5 min, 08:00-22:00 Africa/Tripoli) + Telegram notify
 >
-> **What's the same:**
+> **What's still the same (across all sprints):**
 > - Architectural constraints (company_id only, no EF Core, Dapper + FluentMigrator)
 > - Stack (.NET 9, Next.js 14, PostgreSQL, BCrypt 12)
 > - DOX framework, CHANGELOG discipline, branch protection
+> - Single Holding per deployment (multi-company, NOT multi-tenant)
 >
-> **What's different (2-day temporary period):**
-> - **Coordination:** Smart cron (state.json + .github/workflows/mavis-coordination/state-cron.yml) is the primary async signal. **No Telegram ping-pong.**
-> - **Admin team (Cloud) = سيتی + محمد + ديف** work as "Cron Jobs" coordinated by Mavis Local. Their expertise is async-delivered via the state machine.
-> - **Mavis Local = sole Tech Lead + Coordinator** for the next 2 days. Has freedom to coordinate directly with the admin team via the state.json.
-> - **Sprint hand-offs:** `docs/workflow/sprint-N.md` format unchanged. **Single state file = single ping-pong point.**
->
-> **End of pause:** 2026-07-31 18:25 UTC. After that, revert to CONSTITUTION.md as primary, demote mavis-coordination/constitution.md to secondary.
->
-> **If you have questions or escalations:** check `.github/workflows/mavis-coordination/state.json` first (it tells you where the ball is). Then contact the relevant party per Article 2 of the active temporary constitution.
+> **If you have questions or escalations:** start with Article 10 (Two-Mode Workflow). For architectural questions, see `/docs/architecture/holding-company-architecture.md`.
 
 ---
 
@@ -367,23 +368,31 @@
 2. **Review** by Anas (owner) — explicit approval required.
 3. **Update** the file with `[Amended YYYY-MM-DD: <reason>]` in the relevant article.
 4. **Commit** on develop with `docs(constitution): amend Article N — <reason>`.
-5. **Merge to main** after Phase completion (not after every amendment).
+5. **Tag** the commit (e.g., `v1.0.5-constitution-2026-08-01`) for the work anchor. **`main` is LOCKED** (per branch architecture reset 2026-07-31) — no merges to main. The constitution evolves on `develop` only.
 
 **No silent amendments. No retroactive changes. This file is append-only on history.**
 
 ---
 
-## 📞 Article 15 — Communication Protocol
+## 📞 Article 15 — Communication Protocol (Sprint 17+)
 
-- **Anas ↔ Mavis Cloud:** Direct, in-session messages.
-- **Mavis Cloud ↔ Mavis Local:** Async via `docs/governance/presence-signal.json` (Article 12).
-- **Mavis Local ↔ Jimis:** Via `task` tool (sub-agents). Each task has clear deliverable.
-- **Anas ↔ Mephisto:** Direct, in Mephisto's session.
-- **Anas ↔ Siti:** Via Telegram (Siti relays to Mavis).
+**The 2-day pause directive (which used a `state.json` + cloud-team pattern) ended 2026-07-31. This Article reflects the current Two-Mode Workflow.**
+
+- **Anas ↔ Mavis (any mode, local or strategic advisor):** Direct, in-session messages. Single chat thread per Mavis instance.
+- **Mavis Local ↔ Jimis:** Via `task` tool (sub-agents). Each task has clear deliverable + clear boundary.
+- **Mavis Local → Anas (release notification):** Via **Telegram** (Sprint 16+). Triggered automatically by the `mvp-auto-rebuild-on-develop-push` cron after every merge to `develop`.
+- **Mavis Local → Mavis Cloud / Mephisto:** No active cloud team. Mephisto exists as **sandbox-only** external tech lead (Article 13) with **no admin permissions** — must wait for Mavis Local to merge his work.
 - **Hand-Off report** at the end of every Mavis response includes: (a) current system state, (b) changes made, (c) what's next.
+
+**Active channels:**
+- In-session: this chat
+- Async: Telegram (only for release notifications + critical alerts)
+- State files: `.mavis/last-develop-sha` (cron state) + `.mavis/rebuild-log.txt` (rebuild history) — both gitignored, per-machine
+
+**No Telegram ping-pong. No state.json ping-pong. No cloud team.** The cron handles async work; the user is the only actor.
 
 ---
 
 **This Constitution supersedes all prior architectural assumptions and sprint-level decisions. Any change requires Anas's explicit approval.**
 
-_Last amended: 2026-07-29 by Mavis (Muhammad mode), approved by Anas — Cleanup Amendment (Articles 11-15 restructured; hallucination reset)_
+_Last amended: 2026-08-01 by Mavis (Sprint 18 governance cleanup), approved by Anas — ACTIVE status restored, Articles 14/15 updated for Two-Mode Workflow_

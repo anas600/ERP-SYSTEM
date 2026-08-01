@@ -13,6 +13,83 @@
 
 ---
 
+## Sprint 18 — Governance cleanup + workflow doc consolidation (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+
+**Goal:** Per **Anas 2026-08-01 08:11 UTC** — apply Muhammad's governance audit. Remove old docs that break the Two-Mode Workflow, restore the `ACTIVE` status of the constitution, and consolidate workflow documentation. **No code changes** — pure governance cleanup. Confirms the Mode 1 → Mode 2 cycle with a governance-only sprint.
+
+Branch: `feature/sprint-18-governance-cleanup` (off `origin/develop @ ad91825`). LOCAL-ONLY → Mode 2 push planned.
+
+### Added
+
+**P0a — `docs/notes/muhammad-sprint-18-analysis.md` (NEW):**
+- Full analysis of all docs that break the new work
+- Recommendation: Option A (single active governance in CONSTITUTION.md)
+- 11-task list for the Admin (in Mode 1, then Mode 2)
+- This is Anas's reference for the analysis that drove Sprint 18
+
+### Changed
+
+**P0b — `CONSTITUTION.md` (governance polish):**
+- Replaced "⏸️ PAUSED" header with "✅ ACTIVE (Two-Mode Workflow per Sprint 17)" — the 2-day pause directive ended 2026-07-31, but the header was never updated
+- Added explicit reference to Article 10 (Two-Mode Workflow) as the active governance model
+- Added reference to `docs/architecture/holding-company-architecture.md` as single source of truth for architecture
+- Branch architecture clarified: `develop` = active, `main` = LOCKED archive (per branch architecture reset 2026-07-31)
+- **Article 14** updated: "Merge to main" removed (main is LOCKED). Constitution evolves on `develop` only.
+- **Article 15** rewritten: New "Communication Protocol" reflects the Two-Mode Workflow + Telegram auto-ping. No more "Cloud Team + state.json ping-pong" pattern.
+- Last amended: 2026-08-01 (Sprint 18 governance cleanup)
+
+**P0c — `AGENTS.md` (header + active governance section):**
+- Header "Last updated: 2026-07-29 19:15 UTC" → "2026-08-01 (Sprint 18: governance cleanup)"
+- Removed the entire "📜 ACTIVE GOVERNANCE" section that referenced `WORKFLOW.md` + `state.json` (now obsolete)
+- New "📜 ACTIVE GOVERNANCE (Sprint 17+)" section that points to CONSTITUTION.md as the active source
+- Documented the Two-Mode Workflow, branch architecture, sprint hand-offs, and architecture single-source-of-truth
+
+### Removed
+
+**P0d — `WORKFLOW.md` (root) — DELETED:**
+- Was the "2-day pause" workflow constitution (Anas's 2026-07-29 19:13 UTC directive)
+- Pause ended 2026-07-31 18:25 UTC — the file became obsolete
+- The Two-Mode Workflow has migrated to CONSTITUTION.md Article 10 + AGENTS.md
+
+**P0e — `.github/workflows/mavis-coordination/` (entire directory) — DELETED:**
+- Was the "smart cron + state.json ping-pong point" infrastructure
+- Files removed: `state.json`, `state-cron.yml`, `state-schema.json`, `constitution.md`, `README.md`, `examples/`
+- Sprint 17 replaced this with the simpler "cron on local machine + Telegram notify" pattern
+
+### No-op (Tasks completed by virtue of absence)
+
+**P1 — `docs/personas/`:** The directory does not exist in the current worktree (and was not on develop @ ad91825). Either it was never committed to develop, or it was deleted in a previous sprint. No action needed.
+
+### Verified
+
+- ✅ `rg "tenant_id" src/` → 0 results
+- ✅ `rg "WORKFLOW.md"` (excluding CHANGELOG/notes) → 0 results
+- ✅ `rg "mavis-coordination"` → 0 results
+- ✅ `rg "Cloud Coordinator"` (excluding CHANGELOG) → 0 results
+- ✅ `rg "PAUSED"` in active docs → only in historical contexts (Last updated notes, CHANGELOG, notes/)
+- ✅ CONSTITUTION.md header now shows "✅ ACTIVE"
+- ✅ AGENTS.md "Active governance" section now points to CONSTITUTION.md (not WORKFLOW.md)
+- ✅ `.github/workflows/` no longer contains the obsolete mavis-coordination subdirectory
+
+### Notes
+
+- **Pure governance sprint** — no code changes, no DB changes, no feature work. The 3-Layer Model (Sprint 13) + auto-rebuild (Sprint 15) + Telegram notify (Sprint 16) + 2-mode workflow (Sprint 17) is still the production state.
+- **Single source of truth for governance:** CONSTITUTION.md (the only place that needs to be updated when governance changes).
+- **Single source of truth for architecture:** `docs/architecture/holding-company-architecture.md` (unchanged in this sprint — already correct).
+- **Sprint hand-offs + retros:** `docs/workflow/sprint-N.md` and `docs/team-charters/retrospectives/sprint-N-retro.md` are historical records, not active governance — they stay as-is.
+
+### Carry-over for Sprint 19+
+
+| Priority | Action |
+|----------|--------|
+| P1 | Testcontainers in CI → smoke test runs on every PR (not just after merge) |
+| P1 | Update smoke test to wait for "bootstrap admin exists" before login check |
+| P2 | Wire watcher into Local Team's pre-push hook |
+| P2 | AGENTS.md: clarify "Mode 1 = single worktree, Jimis commit to same branch" (already documented in Sprint 17 but could be more explicit) |
+| P3 | Self-cleanup cron: prune mvp-docker images older than N days |
+
+---
+
 ## Sprint 17 — Demo data seeding + governance polish (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
 
 **Goal:** Per **Anas 2026-08-01 06:43 UTC** — close the 6 carry-over items from Sprint 16 retro + add demo data seeding so the dashboard has real data on first run. Establishes the **Two-Mode Workflow** (Mode 1 = Development, Mode 2 = Release) per the architecture discussion.
