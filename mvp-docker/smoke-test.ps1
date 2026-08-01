@@ -148,6 +148,31 @@ Test-Step "API: Swagger disabled in Production (intentional)" {
     }
 }
 
+# 8. Sprint 14 P0c: admin user has Admin role + dashboard returns 200 (not 403)
+#    Regression guard: if the Admin role is missing from user_roles, /api/dashboard/summary
+#    returns 403 (ReadAccess policy requires Admin/Accountant/ProjectManager/Viewer).
+#    This catches: forgot to assign role, JWT role claim missing, role name typo, etc.
+Test-Step "API: dashboard/summary returns 200 (Admin role assigned)" {
+    try {
+        $body = @{
+            email = $ADMIN_EMAIL
+            password = $ADMIN_PASSWORD
+        } | ConvertTo-Json
+        $loginResp = Invoke-RestMethod -Uri "$API_URL/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
+        $token = $loginResp.accessToken
+        $holdingId = $loginResp.holdingCompanyId
+        if (-not $token) { return $false }
+
+        $headers = @{ Authorization = "Bearer $token" }
+        if ($holdingId) { $headers["X-Company-Id"] = $holdingId }
+
+        $dashResp = Invoke-WebRequest -Uri "$API_URL/api/dashboard/summary" -Headers $headers -UseBasicParsing -ErrorAction Stop
+        return $dashResp.StatusCode -eq 200
+    } catch {
+        return $false
+    }
+}
+
 # Summary
 Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan
