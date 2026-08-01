@@ -182,7 +182,7 @@ if ($rebuildExit -eq 0) {
 
         # Sprint 16: notify on success
         $shortSha = $currentSha.Substring(0, [Math]::Min(7, $currentSha.Length))
-        $msg = "✅ Sprint 16 auto-rebuild: success in $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Open http://localhost:3000"
+        $msg = "✅ Sprint 20 auto-rebuild: success in $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Open http://localhost:3000"
         & $NotifyScript -Message $msg -Quiet
         # Notify failures are non-fatal (don't block the state update)
 
@@ -198,7 +198,7 @@ if ($rebuildExit -eq 0) {
 
     # Sprint 16: notify on failure
     $shortSha = $currentSha.Substring(0, [Math]::Min(7, $currentSha.Length))
-    $msg = "❌ Sprint 16 auto-rebuild: FAILED (exit=$rebuildExit) after $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Will retry next tick. Check .mavis/rebuild-log.txt"
+    $msg = "❌ Sprint 20 auto-rebuild: FAILED (exit=$rebuildExit) after $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Will retry next tick. Check .mavis/rebuild-log.txt"
     & $NotifyScript -Message $msg -Quiet
 
     exit $rebuildExit

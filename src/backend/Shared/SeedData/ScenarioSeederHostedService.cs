@@ -134,7 +134,7 @@ public sealed class ScenarioSeederHostedService : IHostedService
             result = null;
         }
 
-        if (result != null && result.Succeeded)
+        if (result != null && result.Succeeded && result.Response != null)
             return (Guid.Empty, result.Response.User.Id);
 
         if (result != null && !result.Succeeded)

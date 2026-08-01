@@ -13,6 +13,81 @@
 
 ---
 
+## Sprint 20 — Demo 2: P1 workflow docs + defensive hardening (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+
+**Goal:** Per **Anas 2026-08-01 11:25 UTC** — extend Sprint 19 with 9 P1 function workflow docs (cover all 13 demo functions), plus defensive hardening (env validation, CS warnings cleanup, cosmetic Telegram fix). Make the system fully documented for the 1-day client handover. **No backend code changes beyond bug fixes.**
+
+Branch: `feature/sprint-20-client-demo-docs` (off `origin/develop @ de181a0`). LOCAL-ONLY → Mode 2 push planned.
+
+### Added
+
+**P0a — `docs/workflows/` (extended, 9 new files):**
+- `purchase-order.md` — Purchase Order function (9-section template: business purpose, user roles, user journey, API contract, UI pages, state transitions, edge cases, bilingual labels, related workflows)
+- `goods-receipt.md` — Goods Receipt function (same template, includes partial-receipt logic)
+- `vendor-bill.md` — Vendor Bill function (same template, includes GR linkage)
+- `receipt.md` — Receipt (AR) function (same template, includes allocation to multiple invoices)
+- `chart-of-accounts.md` — Chart of Accounts function (same template, 5 account types, code conventions)
+- `journal-entry.md` — Journal Entry function (same template, balance validation, auto vs manual)
+- `employee.md` — Employee function (same template, EOS reference)
+- `payroll-run.md` — Payroll Run function (same template, status flow, EOS calculator)
+- `project.md` — Project function (same template, budget vs actual)
+- **Total coverage:** 13 of 13 demo-grade functions documented
+- `docs/workflows/README.md` updated to list P0 + P1 functions (and 14 P2 functions in backlog)
+
+**P0b — `docs/client-materials/` (NEW client demo prep, Sprint 20):**
+- `elevator-pitch-ar-en.md` — 1-page bilingual introduction for the client meeting. Covers: what it is, why it matters, key numbers, 3 anticipated questions + answers, next steps. Designed to be read in 60 seconds.
+- `slides/erp-demo-slides.pptx` — 8-slide PowerPoint deck for the client meeting. Sections: cover, the problem, the solution, 13 functions, demo flow, why it matters, architecture, next steps. Clean professional design (dark blue + gold accent), Arial font, LAYOUT_16x9.
+- `slides/compile.js` — PptxGenJS source (re-runnable for future updates).
+
+**P0c — `scripts/rebuild-mvp-docker.ps1` (defensive .env validation, Sprint 20):**
+- New step 1.6: parses `.env.example` to get list of required KEY=VALUE pairs
+- Parses `.env` to get list of present keys
+- If any required keys are missing → log warning + list missing keys
+- With `-Init` (or `-Quiet`): auto-append missing keys from `.env.example` to `.env` (preserves existing values)
+- Backs up incomplete `.env` to `.env.bak.<timestamp>` first
+- Without `-Init`: exit code 6 with helpful error message
+- **Why:** Sprint 18 .env truncation issue was caused by `git reset --hard` against a dirty working tree in another worktree. The auto-create branch (Sprint 16) only handled "file doesn't exist" — this now handles "file exists but is incomplete".
+
+### Changed
+
+**P0c — `src/backend/Shared/SeedData/ScenarioSeederHostedService.cs` (CS8602 fix):**
+- Line 138: added `result.Response != null` check before dereferencing
+- Resolves `CS8602: Dereference of a possibly null reference` warning
+
+**P0d — `src/backend/Host/Controllers/AuthController.cs` (CS8629 fix):**
+- Line 288: added `matchedUserId == null` to the guard check (was only checking `matchedId`)
+- Resolves `CS8629: Nullable value type may be null` warning
+- Belt-and-suspenders fix — the two vars are set together in the foreach loop, but explicit check is safer
+
+**P0e — `scripts/watch-develop-and-rebuild.ps1` (cosmetic Telegram message):**
+- Updated Telegram notification from "Sprint 16 auto-rebuild" to "Sprint 20 auto-rebuild"
+- Applies to both success and failure messages
+- The script's rebuild logic is unchanged (still uses `scripts/rebuild-mvp-docker.ps1`)
+
+### Verified (local)
+
+- `dotnet build` (backend) — **0 errors, 0 warnings** (was 2 pre-existing CS warnings before this sprint)
+- `npm run type-check` (frontend) — 0 errors (no FE changes)
+- `npm run build` (frontend) — 0 errors (no FE changes)
+- `git diff --stat` — 9 new docs files (3 docs) + 4 modified files (env check, CS fixes, Telegram, README)
+- `grep -r "tenant_id" docs/workflows/` — clean
+
+### Local smoke test
+
+- Deferred to post-Mode-2 (Anas triggers "ادفع" → push → CI green → merge → cron rebuilds mvp-docker with Sprint 20 code → smoke 9/9 → Telegram ping)
+- The defensive .env check will be **exercised by the cron** — if the existing `.env` is complete, the new step logs "all N required keys present" and proceeds; if incomplete, the watcher's `-Quiet` flag will auto-append missing keys.
+
+### Carry-over (post-Sprint 20)
+
+- **P1 (Sprint 21+):** P2 function workflow docs (14 functions: Attendance, Leave, Department, Cost Center, Posting Rules, Stock Movement, Warehouse, Item Category, UoM, User/Role, Audit Log, Holding/Company, Notification, Activity Feed)
+- **P1 (Sprint 21+):** Add `customerStatement` + `vendorStatement` GET endpoints to backend
+- **P1 (Sprint 21+):** Add `CreateItem` API method to `inventoryApi`
+- **P2:** Slides for client demo (Muhammad mode, post-handover)
+- **P2:** 1-page elevator pitch (Muhammad mode, post-handover)
+- **P3:** Verify the new .env check in actual rebuild scenario (post-merge smoke test)
+
+---
+
 ## Sprint 19 — Client Demo Sprint: workflows docs + demo-grade FE types (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
 
 **Goal:** Per **Anas 2026-08-01 ~08:30 UTC** "وضع صفحة العميل" — make the system **demo-ready** for the Libyan client. Build UI pages for the 4 P0 functions (Customers, Vendors, Items, Sales Invoices) and document each function in a client-friendly workflow doc. **Admin solo** (no Jimis — past timeouts + connection errors taught us quality > parallelism for client-facing work). No backend code changes.

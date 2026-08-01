@@ -167,6 +167,81 @@ if (-not (Test-Path $envFile)) {
     }
 }
 
+# ============ 1.6. Defensive .env validation (Sprint 20) ============
+# The .env file may exist but be incomplete (e.g. truncated by `git reset --hard`
+# against a dirty working tree in another worktree — Sprint 18 .env truncation
+# issue). Compare required keys from .env.example to .env; if any are missing,
+# warn loudly and (with -Init) auto-restore from .env.example.
+#
+# Exit codes:
+#   0 = .env has all required keys
+#   6 = .env is missing required keys and -Init not set
+if (Test-Path $envExample) {
+    # Parse .env.example to extract required keys (lines that start with KEY=)
+    $requiredKeys = @()
+    Get-Content $envExample | ForEach-Object {
+        $line = $_.Trim()
+        # Skip comments and blank lines
+        if ($line -and -not $line.StartsWith("#")) {
+            $eqIdx = $line.IndexOf("=")
+            if ($eqIdx -gt 0) {
+                $key = $line.Substring(0, $eqIdx).Trim()
+                $requiredKeys += $key
+            }
+        }
+    }
+
+    # Parse .env to extract present keys
+    $presentKeys = @()
+    if (Test-Path $envFile) {
+        Get-Content $envFile | ForEach-Object {
+            $line = $_.Trim()
+            if ($line -and -not $line.StartsWith("#")) {
+                $eqIdx = $line.IndexOf("=")
+                if ($eqIdx -gt 0) {
+                    $key = $line.Substring(0, $eqIdx).Trim()
+                    $presentKeys += $key
+                }
+            }
+        }
+    }
+
+    $missingKeys = @($requiredKeys | Where-Object { $presentKeys -notcontains $_ })
+    if ($missingKeys.Count -gt 0) {
+        Write-Log "mvp-docker/.env is INCOMPLETE. Missing $($missingKeys.Count) required key(s):" "WARN"
+        foreach ($k in $missingKeys) {
+            Write-Log "  - $k" "WARN"
+        }
+        if ($Init -or $Quiet) {
+            # Auto-restore from .env.example (preserves any custom values for keys already present)
+            $backupPath = "$envFile.bak.$(Get-Date -Format 'yyyyMMddHHmmss')"
+            Copy-Item $envFile $backupPath -Force
+            Write-Log "Backed up incomplete .env to $backupPath" "WARN"
+            # Append missing keys from .env.example
+            $envExampleContent = Get-Content $envExample -Raw
+            $appendLines = @()
+            foreach ($k in $missingKeys) {
+                # Find the key=value line in .env.example
+                $match = Select-String -Path $envExample -Pattern "^$([regex]::Escape($k))\s*=" -ErrorAction SilentlyContinue
+                if ($match) {
+                    $appendLines += $match.Line
+                }
+            }
+            if ($appendLines.Count -gt 0) {
+                Add-Content -Path $envFile -Value "`n# Sprint 20 auto-restored keys (from .env.example):"
+                Add-Content -Path $envFile -Value $appendLines
+                Write-Log "Appended $($appendLines.Count) missing key(s) to .env from .env.example" "WARN"
+            }
+        } else {
+            Write-Log "Re-run with -Init to auto-restore missing keys from .env.example (backs up the current .env first):" "ERROR"
+            Write-Log "  powershell -File scripts/rebuild-mvp-docker.ps1 -Init" "ERROR"
+            exit 6
+        }
+    } else {
+        Write-Log ".env validation: all $($requiredKeys.Count) required keys present" "INFO"
+    }
+}
+
 # ============ 2. Tear down (if not skipped) ============
 
 if (-not $SkipDown) {
