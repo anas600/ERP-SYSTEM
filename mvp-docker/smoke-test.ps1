@@ -78,16 +78,21 @@ Test-Step "Health: /api/health/ready" {
 }
 
 # 3. Login API (admin user — created by DefaultHoldingBootstrapHostedService on first run)
+#    Sprint 14: admin user is created by the bootstrap service (no manual seed in smoke test).
+#    Credentials match the defaults in .env.example (BOOTSTRAP_DEFAULT_ADMIN_EMAIL / PASSWORD).
+$ADMIN_EMAIL = if ($env:BOOTSTRAP_DEFAULT_ADMIN_EMAIL) { $env:BOOTSTRAP_DEFAULT_ADMIN_EMAIL } else { "admin@erp.local" }
+$ADMIN_PASSWORD = if ($env:BOOTSTRAP_DEFAULT_ADMIN_PASSWORD) { $env:BOOTSTRAP_DEFAULT_ADMIN_PASSWORD } else { "ChangeMe1234!" }
+
 Test-Step "API: POST /api/auth/login (bootstrap admin)" {
     $body = @{
-        email = "admin@erp.local"
-        password = "Admin1234!"
+        email = $ADMIN_EMAIL
+        password = $ADMIN_PASSWORD
     } | ConvertTo-Json
     try {
         $r = Invoke-WebRequest -Uri "$API_URL/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
         return $r.StatusCode -eq 200
     } catch {
-        # 401 means the bootstrap admin isn't created yet (first run takes time) — retry once
+        # 401 may mean the bootstrap admin isn't created yet (first run takes time) — retry once
         Start-Sleep -Seconds 5
         try {
             $r2 = Invoke-WebRequest -Uri "$API_URL/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
@@ -108,24 +113,61 @@ Test-Step "Frontend: GET /" {
     }
 }
 
-# 5. Database is clean (no test data from local-docker seed)
-Test-Step "DB: no local-docker seed (companies table empty)" {
+# 5. Database is "clean" (1 company = bootstrap Holding, no local-docker seed data, +bootstrap admin)
+Test-Step "DB: clean (companies = 1 bootstrap Holding, no seed data)" {
     $env:PGPASSWORD = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "erp_mvp_password" }
-    $query = "SELECT count(*) FROM companies;"
     try {
-        $result = docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c $query 2>&1
-        # 0 = clean, anything else (other than 0) = contamination
-        return $result -match "^0$"
+        $companies = (docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c "SELECT count(*) FROM companies;" 2>&1).Trim()
+        # Exactly 1 company (the bootstrap Holding)
+        return $companies -eq "1"
     } catch {
         return $false
     }
 }
 
-# 6. Swagger / OpenAPI is reachable
-Test-Step "API: /swagger" {
+# 6. Sprint 14: bootstrap admin user was created by the env-driven service (no manual SQL)
+Test-Step "DB: bootstrap admin user exists (no manual seed)" {
+    $env:PGPASSWORD = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "erp_mvp_password" }
+    try {
+        $count = (docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c "SELECT count(*) FROM users WHERE email = '$ADMIN_EMAIL';" 2>&1).Trim()
+        return $count -ge "1"
+    } catch {
+        return $false
+    }
+}
+
+# 7. Swagger is NOT reachable in Production (intentionally disabled for security)
+Test-Step "API: Swagger disabled in Production (intentional)" {
     try {
         $r = Invoke-WebRequest -Uri "$API_URL/swagger" -UseBasicParsing -ErrorAction Stop
-        return $r.StatusCode -in @(200, 301, 302)
+        # Should return 404 or redirect (not 200) — Swagger is Development-only
+        return $r.StatusCode -ne 200
+    } catch {
+        # 404 (or connection error) is the expected behavior
+        return $true
+    }
+}
+
+# 8. Sprint 14 P0c: admin user has Admin role + dashboard returns 200 (not 403)
+#    Regression guard: if the Admin role is missing from user_roles, /api/dashboard/summary
+#    returns 403 (ReadAccess policy requires Admin/Accountant/ProjectManager/Viewer).
+#    This catches: forgot to assign role, JWT role claim missing, role name typo, etc.
+Test-Step "API: dashboard/summary returns 200 (Admin role assigned)" {
+    try {
+        $body = @{
+            email = $ADMIN_EMAIL
+            password = $ADMIN_PASSWORD
+        } | ConvertTo-Json
+        $loginResp = Invoke-RestMethod -Uri "$API_URL/api/auth/login" -Method POST -Body $body -ContentType "application/json" -UseBasicParsing -ErrorAction Stop
+        $token = $loginResp.accessToken
+        $holdingId = $loginResp.holdingCompanyId
+        if (-not $token) { return $false }
+
+        $headers = @{ Authorization = "Bearer $token" }
+        if ($holdingId) { $headers["X-Company-Id"] = $holdingId }
+
+        $dashResp = Invoke-WebRequest -Uri "$API_URL/api/dashboard/summary" -Headers $headers -UseBasicParsing -ErrorAction Stop
+        return $dashResp.StatusCode -eq 200
     } catch {
         return $false
     }
@@ -143,7 +185,7 @@ Write-Host ""
 if ($fail -eq 0) {
     Write-Host "✅ All checks passed. MVP is ready to browse." -ForegroundColor Green
     Write-Host "   Open: $FRONTEND_URL" -ForegroundColor Green
-    Write-Host "   Login: admin@erp.local / Admin1234!" -ForegroundColor Green
+    Write-Host "   Login: $ADMIN_EMAIL / (env: BOOTSTRAP_DEFAULT_ADMIN_PASSWORD)" -ForegroundColor Green
     exit 0
 } else {
     Write-Host "❌ $fail check(s) failed. Check 'docker compose logs' for details." -ForegroundColor Red

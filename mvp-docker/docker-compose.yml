@@ -48,6 +48,12 @@ services:
       # The MVP gets a default Admin user created by the bootstrap service on first run
       # (see src/backend/Host/Bootstrap/DefaultHoldingBootstrapHostedService.cs).
       JwtSettings__Secret: "${JWT_SECRET:-MVP_DEFAULT_SECRET_64_CHARS_REPLACE_IN_PRODUCTION_xxxxxxxxxxxx}"
+      # Sprint 14: env-driven default admin (Layer 2 must be a CLEAN install — no manual seed)
+      # Set these in .env to enable. Default is OFF (no admin created).
+      Bootstrap__CreateDefaultAdmin: "${BOOTSTRAP_CREATE_DEFAULT_ADMIN:-false}"
+      Bootstrap__DefaultAdminEmail: "${BOOTSTRAP_DEFAULT_ADMIN_EMAIL:-admin@erp.local}"
+      Bootstrap__DefaultAdminPassword: "${BOOTSTRAP_DEFAULT_ADMIN_PASSWORD:-}"
+      Bootstrap__DefaultAdminFullName: "${BOOTSTRAP_DEFAULT_ADMIN_FULL_NAME:-Administrator}"
     ports:
       - "5000:5000"
 
@@ -56,12 +62,16 @@ services:
     build:
       context: ../src/frontend
       dockerfile: Dockerfile
+      args:
+        # Sprint 14: NEXT_PUBLIC_API_URL must be passed at BUILD time
+        # (Next.js inlines process.env.NEXT_PUBLIC_* at compile time)
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:5000}
     container_name: erp-mvp-frontend
     restart: unless-stopped
     depends_on:
       - api
     environment:
-      NEXT_PUBLIC_API_URL: "http://localhost:5000"
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:5000}
       NODE_ENV: production
     ports:
       - "3000:3000"
