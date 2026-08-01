@@ -2,9 +2,8 @@
 # Clean schema, no test data, browsable on localhost:3000
 # Mimics the initial MVP deliverable for the client
 # Per Anas 2026-07-31 21:51 UTC directive: 3-layer model, Layer 2 is containerized MVP
+# Sprint 15: removed the obsolete `version: '3.9'` attribute (Compose v2 ignores it)
 # By: Mavis (Admin Team) | 2026-07-31
-
-version: '3.9'
 
 services:
   # PostgreSQL — clean database (schema only, no seed)
