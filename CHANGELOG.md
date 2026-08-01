@@ -50,10 +50,24 @@ Branch: `feature/sprint-14-bootstrap-admin` (off `origin/develop @ c318217`). LO
 - **New** "DB: bootstrap admin user exists (no manual seed)" check — verifies the bootstrap service did its job
 - Updated summary to show env-var-based credentials
 
+**P0c (post-Sprint-14-P0a) — Admin role + backfill (`DefaultHoldingBootstrapHostedService.cs`):**
+- **The bug found during browser verify (Anas 2026-08-01 02:19 UTC)**: the dashboard returned 403 because the admin user (created by the env-driven P0a bootstrap) had **no roles** in the `user_roles` table. The `ReadAccess` policy requires one of `Admin / Accountant / ProjectManager / Viewer` — without any role, every protected endpoint is 403.
+- **Fix #1 (the role assignment)**: `TrySeedDefaultAdminAsync` now calls `EnsureRoleAsync(Roles.Admin)` first, then INSERTS a `user_roles` row linking the admin user to the Admin role. Idempotent via `ON CONFLICT (user_id, role_id) DO NOTHING`.
+- **Fix #2 (the backfill path)**: if the user already exists (from a previous run that did NOT assign the role — the case that triggered the 403), the method now:
+  1. Re-checks for existing `user_companies` (inserts with `ON CONFLICT DO NOTHING` if missing)
+  2. Re-checks for existing `user_roles` (inserts with `ON CONFLICT DO NOTHING` if missing)
+- **Why the backfill matters**: clean installs get the role on first run, but **legacy installs** (where the user was created before this code was deployed) need to be fixed without a manual SQL step. The next startup of the API on the existing DB fixes the 403 transparently.
+- **JWT verification**: after the fix, login returns a token with `"http://schemas.microsoft.com/ws/2008/06/identity/claims/role":"Admin"`. `GET /api/dashboard/summary` returns 200 with `{companies:1,users:1,activitiesToday:2,transactions:0}` (not 403).
+
+**P0d (regression guard) — `mvp-docker/smoke-test.ps1`:**
+- **New check #8**: login as bootstrap admin → call `/api/dashboard/summary` with Bearer token + `X-Company-Id` header → assert 200 (not 403). Catches: forgot to assign Admin role, JWT role claim missing, role name typo, ReadAccess policy regression.
+
 ### Verified
 - Backend build: 0 errors, 2 pre-existing warnings
 - YAML syntax of `mvp-docker/docker-compose.yml`: valid
 - PowerShell syntax of `mvp-docker/smoke-test.ps1`: valid
+- All 8 smoke test checks pass (added the Admin-role regression guard)
+- Browser login verified: `/api/dashboard/summary` returns **200** (not 403) after the Admin role is assigned; JWT payload contains `"role":"Admin"` + `"default_company_id":"00000000-0000-0000-0000-000000000001"`
 - All work adheres to **Constitution Article 3** — no `tenant_id` introduced (Dapper only, no EF Core)
 - No secrets in committed code (real `.env` is gitignored; only `.env.example` is committed)
 
