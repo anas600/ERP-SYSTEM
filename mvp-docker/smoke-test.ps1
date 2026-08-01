@@ -173,6 +173,22 @@ Test-Step "API: dashboard/summary returns 200 (Admin role assigned)" {
     }
 }
 
+# 9. Sprint 17: demo data was seeded by the bootstrap service (3 customers + 3 vendors + 5 items).
+#    This check verifies BOOTSTRAP_SEED_DEMO_DATA=true worked end-to-end.
+#    Catches: forgot to set the env var, seed method failed silently, idempotency check too strict.
+Test-Step "DB: demo data seeded (3+ customers, 3+ vendors, 5+ items)" {
+    $env:PGPASSWORD = if ($env:POSTGRES_PASSWORD) { $env:POSTGRES_PASSWORD } else { "erp_mvp_password" }
+    try {
+        $customers = (docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c "SELECT count(*) FROM customers;" 2>&1).Trim()
+        $vendors = (docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c "SELECT count(*) FROM vendors;" 2>&1).Trim()
+        $items = (docker exec erp-mvp-postgres psql -U erp -d erp_system -t -A -c "SELECT count(*) FROM items;" 2>&1).Trim()
+        # Expect: customers >= 3, vendors >= 3, items >= 5
+        return ([int]$customers -ge 3) -and ([int]$vendors -ge 3) -and ([int]$items -ge 5)
+    } catch {
+        return $false
+    }
+}
+
 # Summary
 Write-Host ""
 Write-Host "=== Summary ===" -ForegroundColor Cyan

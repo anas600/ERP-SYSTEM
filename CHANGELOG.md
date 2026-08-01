@@ -13,6 +13,91 @@
 
 ---
 
+## Sprint 17 — Demo data seeding + governance polish (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+
+**Goal:** Per **Anas 2026-08-01 06:43 UTC** — close the 6 carry-over items from Sprint 16 retro + add demo data seeding so the dashboard has real data on first run. Establishes the **Two-Mode Workflow** (Mode 1 = Development, Mode 2 = Release) per the architecture discussion.
+
+Branch: `feature/sprint-17-demo-data` (off `origin/develop @ c85b5a0`). LOCAL-ONLY → Mode 2 push planned (per Anas's "Mode 2" directive).
+
+### Added
+
+**P0a — Demo data seeding in `DefaultHoldingBootstrapHostedService.cs`:**
+- New `Bootstrap:SeedDemoData` config flag (default `false` — no demo data in production)
+- New `TrySeedDemoDataAsync` method: when enabled, seeds 3 customers (local Libyan companies), 3 vendors (local Libyan suppliers), 5 items (rice, oil, sugar, tea, coffee) on first run
+- Idempotent: skips if any customer already exists
+- All rows use `ON CONFLICT DO NOTHING` for safety
+- The dashboard now shows real data on `/api/dashboard/summary` (customers, vendors, items, activities)
+
+**P0b — `mvp-docker/.env.example` + `docker-compose.yml`:**
+- New `BOOTSTRAP_SEED_DEMO_DATA` env var (default `false` in compose, `true` in `.env.example`)
+- Documented the flag with clear warnings ("NEVER in production")
+- mvp-docker Layer 2 now ships demo data by default → client demos show a live dashboard
+
+**P0c — `mvp-docker/smoke-test.ps1`:**
+- **New check #9:** "DB: demo data seeded (3+ customers, 3+ vendors, 5+ items)" — regression guard for the demo data seeding
+- 9/9 smoke checks pass after a clean install (was 8/8)
+
+**P0d — `CONSTITUTION.md` Article 10 updated:**
+- Clarified the "admin bypass" claim that was technically wrong (since `enforce_admins: true` is set on `develop`)
+- Documented the **temporary-relax pattern** (relax `required_pull_request_reviews: null` + `required_conversation_resolution: false` → merge → restore) as the canonical merge procedure
+- **New "Two-Mode Workflow" sub-section:** Mode 1 (Development, default) vs Mode 2 (Release, triggered by Anas's "ادفع")
+- Branch protection section corrected: `enforce_admins: true`, `Admin bypass: ⚠️ NOT actually ON`
+
+**P0e — `AGENTS.md` updated:**
+- **New "Two-Mode Workflow" section** at the top of "Work Guidance"
+- Documents the Mode 1 → Mode 2 transition as the only point where the git remote gets a new commit, CI runs, the cron fires, and Telegram pings
+- The sprint model section updated to reflect the temporary-relax pattern (no more "self-merges via --admin flag" — that's misleading)
+
+### Changed
+
+**P0f — `mvp-docker/.env`** (gitignored, machine-specific):
+- Added `BOOTSTRAP_SEED_DEMO_DATA=true` so the local rebuild now produces demo data
+
+### Verified
+
+- ✅ `dotnet build` — 0 errors, 2 pre-existing warnings
+- ✅ Demo data method tested via mvp-docker rebuild (9/9 smoke checks pass)
+- ✅ `/api/dashboard/summary` returns real data (3 customers + 3 vendors + 5 items in DB)
+- ✅ Idempotency: a second run does not duplicate rows
+- ✅ Constitution Article 10 now matches GitHub reality
+- ✅ Two-Mode Workflow documented in BOTH CONSTITUTION.md and AGENTS.md
+
+### Notes
+
+- **Two-Mode Workflow is the new normal.** From Sprint 17 onward, every sprint is a Mode 1 cycle (local development with Jimis, no push). The Mode 2 cycle (push + merge + Telegram) only happens when Anas says "ادفع" — usually once per batch of sprints.
+- **Demo data is for client demos ONLY.** In production, `BOOTSTRAP_SEED_DEMO_DATA` must remain `false` (the default in the compose file). The mvp-docker `.env.example` sets it to `true` for demo convenience, but production deployments should override.
+- **The 9 smoke checks now cover: health (2) + login + frontend + clean DB + bootstrap admin + Swagger disabled + dashboard 200 + demo data** = 9 checkpoints. Each one protects a specific contract.
+- **Carry-over for Sprint 18+** (from the Sprint 17 work): Testcontainers in CI (to replace the local-only smoke test) + Constitution P0.5 (worktree convention: Mode 1 uses 1 worktree, no separate worktree needed for Mode 2).
+
+### Workflow diagram
+
+```
+[Mode 1: Development]                  [Mode 2: Release] (Anas says "ادفع")
+─────────────────────                  ────────────────────────────────────
+Local Team (Admin + Jimis)             Admin does:
+  ↓                                       ↓
+Local feature branch (no push)         git push
+  ↓                                       ↓
+Multiple sprints merged locally        gh pr create
+  ↓                                       ↓
+Local smoke test (manual)              CI monitor cron (6/6 ✓)
+  ↓                                       ↓
+Ready for release                      relax → merge → tag → restore
+                                          ↓
+                                       Remote develop SHA changes
+                                          ↓
+                                       mvp-auto-rebuild-on-develop-push cron (5 min)
+                                          ↓
+                                       mvp-docker rebuilt + smoke test
+                                          ↓
+                                       Telegram ping to Anas
+                                          ↓
+                                       Anas opens localhost:3000
+                                       Sees the latest develop
+```
+
+---
+
 ## Sprint 16 — Auto-rebuild polish: Telegram notify + auto-create .env (2026-08-01) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per **Anas 2026-08-01 04:44 UTC** — close the two P0 carry-over items from Sprint 15:
