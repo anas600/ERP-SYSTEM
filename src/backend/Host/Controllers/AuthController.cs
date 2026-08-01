@@ -285,7 +285,7 @@ public class AuthController : ControllerBase
             }
         }
 
-        if (matchedId == null)
+        if (matchedId == null || matchedUserId == null)
         {
             return BadRequest(new ProblemDetails { Title = "Invalid Token", Detail = "رمز إعادة التعيين غير صالح أو منتهي الصلاحية." });
         }
