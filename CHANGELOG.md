@@ -12,6 +12,80 @@
 ```
 
 ---
+
+## Sprint 15 — Auto-rebuild mvp-docker on develop push (2026-08-01) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **Anas 2026-08-01 03:35 UTC** — automate the Layer 1→2 workflow. When a new commit lands on `develop`, automatically rebuild `mvp-docker` and run the 8-check smoke test. Today this is manual (Admin Team watches develop, runs `docker compose up -d --build`, runs the smoke test, reports to Anas). After this sprint, a cron job does all of that without human intervention.
+
+Branch: `feature/sprint-15-auto-rebuild` (off `origin/develop @ 01b4223`). LOCAL-ONLY (no push, no PR until Anas says "ادفع").
+
+### Added
+
+**P0a — `scripts/rebuild-mvp-docker.ps1` (the worker):**
+- Tears down the existing mvp-docker stack (`docker compose down -v --remove-orphans` — Layer 2 purity)
+- Rebuilds + starts (`docker compose up -d --build`)
+- Runs the 8-check smoke test
+- Exit codes: 0=success, 1=smoke failed, 2=docker up failed, 3=docker not running
+- Uses `Start-Process` to avoid PowerShell's "NativeCommandError" tripping on docker's stderr
+
+**P0b — `scripts/watch-develop-and-rebuild.ps1` (the orchestrator):**
+- Reads `git ls-remote origin develop` for current SHA
+- Compares to `.mavis/last-develop-sha`
+- If SHA differs → 10s stability check → calls rebuild script
+- On success: updates state file. On failure: leaves state file unchanged (self-healing)
+
+**P0c — `scripts/AGENTS.md` (Child DOX):**
+- Created the long-missing `scripts/AGENTS.md` (per Child DOX Index "TO CREATE")
+- Documents the directory's purpose + the new PowerShell scripts
+
+**P0d — `mvp-docker/docker-compose.yml`:**
+- Removed obsolete `version: '3.9'` attribute (Compose v2 ignores it but printed a warning)
+
+**P0e — Cron `mvp-auto-rebuild-on-develop-push`:**
+- Schedule: every 5 min, 08:00–22:00 Africa/Tripoli
+- Cron ID: `edc01aae-a6b0-4d0e-97f9-52520c5da1fb`
+
+### Verified
+
+- ✅ `scripts/rebuild-mvp-docker.ps1` exits 0 on clean rebuild + passing smoke test
+- ✅ Watcher is no-op when SHA unchanged; triggers rebuild when SHA changes
+- ✅ 10s stability check works
+- ✅ State file updated only on success
+- ✅ Cron created and scheduled
+
+### Notes
+
+- First-run rebuild: 1-2 min (cached). Cold cache: 15-20 min.
+- Self-healing: failed rebuild leaves state unchanged; next tick retries.
+- No Telegram notification yet — Sprint 16+ candidate.
+
+### Workflow
+
+```
+[Anas pushes PR → merges to develop]
+        │
+        ▼
+[5-min cron tick — within 5 min of merge]
+        │
+        ▼
+watch-develop-and-rebuild.ps1
+        │
+        ├── detect new SHA
+        ├── wait 10s
+        ├── run rebuild-mvp-docker.ps1
+        │       ├── docker compose down -v
+        │       ├── docker compose up -d --build
+        │       └── smoke test
+        └── update .mavis/last-develop-sha on success
+        │
+        ▼
+[Anas opens http://localhost:3000 — sees the latest develop]
+```
+
+Total time from merge to browser-ready: ~3-5 min (cached).
+
+---
+
 ## Sprint 14 — Layer 2 hardening (clean install + browser login) (2026-08-01) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per **Anas 2026-08-01 01:19 UTC** — fix two issues found in the mvp-docker end-to-end test:

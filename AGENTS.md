@@ -270,7 +270,7 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/docs/AGENTS.md`](./docs/AGENTS.md) | Documentation directory | Active |
 | [`/infra/AGENTS.md`](./infra/AGENTS.md) | Infrastructure-as-Code | Active |
 | [`/infra/docker/AGENTS.md`](./infra/docker/AGENTS.md) | Docker configs | Active |
-| [`/scripts/AGENTS.md`](./scripts/AGENTS.md) | Build/utility scripts | **TO CREATE** |
+| [`/scripts/AGENTS.md`](./scripts/AGENTS.md) | Build/utility scripts (incl. Sprint 15 auto-rebuild) | **Active** |
 | [`/local-docker/AGENTS.md`](./local-docker/AGENTS.md) | Local dev environment (Layer 1) | **TO CREATE** |
 | [`/mvp-docker/AGENTS.md`](./mvp-docker/AGENTS.md) | Containerized MVP (Layer 2) — Sprint 13 | **TO CREATE** |
 | [`/src/AGENTS.md`](./src/AGENTS.md) | Source code root | Active |

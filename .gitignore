@@ -48,6 +48,8 @@ src/backend/Tools/**/obj/
 
 # Agent scratch
 .mavis/plans/
+.mavis/last-develop-sha
+.mavis/rebuild-log.txt
 gen-hash/
 
 # Docker build artifacts (the frontend mounts at runtime, so package-lock.json
