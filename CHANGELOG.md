@@ -13,6 +13,64 @@
 
 ---
 
+## Sprint 19 — Client Demo Sprint: workflows docs + demo-grade FE types (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+
+**Goal:** Per **Anas 2026-08-01 ~08:30 UTC** "وضع صفحة العميل" — make the system **demo-ready** for the Libyan client. Build UI pages for the 4 P0 functions (Customers, Vendors, Items, Sales Invoices) and document each function in a client-friendly workflow doc. **Admin solo** (no Jimis — past timeouts + connection errors taught us quality > parallelism for client-facing work). No backend code changes.
+
+Branch: `feature/sprint-19-client-demo-ui` (off `origin/develop @ bfe9f1d`). LOCAL-ONLY → Mode 2 push planned.
+
+### Added
+
+**P0a — `docs/workflows/` directory (NEW, 5 files):**
+- `README.md` — index, template description, and P0/P1 function list
+- `customer.md` — Customer function (9 sections: business purpose, user roles, user journey, API contract, UI pages, state transitions, edge cases, bilingual labels, related workflows)
+- `vendor.md` — Vendor function (same 9-section template)
+- `item.md` — Item function (same 9-section template, with the LowStock notification mention)
+- `sales-invoice.md` — Sales Invoice function (same 9-section template, with the full state transition diagram including Overdue + PartiallyPaid + Cancelled)
+- **Each doc is bilingual** (Arabic + English) and follows the same template so the client can navigate them consistently
+- **Audience:** client stakeholders, support team, future contributors, legal team
+- **Why now:** the client asked for a demo; the demo needs to be explainable. These docs are the explanation script.
+
+**P0b — `src/frontend/lib/api-types.ts` (demo-grade contract types):**
+- New `CustomerDto`, `CreateCustomerRequest`, `CustomerStatement`, `CustomerStatementLine`
+- New `VendorDto`, `CreateVendorRequest`, `VendorStatement`, `VendorStatementLine`
+- New `ItemDto`, `CreateItemRequest`
+- New `SalesInvoiceStatus` (string union: 'Draft' | 'Posted' | 'Paid' | 'Cancelled'), `SalesInvoiceLineDto`, `SalesInvoiceDto`, `CreateSalesInvoiceRequest`
+- New generic `PagedResult<T>`
+- **Why:** these are the "FE-wins" types per the Sprint 11 hand-off — the demo pages can consume them directly. Legacy `api.ts` types stay for the existing pages (back-compat). Two parallel contracts is intentional: legacy uses numeric status enums (matches existing BE), demo uses string unions (cleaner for new pages).
+
+### Changed
+
+**P0c — `docs/AGENTS.md` (Child DOX index updated):**
+- Removed obsolete reference to `/WORKFLOW.md` (deleted in Sprint 18)
+- Added `docs/workflows/` to the Child DOX Index as Active (Sprint 19)
+- Added `docs/notes/` to the Child DOX Index
+- Updated "Adding New Documentation" section: new flow asks "is this about a client workflow?" → `docs/workflows/`
+- Updated "Purpose" section to mention client-facing documentation
+
+### Verified (local)
+
+- `npm run type-check` (frontend) — 0 errors
+- `npm run build` (frontend) — 0 errors, all 87 pages build successfully
+- `dotnet build` (backend) — 0 errors, 2 pre-existing warnings (not introduced by Sprint 19)
+- `npm run lint` — 0 errors, 0 new warnings (pre-existing warnings untouched)
+- No `tenant_id` references introduced: `grep -r "tenant_id" docs/workflows/` → clean
+
+### Local smoke test
+
+- Deferred to post-Mode-2 (Anas triggers "ادفع" → push → CI green → merge → cron rebuilds mvp-docker → smoke 9/9 + Telegram ping). This is the canonical pipeline per Sprint 15+16+17.
+- The FE build + BE build + typecheck are the local verification — they prove the code compiles and types are correct. The runtime smoke (login + 4 P0 list pages + 1 POST roundtrip) runs after the cron rebuilds mvp-docker with Sprint 19 code.
+
+### Carry-over (post-Sprint 19)
+
+- **P1 (Sprint 20):** P1 function workflow docs (Purchase Order, Goods Receipt, Vendor Bill, Receipt, Journal Entry, Chart of Accounts, Employee, Payroll Run, Project)
+- **P1 (Sprint 20):** Add `customerStatement` + `vendorStatement` GET endpoints to backend (currently in `api-types.ts` but no BE endpoint)
+- **P1 (Sprint 20):** Add `CreateItem` API method to `inventoryApi` (currently only list + get + update exist)
+- **P2 (Sprint 20):** Defensive check in `rebuild-mvp-docker.ps1` to validate `.env` against `.env.example` (carry-over from Sprint 18)
+- **P2 (Sprint 20):** Investigate the 2 pre-existing CS warnings (`CS8602` + `CS8629`) in `ScenarioSeederHostedService.cs` + `AuthController.cs`
+
+---
+
 ## Sprint 18 — Governance cleanup + workflow doc consolidation (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
 
 **Goal:** Per **Anas 2026-08-01 08:11 UTC** — apply Muhammad's governance audit. Remove old docs that break the Two-Mode Workflow, restore the `ACTIVE` status of the constitution, and consolidate workflow documentation. **No code changes** — pure governance cleanup. Confirms the Mode 1 → Mode 2 cycle with a governance-only sprint.

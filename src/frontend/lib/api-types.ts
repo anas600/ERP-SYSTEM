@@ -211,6 +211,229 @@ export interface NotificationDto {
   linkUrl?: string | null;
 }
 
+// ============ Customer (AccountsReceivable) ============
+//
+// Flat customer DTO — used by the Customer list/new/view pages.
+// Contract: GET /api/ar/customers
+//
+// Field set derived from `src/backend/Host/data-types/customers.json` + the
+// demo seed in `DefaultHoldingBootstrapHostedService.TrySeedDemoDataAsync`.
+
+export interface CustomerDto {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  nameEn?: string | null;
+  taxId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  creditLimit?: number | null;
+  paymentTermsDays: number;
+  isActive: boolean;
+  /** ISO 8601 timestamp. */
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCustomerRequest {
+  code: string;
+  name: string;
+  nameEn?: string | null;
+  taxId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  creditLimit?: number | null;
+  paymentTermsDays: number;
+  isActive?: boolean;
+}
+
+export interface CustomerStatement {
+  customerId: string;
+  customerName: string;
+  openingBalance: number;
+  totalInvoiced: number;
+  totalPaid: number;
+  closingBalance: number;
+  currency: string;
+  asOf: string;
+  lines: CustomerStatementLine[];
+}
+
+export interface CustomerStatementLine {
+  invoiceId: string;
+  invoiceNumber: string;
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+// ============ Vendor (Procurement) ============
+//
+// Contract: GET /api/procurement/vendors
+
+export interface VendorDto {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  taxNumber?: string | null;
+  website?: string | null;
+  currency: string;
+  paymentTerms: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateVendorRequest {
+  code: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  taxNumber?: string | null;
+  website?: string | null;
+  currency?: string;
+  paymentTerms?: string;
+  isActive?: boolean;
+}
+
+export interface VendorStatement {
+  vendorId: string;
+  vendorName: string;
+  openingBalance: number;
+  totalBilled: number;
+  totalPaid: number;
+  closingBalance: number;
+  currency: string;
+  asOf: string;
+  lines: VendorStatementLine[];
+}
+
+export interface VendorStatementLine {
+  billId: string;
+  billNumber: string;
+  date: string;
+  description: string;
+  debit: number;
+  credit: number;
+  balance: number;
+}
+
+// ============ Item (Inventory) ============
+//
+// Contract: GET /api/inventory/items
+
+export interface ItemDto {
+  id: string;
+  companyId: string;
+  sku: string;
+  barcode?: string | null;
+  name: string;
+  description?: string | null;
+  categoryId?: string | null;
+  unitOfMeasureId?: string | null;
+  itemType: number;
+  costingMethod: number;
+  averageCost: number;
+  standardCost: number;
+  inventoryAccountId?: string | null;
+  cogsAccountId?: string | null;
+  salesAccountId?: string | null;
+  reorderLevel: number;
+  reorderQuantity: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateItemRequest {
+  sku: string;
+  barcode?: string | null;
+  name: string;
+  description?: string | null;
+  categoryId?: string | null;
+  unitOfMeasureId?: string | null;
+  itemType?: number;
+  costingMethod?: number;
+  averageCost?: number;
+  standardCost?: number;
+  reorderLevel?: number;
+  reorderQuantity?: number;
+  isActive?: boolean;
+}
+
+// ============ Sales Invoice (AccountsReceivable) ============
+//
+// Contract: GET /api/ar/sales-invoices
+// Includes line items + posting state.
+
+export type SalesInvoiceStatus = 'Draft' | 'Posted' | 'Paid' | 'Cancelled';
+
+export interface SalesInvoiceLineDto {
+  id: string;
+  invoiceId: string;
+  itemId: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  /** Computed: quantity * unitPrice. */
+  lineTotal: number;
+}
+
+export interface SalesInvoiceDto {
+  id: string;
+  companyId: string;
+  customerId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  status: SalesInvoiceStatus;
+  currency: string;
+  subtotal: number;
+  taxAmount: number;
+  total: number;
+  notes?: string | null;
+  lines: SalesInvoiceLineDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateSalesInvoiceRequest {
+  customerId: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  dueDate: string;
+  currency?: string;
+  notes?: string | null;
+  lines: Array<{
+    itemId: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+  }>;
+}
+
+// ============ Paged (generic) ============
+//
+// Generic paged response used by the new list pages.
+// Mirrors C# DTO `PagedResult<T>` in `src/backend/Shared/Infrastructure/`.
+
+export interface PagedResult<T> {
+  items: T[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+
 // ============ Re-exports (legacy DTOs) ============
 //
 // To keep the new demo pages clean, this file re-exports the legacy shapes
