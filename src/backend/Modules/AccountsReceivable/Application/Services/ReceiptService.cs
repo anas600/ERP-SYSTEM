@@ -32,6 +32,7 @@ public sealed class ReceiptService : IReceiptService
     private readonly IArDocumentSequenceRepository _seq;
     private readonly IJournalEntryService _journalEntries;
     private readonly IAccountRepository _accounts;
+    private readonly IPostingRulesService _postingRules;
     private readonly ICompanyContext _companyContext;
     private readonly ILogger<ReceiptService> _logger;
 
@@ -42,11 +43,13 @@ public sealed class ReceiptService : IReceiptService
         IArDocumentSequenceRepository seq,
         IJournalEntryService journalEntries,
         IAccountRepository accounts,
+        IPostingRulesService postingRules,
         ICompanyContext companyContext,
         ILogger<ReceiptService> logger)
     {
         _receipts = receipts; _customers = customers; _invoices = invoices;
         _seq = seq; _journalEntries = journalEntries; _accounts = accounts;
+        _postingRules = postingRules;
         _companyContext = companyContext;
         _logger = logger;
     }
@@ -169,46 +172,50 @@ public sealed class ReceiptService : IReceiptService
         return await PostInternalAsync(userId, receipt, receipt.Allocations, ct);
     }
 
-    /// <summary>المنطق الداخلي للترحيل: ينشئ القيد (Dr 1210 / Cr 1230) ويحدّث حالة الفواتير.</summary>
+    /// <summary>
+    /// المنطق الداخلي للترحيل: يستخدم Posting Rules Engine (Sprint 21) لإنشاء القيد.
+    /// الـ default Libya rule (Dr 1210 / Cr 1230) يضمن نفس السلوك.
+    /// </summary>
     private async Task<ArResult<ReceiptResponse>> PostInternalAsync(Guid userId, Receipt receipt, List<ReceiptAllocation> allocations, CancellationToken ct)
     {
-        var cashAccount = await _accounts.GetByCodeAsync("1210", ct);
-        var arAccount = await _accounts.GetByCodeAsync("1230", ct)
-            ?? await _accounts.GetByCodeAsync("1220", ct);
-        if (cashAccount == null)
-            return ArResult<ReceiptResponse>.Fail("حساب النقدية (1210) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
-        if (arAccount == null)
-            return ArResult<ReceiptResponse>.Fail("حساب الذمم (1230) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
-        if (!cashAccount.IsPostable || !arAccount.IsPostable)
-            return ArResult<ReceiptResponse>.Fail("حساب النقدية أو الذمم ليس قابلاً للترحيل.", ArErrorCode.BusinessRuleViolation);
-
-        // إنشاء القيد
-        var journalReq = new PostJournalEntryRequest
+        // استخدام Posting Rules Engine (Sprint 21)
+        var payload = new EventPayload
         {
-            EntryDate = receipt.ReceiptDate,
+            Amount = receipt.Amount,
+            Subtotal = receipt.Amount,
+            TaxAmount = 0,
+            Currency = receipt.CurrencyCode ?? "LYD",
             Description = $"سند قبض {receipt.ReceiptNumber}",
             Reference = $"RC:{receipt.Id}",
-            Lines = new List<PostJournalLineRequest>
-            {
-                new() { AccountId = cashAccount.Id, Debit = receipt.Amount, Credit = 0, Description = "مدين - نقدية" },
-                new() { AccountId = arAccount.Id, Debit = 0, Credit = receipt.Amount, Description = "دائن - ذمم مدينة" },
-            }
+            EntryDate = receipt.ReceiptDate
         };
-        var draft = await _journalEntries.CreateDraftAsync(userId, journalReq, ct);
-        if (!draft.Succeeded)
-            return ArResult<ReceiptResponse>.Fail($"فشل إنشاء القيد: {draft.Error}", ArErrorCode.Internal);
 
-        var posted = await _journalEntries.PostAsync(userId, draft.Value!.Id, ct);
-        if (!posted.Succeeded)
-            return ArResult<ReceiptResponse>.Fail($"فشل ترحيل القيد: {posted.Error}", ArErrorCode.Internal);
+        var ruleResult = await _postingRules.ApplyRulesAndReturnAsync(userId, TriggeringEvent.ReceiptPosted, payload, ct);
+        if (!ruleResult.Succeeded)
+        {
+            return ArResult<ReceiptResponse>.Fail(
+                $"فشل تطبيق قواعد الترحيل: {ruleResult.Error}", ArErrorCode.Internal);
+        }
+
+        if (ruleResult.Value!.EntriesCreated == 0)
+        {
+            return ArResult<ReceiptResponse>.Fail(
+                "لا توجد قواعد ترحيل نشطة لسند القبض. أضف قاعدة في /admin/posting-rules.",
+                ArErrorCode.BusinessRuleViolation);
+        }
+
+        var posted = ruleResult.Value;
 
         // تحديث السند
-        receipt.JournalEntryId = posted.Value!.Id;
+        receipt.JournalEntryId = posted.FirstJournalEntryId;
         receipt.PostedAt = DateTime.UtcNow;
         receipt.PostedBy = userId;
         receipt.UpdatedAt = DateTime.UtcNow;
         receipt.UpdatedBy = userId;
         await _receipts.UpdateAsync(receipt, ct);
+
+        _logger.LogInformation("تم ترحيل سند قبض {Num} — القيد {Je}",
+            receipt.ReceiptNumber, posted.FirstEntryNumber);
 
         // تحديث الفواتير المخصصة
         foreach (var a in allocations)
@@ -228,7 +235,7 @@ public sealed class ReceiptService : IReceiptService
             await _invoices.UpdateAsync(inv, ct);
         }
 
-        _logger.LogInformation("تم ترحيل سند القبض {Rc} — القيد {Je}", receipt.ReceiptNumber, posted.Value.EntryNumber);
+        _logger.LogInformation("تم ترحيل سند القبض {Rc} — القيد {Je}", receipt.ReceiptNumber, posted.FirstEntryNumber);
         var customer = await _customers.GetByIdAsync(receipt.CustomerId, ct);
         return ArResult<ReceiptResponse>.Ok(MapToResponse(receipt, customer?.Name));
     }

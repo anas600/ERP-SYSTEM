@@ -13,6 +13,97 @@
 
 ---
 
+## Sprint 21 — Posting Rules Engine: config-driven posting for AR + Procurement (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+
+**Goal:** Per **Anas 2026-08-01 13:55 UTC** ("ابدأ") + Muhammad recommendation — replace the hardcoded posting logic in Sales/Receipt/Bill services with a config-driven Posting Rules Engine. Libya default = no tax (TaxId optional, null = no tax). Pre-existing infrastructure (Sprint 11) is already there — Sprint 21 expands it to cover the 4 P0 business events + hooks + seeder.
+
+Branch: `feature/sprint-21-posting-rules-engine` (off `origin/develop @ a1d7e25`). LOCAL-ONLY → Mode 2 push planned.
+
+### Added
+
+**P0a — `TriggeringEvent` enum expanded** (BE):
+- Added `SalesInvoicePosted = 3` (alias for legacy `InvoiceCreated`)
+- Added `ReceiptPosted = 4` (alias for legacy `PaymentReceived`)
+- Added `VendorBillPosted = 5` (new)
+- Added `PaymentPosted = 6` (new)
+- **Why:** the existing 4 events covered inventory + legacy names. Sprint 21 adds the 4 P0 business events (Sale, Receipt, Bill, Payment).
+
+**P0b — `EventPayload` expanded** (BE):
+- Added `Subtotal` (decimal) — amount before tax
+- Added `TaxAmount` (decimal) — separate from total
+- Changed default currency from `SAR` to `LYD` (Libyan Dinar)
+- **Why:** Libya = no tax by default, but the schema must support tax-ready payloads.
+
+**P0c — `EvaluateFormula` expanded** (BE):
+- New tokens: `{subtotal}`, `{tax}`, `{tax+subtotal}` (total)
+- New operator: `{subtotal}*0.05` → 5% VAT pattern
+- **Why:** accountants need to compute tax lines with formulas like `subtotal × rate`.
+
+**P0d — `ApplyRulesAndReturnAsync` (new method on `IPostingRulesService`)**:
+- Same as `ApplyRulesAsync` but returns the **first journal entry ID** (for the service to link to the source doc).
+- **Why:** the existing `ApplyRulesAsync` only returned the count. The refactored services need the JE ID to set `JournalEntryId` on the invoice/bill.
+
+**P0e — `EnsureDefaultRulesAsync` expanded with 4 Libya-default rules:**
+- `SalesInvoicePosted` → Dr 1230 (AR) / Cr 5110 (Sales Revenue)
+- `VendorBillPosted` → Dr 1240 (Inventory) / Cr 2210 (AP)
+- `ReceiptPosted` → Dr 1210 (Cash) / Cr 1230 (AR)
+- `PaymentPosted` → Dr 2210 (AP) / Cr 1210 (Cash)
+- All 4 rules are **no-tax** (Libya default) — accountants can add a 5th rule with VAT manually.
+- The pre-existing `StockReceived` rule is also kept (now using the correct account codes 1240/2210, was 1300/2100 which don't exist).
+
+**P0f — `DefaultHoldingBootstrapHostedService` calls `EnsureDefaultRulesAsync`:**
+- The 5 default posting rules are seeded at first startup (after CoA is ready).
+- Non-fatal: if seeding fails, the app still boots (with a warning).
+- **Why:** without the hook, the rules would never be in the DB and the services would always fall through to the legacy path.
+
+### Changed
+
+**P0g — `SalesInvoiceService.PostInternalAsync` refactored to use the engine:**
+- Removed hardcoded `Dr 1230 / Cr 5110` journal entry creation.
+- Now calls `_postingRules.ApplyRulesAndReturnAsync(TriggeringEvent.SalesInvoicePosted, ...)`.
+- If no rule is configured → returns a clear error message: "لا توجد قواعد ترحيل نشطة لفاتورة المبيعات. أضف قاعدة في /admin/posting-rules."
+
+**P0h — `ReceiptService.PostInternalAsync` refactored (same pattern):**
+- Removed hardcoded `Dr 1210 / Cr 1230`.
+- Now calls the engine for `ReceiptPosted` event.
+
+**P0i — `VendorBillService.PostAsync` refactored (engine preferred, DEC-075 fallback):**
+- Engine first: if a rule matches `VendorBillPosted`, the engine creates the JE.
+- If no rule: falls back to the existing DEC-075 hardcoded path (Inventory/AP lookup + journal entry).
+- **Why this hybrid approach:** VendorBill is more complex (DEC-075 had a fallback for missing accounts). Removing the fallback would break that path. The engine becomes the **preferred** path; the fallback is a safety net.
+
+**P0j — FE `/admin/posting-rules` page labels updated:**
+- Added Arabic labels for all 6 event types (was 4: StockReceived/StockIssued/InvoiceCreated/PaymentReceived).
+- Renamed `InvoiceCreated` → `SalesInvoicePosted` and `PaymentReceived` → `ReceiptPosted` (clearer).
+- Default template updated: uses real CoA codes `1240/2210` (was `1110/2010` which don't exist).
+- `parseRuleSummary` now shows **all lines** (not just the first) — clearer for multi-line rules like Sale+Tax.
+
+### Verified (local)
+
+- `dotnet build` (backend) — **0 errors, 0 warnings** (clean since Sprint 20)
+- `npm run type-check` (frontend) — 0 errors
+- `npm run build` (frontend) — 0 errors, 87 pages build
+- `git grep tenant_id` — clean
+- All 4 refactored services + 1 new bootstrap call + 1 new service method compile
+
+### Local smoke test
+
+- Deferred to post-Mode-2 (Anas triggers "ادفع" → push → CI green → merge → cron rebuilds mvp-docker with Sprint 21 code → smoke 9/9 + manual UI test).
+- The end-to-end flow: open `/admin/posting-rules` → see 5 default rules → create a sales invoice in `/finance/sales-invoices/new` → post it → verify a 2-line journal entry was auto-created (Dr 1230 / Cr 5110).
+- The trigger endpoint (`POST /api/finance/posting-rules/trigger/{eventType}`) is exposed for testing rules manually without going through a real document flow.
+
+### Carry-over (post-Sprint 21)
+
+- **P1 (Sprint 22):** P2 function workflow docs (14 functions — Attendance, Leave, Department, Cost Center, Posting Rules, Stock Movement, Warehouse, Item Category, UoM, User/Role, Audit Log, Holding/Company, Notification, Activity Feed)
+- **P1 (Sprint 22):** `customerStatement` + `vendorStatement` GET endpoints
+- **P1 (Sprint 22):** `CreateItem` API method
+- **P1 (Sprint 22):** Trial Balance validation UI ("Balanced / Unbalanced" indicator)
+- **P2:** Add a 5th default rule "Sale with VAT 5%" (optional) to demonstrate the tax engine works for accountants who want tax
+- **P2:** Audit trail for posting rule changes (who created/edited/deactivated, when)
+- **P2:** Multi-currency support (currently LYD-only)
+
+---
+
 ## Sprint 20 — Demo 2: P1 workflow docs + defensive hardening (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
 
 **Goal:** Per **Anas 2026-08-01 11:25 UTC** — extend Sprint 19 with 9 P1 function workflow docs (cover all 13 demo functions), plus defensive hardening (env validation, CS warnings cleanup, cosmetic Telegram fix). Make the system fully documented for the 1-day client handover. **No backend code changes beyond bug fixes.**

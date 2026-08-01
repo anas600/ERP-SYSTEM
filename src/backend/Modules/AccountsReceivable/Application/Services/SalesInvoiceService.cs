@@ -35,6 +35,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
     private readonly IArDocumentSequenceRepository _seq;
     private readonly IJournalEntryService _journalEntries;
     private readonly IAccountRepository _accounts;
+    private readonly IPostingRulesService _postingRules;
     private readonly ICompanyContext _companyContext;
     private readonly ILogger<SalesInvoiceService> _logger;
 
@@ -44,11 +45,13 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         IArDocumentSequenceRepository seq,
         IJournalEntryService journalEntries,
         IAccountRepository accounts,
+        IPostingRulesService postingRules,
         ICompanyContext companyContext,
         ILogger<SalesInvoiceService> logger)
     {
         _invoices = invoices; _customers = customers; _seq = seq;
         _journalEntries = journalEntries; _accounts = accounts;
+        _postingRules = postingRules;
         _companyContext = companyContext;
         _logger = logger;
     }
@@ -219,45 +222,44 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         return await PostInternalAsync(userId, inv, ct);
     }
 
-    /// <summary>المنطق الداخلي للترحيل: ينشئ القيد (Dr 1230 / Cr 5110) ويرفع الحالة إلى Sent.</summary>
+    /// <summary>
+    /// المنطق الداخلي للترحيل: يستخدم Posting Rules Engine (Sprint 21) لإنشاء القيد.
+    /// الـ engine يبحث عن القواعد النشطة للـ SalesInvoicePosted event، يطبقها، ينشئ القيد.
+    /// الـ default Libya rule (Dr 1230 / Cr 5110) يضمن نفس السلوك القديم.
+    /// </summary>
     private async Task<ArResult<SalesInvoiceResponse>> PostInternalAsync(Guid userId, SalesInvoice inv, CancellationToken ct)
     {
-        // جلب الحسابات (fallback chain)
-        var arAccount = await _accounts.GetByCodeAsync("1230", ct)
-            ?? await _accounts.GetByCodeAsync("1220", ct);
-        var revenueAccount = await _accounts.GetByCodeAsync("5110", ct)
-            ?? await _accounts.GetByCodeAsync("4100", ct);
-
-        if (arAccount == null)
-            return ArResult<SalesInvoiceResponse>.Fail("حساب الذمم المدينة (1230) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
-        if (revenueAccount == null)
-            return ArResult<SalesInvoiceResponse>.Fail("حساب الإيرادات (5110) غير موجود في دليل الحسابات.", ArErrorCode.BusinessRuleViolation);
-        if (!arAccount.IsPostable || !revenueAccount.IsPostable)
-            return ArResult<SalesInvoiceResponse>.Fail("حساب الذمم أو الإيرادات ليس قابلاً للترحيل (IsPostable=false).", ArErrorCode.BusinessRuleViolation);
-
-        // إنشاء القيد: Dr 1230 / Cr 5110
-        var journalReq = new PostJournalEntryRequest
+        // استخدام Posting Rules Engine (Sprint 21)
+        var payload = new EventPayload
         {
-            EntryDate = inv.InvoiceDate,
+            Amount = inv.TotalAmount,
+            Subtotal = inv.TotalAmount, // Libya default: لا ضريبة، فالـ subtotal = total
+            TaxAmount = 0,
+            Currency = inv.CurrencyCode ?? "LYD",
             Description = $"فاتورة مبيعات {inv.InvoiceNumber}",
             Reference = $"SI:{inv.Id}", // يحفظ SalesInvoiceId في الـ reference
-            Lines = new List<PostJournalLineRequest>
-            {
-                new() { AccountId = arAccount.Id, Debit = inv.TotalAmount, Credit = 0, Description = "مدين - ذمم مدينة" },
-                new() { AccountId = revenueAccount.Id, Debit = 0, Credit = inv.TotalAmount, Description = "دائن - إيرادات" },
-            }
+            EntryDate = inv.InvoiceDate
         };
-        var draft = await _journalEntries.CreateDraftAsync(userId, journalReq, ct);
-        if (!draft.Succeeded)
-            return ArResult<SalesInvoiceResponse>.Fail($"فشل إنشاء القيد: {draft.Error}", draft.ErrorCode == FinanceErrorCode.NotFound ? ArErrorCode.NotFound : ArErrorCode.Internal);
 
-        // ترحيل القيد
-        var posted = await _journalEntries.PostAsync(userId, draft.Value!.Id, ct);
-        if (!posted.Succeeded)
-            return ArResult<SalesInvoiceResponse>.Fail($"فشل ترحيل القيد: {posted.Error}", ArErrorCode.Internal);
+        var ruleResult = await _postingRules.ApplyRulesAndReturnAsync(userId, TriggeringEvent.SalesInvoicePosted, payload, ct);
+        if (!ruleResult.Succeeded)
+        {
+            return ArResult<SalesInvoiceResponse>.Fail(
+                $"فشل تطبيق قواعد الترحيل: {ruleResult.Error}", ArErrorCode.Internal);
+        }
+
+        if (ruleResult.Value!.EntriesCreated == 0)
+        {
+            // ما في قواعد نشطة لـ SalesInvoicePosted — الـ accountant ما أعدّ قاعدة بعد
+            return ArResult<SalesInvoiceResponse>.Fail(
+                "لا توجد قواعد ترحيل نشطة لفاتورة المبيعات. أضف قاعدة في /admin/posting-rules.",
+                ArErrorCode.BusinessRuleViolation);
+        }
+
+        var posted = ruleResult.Value;
 
         // تحديث الفاتورة
-        inv.JournalEntryId = posted.Value!.Id;
+        inv.JournalEntryId = posted.FirstJournalEntryId;
         inv.Status = SalesInvoiceStatus.Sent;
         inv.PostedAt = DateTime.UtcNow;
         inv.PostedBy = userId;
@@ -267,7 +269,8 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         inv.UpdatedBy = userId;
         await _invoices.UpdateAsync(inv, ct);
 
-        _logger.LogInformation("تم ترحيل فاتورة {Inv} — القيد {Je}", inv.InvoiceNumber, posted.Value.EntryNumber);
+        _logger.LogInformation("تم ترحيل فاتورة {Inv} — القيد {Je} ({Count} قاعدة طُبّقت)",
+            inv.InvoiceNumber, posted.FirstEntryNumber, posted.EntriesCreated);
         var customer = await _customers.GetByIdAsync(inv.CustomerId, ct);
         return ArResult<SalesInvoiceResponse>.Ok(MapToResponse(inv, customer?.Name));
     }
