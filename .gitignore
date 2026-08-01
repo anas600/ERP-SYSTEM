@@ -50,6 +50,7 @@ src/backend/Tools/**/obj/
 .mavis/plans/
 .mavis/last-develop-sha
 .mavis/rebuild-log.txt
+.mavis/telegram-chat.json
 gen-hash/
 
 # Docker build artifacts (the frontend mounts at runtime, so package-lock.json

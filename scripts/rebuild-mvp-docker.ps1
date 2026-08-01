@@ -31,9 +31,17 @@
     If set, skip the `docker compose down -v`. Use only when debugging — violates the
     "Layer 2 purity" principle.
 
+.PARAMETER Init
+    If set, and mvp-docker/.env does not exist, auto-copy from mvp-docker/.env.example
+    (with a warning that the user should edit the file to set real secrets). Idempotent.
+
 .EXAMPLE
     # Standard rebuild + smoke test
     powershell -File scripts/rebuild-mvp-docker.ps1
+
+.EXAMPLE
+    # First-time setup on a new machine — auto-create .env
+    powershell -File scripts/rebuild-mvp-docker.ps1 -Init
 
 .EXAMPLE
     # Rebuild only (no smoke test) — for debugging
@@ -50,6 +58,8 @@
       Subsequent rebuilds of cached layers are much faster.
     - The smoke test waits up to 90s for the API to be ready (the first run after a
       clean install includes the bootstrap, which takes ~20-30s).
+    - On a fresh clone, the rebuild script with no .env will create a default one from
+      .env.example and warn loudly. To use custom secrets, edit the file before running.
 
     PowerShell note: docker compose writes progress to stderr, which trips $ErrorActionPreference.
     We use Start-Process to capture both streams cleanly without triggering PowerShell's
@@ -60,6 +70,7 @@
 param(
     [switch]$SkipSmokeTest,
     [switch]$SkipDown,
+    [switch]$Init,
     [switch]$Quiet
 )
 
@@ -129,6 +140,31 @@ $dockerInfo = & docker info 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
     Write-Log "Docker Desktop is not running. Start it manually and retry." "ERROR"
     exit 3
+}
+
+# ============ 1.5. Auto-create .env (Sprint 16) ============
+# On a fresh clone, mvp-docker/.env doesn't exist. Without it, the bootstrap admin
+# password is empty and the smoke test fails. Auto-copy from .env.example (with a
+# warning) so the first-run experience is smooth. The user should edit the file
+# later to set real secrets.
+$envFile = Join-Path $MvpDir ".env"
+$envExample = Join-Path $MvpDir ".env.example"
+if (-not (Test-Path $envFile)) {
+    if (Test-Path $envExample) {
+        if ($Init -or $Quiet) {
+            # Auto-create
+            Copy-Item $envExample $envFile -Force
+            Write-Log "Auto-created $envFile from .env.example (Sprint 16 -Init)" "WARN"
+            Write-Log "  >> Edit the file to set real secrets before production deployment" "WARN"
+        } else {
+            Write-Log "mvp-docker/.env is missing. Re-run with -Init to auto-create from .env.example." "ERROR"
+            Write-Log "  powershell -File scripts/rebuild-mvp-docker.ps1 -Init" "ERROR"
+            exit 5
+        }
+    } else {
+        Write-Log "Neither mvp-docker/.env nor mvp-docker/.env.example exists. Cannot proceed." "ERROR"
+        exit 5
+    }
 }
 
 # ============ 2. Tear down (if not skipped) ============

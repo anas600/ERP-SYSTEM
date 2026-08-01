@@ -13,6 +13,68 @@
 
 ---
 
+## Sprint 16 — Auto-rebuild polish: Telegram notify + auto-create .env (2026-08-01) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **Anas 2026-08-01 04:44 UTC** — close the two P0 carry-over items from Sprint 15:
+1. **Telegram notification** — Anas gets pinged automatically on rebuild success/failure (instead of checking the log manually)
+2. **Auto-create `.env`** — first-run experience on a fresh clone: rebuild script detects missing `.env` and either auto-creates it (with `-Init`) or fails with a clear error message
+
+Branch: `feature/sprint-16-polish-telegram-env` (off `origin/develop @ a2eaad8`). LOCAL-ONLY.
+
+### Added
+
+**P0a — `scripts/notify-telegram.ps1` (the notifier):**
+- Sends a message to the configured Telegram chat via the Mavis bot
+- Auto-discovers bot token from `C:\Users\Anas\.minimax\credentials\mavis\telegram.json`
+- Auto-discovers chat ID from `.mavis/telegram-chat.json` (gitignored) or `C:\Users\Anas\.minimax\agents\mavis\config\telegram-chat.json`
+- Exit codes: 0 = sent, 1 = missing config, 2 = API error, 3 = network error
+- Used by the watcher to ping on success/failure
+
+**P0b — `-Init` flag in `scripts/rebuild-mvp-docker.ps1`:**
+- If `mvp-docker/.env` is missing and `mvp-docker/.env.example` exists:
+  - With `-Init` (or `-Quiet`): auto-copy with a clear warning to edit the file for real secrets
+  - Without `-Init`: fail with a clear error message telling the user to re-run with `-Init`
+- Exit code 5 reserved for "missing .env" failures
+- Idempotent (safe to run multiple times)
+
+**P0c — `watch-develop-and-rebuild.ps1` integration:**
+- On rebuild success: sends "✅ Sprint 16 auto-rebuild: success in Xs. SHA=..." via Telegram
+- On rebuild failure: sends "❌ Sprint 16 auto-rebuild: FAILED (exit=N)..." via Telegram
+- Notify failures are non-fatal (state update happens regardless)
+- Quiet mode (don't spam the watcher log with notify output)
+
+### Changed
+
+**P0d — `.gitignore`:**
+- Added `.mavis/telegram-chat.json` (machine-specific, like other state files)
+
+### Verified
+
+- ✅ `notify-telegram.ps1` sends a real Telegram message end-to-end (Anas received the test message)
+- ✅ `rebuild-mvp-docker.ps1 -Init` auto-creates `.env` from `.env.example` with a warning
+- ✅ `rebuild-mvp-docker.ps1` (without `-Init`) fails with exit code 5 + a clear "re-run with -Init" message
+- ✅ Full watcher flow: fake old SHA → stability check → rebuild → success → Telegram notify (Anas received "✅ Sprint 16 auto-rebuild: success in 72.2s...")
+- ✅ State file updated only on success
+
+### Notes
+
+- **The chat ID is per-user.** To find yours: message the bot on Telegram, then call `https://api.telegram.org/bot<TOKEN>/getUpdates` and look for `chat.id`. Anas's chat ID is `2095951462`.
+- **The bot token is in the Mavis platform's credentials** (gitignored, outside the repo). The notify script auto-discovers it.
+- **First-run experience is now smooth:** clone → run `rebuild-mvp-docker.ps1 -Init` → 1-2 min later, the system is browsable + login-able.
+- **Telegram notify is best-effort.** If the API is down or the config is missing, the watcher still updates the state file and writes to the log. Notifications never block the rebuild.
+
+### Carry-over actions for Sprint 17+
+
+| Priority | Action |
+|----------|--------|
+| P1 | Testcontainers in CI → smoke test runs on every PR |
+| P1 | Update smoke test to wait for "bootstrap admin exists" before login check |
+| P2 | Wire watcher into Local Team's pre-push hook |
+| P2 | Update AGENTS.md: "cron = tool, not actor" |
+| P3 | Self-cleanup cron: prune mvp-docker images older than N days |
+
+---
+
 ## Sprint 15 — Auto-rebuild mvp-docker on develop push (2026-08-01) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per **Anas 2026-08-01 03:35 UTC** — automate the Layer 1→2 workflow. When a new commit lands on `develop`, automatically rebuild `mvp-docker` and run the 8-check smoke test. Today this is manual (Admin Team watches develop, runs `docker compose up -d --build`, runs the smoke test, reports to Anas). After this sprint, a cron job does all of that without human intervention.

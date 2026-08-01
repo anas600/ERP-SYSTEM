@@ -64,6 +64,7 @@ $ProgressPreference = "SilentlyContinue"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
 $RepoRoot = Resolve-Path (Join-Path $ScriptDir "..")
 $RebuildScript = Join-Path $ScriptDir "rebuild-mvp-docker.ps1"
+$NotifyScript = Join-Path $ScriptDir "notify-telegram.ps1"
 $StateFile = Join-Path $RepoRoot ".mavis/last-develop-sha"
 $LogFile = Join-Path $RepoRoot ".mavis/rebuild-log.txt"
 
@@ -178,6 +179,13 @@ if ($rebuildExit -eq 0) {
         Set-Content -Path $StateFile -Value $currentSha -NoNewline
         Write-Log "Rebuild succeeded in $([math]::Round($rebuildDuration, 1))s. State updated to $currentSha." "OK"
         Write-Log "Next time Anas opens http://localhost:3000, the latest develop is running." "OK"
+
+        # Sprint 16: notify on success
+        $shortSha = $currentSha.Substring(0, [Math]::Min(7, $currentSha.Length))
+        $msg = "✅ Sprint 16 auto-rebuild: success in $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Open http://localhost:3000"
+        & $NotifyScript -Message $msg -Quiet
+        # Notify failures are non-fatal (don't block the state update)
+
         exit 0
     } catch {
         Write-Log "Rebuild succeeded but Set-Content on state file FAILED: $($_.Exception.Message)" "ERROR"
@@ -187,5 +195,11 @@ if ($rebuildExit -eq 0) {
     Write-Log "Rebuild FAILED (exit=$rebuildExit) after $([math]::Round($rebuildDuration, 1))s. State NOT updated — will retry next tick." "ERROR"
     $lastLines = ($rebuildOutput -split "`n" | Select-Object -Last 20) -join "`n"
     Write-Log "Last 20 lines of rebuild output:`n$lastLines" "ERROR"
+
+    # Sprint 16: notify on failure
+    $shortSha = $currentSha.Substring(0, [Math]::Min(7, $currentSha.Length))
+    $msg = "❌ Sprint 16 auto-rebuild: FAILED (exit=$rebuildExit) after $([math]::Round($rebuildDuration, 1))s. SHA=$shortSha. Will retry next tick. Check .mavis/rebuild-log.txt"
+    & $NotifyScript -Message $msg -Quiet
+
     exit $rebuildExit
 }
