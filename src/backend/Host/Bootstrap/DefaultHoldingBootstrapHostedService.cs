@@ -185,6 +185,16 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
                     "[P6-0b] Default admin user seeded (see logs above for credentials)");
             }
 
+            // 6) Sprint 17: Optionally seed demo data (3 customers, 3 vendors, 5 items).
+            //    Makes Layer 2 "client demo ready" — the dashboard shows real data on first run.
+            //    By default this is OFF (no demo data in production).
+            //    Set Bootstrap:SeedDemoData=true in appsettings.Development.json or mvp-docker/.env
+            //    to enable. The local-docker profile has it ON by default (developers want to see data).
+            if (await TrySeedDemoDataAsync(conn, holdingId, cancellationToken))
+            {
+                _logger.LogInformation("[P6-0b] Demo data seeded (customers, vendors, items)");
+            }
+
             _logger.LogInformation(
                 "[P6-0b] DefaultHoldingBootstrap completed successfully (holdingId={HoldingId})",
                 holdingId);
@@ -567,6 +577,156 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         _logger.LogWarning(
             "[P6-0b] SECURITY: default admin enabled via env var. CHANGE THE PASSWORD after first login in any non-demo deployment.");
 
+        return true;
+    }
+
+    // ============ Sprint 17: Demo data seeding (env-driven) ============
+
+    /// <summary>
+    /// لو <c>Bootstrap:SeedDemoData=true</c>، ينشئ demo rows (3 customers، 3 vendors، 5 items)
+    /// مرتبطة بالـ Holding. الـ dashboard يعرض بيانات حقيقية بدل فاضي. **للتسليم/العرض فقط** — 
+    /// default false في الـ production. Idempotent: يتخطّى لو customer واحد على الأقل موجود.
+    /// <para>
+    /// الترتيب مهم: customers → vendors → items (لأن items ممكن تشير لهم).
+    /// </para>
+    /// </summary>
+    /// <returns>true إذا تم زرع demo data جديد فعلاً، false إذا تخطّى.</returns>
+    private async Task<bool> TrySeedDemoDataAsync(
+        System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
+    {
+        var seed = _config.GetValue<bool>("Bootstrap:SeedDemoData", false);
+        if (!seed) return false;
+
+        // Idempotency check: لو في customer واحد على الأقل، نعتبر الـ seed تم.
+        var existingCount = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+            "SELECT count(*) FROM customers WHERE company_id = @HoldingId",
+            new { HoldingId = holdingId }, cancellationToken: ct));
+        if (existingCount > 0)
+        {
+            _logger.LogInformation(
+                "[P6-0b] Demo data already exists (customers={Count}) — skipping seed", existingCount);
+            return false;
+        }
+
+        var now = DateTime.UtcNow;
+        var seedUserId = Guid.Empty; // Demo rows have no real created_by; use the empty UUID as a marker.
+        // Actually we need a real user_id for created_by/updated_by (NOT NULL FK).
+        // Use the admin user if available, else the empty GUID.
+        var firstUser = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM users ORDER BY created_at LIMIT 1",
+            cancellationToken: ct));
+        var createdBy = firstUser ?? Guid.Empty;
+
+        // 1) Customers (3 — local Libyan companies)
+        var customers = new[]
+        {
+            new { Id = Guid.NewGuid(), Code = "CUST-001", Name = "شركة الفجر للتوزيع", NameEn = "Al-Fajr Distribution Co.", TaxId = "LTD-12345", Email = "sales@alfajr.ly", Phone = "+218 91 234 5678", CreditLimit = 100000m, Terms = 30 },
+            new { Id = Guid.NewGuid(), Code = "CUST-002", Name = "مؤسسة النور التجارية", NameEn = "Al-Noor Trading Est.", TaxId = "LTD-67890", Email = "info@alnoor.ly", Phone = "+218 92 345 6789", CreditLimit = 50000m, Terms = 60 },
+            new { Id = Guid.NewGuid(), Code = "CUST-003", Name = "مكتب البركة للخدمات", NameEn = "Al-Baraka Services Office", TaxId = "LTD-11111", Email = "contact@albaraka.ly", Phone = "+218 94 456 7890", CreditLimit = 25000m, Terms = 15 },
+        };
+        foreach (var c in customers)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO customers
+                    (id, company_id, code, name, name_en, tax_id, email, phone,
+                     credit_limit, payment_terms_days, is_active,
+                     created_at, created_by, updated_at, updated_by)
+                VALUES
+                    (@Id, @CompanyId, @Code, @Name, @NameEn, @TaxId, @Email, @Phone,
+                     @CreditLimit, @Terms, true,
+                     @Now, @CreatedBy, @Now, @CreatedBy)
+                ON CONFLICT (company_id, code) DO NOTHING;",
+                new
+                {
+                    c.Id, CompanyId = holdingId, c.Code, c.Name, c.NameEn, c.TaxId, c.Email, c.Phone,
+                    c.CreditLimit, c.Terms, Now = now, CreatedBy = createdBy
+                }, cancellationToken: ct));
+        }
+        _logger.LogInformation("[P6-0b] Demo customers seeded: {Count}", customers.Length);
+
+        // 2) Vendors (3 — local Libyan suppliers)
+        var vendors = new[]
+        {
+            new { Id = Guid.NewGuid(), Code = "VEND-001", Name = "شركة المورد الذهبي", Email = "orders@golden.ly", Phone = "+218 91 111 2222", TaxNumber = "TAX-90001", Website = "https://golden.ly" },
+            new { Id = Guid.NewGuid(), Code = "VEND-002", Name = "مكتب الاستيراد الموحد", Email = "imports@unified.ly", Phone = "+218 92 222 3333", TaxNumber = "TAX-90002", Website = "https://unified.ly" },
+            new { Id = Guid.NewGuid(), Code = "VEND-003", Name = "الشركة الليبية للتوريدات", Email = "supply@libyansupply.ly", Phone = "+218 94 333 4444", TaxNumber = "TAX-90003", Website = "https://libyansupply.ly" },
+        };
+        foreach (var v in vendors)
+        {
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO vendors
+                    (id, company_id, code, name, email, phone, tax_number, website,
+                     currency, payment_terms, is_active,
+                     created_at, created_by, updated_at, updated_by)
+                VALUES
+                    (@Id, @CompanyId, @Code, @Name, @Email, @Phone, @TaxNumber, @Website,
+                     'LYD', 'Net30', true,
+                     @Now, @CreatedBy, @Now, @CreatedBy)
+                ON CONFLICT (company_id, code) DO NOTHING;",
+                new
+                {
+                    v.Id, CompanyId = holdingId, v.Code, v.Name, v.Email, v.Phone, v.TaxNumber, v.Website,
+                    Now = now, CreatedBy = createdBy
+                }, cancellationToken: ct));
+        }
+        _logger.LogInformation("[P6-0b] Demo vendors seeded: {Count}", vendors.Length);
+
+        // 3) Items (5 — use existing item_categories + units_of_measure from Sprint 14 P0d seed)
+        // We pick the first available category + UoM (they exist from the default seed).
+        var firstCategory = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM item_categories WHERE company_id = @HoldingId ORDER BY code LIMIT 1",
+            new { HoldingId = holdingId }, cancellationToken: ct));
+        var firstUom = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM units_of_measure WHERE company_id = @HoldingId ORDER BY code LIMIT 1",
+            new { HoldingId = holdingId }, cancellationToken: ct));
+
+        if (firstCategory.HasValue && firstUom.HasValue)
+        {
+            var items = new[]
+            {
+                new { Id = Guid.NewGuid(), Sku = "ITEM-001", Name = "أرز بسمتي 5 كجم", Barcode = "6001234567890", Cost = 25.00m, Price = 35.00m },
+                new { Id = Guid.NewGuid(), Sku = "ITEM-002", Name = "زيت زيتون 1 لتر", Barcode = "6001234567891", Cost = 18.50m, Price = 28.00m },
+                new { Id = Guid.NewGuid(), Sku = "ITEM-003", Name = "سكر أبيض 2 كجم", Barcode = "6001234567892", Cost = 8.00m, Price = 12.00m },
+                new { Id = Guid.NewGuid(), Sku = "ITEM-004", Name = "شاي أحمر 500 جم", Barcode = "6001234567893", Cost = 15.00m, Price = 22.00m },
+                new { Id = Guid.NewGuid(), Sku = "ITEM-005", Name = "قهوة تركية 250 جم", Barcode = "6001234567894", Cost = 20.00m, Price = 32.00m },
+            };
+            foreach (var i in items)
+            {
+                await conn.ExecuteAsync(new CommandDefinition(@"
+                    INSERT INTO items
+                        (id, company_id, sku, barcode, name, description,
+                         category_id, unit_of_measure_id, item_type, costing_method,
+                         average_cost, standard_cost,
+                         reorder_level, reorder_quantity, is_active,
+                         created_at, created_by, updated_at, updated_by)
+                    VALUES
+                        (@Id, @CompanyId, @Sku, @Barcode, @Name, @Name,
+                         @CategoryId, @UomId, 1, 3,
+                         @Cost, @Cost,
+                         10, 50, true,
+                         @Now, @CreatedBy, @Now, @CreatedBy)
+                    ON CONFLICT (company_id, sku) DO NOTHING;",
+                    new
+                    {
+                        i.Id, CompanyId = holdingId, i.Sku, i.Barcode, i.Name,
+                        Description = i.Name, // description = name (kept simple for demo)
+                        CategoryId = firstCategory.Value, UomId = firstUom.Value,
+                        i.Cost,
+                        Now = now, CreatedBy = createdBy
+                    }, cancellationToken: ct));
+            }
+            _logger.LogInformation("[P6-0b] Demo items seeded: {Count}", items.Length);
+        }
+        else
+        {
+            _logger.LogWarning(
+                "[P6-0b] Cannot seed demo items: no item_categories or units_of_measure found for holding {HoldingId}",
+                holdingId);
+        }
+
+        _logger.LogInformation(
+            "[P6-0b] Demo data seeded: {Customers} customers, {Vendors} vendors, 5 items (holdingId={HoldingId})",
+            customers.Length, vendors.Length, holdingId);
         return true;
     }
 

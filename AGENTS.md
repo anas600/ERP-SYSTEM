@@ -191,13 +191,46 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 
 ## Work Guidance
 
+### Two-Mode Workflow (Sprint 17, per Anas 2026-08-01 06:43 UTC)
+
+The team operates in **two distinct modes**. The mode is switched only by Anas (Project Owner):
+
+| | **Mode 1: Development** (default) | **Mode 2: Release** |
+|---|---|---|
+| **Trigger** | Anas + Muhammad (strategic advisor) discuss priorities | Anas says "ادفع" |
+| **Admin role** | Team lead + coordinator + executor (with Jimis) | Release engineer (push + relax + merge + tag + restore) |
+| **What happens** | Local work on `feature/sprint-N-...` branch — multiple sprints can be merged locally | git push → PR → CI (6/6) → relax → squash-merge → tag → restore |
+| **Push to remote** | ❌ NO | ✅ YES |
+| **CI on GitHub** | ❌ NO (no push) | ✅ YES (6 required checks) |
+| **mvp-docker rebuild** | ❌ NO (cron doesn't fire) | ✅ YES (cron `mvp-auto-rebuild-on-develop-push` fires within 5 min) |
+| **Telegram notify** | ❌ NO | ✅ YES ("✅ Sprint N auto-rebuild: success in Xs") |
+| **Browser preview** | Layer 1 (local-docker) with test/dev data | Layer 2 (mvp-docker) with clean install + optional demo data |
+
+**The switch from Mode 1 → Mode 2 is the only point where:**
+1. The git remote `develop` branch gets a new commit
+2. CI runs on GitHub
+3. The cron fires
+4. mvp-docker is rebuilt
+5. Telegram pings Anas
+
+**During Mode 1:** all work is local. Jimis add commits to the same feature branch. The Admin (Mavis Local) merges their output. No external system is touched. **The cron never fires because the remote `develop` SHA doesn't change.**
+
+**During Mode 2:** the workflow is the same one used for Sprint 13, 14, 15, 16. The Admin does:
+1. `git push` the feature branch
+2. `gh pr create --base develop --head feature/sprint-N-...`
+3. Wait for the CI monitor cron (`monitor-sprintN-ci-prN`) to detect all 6 required checks are green
+4. The cron itself does: relax develop branch protection → `gh pr merge --squash --admin --delete-branch` → `git tag -a vX.Y.Z-sprintN` → restore develop branch protection
+5. The remote `develop` SHA changes → the `mvp-auto-rebuild-on-develop-push` cron (5 min) detects the change → runs the rebuild → smoke test → Telegram pings Anas
+
+**Anas is the only one who can say "ادفع" to switch modes.** No one else can push to remote or trigger CI.
+
 ### Sprint Model
 1. **Cloud (Siti)** writes hand-off → `docs/workflow/sprint-N.md` (push to develop). For small tasks in the 2-day window, Mavis Local can self-plan.
 2. **Mavis Local** pulls develop, spawns Jimis (BE + FE parallel). See [`.mavis/AGENTS.md`](./.mavis/AGENTS.md) for the worker contract.
 3. **Jimis** execute, each one **declares their scope** in the nearest AGENTS.md (per worker contract) and **adds a CHANGELOG entry**.
 4. **Mavis Local** verifies (T6: build + test + typecheck).
-5. **Mavis Local** opens PR (`feature/sprint-N-*` → develop).
-6. **Mavis Local** self-merges (per DEC-070 admin) or **Cloud** auto-merges when CI green.
+5. **Mavis Local** opens PR (`feature/sprint-N-*` → develop) — **this is the Mode 1 → Mode 2 transition**.
+6. **Mavis Local** self-merges via the temporary-relax pattern (per Article 10 — see CONSTITUTION.md) or **Cloud** auto-merges when CI green.
 7. **Develop** updated → next sprint.
 
 **Sprint duration:** 1.5-2 hours (sprints up to 4-6h for big demo work).

@@ -119,11 +119,11 @@
 5. Analyze (javascript-typescript)
 6. Analyze (csharp)
 
-**Branch protection:**
+**Branch protection (current state — last updated 2026-07-31):**
 - Required reviews: 1
-- Admin bypass: ✅ ON
-- Force-pushes: ✅ ENABLED (`--force-with-lease`)
-- Enforce admins: false
+- Admin bypass: ⚠️ **NOT actually ON** — `enforce_admins: true` is set, so admins must follow the same rules. Use the **temporary-relax pattern** (per Article 10 + Sprint 14 retro): relax `required_pull_request_reviews: null` + `required_conversation_resolution: false` → merge → restore.
+- Force-pushes: ❌ DISABLED (per branch architecture reset 2026-07-31)
+- Enforce admins: ✅ true (strict)
 - Linear history: ON
 - Playwright E2E: optional (per Article 12)
 
@@ -233,16 +233,17 @@
 
 ---
 
-## 🏛️ Article 10 — Local Team Empowerment (from DEC-070)
+## 🏛️ Article 10 — Local Team Empowerment (from DEC-070) + Sprint 17 Update
 
 **Effective date:** 2026-07-27
+**Last amended:** 2026-08-01 (Sprint 17: clarified admin bypass to match GitHub reality)
 
 **Decisions:**
 
 1. **Staging/Production FREEZE:** No work on staging or production layers without explicit Anas approval. Both layers are frozen until further notice.
 
 2. **Mavis Local = Tech Lead (full admin on develop):**
-   - Can self-merge PRs using `--admin` flag
+   - Can self-merge PRs via the **temporary-relax pattern** (see Sprint 14 retro: relax `required_pull_request_reviews: null` + `required_conversation_resolution: false` → merge → restore). The `--admin` flag alone is **not sufficient** because GitHub's `enforce_admins: true` makes admins follow the same rules.
    - Can push to develop via PR (no direct push)
    - Can spawn Jimis (BE+FE) in parallel
    - Can manage branches and tags on develop
@@ -255,10 +256,16 @@
    - Cloud (Siti) auto-merges via monitor cron
    - No sync between Jimis; they only sync through Mavis Local
 
-5. **Anas = Project Owner.** Only Anas can:
+5. **Two-Mode Workflow (Sprint 17):**
+   - **Mode 1 (Development):** Admin is the team lead for the local execution team (Jimis). Coordinates sprints being merged locally. NO push to remote. NO CI runs. NO mvp-docker rebuild. NO Telegram notify.
+   - **Mode 2 (Release):** Admin waits for Anas to say "ادفع". Then does the workflow: git push + gh pr create + (wait for CI green) + relax + squash-merge + tag + restore. After merge, the cron `mvp-auto-rebuild-on-develop-push` fires on the remote → mvp-docker rebuilds → smoke test → Telegram ping.
+   - The switch between modes is controlled by **Anas** (only he can say "ادفع").
+
+6. **Anas = Project Owner.** Only Anas can:
    - Approve staging/production changes
    - Change Constitution
    - Approve architecture changes
+   - Switch from Mode 1 to Mode 2 (by saying "ادفع")
 
 ---
 

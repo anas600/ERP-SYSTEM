@@ -53,6 +53,7 @@ services:
       Bootstrap__DefaultAdminEmail: "${BOOTSTRAP_DEFAULT_ADMIN_EMAIL:-admin@erp.local}"
       Bootstrap__DefaultAdminPassword: "${BOOTSTRAP_DEFAULT_ADMIN_PASSWORD:-}"
       Bootstrap__DefaultAdminFullName: "${BOOTSTRAP_DEFAULT_ADMIN_FULL_NAME:-Administrator}"
+      Bootstrap__SeedDemoData: "${BOOTSTRAP_SEED_DEMO_DATA:-false}"
     ports:
       - "5000:5000"
 
