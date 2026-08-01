@@ -3,26 +3,28 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-07-29 19:15 UTC (Constitutional update per Anas mandate: WORKFLOW.md promoted to project root, .mavis/AGENTS.md activated, Sprint 6 launched)
+**Last updated:** 2026-08-01 (Sprint 18: governance cleanup — removed WORKFLOW.md + state.json references, restored ACTIVE constitution, codified Two-Mode Workflow per Sprint 17)
 
-> ## 📜 ACTIVE GOVERNANCE (per Anas, 2026-07-29 19:13 UTC)
+> ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
-> **Active workflow constitution (temporary permanent, 2 days):**
-> **[`WORKFLOW.md`](./WORKFLOW.md)** — at the project root, always in mind.
+> **Active governance model:** [CONSTITUTION.md](./CONSTITUTION.md) — `✅ ACTIVE` status (per Sprint 18 amendment). The 2-day pause directive ended 2026-07-31 18:25 UTC.
 >
-> **Paused legacy constitution:** [CONSTITUTION.md](./CONSTITUTION.md) (marked PAUSED — restored 2026-07-31 18:25 UTC).
+> **Two-Mode Workflow (per Article 10):**
+> - **Mode 1 (Development, default):** Local work on `feature/sprint-N-...` branch. NO push, NO CI, NO remote effects. Admin orchestrates Jimis, merges locally.
+> - **Mode 2 (Release):** Triggered by Anas's "ادفع". Admin does: git push + gh pr create + relax + merge + tag + restore. CI runs (6/6). Cron rebuilds mvp-docker + sends Telegram ping.
 >
-> **Sprint hand-offs:** [`docs/workflow/sprint-N.md`](./docs/workflow/) — سيتی writes them, Mavis Local executes.
+> **Branch architecture (per branch architecture reset 2026-07-31):**
+> - `develop` = default + active work
+> - `main` = LOCKED archive (no merges)
+> - Tags: `v0.0.0-pre-branch-reset` (safety) + `vX.Y.Z-sprintN` (work anchors)
 >
-> **State machine (the ping-pong point):** [`.github/workflows/mavis-coordination/state.json`](./.github/workflows/mavis-coordination/state.json) — the single source of truth for "where the ball is."
+> **Sprint hand-offs:** [`docs/workflow/sprint-N.md`](./docs/workflow/) — historical record.
+>
+> **Single source of truth for architecture:** [`/docs/architecture/holding-company-architecture.md`](./docs/architecture/holding-company-architecture.md).
 >
 > **Worker (Jimi) instructions:** [`.mavis/AGENTS.md`](./.mavis/AGENTS.md) — every Jimi reads this before starting.
 >
-> **What's the same:** architectural constraints (company_id, Dapper, no EF Core, etc.), DOX framework, CHANGELOG discipline, branch protection.
->
-> **What's different in the 2-day window:** Smart cron + state.json is the primary async signal. Admin Team (سيتی + محمد + ديف) work as "Cron Jobs" coordinated by Mavis Local. No Telegram ping-pong. Mavis Local is sole Tech Lead + Coordinator.
->
-> **🚨 Critical (per Anas, 2026-07-29 18:50 UTC):** The ball is in the **ACTOR's** court (mavis-local / mavis-cloud / anas), **NOT** the cron's. The cron is a tool that helps Mavis Local stay updated.
+> **🚨 Critical (Sprint 17):** The ball is in the **USER's** court (Anas), **NOT** the cron's. The cron is a tool that helps Mavis Local stay updated. Only Anas can switch from Mode 1 → Mode 2 (by saying "ادفع").
 
 ---
 
