@@ -460,15 +460,54 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             return false;
         }
 
-        // Idempotency check
-        var existing = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+        // Ensure the "Admin" role exists — needed whether we create a new user or
+        // backfill roles for an existing one.
+        var adminRoleId = await EnsureRoleAsync(conn, ERPSystem.Host.Auth.Roles.Admin, ct);
+
+        // Idempotency check: if the user already exists, backfill roles + user_companies
+        // if needed. This handles the legacy case where a previous Sprint 14 run created
+        // the user without the Admin role (Sprint 14 P0c — 403 on dashboard).
+        var existingId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
             "SELECT id FROM users WHERE email = @Email LIMIT 1",
             new { Email = email }, cancellationToken: ct));
-        if (existing.HasValue)
+        if (existingId.HasValue)
         {
             _logger.LogInformation(
-                "[P6-0b] Default admin user already exists (email={Email}, id={Id}) — skipping",
-                email, existing.Value);
+                "[P6-0b] Default admin user already exists (email={Email}, id={Id}) — backfilling roles + user_companies",
+                email, existingId.Value);
+
+            // Backfill: link to Holding if missing
+            await conn.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO user_companies
+                    (user_id, company_id, is_default, assigned_at)
+                VALUES
+                    (@UserId, @CompanyId, true, now())
+                ON CONFLICT (user_id, company_id) DO NOTHING;",
+                new
+                {
+                    UserId = existingId.Value,
+                    CompanyId = holdingId,
+                }, cancellationToken: ct));
+
+            // Backfill: assign Admin role if missing
+            var roleAssigned = await conn.ExecuteAsync(new CommandDefinition(@"
+                INSERT INTO user_roles
+                    (user_id, role_id, assigned_at)
+                VALUES
+                    (@UserId, @RoleId, now())
+                ON CONFLICT (user_id, role_id) DO NOTHING;",
+                new
+                {
+                    UserId = existingId.Value,
+                    RoleId = adminRoleId,
+                }, cancellationToken: ct));
+
+            if (roleAssigned > 0)
+            {
+                _logger.LogInformation(
+                    "[P6-0b] Backfilled Admin role for existing user (userId={UserId}, roleId={RoleId})",
+                    existingId.Value, adminRoleId);
+            }
             return false;
         }
 
@@ -507,13 +546,61 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
                 Now = now,
             }, cancellationToken: ct));
 
+        // 3) Assign the Admin role (role already ensured above).
+        //    Idempotent: ON CONFLICT (user_id, role_id) DO NOTHING.
+        await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO user_roles
+                (user_id, role_id, assigned_at)
+            VALUES
+                (@UserId, @RoleId, @Now)
+            ON CONFLICT (user_id, role_id) DO NOTHING;",
+            new
+            {
+                UserId = userId,
+                RoleId = adminRoleId,
+                Now = now,
+            }, cancellationToken: ct));
+
         _logger.LogInformation(
-            "[P6-0b] Default admin user created (id={Id}, email={Email}, fullName={FullName}, holdingId={HoldingId}, workFactor=12)",
-            userId, email, fullName, holdingId);
+            "[P6-0b] Default admin user created (id={Id}, email={Email}, fullName={FullName}, holdingId={HoldingId}, roleId={RoleId}, workFactor=12)",
+            userId, email, fullName, holdingId, adminRoleId);
         _logger.LogWarning(
             "[P6-0b] SECURITY: default admin enabled via env var. CHANGE THE PASSWORD after first login in any non-demo deployment.");
 
         return true;
+    }
+
+    /// <summary>
+    /// Idempotently insert a role row and return its id. ON CONFLICT (name) DO NOTHING + RETURNING id.
+    /// If the role already exists, returns the existing id.
+    /// </summary>
+    private async Task<Guid> EnsureRoleAsync(
+        System.Data.IDbConnection conn, string roleName, CancellationToken ct)
+    {
+        var roleId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM roles WHERE name = @Name LIMIT 1",
+            new { Name = roleName }, cancellationToken: ct));
+
+        if (roleId.HasValue) return roleId.Value;
+
+        var newId = Guid.NewGuid();
+        await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO roles
+                (id, name, description, created_at)
+            VALUES
+                (@Id, @Name, '', now())
+            ON CONFLICT (name) DO NOTHING;",
+            new
+            {
+                Id = newId,
+                Name = roleName,
+            }, cancellationToken: ct));
+
+        // Re-fetch (in case another process inserted concurrently)
+        roleId = await conn.ExecuteScalarAsync<Guid?>(new CommandDefinition(
+            "SELECT id FROM roles WHERE name = @Name LIMIT 1",
+            new { Name = roleName }, cancellationToken: ct));
+        return roleId ?? newId;
     }
 
     // ============ Row records (avoid dynamic casting) ============
