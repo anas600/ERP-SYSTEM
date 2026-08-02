@@ -13,6 +13,53 @@
 
 ---
 
+## Sprint 26 — Arabic dev seeder (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive ("اللغه العربيه غير مدعومه في البيانات السيدر الجديده , اريد ان يكون هناكم ملف داتا سيدر خاص ببيئه التطوير , يمثل سيناريو تشغيلي لسنه تشغيليه كامله وباللغه العربيه") — build a proper Arabic seeder for dev environment, fix the encoding bug from Sprint 25 PowerShell scripts, and let the user see real Arabic data on the local host like carry-over/migration data.
+
+### Root cause (DEC-087)
+- **Sprint 25 PowerShell scripts used `ConvertTo-Json | Invoke-RestMethod` from PowerShell 5.1, which sends the JSON body as UTF-16-LE bytes.**
+- ASP.NET Core's UTF-8 decoder can't read UTF-16-LE multi-byte sequences → each Arabic character (2-4 UTF-8 bytes) is replaced with a single `?` (0x3F).
+- Verified via `psql`: CUST-004..013, VEND-004..013, ITEM-006..020 all had `name = '? ? ? ...'`. Hex dump confirmed `3f3f3f3f` (literal question marks), not UTF-8 mojibake.
+- The original 3 customers (CUST-001..003, seeded via direct SQL in `DefaultHoldingBootstrapHostedService`) were stored correctly as UTF-8 bytes (`d8b4d8b1...` = Arabic letters) — because C# `string` literals are UTF-8 native in `.cs` files since .NET 5+.
+
+### Added
+- **`src/backend/Shared/SeedData/ArabicDevData.json`** (NEW, ~13KB) — UTF-8 encoded JSON with proper Arabic names for 13 customers + 13 vendors + 20 items. The "single source of truth" for Arabic master data on dev environment.
+- **`src/backend/Shared/SeedData/ArabicDevSeederHostedService.cs`** (NEW, ~22KB) — `IHostedService` that reads the JSON + UPSERTs customers/vendors/items via Dapper. Idempotent (UPSERT by `code`/`sku`). Dev environment only (gated on `IsDevelopment()` + `Bootstrap:SeedArabicScenario=true`). Uses the standard `IDbConnectionFactory` ephemeral connection pattern.
+- **`Bootstrap:SeedArabicScenario` config flag** — added to `appsettings.Development.json.example` (template) and `appsettings.Development.json` (gitignored local). Default `false`; explicit opt-in.
+- **`<Content Include="..\Shared\SeedData\ArabicDevData.json" CopyToOutputDirectory="PreserveNewest" />`** in `Host/ERP-SYSTEM.csproj` — copies the JSON to `bin/Debug/net9.0/Shared/SeedData/` so the seeder can find it at runtime.
+- **`Program.cs` registration block** — Sprint 26 section after the existing seeders, gated on `IsDevelopment()` + flag. Logs `[SPRINT-26] ArabicDevSeeder registered/skipped` line.
+
+### Fixed
+- **All 35 broken Arabic names** in the DB restored to proper UTF-8 Arabic. On first run: `customers updated=13 inserted=0, vendors updated=13 inserted=0, items updated=20 inserted=0`. The seeder is idempotent — re-running is safe.
+
+### Verified (end-to-end on local host)
+- `dotnet build` → 0 errors, 0 warnings
+- `psql` confirmed: `CUST-001` = `شركة الفجر للتوزيع` (hex `d8b4d8b1d983d8a920d8a7...`), `CUST-004` = `شركة النور للتوريدات`, `CUST-013` = `شركة السلامة للتوريدات`, etc. All 13 customers + 13 vendors + 20 items now have proper Arabic stored as UTF-8 bytes.
+- API check (`/api/ar/customers`, `/api/ar/receipts`): returns Arabic in JSON. Receipts that previously showed `???? ?????? ????????` (literal `?`) now show `مكتب البركة للخدمات`, `مؤسسة الهلال التجارية`, etc.
+- BE listening on `http://127.0.0.1:5001` (dev env), FE on `http://localhost:3000`. Browser on local host shows Arabic in customer list + receipts + AR aging.
+
+### Lessons
+- **L13: PowerShell 5.1 + JSON to ASP.NET Core = encoding bug.** The 2-sprint-old Sprint 25 PowerShell scripts looked fine locally (PowerShell console printed Arabic correctly), but the HTTP body bytes were UTF-16-LE. ASP.NET Core's UTF-8 decoder silently turned every multi-byte Arabic char into `?`. C# string literals in `.cs` files are UTF-8 native → `DefaultHoldingBootstrapHostedService` worked. C# string literals in `.json` files loaded via `File.ReadAllText` are also UTF-8 native → `ArabicDevSeederHostedService` works. **Rule going forward:** never use PowerShell 5.1 `ConvertTo-Json` + `Invoke-RestMethod` for Arabic (or any non-ASCII) data. Use C# hosted services, or PowerShell 7's `-Encoding utf8NoBOM` with explicit `Invoke-RestMethod -ContentType 'application/json; charset=utf-8'`.
+- **L14: "DEV-ONLY" seeder is a real category, not just a flag.** The Sprint 22-era seeders (`ScenarioSeederHostedService`, `RealisticSeedHostedService`) are gated only by config flag — they'd run in production if someone flipped the flag. `ArabicDevSeederHostedService` is double-gated: `IsDevelopment() && Bootstrap:SeedArabicScenario`. Even if a misconfig sets the flag in production, the env check stops it. This pattern should be standard for any future dev-only seeder.
+
+### Carry-over (Sprint 27+, still outstanding)
+- P1: HR demo data (10 employees + 5 departments + 5 projects) — needs `EmployeeService`/`DepartmentService`/`ProjectService` Article 3 fixes
+- P1: Procurement cycle demo data (10 POs + 10 GRs + 10 bills) via ArabicDevSeeder extension
+- P1: Manual JEs (12: depreciation, accruals, year-end)
+- P1: Posting Rules integration unit tests
+- P1: 14 P2 function workflow docs
+- P1: `customerStatement` + `vendorStatement` GET endpoints
+- P1: `CreateItem` API method
+- P1: Trial Balance validation UI
+- P2: 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- P2: Audit trail for posting rule changes
+- P2: Multi-currency support
+- P2: mvp-docker/.env to .gitignore
+- P2: Extend `ArabicDevSeeder` to create sales invoices + receipts + opening balance JEs from JSON (today: master data only; transactions remain from Sprint 25 PowerShell scripts)
+
+---
+
 ## Sprint 24 — outbox cleanup + Constitution Article 3 audit (2026-08-02) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per **DEC-082** + **DEC-083** — finish the "no event bus" cleanup (drop outbox tables) and run a code-level audit of Constitution Article 3 (every entity + every service must use `company_id` via `ICompanyContext`, never `Guid.Empty`).

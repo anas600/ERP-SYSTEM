@@ -29,6 +29,9 @@
     "DefaultAdminEmail": "admin@erp.local",
     "DefaultAdminPassword": "ChangeMe1234!",
     "DefaultAdminFullName": "Administrator",
-    "SeedDemoData": true
+    "SeedDemoData": true,
+
+    "_comment_arabic_seeder": "Sprint 26 — Arabic seeder for dev env. Fixes the encoding bug from Sprint 25 PowerShell scripts (Arabic stored as '?'). Reads UTF-8 JSON + UPSERTs customers/vendors/items. DEV-ONLY (no-op in non-Development envs).",
+    "SeedArabicScenario": true
   }
 }

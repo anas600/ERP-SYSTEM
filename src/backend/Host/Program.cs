@@ -412,6 +412,25 @@ else
     Console.WriteLine("[SPRINT-4] SeedAlBurjScenario=false (SAFE default, DEC-009 prevention).");
 }
 
+// ============ Sprint 26: Arabic dev-environment seeder ============
+// Purpose: fix the encoding bug from Sprint 25 PowerShell scripts that stored
+// Arabic as literal '?' (0x3F). Reads UTF-8 JSON with proper Arabic names and
+// UPSERTs customers/vendors/items. Idempotent. Dev env only.
+var seedArabic = builder.Configuration.GetValue<bool>("Bootstrap:SeedArabicScenario", false);
+if (seedArabic && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=true + env=Development — ArabicDevSeeder registered.");
+}
+else if (seedArabic)
+{
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=false (default) — ArabicDevSeeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
