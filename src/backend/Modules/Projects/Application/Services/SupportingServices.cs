@@ -2,6 +2,7 @@ using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Entities;
 using TaskStatus = ERPSystem.Modules.Projects.Entities.TaskStatus;
 using ERPSystem.Modules.Projects.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Projects.Application.Services;
 
@@ -17,14 +18,18 @@ public interface ITaskService
 public sealed class TaskService : ITaskService
 {
     private readonly ITaskRepository _repo;
-    public TaskService(ITaskRepository repo) => _repo = repo;
+    private readonly ICompanyContext _companyContext;
+    public TaskService(ITaskRepository repo, ICompanyContext companyContext) { _repo = repo; _companyContext = companyContext; }
 
     public async Task<ProjectResult<TaskResponse>> CreateAsync(CreateTaskRequest req, CancellationToken ct)
     {
+        // Sprint 28 (DEC-095): Constitution Article 3.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var now = DateTime.UtcNow;
         var t = new ProjectTask
         {
-            Id = Guid.NewGuid(), ProjectId = req.ProjectId,
+            Id = Guid.NewGuid(), CompanyId = companyId, ProjectId = req.ProjectId,
             Name = req.Name.Trim(), Description = req.Description,
             Status = TaskStatus.NotStarted, EstimatedHours = req.EstimatedHours, ActualHours = 0,
             StartDate = req.StartDate, EndDate = req.EndDate, ProgressPercent = 0,
@@ -92,16 +97,20 @@ public interface IResourceService
 public sealed class ResourceService : IResourceService
 {
     private readonly IResourceRepository _repo;
-    public ResourceService(IResourceRepository r) => _repo = r;
+    private readonly ICompanyContext _companyContext;
+    public ResourceService(IResourceRepository r, ICompanyContext companyContext) { _repo = r; _companyContext = companyContext; }
 
     public async Task<ProjectResult<ResourceResponse>> CreateAsync(CreateResourceRequest req, CancellationToken ct)
     {
         if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ProjectResult<ResourceResponse>.Fail("كود المورد مستخدم.", ProjectErrorCode.AlreadyExists);
+        // Sprint 28 (DEC-095): Constitution Article 3.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var now = DateTime.UtcNow;
         var r = new Resource
         {
-            Id = Guid.NewGuid(), Code = req.Code.Trim(), Name = req.Name.Trim(),
+            Id = Guid.NewGuid(), CompanyId = companyId, Code = req.Code.Trim(), Name = req.Name.Trim(),
             Type = req.Type, HourlyRate = req.HourlyRate, IsActive = true, CreatedAt = now, UpdatedAt = now
         };
         await _repo.InsertAsync(r, ct);
@@ -183,16 +192,20 @@ public sealed class ResourceAssignmentService : IResourceAssignmentService
 {
     private readonly IResourceAssignmentRepository _repo;
     private readonly IResourceRepository _resources;
-    public ResourceAssignmentService(IResourceAssignmentRepository r, IResourceRepository res) { _repo = r; _resources = res; }
+    private readonly ICompanyContext _companyContext;
+    public ResourceAssignmentService(IResourceAssignmentRepository r, IResourceRepository res, ICompanyContext companyContext) { _repo = r; _resources = res; _companyContext = companyContext; }
 
     public async Task<ProjectResult<AssignmentResponse>> CreateAsync(CreateAssignmentRequest req, CancellationToken ct)
     {
         var resource = await _resources.GetByIdAsync(req.ResourceId, ct);
         if (resource == null)
             return ProjectResult<AssignmentResponse>.Fail("المورد غير موجود.", ProjectErrorCode.NotFound);
+        // Sprint 28 (DEC-095): cross-tenant safety — prefer resource.CompanyId.
+        var companyId = resource.CompanyId != Guid.Empty ? resource.CompanyId : _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var a = new ResourceAssignment
         {
-            Id = Guid.NewGuid(), ProjectId = req.ProjectId, TaskId = req.TaskId,
+            Id = Guid.NewGuid(), CompanyId = companyId, ProjectId = req.ProjectId, TaskId = req.TaskId,
             ResourceId = req.ResourceId, UserId = req.UserId, From = req.From, To = req.To,
             HourlyRate = resource.HourlyRate,  // snapshot
             CreatedAt = DateTime.UtcNow

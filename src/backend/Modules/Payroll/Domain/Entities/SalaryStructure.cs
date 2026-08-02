@@ -25,6 +25,9 @@ public class SalaryStructure
 {
     public Guid Id { get; set; }
 
+    // Sprint 28 (DEC-094): Constitution Article 3 — see Employee.cs for context.
+    public Guid CompanyId { get; set; }
+
     /// <summary>الاسم المعروض للـ HR (مثال: "هيكل موظف بدوام كامل").</summary>
     public string Name { get; set; } = string.Empty;
 
@@ -55,6 +58,10 @@ public class SalaryStructure
 public class SalaryStructureLine
 {
     public Guid Id { get; set; }
+
+    // Sprint 28 (DEC-094): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public Guid SalaryStructureId { get; set; }
     public SalaryComponentType Type { get; set; }
     public string Name { get; set; } = string.Empty;

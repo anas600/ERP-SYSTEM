@@ -13,6 +13,80 @@
 
 ---
 
+## Sprint 28 — Article 3 audit (4 modules) + Procurement seeder (POC #3) + test refactor (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive ("yes, Sprint 28") — continue the audit pattern. This sprint: 4 remaining modules (Payroll, Projects, StockMovement, Finance/Account) — then POC the seeder pattern a third time (Procurement). The audit found **8 more Article 3 violations** (4 entities + 3 services + 4 repos + 1 minor fix). The seeder proves L17 ("3rd implementation = permanent framework") by completing in <2h (vs 4-6h for the first one).
+
+### Fixed (DEC-094: Payroll Article 3 audit — 5 entities + 1 service + 1 repo)
+- **5 entities** — added `CompanyId` field to `SalaryStructure`, `SalaryStructureLine`, `PayrollRun`, `PayrollItem`, `PayslipComponent`. The 3 latter were without the field entirely; `SalaryStructure`/`SalaryStructureLine` had it but the repo never set it.
+- **1 service** — `PayrollService` now injects `ICompanyContext` and reads `CompanyId = _companyContext.CompanyId ?? throw new InvalidOperationException(...)` in `CreateAsync` for structures + runs.
+- **1 repo** — `PayrollRepository` adds `@CompanyId` to all INSERTs (`InsertStructureAsync`, `InsertStructureLineAsync`, `InsertRunAsync`, `InsertItemAsync`, `InsertComponentAsync`) + SELECTs (`company_id AS CompanyId`).
+- `EosService` (end-of-service) — clean (no CompanyId needed; it's a read-only calculation).
+
+### Fixed (DEC-095: Projects Article 3 audit — 4 entities + 3 services + 4 repos)
+- **4 entities** — added `CompanyId` field to `ProjectBudget`, `ProjectTask`, `Resource`, `ResourceAssignment`.
+- **3 services** — `ProjectService`, `TaskService`, `ResourceService`, `ResourceAssignmentService` (the latter 3 live in `SupportingServices.cs`) all inject `ICompanyContext` and use it for new entities. `ProjectService.CreateAsync` is the critical fix — it now uses `_companyContext.CompanyId` for the project + the auto-created `ProjectBudget` (NOT `req.CompanyId`). This is **L19 cross-tenant safety** applied to the `Project` aggregate.
+- **4 repos** — `TaskRepository`, `ResourceRepository`, `ResourceAssignmentRepository`, `ProjectBudgetRepository` add `@CompanyId` to INSERT + SELECT.
+- `BudgetService` — clean (read-only).
+
+### Fixed (DEC-096: StockMovement service refactor)
+- **No entity or repo change needed** — they already had `CompanyId`. Only `StockMovementService` was using `req.CompanyId`. Refactored all 4 `Create*` methods (Receive/Issue/Transfer/Adjust) to use `_companyContext.CompanyId` instead of `req.CompanyId`. This is **L19 cross-tenant safety** at the service level — the request DTO no longer carries CompanyId.
+
+### Fixed (DEC-097: Finance/Account minor fix)
+- **`Account.CompanyId`** — changed from `Guid?` to `Guid`. The DB column has been `NOT NULL` since Sprint 22. The nullable type was a code-level inconsistency that would have been a runtime NRE the moment anyone tried to set it. No service or repo change needed (they already set it correctly).
+
+### Added (DEC-088/L17: Procurement seeder — POC #3)
+- **`src/backend/Shared/SeedData/ArabicProcurementDevData.json`** (NEW, ~9KB) — UTF-8 JSON with 10 purchase orders (each with 1-2 lines) distributed across the 13 vendors from Sprint 26. Arabic notes included.
+- **`src/backend/Shared/SeedData/ArabicProcurementDevSeederHostedService.cs`** (NEW, ~16KB) — `IHostedService` that UPSERTs POs via Dapper. 3-pass UPSERT: Pass 1 vendors (already done by Sprint 26, idempotent), Pass 2 PO headers, Pass 3 PO lines.
+- **`Bootstrap:SeedProcurementScenario` config flag** — added to `appsettings.Development.json.example` + `appsettings.Development.json`. Default `false`. Double-gated on `IsDevelopment() + flag`.
+- **`<Content Include="..\Shared\SeedData\ArabicProcurementDevData.json" />`** in csproj.
+- **Program.cs registration block** — Sprint 28 section after Sprint 27, gated on `IsDevelopment()` + flag. Logs `[SPRINT-28] ArabicProcurementDevSeeder registered/skipped`.
+
+### Fixed (DEC-099: ProjectServiceTests + IIFE pattern)
+- **Test file rewritten** — the Sprint 27 IIFE pattern (`(function(){...})()`) was JavaScript syntax, not C#. The previous bulk-replace was wrong. Replaced with a proper `TestCompanyContextFactory.Create()` helper that returns a fully-set-up `ICompanyContext` (with `.Setup(c => c.CompanyId).Returns(...)`).
+- **2 tests fixed for L19 cross-tenant safety**:
+  - `Create_AutoCreatesCostCenter_AndBudget` — now asserts that the project gets `CompanyId` from `ICompanyContext` (NOT from `req.CompanyId`).
+  - `List_FiltersByCompany` — now asserts that listing by the context's company returns all 3, while listing by any other companyId returns 0 (cross-tenant isolation).
+- **Fake `FakeProjectRepository.InsertAsync`** — also propagates `project.CompanyId` to the side-effect `BudgetsByProject[project.Id]` so the test can verify the budget gets the same company.
+
+### Migration
+- **`Sprint28_Audit_20260802_220000`** (NEW, ~3.6KB) — idempotent backfill for 10 tables (`salary_structures`, `salary_structure_lines`, `payroll_runs`, `payroll_items`, `payslip_components`, `project_budgets`, `project_tasks`, `resources`, `resource_assignments`, `accounts`). No-op in practice today (0 rows), but future-safe.
+
+### Verified (end-to-end on local host)
+- `dotnet build` → 0 errors, 0 warnings
+- `dotnet test` (Sprint 28 scope) → 18/18 projects tests passed (after L21 refactor + IIFE fix)
+- `dotnet test` (full suite) → 378 passed, 2 environmental fails (RetentionTests need production PG creds — pre-existing, unrelated to Sprint 28)
+- Procurement seeder log: `POs updated=2 inserted=8` (some POs already existed from manual Sprint 25 testing). GoodsReceipts + VendorBills skipped because there's no default warehouse — see carry-over for fix.
+
+### Lessons (L25-L30)
+- **L25 (Sprint 28 audit):** 4 more Article 3 violations — pattern holds. The audit found 5 entities + 3 services + 4 repos + 1 minor fix that needed attention. The DEC-085 checklist still catches 100% of them. The remaining un-audited modules (Payments, ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService) likely have 4-8 more violations each — they're on the carry-over list.
+- **L26 (Sprint 28 IIFE):** `function(){...}()` is JavaScript IIFE syntax. It does NOT compile in C#. A previous bulk-replace from a tool (regex probably from a JavaScript-template context) injected this into a `.cs` file. **Rule going forward:** any bulk-replace operation that touches `.cs` files must be followed by `dotnet build` + `dotnet test` in the same commit, not deferred. (This is the L24 pattern again — "tests-vs-implementation drift" — but worse: the file didn't even compile.)
+- **L27 (Sprint 28 seeder):** "Established pattern" holds for the 3rd time. JSON + IHostedService + UPSERT + Dapper + double-gate + Content include + appsettings flag → predictable 1.5-2h implementation. The seeder has its own surprises (no `updated_at`/`updated_by` on `purchase_order_lines`, no `name_en` on `vendors`) but the pattern absorbs them.
+- **L28 (Sprint 28 schema surprises):** always `psql \d <table>` before writing the INSERT — `name_en` (vendors) and `updated_at`/`updated_by` (purchase_order_lines) are NOT 1:1 with the entity property names. Document the surprises in the seeder's startup log.
+- **L29 (Sprint 28 cross-tenant):** `ProjectService.CreateAsync` is a critical L19 application. The Project aggregate has 2 child writes (Project + ProjectBudget) that BOTH need the same companyId. Using `_companyContext.CompanyId` once at the top of the method and passing the local `companyId` variable to both writes is cleaner than calling the property twice. The test now verifies this by reading the companyId from the test's mock context.
+- **L30 (Sprint 28 service refactor):** When the request DTO carries `CompanyId` but the service has access to `ICompanyContext`, prefer the context. The DTO's CompanyId is a security risk (client can spoof it). The refactor of `StockMovementService` (4 methods) and `ProjectService.CreateAsync` follows this rule. Other services that still have `req.CompanyId` in the DTO are carry-over (see below).
+
+### Carry-over (Sprint 29+, still outstanding)
+- P1: Audit 5 still-pending modules — Payments, ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService (pattern says 4-8 more violations each)
+- P1: `DepartmentResponse.managerName` field (small FE/BE gap — API returns `managerId` but no joined name)
+- P1: `customerStatement` + `vendorStatement` GET endpoints
+- P1: Manual JEs (12: depreciation, accruals, year-end)
+- P1: Posting Rules integration unit tests
+- P1: 14 P2 function workflow docs
+- P1: `CreateItem` API method
+- P1: Trial Balance validation UI ("Balanced / Unbalanced" indicator)
+- P1: Year-scenario seeder (12 monthly invoices + 6 receipts)
+- P1: Add a default warehouse to enable GR + Bill seeder (goods_receipts + vendor_bills require warehouse_id NOT NULL)
+- P1: Refactor remaining `req.CompanyId` → `_companyContext.CompanyId` (L30 carries over)
+- P2: 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- P2: Audit trail for posting rule changes
+- P2: Multi-currency support (currently LYD-only)
+- P2: mvp-docker/.env to .gitignore
+- P2: Pre-push script: scan for `?` in user-visible columns (would have caught Sprint 25/26 bugs)
+- P2: Build-time test that enforces DEC-085 (so new entities can't skip CompanyId silently)
+
+---
+
 ## Sprint 27 — HR Article 3 audit + Arabic HR dev seeder (2026-08-02) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's Sprint 27 directive — POC the seeder pattern a second time (`ArabicHrDevSeeder`) to establish it as a framework. As a prerequisite, the carry-over note "needs EmployeeService/DepartmentService/ProjectService Article 3 fixes" had to be addressed first. The audit found 8 violations in the HR module (4 entities + 4 services + 4 repos with no company_id propagation) — same shape as Sprint 25 (Procurement).

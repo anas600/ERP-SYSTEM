@@ -8,7 +8,7 @@ public sealed class ResourceRepository : IResourceRepository
 {
     private readonly IDbConnectionFactory _db;
     public ResourceRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, code, name, type, hourly_rate AS HourlyRate,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, type, hourly_rate AS HourlyRate,
         is_active AS IsActive, created_at AS CreatedAt, updated_at AS UpdatedAt";
 
     public async Task<Resource?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -35,9 +35,10 @@ public sealed class ResourceRepository : IResourceRepository
     public async Task InsertAsync(Resource resource, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-095): include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO resources (id, code, name, type, hourly_rate, is_active, created_at, updated_at)
-            VALUES (@Id, @Code, @Name, @Type, @HourlyRate, @IsActive, @CreatedAt, @UpdatedAt)",
+            INSERT INTO resources (id, company_id, code, name, type, hourly_rate, is_active, created_at, updated_at)
+            VALUES (@Id, @CompanyId, @Code, @Name, @Type, @HourlyRate, @IsActive, @CreatedAt, @UpdatedAt)",
             resource, cancellationToken: ct));
     }
     public async Task UpdateAsync(Resource resource, CancellationToken ct)

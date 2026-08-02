@@ -65,6 +65,7 @@
   <ItemGroup>
     <Content Include="..\Shared\SeedData\ArabicDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicDevData.json" />
     <Content Include="..\Shared\SeedData\ArabicHrDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicHrDevData.json" />
+    <Content Include="..\Shared\SeedData\ArabicProcurementDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicProcurementDevData.json" />
   </ItemGroup>
 
 </Project>

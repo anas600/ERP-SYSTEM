@@ -1,0 +1,102 @@
+{
+  "_comment": "Sprint 28: Arabic dev-environment seeder for Procurement. UTF-8 encoded. Loaded by ArabicProcurementDevSeederHostedService on startup when Bootstrap:SeedProcurementScenario=true AND environment=Development. Idempotent: UPSERT by po_number/gr_number/bill_number, never duplicates. Represents 10 purchase orders + 10 goods receipts + 10 vendor bills distributed across the 13 vendors from Sprint 26.",
+
+  "purchaseOrders": [
+    { "poNumber": "PO-2026-0001", "vendorCode": "VEND-004", "poDate": "2025-09-15", "expectedDeliveryDate": "2025-09-25", "currency": "LYD", "notes": "طلب تموين شهري للسكر", "lines": [
+      { "itemSku": "ITEM-003", "description": "سكر أبيض 2 كجم", "quantity": 100, "unitPrice": 7.50 }
+    ]},
+    { "poNumber": "PO-2026-0002", "vendorCode": "VEND-005", "poDate": "2025-09-20", "expectedDeliveryDate": "2025-09-30", "currency": "LYD", "notes": "زيت طبخ للمطعم", "lines": [
+      { "itemSku": "ITEM-008", "description": "زيت طبخ 5 لتر", "quantity": 50, "unitPrice": 30.00 }
+    ]},
+    { "poNumber": "PO-2026-0003", "vendorCode": "VEND-006", "poDate": "2025-10-05", "expectedDeliveryDate": "2025-10-15", "currency": "LYD", "notes": "دقيق للمخبز", "lines": [
+      { "itemSku": "ITEM-007", "description": "دقيق قمح 25 كجم", "quantity": 80, "unitPrice": 43.00 }
+    ]},
+    { "poNumber": "PO-2026-0004", "vendorCode": "VEND-007", "poDate": "2025-10-20", "expectedDeliveryDate": "2025-10-30", "currency": "LYD", "notes": "حليب طازج", "lines": [
+      { "itemSku": "ITEM-006", "description": "حليب طازج 1 لتر", "quantity": 200, "unitPrice": 3.20 }
+    ]},
+    { "poNumber": "PO-2026-0005", "vendorCode": "VEND-008", "poDate": "2025-11-05", "expectedDeliveryDate": "2025-11-15", "currency": "LYD", "notes": "شاي للضيافة", "lines": [
+      { "itemSku": "ITEM-009", "description": "شاي أحمر 1 كجم", "quantity": 30, "unitPrice": 26.00 }
+    ]},
+    { "poNumber": "PO-2026-0006", "vendorCode": "VEND-009", "poDate": "2025-11-20", "expectedDeliveryDate": "2025-12-01", "currency": "LYD", "notes": "معدات صناعية للمصنع", "lines": [
+      { "itemSku": "ITEM-016", "description": "خدمات استشارية محاسبية", "quantity": 5, "unitPrice": 150.00 }
+    ]},
+    { "poNumber": "PO-2026-0007", "vendorCode": "VEND-010", "poDate": "2025-12-05", "expectedDeliveryDate": "2025-12-15", "currency": "LYD", "notes": "مواد تغليف", "lines": [
+      { "itemSku": "ITEM-018", "description": "صندوق تغليف", "quantity": 100, "unitPrice": 1.80 }
+    ]},
+    { "poNumber": "PO-2026-0008", "vendorCode": "VEND-011", "poDate": "2025-12-20", "expectedDeliveryDate": "2026-01-01", "currency": "LYD", "notes": "صيانة دورية", "lines": [
+      { "itemSku": "ITEM-017", "description": "خدمات توصيل", "quantity": 10, "unitPrice": 25.00 }
+    ]},
+    { "poNumber": "PO-2026-0009", "vendorCode": "VEND-012", "poDate": "2026-01-15", "expectedDeliveryDate": "2026-01-25", "currency": "LYD", "notes": "قهوة", "lines": [
+      { "itemSku": "ITEM-010", "description": "قهوة 500 جم", "quantity": 40, "unitPrice": 60.00 }
+    ]},
+    { "poNumber": "PO-2026-0010", "vendorCode": "VEND-013", "poDate": "2026-02-10", "expectedDeliveryDate": "2026-02-20", "currency": "LYD", "notes": "خدمات لوجستية", "lines": [
+      { "itemSku": "ITEM-019", "description": "شريط تغليف", "quantity": 50, "unitPrice": 1.30 }
+    ]}
+  ],
+
+  "goodsReceipts": [
+    { "grNumber": "GR-2026-0001", "poNumber": "PO-2026-0001", "receiptDate": "2025-09-26", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-003", "quantity": 100 }
+    ]},
+    { "grNumber": "GR-2026-0002", "poNumber": "PO-2026-0002", "receiptDate": "2025-10-01", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-008", "quantity": 50 }
+    ]},
+    { "grNumber": "GR-2026-0003", "poNumber": "PO-2026-0003", "receiptDate": "2025-10-16", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-007", "quantity": 80 }
+    ]},
+    { "grNumber": "GR-2026-0004", "poNumber": "PO-2026-0004", "receiptDate": "2025-10-31", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-006", "quantity": 200 }
+    ]},
+    { "grNumber": "GR-2026-0005", "poNumber": "PO-2026-0005", "receiptDate": "2025-11-16", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-009", "quantity": 30 }
+    ]},
+    { "grNumber": "GR-2026-0006", "poNumber": "PO-2026-0006", "receiptDate": "2025-12-02", "warehouseCode": null, "notes": "استلام خدمة", "lines": [
+      { "itemSku": "ITEM-016", "quantity": 5 }
+    ]},
+    { "grNumber": "GR-2026-0007", "poNumber": "PO-2026-0007", "receiptDate": "2025-12-16", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-018", "quantity": 100 }
+    ]},
+    { "grNumber": "GR-2026-0008", "poNumber": "PO-2026-0008", "receiptDate": "2026-01-02", "warehouseCode": null, "notes": "استلام خدمة", "lines": [
+      { "itemSku": "ITEM-017", "quantity": 10 }
+    ]},
+    { "grNumber": "GR-2026-0009", "poNumber": "PO-2026-0009", "receiptDate": "2026-01-26", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-010", "quantity": 40 }
+    ]},
+    { "grNumber": "GR-2026-0010", "poNumber": "PO-2026-0010", "receiptDate": "2026-02-21", "warehouseCode": null, "notes": "استلام كامل", "lines": [
+      { "itemSku": "ITEM-019", "quantity": 50 }
+    ]}
+  ],
+
+  "vendorBills": [
+    { "billNumber": "BILL-2026-0001", "vendorCode": "VEND-004", "poNumber": "PO-2026-0001", "billDate": "2025-09-30", "dueDate": "2025-10-30", "currency": "LYD", "notes": "فاتورة سكر", "lines": [
+      { "itemSku": "ITEM-003", "description": "سكر أبيض 2 كجم", "quantity": 100, "unitPrice": 7.50 }
+    ]},
+    { "billNumber": "BILL-2026-0002", "vendorCode": "VEND-005", "poNumber": "PO-2026-0002", "billDate": "2025-10-05", "dueDate": "2025-11-04", "currency": "LYD", "notes": "فاتورة زيت", "lines": [
+      { "itemSku": "ITEM-008", "description": "زيت طبخ 5 لتر", "quantity": 50, "unitPrice": 30.00 }
+    ]},
+    { "billNumber": "BILL-2026-0003", "vendorCode": "VEND-006", "poNumber": "PO-2026-0003", "billDate": "2025-10-20", "dueDate": "2025-11-19", "currency": "LYD", "notes": "فاتورة دقيق", "lines": [
+      { "itemSku": "ITEM-007", "description": "دقيق قمح 25 كجم", "quantity": 80, "unitPrice": 43.00 }
+    ]},
+    { "billNumber": "BILL-2026-0004", "vendorCode": "VEND-007", "poNumber": "PO-2026-0004", "billDate": "2025-11-05", "dueDate": "2025-12-05", "currency": "LYD", "notes": "فاتورة حليب", "lines": [
+      { "itemSku": "ITEM-006", "description": "حليب طازج 1 لتر", "quantity": 200, "unitPrice": 3.20 }
+    ]},
+    { "billNumber": "BILL-2026-0005", "vendorCode": "VEND-008", "poNumber": "PO-2026-0005", "billDate": "2025-11-20", "dueDate": "2025-12-20", "currency": "LYD", "notes": "فاتورة شاي", "lines": [
+      { "itemSku": "ITEM-009", "description": "شاي أحمر 1 كجم", "quantity": 30, "unitPrice": 26.00 }
+    ]},
+    { "billNumber": "BILL-2026-0006", "vendorCode": "VEND-009", "poNumber": "PO-2026-0006", "billDate": "2025-12-05", "dueDate": "2026-01-04", "currency": "LYD", "notes": "فاتورة استشارات", "lines": [
+      { "itemSku": "ITEM-016", "description": "خدمات استشارية محاسبية", "quantity": 5, "unitPrice": 150.00 }
+    ]},
+    { "billNumber": "BILL-2026-0007", "vendorCode": "VEND-010", "poNumber": "PO-2026-0007", "billDate": "2025-12-20", "dueDate": "2026-01-19", "currency": "LYD", "notes": "فاتورة تغليف", "lines": [
+      { "itemSku": "ITEM-018", "description": "صندوق تغليف", "quantity": 100, "unitPrice": 1.80 }
+    ]},
+    { "billNumber": "BILL-2026-0008", "vendorCode": "VEND-011", "poNumber": "PO-2026-0008", "billDate": "2026-01-05", "dueDate": "2026-02-04", "currency": "LYD", "notes": "فاتورة صيانة", "lines": [
+      { "itemSku": "ITEM-017", "description": "خدمات توصيل", "quantity": 10, "unitPrice": 25.00 }
+    ]},
+    { "billNumber": "BILL-2026-0009", "vendorCode": "VEND-012", "poNumber": "PO-2026-0009", "billDate": "2026-01-30", "dueDate": "2026-03-01", "currency": "LYD", "notes": "فاتورة قهوة", "lines": [
+      { "itemSku": "ITEM-010", "description": "قهوة 500 جم", "quantity": 40, "unitPrice": 60.00 }
+    ]},
+    { "billNumber": "BILL-2026-0010", "vendorCode": "VEND-013", "poNumber": "PO-2026-0010", "billDate": "2026-02-25", "dueDate": "2026-03-27", "currency": "LYD", "notes": "فاتورة لوجستيات", "lines": [
+      { "itemSku": "ITEM-019", "description": "شريط تغليف", "quantity": 50, "unitPrice": 1.30 }
+    ]}
+  ]
+}

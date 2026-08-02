@@ -9,6 +9,10 @@ namespace ERPSystem.Modules.Projects.Entities;
 public class ProjectBudget
 {
     public Guid Id { get; set; }
+
+    // Sprint 28 (DEC-095): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public Guid ProjectId { get; set; }
     public Guid CostCenterId { get; set; }
     public Guid? AccountId { get; set; }            // 4111-4114 مصروفات

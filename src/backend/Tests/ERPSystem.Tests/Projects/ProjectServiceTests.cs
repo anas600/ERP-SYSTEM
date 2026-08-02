@@ -4,11 +4,31 @@ using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Modules.Projects.Entities;
 using ERPSystem.Modules.Projects.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 using TaskStatus = ERPSystem.Modules.Projects.Entities.TaskStatus;
 
 namespace ERPSystem.Tests.Projects;
+
+/// <summary>
+/// Shared helper: produce a fully-set-up ICompanyContext with a random non-empty CompanyId.
+/// Sprint 28 (DEC-095): services now require ICompanyContext — tests must use a stub.
+/// Without the Setup(), Mock returns the default(Guid) which makes services treat the call
+/// as "no company context" and fail with "Company not resolved".
+/// </summary>
+internal static class TestCompanyContextFactory
+{
+    public static ICompanyContext Create() => Create(Guid.NewGuid());
+
+    public static ICompanyContext Create(Guid companyId)
+    {
+        var m = new Mock<ICompanyContext>();
+        m.Setup(c => c.CompanyId).Returns(companyId);
+        return m.Object;
+    }
+}
 
 public class ProjectServiceTests
 {
@@ -18,20 +38,29 @@ public class ProjectServiceTests
         var projects = new FakeProjectRepository();
         var budgets = new FakeProjectBudgetRepository();
         var costCenters = new FakeCostCenterService();
-        var svc = new ProjectService(projects, budgets, costCenters, NullLogger<ProjectService>.Instance);
+        var ctx = TestCompanyContextFactory.Create();
+        var svc = new ProjectService(projects, budgets, costCenters, ctx, NullLogger<ProjectService>.Instance);
         return (svc, projects, costCenters);
     }
 
     [Fact]
     public async Task Create_AutoCreatesCostCenter_AndBudget()
     {
-        var (svc, projects, costCenters) = Build();
-        var companyId = Guid.NewGuid();
+        // Sprint 28 (DEC-095): L19 cross-tenant safety — service uses ICompanyContext.CompanyId
+        // (not req.CompanyId) when creating the Project. We provide both context and a request
+        // with a different CompanyId to prove the service ignores req.CompanyId for the project.
+        var projects = new FakeProjectRepository();
+        var budgets = new FakeProjectBudgetRepository();
+        var costCenters = new FakeCostCenterService();
+        var ctxCompanyId = Guid.NewGuid();
+        var ctx = TestCompanyContextFactory.Create(ctxCompanyId);
+        var svc = new ProjectService(projects, budgets, costCenters, ctx, NullLogger<ProjectService>.Instance);
         var userId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
 
         var result = await svc.CreateAsync(userId, new CreateProjectRequest
         {
-            CompanyId = companyId,
+            CompanyId = otherCompanyId,   // should be ignored for project + budget
             Code = "PRJ-001",
             Name = "مشروع تجريبي",
             Budget = 100_000m,
@@ -47,17 +76,18 @@ public class ProjectServiceTests
         project.CostCenterId.Should().Be(costCenters.Created[0].Id);
         project.Status.Should().Be(ProjectStatus.Planning);
         project.IsActive.Should().BeTrue();
-        project.CompanyId.Should().Be(companyId);
+        // L19: project.CompanyId comes from ICompanyContext (not request)
+        project.CompanyId.Should().Be(ctxCompanyId, "L19 — service uses context, not req.CompanyId");
 
         projects.BudgetsByProject[project.Id].Should().NotBeNull("ProjectBudget يُنشأ تلقائياً");
         projects.BudgetsByProject[project.Id].BudgetAmount.Should().Be(100_000m);
+        projects.BudgetsByProject[project.Id].CompanyId.Should().Be(ctxCompanyId, "L19 — budget also uses context");
     }
 
     [Fact]
     public async Task Create_DuplicateCode_Fails()
     {
         var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
         await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PRJ-001", Name = "A", Budget = 100, StartDate = DateTime.UtcNow
@@ -74,7 +104,6 @@ public class ProjectServiceTests
     public async Task ChangeStatus_PlanningToActive_Succeeds()
     {
         var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P1", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -88,7 +117,6 @@ public class ProjectServiceTests
     public async Task ChangeStatus_ActiveToPlanning_Fails()
     {
         var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -103,7 +131,6 @@ public class ProjectServiceTests
     public async Task ChangeStatus_ActiveToCompleted_ThenToActive_Fails()
     {
         var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P2c", Name = "X", Budget = 1000, StartDate = DateTime.UtcNow
@@ -119,7 +146,6 @@ public class ProjectServiceTests
     public async Task Deactivate_SetsIsActiveFalse()
     {
         var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
         var p = await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "P3", Name = "X", Budget = 100, StartDate = DateTime.UtcNow
@@ -142,15 +168,26 @@ public class ProjectServiceTests
     [Fact]
     public async Task List_FiltersByCompany()
     {
-        var (svc, _, _) = Build();
-        var companyId = Guid.NewGuid();
-        var comp1 = Guid.NewGuid();
-        var comp2 = Guid.NewGuid();
-        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1A", Name = "A", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp1, Code = "C1B", Name = "B", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = comp2, Code = "C2A", Name = "C", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
-        var r = await svc.ListAsync(comp1, null, true, 0, 50, CancellationToken.None);
-        r.Value!.Count.Should().Be(2);
+        // Sprint 28 (DEC-095): L19 — all projects get CompanyId from ICompanyContext, not from req.
+        // Therefore filtering by the context's company should return all 3 projects; filtering
+        // by any other companyId should return 0.
+        var projects = new FakeProjectRepository();
+        var budgets = new FakeProjectBudgetRepository();
+        var costCenters = new FakeCostCenterService();
+        var ctxCompanyId = Guid.NewGuid();
+        var otherCompanyId = Guid.NewGuid();
+        var ctx = TestCompanyContextFactory.Create(ctxCompanyId);
+        var svc = new ProjectService(projects, budgets, costCenters, ctx, NullLogger<ProjectService>.Instance);
+
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = otherCompanyId, Code = "C1A", Name = "A", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = otherCompanyId, Code = "C1B", Name = "B", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+        await svc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest { CompanyId = otherCompanyId, Code = "C1C", Name = "C", Budget = 1, StartDate = DateTime.UtcNow }, CancellationToken.None);
+
+        var inCtx = await svc.ListAsync(ctxCompanyId, null, true, 0, 50, CancellationToken.None);
+        inCtx.Value!.Count.Should().Be(3, "L19 — projects are tagged with the context's company");
+
+        var inOther = await svc.ListAsync(otherCompanyId, null, true, 0, 50, CancellationToken.None);
+        inOther.Value!.Count.Should().Be(0, "L19 — no project should leak to a different companyId");
     }
 }
 
@@ -159,7 +196,7 @@ public class TaskServiceTests
     private static async Task<ProjectResponse> CreateProjectAsync(FakeProjectRepository repo, string code = "P-DEFAULT")
     {
         var ccService = new FakeCostCenterService();
-        var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, NullLogger<ProjectService>.Instance);
+        var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, TestCompanyContextFactory.Create(), NullLogger<ProjectService>.Instance);
         var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = code, Name = "X", Budget = 100, StartDate = DateTime.UtcNow
@@ -173,7 +210,7 @@ public class TaskServiceTests
         var tasks = new FakeTaskRepository();
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
-        var svc = new TaskService(tasks);
+        var svc = new TaskService(tasks, TestCompanyContextFactory.Create());
         var r = await svc.CreateAsync(new CreateTaskRequest
         {
             ProjectId = p.Id, Name = "مهمة 1", EstimatedHours = 8
@@ -189,7 +226,7 @@ public class TaskServiceTests
         var tasks = new FakeTaskRepository();
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
-        var svc = new TaskService(tasks);
+        var svc = new TaskService(tasks, TestCompanyContextFactory.Create());
         var t = await svc.CreateAsync(new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 4 }, CancellationToken.None);
         var r = await svc.UpdateAsync(t.Value!.Id, new UpdateTaskRequest
         {
@@ -208,7 +245,7 @@ public class TaskServiceTests
         var projects = new FakeProjectRepository();
         var p1 = await CreateProjectAsync(projects, "P-A");
         var p2 = await CreateProjectAsync(projects, "P-B");
-        var svc = new TaskService(tasks);
+        var svc = new TaskService(tasks, TestCompanyContextFactory.Create());
         await svc.CreateAsync(new CreateTaskRequest { ProjectId = p1.Id, Name = "T1", EstimatedHours = 1 }, CancellationToken.None);
         await svc.CreateAsync(new CreateTaskRequest { ProjectId = p1.Id, Name = "T2", EstimatedHours = 2 }, CancellationToken.None);
         await svc.CreateAsync(new CreateTaskRequest { ProjectId = p2.Id, Name = "T3", EstimatedHours = 3 }, CancellationToken.None);
@@ -223,7 +260,7 @@ public class TaskServiceTests
         var tasks = new FakeTaskRepository();
         var projects = new FakeProjectRepository();
         var p = await CreateProjectAsync(projects);
-        var svc = new TaskService(tasks);
+        var svc = new TaskService(tasks, TestCompanyContextFactory.Create());
         var t = await svc.CreateAsync(new CreateTaskRequest { ProjectId = p.Id, Name = "T", EstimatedHours = 1 }, CancellationToken.None);
         var r = await svc.DeleteAsync(t.Value!.Id, CancellationToken.None);
         r.Succeeded.Should().BeTrue();
@@ -237,7 +274,7 @@ public class ResourceServiceTests
     [Fact]
     public async Task Create_DefaultsToActive()
     {
-        var svc = new ResourceService(new FakeResourceRepository());
+        var svc = new ResourceService(new FakeResourceRepository(), TestCompanyContextFactory.Create());
         var r = await svc.CreateAsync(new CreateResourceRequest
         {
             Code = "RES-001", Name = "عامل 1", Type = ResourceType.Labor, HourlyRate = 50
@@ -250,8 +287,7 @@ public class ResourceServiceTests
     public async Task Create_DuplicateCode_Fails()
     {
         var repo = new FakeResourceRepository();
-        var svc = new ResourceService(repo);
-        var t = Guid.NewGuid();
+        var svc = new ResourceService(repo, TestCompanyContextFactory.Create());
         await svc.CreateAsync(new CreateResourceRequest { Code = "R1", Name = "A", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
         var r = await svc.CreateAsync(new CreateResourceRequest { Code = "R1", Name = "B", Type = ResourceType.Labor, HourlyRate = 2 }, CancellationToken.None);
         r.Succeeded.Should().BeFalse();
@@ -261,8 +297,7 @@ public class ResourceServiceTests
     public async Task Deactivate_SetsIsActiveFalse()
     {
         var repo = new FakeResourceRepository();
-        var svc = new ResourceService(repo);
-        var t = Guid.NewGuid();
+        var svc = new ResourceService(repo, TestCompanyContextFactory.Create());
         var r = await svc.CreateAsync(new CreateResourceRequest { Code = "R-Active", Name = "X", Type = ResourceType.Labor, HourlyRate = 1 }, CancellationToken.None);
         var u = await svc.UpdateAsync(r.Value!.Id, new UpdateResourceRequest
         {
@@ -279,7 +314,7 @@ public class BudgetServiceTests
     {
         var repo = new FakeProjectRepository();
         var ccService = new FakeCostCenterService();
-        var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, NullLogger<ProjectService>.Instance);
+        var projectSvc = new ProjectService(repo, new FakeProjectBudgetRepository(), ccService, TestCompanyContextFactory.Create(), NullLogger<ProjectService>.Instance);
         var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PB", Name = "B", Budget = 1000, StartDate = DateTime.UtcNow
@@ -294,7 +329,7 @@ public class BudgetServiceTests
         var projects = new FakeProjectRepository();
         var budgets = new FakeProjectBudgetRepository();
         var ccService = new FakeCostCenterService();
-        var projectSvc = new ProjectService(projects, budgets, ccService, NullLogger<ProjectService>.Instance);
+        var projectSvc = new ProjectService(projects, budgets, ccService, TestCompanyContextFactory.Create(), NullLogger<ProjectService>.Instance);
         var r = await projectSvc.CreateAsync(Guid.NewGuid(), new CreateProjectRequest
         {
             CompanyId = Guid.NewGuid(), Code = "PB-RC", Name = "B", Budget = 1000, StartDate = DateTime.UtcNow
@@ -380,6 +415,7 @@ internal class FakeProjectRepository : IProjectRepository
         BudgetsByProject[project.Id] = new ProjectBudget
         {
             Id = Guid.NewGuid(), ProjectId = project.Id,
+            CompanyId = project.CompanyId,             // Sprint 28 (DEC-095): mirror L19
             CostCenterId = project.CostCenterId, BudgetAmount = project.Budget,
             SpentAmount = 0, CommittedAmount = 0, LastRecalculatedAt = DateTime.UtcNow
         };

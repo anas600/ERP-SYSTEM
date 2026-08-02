@@ -41,6 +41,9 @@ public class PayrollRun
 {
     public Guid Id { get; set; }
 
+    // Sprint 28 (DEC-094): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public DateTime PeriodStart { get; set; }
     public DateTime PeriodEnd { get; set; }
     public PayrollRunStatus Status { get; set; } = PayrollRunStatus.Draft;

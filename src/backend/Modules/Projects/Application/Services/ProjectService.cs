@@ -3,6 +3,7 @@ using ERPSystem.Modules.Companies.Entities;
 using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Entities;
 using ERPSystem.Modules.Projects.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Projects.Application.Services;
 
@@ -36,11 +37,12 @@ public sealed class ProjectService : IProjectService
     private readonly IProjectRepository _projects;
     private readonly IProjectBudgetRepository _budgets;
     private readonly ICostCenterService _costCenters;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<ProjectService> _logger;
 
-    public ProjectService(IProjectRepository projects, IProjectBudgetRepository budgets, ICostCenterService costCenters, ILogger<ProjectService> logger)
+    public ProjectService(IProjectRepository projects, IProjectBudgetRepository budgets, ICostCenterService costCenters, ICompanyContext companyContext, ILogger<ProjectService> logger)
     {
-        _projects = projects; _budgets = budgets; _costCenters = costCenters; _logger = logger;
+        _projects = projects; _budgets = budgets; _costCenters = costCenters; _companyContext = companyContext; _logger = logger;
     }
 
     public async Task<ProjectResult<ProjectResponse>> CreateAsync(Guid userId, CreateProjectRequest req, CancellationToken ct)
@@ -65,10 +67,13 @@ public sealed class ProjectService : IProjectService
 
         // 2) Create Project
         var now = DateTime.UtcNow;
+        // Sprint 28 (DEC-095): Constitution Article 3 — use ICompanyContext (not req.CompanyId)
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var project = new Project
         {
             Id = Guid.NewGuid(),
-            CompanyId = req.CompanyId,
+            CompanyId = companyId,
             CostCenterId = ccResult.Value!.Id,
             Code = req.Code.Trim(),
             Name = req.Name.Trim(),
@@ -83,10 +88,11 @@ public sealed class ProjectService : IProjectService
         };
         await _projects.InsertAsync(project, ct);
 
-        // 3) Create ProjectBudget
+        // 3) Create ProjectBudget (Sprint 28 DEC-095: include CompanyId)
         await _budgets.InsertAsync(new ProjectBudget
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             ProjectId = project.Id,
             CostCenterId = project.CostCenterId,
             AccountId = null,   // يمكن ربطه بحساب 4111 لاحقاً

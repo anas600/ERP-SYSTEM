@@ -8,7 +8,7 @@ public sealed class ResourceAssignmentRepository : IResourceAssignmentRepository
 {
     private readonly IDbConnectionFactory _db;
     public ResourceAssignmentRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, project_id AS ProjectId, task_id AS TaskId,
+    private const string Sel = @"id, company_id AS CompanyId, project_id AS ProjectId, task_id AS TaskId,
         resource_id AS ResourceId, user_id AS UserId, from, to,
         hourly_rate AS HourlyRate, created_at AS CreatedAt";
 
@@ -29,9 +29,10 @@ public sealed class ResourceAssignmentRepository : IResourceAssignmentRepository
     public async Task InsertAsync(ResourceAssignment assignment, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-095): include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO resource_assignments (id, project_id, task_id, resource_id, user_id, from, to, hourly_rate, created_at)
-            VALUES (@Id, @ProjectId, @TaskId, @ResourceId, @UserId, @From, @To, @HourlyRate, @CreatedAt)",
+            INSERT INTO resource_assignments (id, company_id, project_id, task_id, resource_id, user_id, from, to, hourly_rate, created_at)
+            VALUES (@Id, @CompanyId, @ProjectId, @TaskId, @ResourceId, @UserId, @From, @To, @HourlyRate, @CreatedAt)",
             assignment, cancellationToken: ct));
     }
     public async Task DeleteAsync(Guid id, CancellationToken ct)

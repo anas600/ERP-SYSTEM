@@ -8,7 +8,8 @@ public enum NormalBalance { Debit = 1, Credit = 2 }
 public class Account
 {
     public Guid Id { get; set; }
-    public Guid? CompanyId { get; set; }
+    // Sprint 28 (DEC-097): was Guid? — DB column is NOT NULL, so entity should match.
+    public Guid CompanyId { get; set; }
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
