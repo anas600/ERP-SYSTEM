@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Eye, AlertTriangle } from 'lucide-react';
 import { Card, Badge, PageHeader, Button, Input } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { api, getErrorMessage } from '@/lib/api';
 
 interface StockLevel {
   id: string;
@@ -37,11 +37,11 @@ export default function StockLevelsPage() {
     setLoading(true);
     setError(null);
     try {
+      // Sprint 22: use api client (sends JWT + X-Company-Id).
+      // For low-stock, the BE reads companyId from the JWT/X-Company-Id.
       const url = lowStock ? '/api/inventory/levels/low-stock' : '/api/inventory/levels';
-      const res = await fetch(url, { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = await res.json();
-      setItems(data);
+      const { data } = await api.get(url);
+      setItems(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
     } finally {

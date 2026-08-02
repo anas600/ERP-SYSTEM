@@ -1,6 +1,7 @@
 using System.Text.Json;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Finance.Application.Services;
 
@@ -9,17 +10,20 @@ public sealed class PostingRulesService : IPostingRulesService
     private readonly IPostingRuleRepository _rules;
     private readonly IAccountRepository _accounts;
     private readonly IJournalEntryService _journalService;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<PostingRulesService> _logger;
 
     public PostingRulesService(
         IPostingRuleRepository rules,
         IAccountRepository accounts,
         IJournalEntryService journalService,
+        ICompanyContext companyContext,
         ILogger<PostingRulesService> logger)
     {
         _rules = rules;
         _accounts = accounts;
         _journalService = journalService;
+        _companyContext = companyContext;
         _logger = logger;
     }
 
@@ -43,10 +47,14 @@ public sealed class PostingRulesService : IPostingRulesService
             }
         }
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context — cannot create posting rule without company_id.");
+
         var now = DateTime.UtcNow;
         var rule = new PostingRule
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             Name = request.Name,
             Description = request.Description,
             EventType = request.EventType,
@@ -173,7 +181,7 @@ public sealed class PostingRulesService : IPostingRulesService
         return result;
     }
 
-    public async Task EnsureDefaultRulesAsync(CancellationToken ct)
+    public async Task EnsureDefaultRulesAsync(Guid holdingId, CancellationToken ct)
     {
         // ====== StockReceived → Inventory Debit / Accounts Payable Credit (Sprint 11) ======
         var existingStock = (await _rules.ListActiveByEventAsync(TriggeringEvent.StockReceived, ct))
@@ -183,6 +191,7 @@ public sealed class PostingRulesService : IPostingRulesService
             var stockRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
+                CompanyId = holdingId,
                 Name = "استلام بضاعة (افتراضي)",
                 Description = "عند استلام بضاعة، مدين المخزون ودائن الدائنون",
                 EventType = TriggeringEvent.StockReceived,
@@ -214,6 +223,7 @@ public sealed class PostingRulesService : IPostingRulesService
             var saleRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
+                CompanyId = holdingId,
                 Name = "فاتورة مبيعات (افتراضي - ليبيا)",
                 Description = "ترحيل فاتورة مبيعات: مدين ذمم مدينة / دائن إيرادات",
                 EventType = TriggeringEvent.SalesInvoicePosted,
@@ -242,6 +252,7 @@ public sealed class PostingRulesService : IPostingRulesService
             var billRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
+                CompanyId = holdingId,
                 Name = "فاتورة مورّد (افتراضي - ليبيا)",
                 Description = "ترحيل فاتورة مورّد: مدين مخزون / دائن ذمم دائنة",
                 EventType = TriggeringEvent.VendorBillPosted,
@@ -269,6 +280,7 @@ public sealed class PostingRulesService : IPostingRulesService
             var receiptRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
+                CompanyId = holdingId,
                 Name = "سند قبض (افتراضي - ليبيا)",
                 Description = "استلام دفعة من عميل: مدين نقدية / دائن ذمم مدينة",
                 EventType = TriggeringEvent.ReceiptPosted,
@@ -296,6 +308,7 @@ public sealed class PostingRulesService : IPostingRulesService
             var paymentRule = new PostingRule
             {
                 Id = Guid.NewGuid(),
+                CompanyId = holdingId,
                 Name = "دفع لمورّد (افتراضي - ليبيا)",
                 Description = "دفع لمورّد: مدين ذمم دائنة / دائن نقدية",
                 EventType = TriggeringEvent.PaymentPosted,

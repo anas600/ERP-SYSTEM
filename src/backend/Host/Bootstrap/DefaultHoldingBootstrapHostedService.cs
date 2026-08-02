@@ -203,7 +203,7 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             {
                 using var scope = _scopeFactory.CreateScope();
                 var postingRules = scope.ServiceProvider.GetRequiredService<IPostingRulesService>();
-                await postingRules.EnsureDefaultRulesAsync(cancellationToken);
+                await postingRules.EnsureDefaultRulesAsync(holdingId, cancellationToken);
                 _logger.LogInformation("[Sprint21] Default posting rules seeded (Libya default — no tax)");
             }
             catch (Exception ex)

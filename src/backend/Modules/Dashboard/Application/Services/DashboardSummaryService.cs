@@ -88,17 +88,13 @@ public sealed class DashboardSummaryService : IDashboardSummaryService
             @"SELECT COUNT(1) FROM user_companies WHERE company_id = @CompanyId",
             new { CompanyId = companyId.Value }, cancellationToken: ct));
 
-        // "Today" = UTC date boundary. The activity_log.created_at column is
-        // timestamptz, so >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
-        // matches the convention used in Phase 6 for date-based activity
-        // reports. We compare against NOW() at the call site, not a
-        // parameter, so the result is stable for a single request.
+        // Sprint 22: activity_log table removed (Activity module deleted).
+        // Use journal_entries as a proxy for "activity today".
         var activitiesToday = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
-            @"SELECT COUNT(1) FROM activity_log
-              WHERE user_id = @UserId
-                AND company_id = @CompanyId
+            @"SELECT COUNT(1) FROM journal_entries
+              WHERE company_id = @CompanyId
                 AND created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')",
-            new { UserId = userId.Value, CompanyId = companyId.Value },
+            new { CompanyId = companyId.Value },
             cancellationToken: ct));
 
         // "Transactions" = all journal entries for the current company,

@@ -14,7 +14,7 @@ public sealed class PostingRuleRepository : IPostingRuleRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            SELECT id, name, description, event_type AS EventType,
+            SELECT id, company_id AS CompanyId, name, description, event_type AS EventType,
                    is_active AS IsActive, template_json AS TemplateJson,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM posting_rules WHERE id = @Id LIMIT 1";
@@ -25,7 +25,7 @@ public sealed class PostingRuleRepository : IPostingRuleRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            SELECT id, name, description, event_type AS EventType,
+            SELECT id, company_id AS CompanyId, name, description, event_type AS EventType,
                    is_active AS IsActive, template_json AS TemplateJson,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM posting_rules
@@ -40,7 +40,7 @@ public sealed class PostingRuleRepository : IPostingRuleRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            SELECT id, name, description, event_type AS EventType,
+            SELECT id, company_id AS CompanyId, name, description, event_type AS EventType,
                    is_active AS IsActive, template_json AS TemplateJson,
                    created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM posting_rules ORDER BY created_at DESC";
@@ -52,8 +52,8 @@ public sealed class PostingRuleRepository : IPostingRuleRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            INSERT INTO posting_rules (id, name, description, event_type, is_active, template_json, created_at, updated_at)
-            VALUES (@Id, @Name, @Description, @EventType, @IsActive, @TemplateJson, @CreatedAt, @UpdatedAt)";
+            INSERT INTO posting_rules (id, company_id, name, description, event_type, is_active, template_json, created_at, updated_at)
+            VALUES (@Id, @CompanyId, @Name, @Description, @EventType, @IsActive, @TemplateJson::jsonb, @CreatedAt, @UpdatedAt)";
         await conn.ExecuteAsync(new CommandDefinition(sql, rule, cancellationToken: ct));
     }
 
@@ -62,7 +62,8 @@ public sealed class PostingRuleRepository : IPostingRuleRepository
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
             UPDATE posting_rules SET name = @Name, description = @Description,
-                                      is_active = @IsActive, template_json = @TemplateJson,
+                                      is_active = @IsActive, template_json = @TemplateJson::jsonb,
+                                      company_id = @CompanyId,
                                       updated_at = @UpdatedAt
             WHERE id = @Id";
         await conn.ExecuteAsync(new CommandDefinition(sql, rule, cancellationToken: ct));

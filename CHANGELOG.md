@@ -13,7 +13,41 @@
 
 ---
 
-## Sprint 21 — Posting Rules Engine: config-driven posting for AR + Procurement (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
+## Sprint 22 — Major Refactor: 15→9 modules, no event bus, no Marten (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **Anas 2026-08-02 03:00 UTC** + Muhammad analysis — clean up the architecture for a single-deployment ERP (Holding + N subsidiaries). Drop dead modules, drop the event bus, drop Marten. Use direct service calls for cross-module work (Posting Rules workflow). Plan: docs/architecture/REFACTOR-SPRINT-22.md.
+
+Branch: working on eature/sprint-21-posting-rules-engine (Sprint 21 + Sprint 22 combined). LOCAL-ONLY.
+
+### Removed
+- **4 modules deleted (BE):** Modules/Activity/, Modules/Notifications/, Modules/Search/, Modules/Reports/
+- **6 controllers deleted (BE):** ActivityController, NotificationsController, SearchController, ReportsController, FinanceReportsController, EventsController
+- **5 FE pages deleted:** /activity, /admin/notifications/*, /notifications, /reports/* (~25 sub-pages)
+- **2 FE components deleted:** NotificationBell.tsx, GlobalSearch.tsx
+- **Event Bus deleted:** Shared/Events/ entire directory (IIntegrationEvent, IDomainEvent, EventBus, OutboxProcessor, OutboxEvent, OutboxRepository, ProcessedEventsRepository, IProcessedEventsRepository, IIntegrationEventHandler<T>)
+- **Marten references cleaned up:** Marten__ConnectionString removed from appsettings (DEC-017 was disabled anyway).
+- **Outbox tables dropped on next migrate:** outbox_events, processed_events (still in DB until next clean install — non-blocking).
+
+### Changed
+- **Modules 15 → 9:** kept Identity, Companies, Finance, Inventory, Procurement, AccountsReceivable, HR, Payroll, Projects, Dashboard. See /AGENTS.md for the canonical list.
+- **Cross-module = direct service calls:** SalesInvoiceService.PostAsync directly calls PostingRulesService.ApplyRulesAsync(...) + ProjectsService.UpdateCostAsync(...). Same transaction, no outbox.
+- **AuthService simplified:** removed IActivityLogger injection (Activity module deleted).
+- **StockMovementService simplified:** removed INotificationService + IEventBus injection. No low-stock notifications, no event publishing.
+- **FE sidebar cleaned:** removed التقارير group (12 items), removed إشعاراتي + سجل النشاط from admin group. 28 valid links remain.
+- **Folder rename:** src/backend/Shared/MultiTenancy/ → src/backend/Shared/CompanyContext/.
+- **Per-module reports:** complex reports deleted. Simple reports live in their parent module (e.g., Trial Balance in Finance).
+
+### Fixed
+- **PostingRuleRepository.InsertAsync jsonb cast** (Sprint 21 fix): 	emplate_json::jsonb cast added in SQL.
+- **Missing CompanyId in PostingRule entity** (Sprint 21 fix): added CompanyId to entity, set from ICompanyContext in CreateAsync + from holdingId in EnsureDefaultRulesAsync.
+- **FE posting-rules page** (Sprint 21 fix): replaced raw etch() with pi.get/post/delete (so JWT + X-Company-Id headers are sent). Also fixed body shape.
+
+### Known Issues (Phase 13 — deferred)
+- 22 FE calls to dead-module endpoints (/api/*/reports/*, /api/activity/recent, /api/inventory/notifications/unread, /api/search) → FE pages show error states.
+- 3 server 500s on dashboard pages (/api/holdings/dashboard, /api/dashboard/summary, /api/transactions/recent).
+- 4 routing 404s (wrong paths): /api/admin/health, /api/admin/audit, /api/finance/ledger/general-ledger, /api/holding.
+
+---## Sprint 21 — Posting Rules Engine: config-driven posting for AR + Procurement (2026-08-01) ✅ DONE (LOCAL-ONLY → Mode 2 pending)
 
 **Goal:** Per **Anas 2026-08-01 13:55 UTC** ("ابدأ") + Muhammad recommendation — replace the hardcoded posting logic in Sales/Receipt/Bill services with a config-driven Posting Rules Engine. Libya default = no tax (TaxId optional, null = no tax). Pre-existing infrastructure (Sprint 11) is already there — Sprint 21 expands it to cover the 4 P0 business events + hooks + seeder.
 

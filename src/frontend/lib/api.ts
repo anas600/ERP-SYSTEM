@@ -888,137 +888,11 @@ export const financeApi = {
     const r = await api.post<Account>('/api/finance/accounts', data);
     return r.data;
   },
-  trialBalance: async (asOfDate: string): Promise<TrialBalanceReport> => {
-    const r = await api.get<TrialBalanceReport>('/api/reports/finance/trial-balance', {
-      params: { asOfDate },
-    });
-    return r.data;
-  },
 };
 
-// ============ 20 Mandatory Accounting Reports API ============
-// Phase 6.2: Added on top of the new Multi-Company architecture
-
-// DTOs matching the backend (C#)
-export interface TrialBalanceRow { accountId: string; accountCode: string; accountName: string; accountType: number; debit: number; credit: number; }
-export interface TrialBalanceReport { asOfDate: string; rows: TrialBalanceRow[]; totalDebit: number; totalCredit: number; isBalanced: boolean; }
-export interface IncomeStatement { from: string; to: string; revenue: number; cogs: number; operatingExpenses: number; otherIncome: number; otherExpenses: number; netIncome: number; }
-export interface BalanceSheet { asOfDate: string; totalAssets: number; totalLiabilities: number; totalEquity: number; isBalanced: boolean; }
-export interface CashFlowReport { from: string; to: string; operatingActivities: number; investingActivities: number; financingActivities: number; netCashFlow: number; }
-export interface JournalEntryLineDto { journalEntryId: string; entryNumber: string; entryDate: string; description: string; reference: string; totalDebit: number; totalCredit: number; status: number; postedAt?: string; }
-export interface JournalEntryReport { from?: string; to?: string; status?: number; totalEntries: number; totalDebit: number; totalCredit: number; lines: JournalEntryLineDto[]; }
-export interface AccountActivityTransaction { journalLineId: string; entryDate: string; entryNumber: string; reference: string; description: string; debit: number; credit: number; }
-export interface AccountActivityResponse { accountId: string; accountCode: string; accountName: string; normalBalance: number; from?: string; to?: string; openingBalance: number; periodDebit: number; periodCredit: number; closingBalance: number; transactions: AccountActivityTransaction[]; }
-export interface CollectionsRow { receiptId: string; receiptNumber: string; receiptDate: string; customerCode: string; customerName: string; paymentMethod: string; amount: number; currency: string; notes: string; }
-export interface CollectionsReport { from?: string; to?: string; totalAmount: number; count: number; rows: CollectionsRow[]; }
-export interface CostCenterPerformanceRow { costCenterId: string; costCenterCode: string; costCenterName: string; revenue: number; expense: number; net: number; margin: number; }
-export interface CostCenterPerformanceReport { from?: string; to?: string; totalRevenue: number; totalExpense: number; totalNet: number; rows: CostCenterPerformanceRow[]; }
-export interface VatReport { from: string; to: string; vatRate: number; totalSales: number; outputVat: number; totalPurchases: number; inputVat: number; netVatPayable: number; details: Record<string, unknown>; }
-export interface SalesByCustomerRow { customerId: string; customerCode: string; customerName: string; invoiceCount: number; subtotal: number; taxAmount: number; totalAmount: number; paidAmount: number; outstanding: number; }
-export interface SalesByCustomerReport { from: string; to: string; grandTotal: number; grandOutstanding: number; rows: SalesByCustomerRow[]; }
-export interface SalesByItemRow { itemId: string; sku: string; itemName: string; quantity: number; subtotal: number; taxAmount: number; totalAmount: number; }
-export interface SalesByItemReport { from: string; to: string; grandTotal: number; rows: SalesByItemRow[]; }
-export interface PurchasesByVendorRow { vendorId: string; vendorCode: string; vendorName: string; billCount: number; subtotal: number; taxAmount: number; totalAmount: number; paidAmount: number; outstanding: number; }
-export interface PurchasesByVendorReport { from: string; to: string; grandTotal: number; grandOutstanding: number; rows: PurchasesByVendorRow[]; }
-export interface TopCustomerRow { rank: number; customerId: string; customerCode: string; customerName: string; totalAmount: number; invoiceCount: number; }
-export interface TopCustomersReport { from: string; to: string; limit: number; rows: TopCustomerRow[]; }
-export interface TopVendorRow { rank: number; vendorId: string; vendorCode: string; vendorName: string; totalAmount: number; billCount: number; }
-export interface TopVendorsReport { from: string; to: string; limit: number; rows: TopVendorRow[]; }
-export interface BudgetVsActualRow { projectId: string; projectName: string; budget: number; actual: number; variance: number; variancePercent: number; }
-export interface BudgetVsActualReport { projectId?: string; from: string; to: string; totalBudget: number; totalActual: number; totalVariance: number; totalVariancePercent: number; rows: BudgetVsActualRow[]; }
-
-export const reportsApi = {
-  // Report 1: Trial Balance
-  trialBalance: async (asOf: string): Promise<TrialBalanceReport> => {
-    const r = await api.get<TrialBalanceReport>('/api/finance/reports/trial-balance', { params: { asOf } });
-    return r.data;
-  },
-  // Report 2: Income Statement
-  incomeStatement: async (from: string, to: string): Promise<IncomeStatement> => {
-    const r = await api.get<IncomeStatement>('/api/finance/reports/income-statement', { params: { from, to } });
-    return r.data;
-  },
-  // Report 3: Balance Sheet
-  balanceSheet: async (asOf: string): Promise<BalanceSheet> => {
-    const r = await api.get<BalanceSheet>('/api/finance/reports/balance-sheet', { params: { asOf } });
-    return r.data;
-  },
-  // Report 4: Cash Flow
-  cashFlow: async (from: string, to: string): Promise<CashFlowReport> => {
-    const r = await api.get<CashFlowReport>('/api/finance/reports/cash-flow', { params: { from, to } });
-    return r.data;
-  },
-  // Report 5: General Ledger
-  generalLedger: async (accountId: string, from?: string, to?: string): Promise<AccountActivityResponse> => {
-    const r = await api.get<AccountActivityResponse>('/api/finance/reports/general-ledger', { params: { accountId, from, to } });
-    return r.data;
-  },
-  // Report 6: Journal Entries
-  journalEntries: async (from?: string, to?: string, status?: number, skip = 0, take = 100): Promise<JournalEntryReport> => {
-    const r = await api.get<JournalEntryReport>('/api/finance/reports/journal-entries', { params: { from, to, status, skip, take } });
-    return r.data;
-  },
-  // Report 7: Account Activity
-  accountActivity: async (accountId: string, from?: string, to?: string): Promise<AccountActivityResponse> => {
-    const r = await api.get<AccountActivityResponse>('/api/finance/reports/account-activity', { params: { accountId, from, to } });
-    return r.data;
-  },
-  // Report 10: AP Aging
-  apAging: async (asOf: string): Promise<{ asOfDate: string; vendors: { vendorCode: string; vendorName: string; current: number; days31To60: number; days61To90: number; days91Plus: number; total: number }[]; totalCurrent: number; total31To60: number; total61To90: number; total91Plus: number; grandTotal: number; }> => {
-    const r = await api.get<{ asOfDate: string; vendors: { vendorCode: string; vendorName: string; current: number; days31To60: number; days61To90: number; days91Plus: number; total: number }[]; totalCurrent: number; total31To60: number; total61To90: number; total91Plus: number; grandTotal: number; }>('/api/finance/reports/ap-aging', { params: { asOf } });
-    return r.data;
-  },
-  // Report 11: Collections
-  collections: async (from?: string, to?: string): Promise<CollectionsReport> => {
-    const r = await api.get<CollectionsReport>('/api/finance/reports/collections', { params: { from, to } });
-    return r.data;
-  },
-  // Report 12: Sales by Customer
-  salesByCustomer: async (from: string, to: string): Promise<SalesByCustomerReport> => {
-    const r = await api.get<SalesByCustomerReport>('/api/ar/reports/sales-by-customer', { params: { from, to } });
-    return r.data;
-  },
-  // Report 13: Sales by Item
-  salesByItem: async (from: string, to: string): Promise<SalesByItemReport> => {
-    const r = await api.get<SalesByItemReport>('/api/ar/reports/sales-by-item', { params: { from, to } });
-    return r.data;
-  },
-  // Report 14: Purchases by Vendor
-  purchasesByVendor: async (from: string, to: string): Promise<PurchasesByVendorReport> => {
-    const r = await api.get<PurchasesByVendorReport>('/api/procurement/reports/purchases-by-vendor', { params: { from, to } });
-    return r.data;
-  },
-  // Report 15: Top Customers
-  topCustomers: async (from: string, to: string, limit = 10): Promise<TopCustomersReport> => {
-    const r = await api.get<TopCustomersReport>('/api/ar/reports/top-customers', { params: { from, to, limit } });
-    return r.data;
-  },
-  // Report 15: Top Vendors
-  topVendors: async (from: string, to: string, limit = 10): Promise<TopVendorsReport> => {
-    const r = await api.get<TopVendorsReport>('/api/procurement/reports/top-vendors', { params: { from, to, limit } });
-    return r.data;
-  },
-  // Report 16: Cost Center Performance
-  costCenterPerformance: async (from?: string, to?: string): Promise<CostCenterPerformanceReport> => {
-    const r = await api.get<CostCenterPerformanceReport>('/api/finance/reports/cost-center-performance', { params: { from, to } });
-    return r.data;
-  },
-  // Report 17/18: Project P&L + Budget vs Actual (all projects)
-  projectBudgetVsActual: async (projectId?: string, from?: string, to?: string): Promise<BudgetVsActualReport> => {
-    const r = await api.get<BudgetVsActualReport>('/api/reports/projects/budget-vs-actual', { params: { projectId, from, to } });
-    return r.data;
-  },
-  // Report 19: VAT
-  vat: async (from: string, to: string): Promise<VatReport> => {
-    const r = await api.get<VatReport>('/api/finance/reports/vat', { params: { from, to } });
-    return r.data;
-  },
-  // Report 20: Inventory Valuation
-  inventoryValuation: async (): Promise<{ count: number; totalValue: number; items: { itemId: string; itemSku: string; itemName: string; warehouseId: string; warehouseName: string; quantityOnHand: number; averageCost: number; totalValue: number }[] }> => {
-    const r = await api.get<{ count: number; totalValue: number; items: { itemId: string; itemSku: string; itemName: string; warehouseId: string; warehouseName: string; quantityOnHand: number; averageCost: number; totalValue: number }[] }>('/api/reports/inventory/valuation');
-    return r.data;
-  },
-};
+// Sprint 22: Reports module deleted. Complex report APIs (Trial Balance, P&L,
+// Balance Sheet, Cash Flow, Top Customers/Vendors, Budget vs Actual, etc.) removed.
+// Simple reports live in their parent module — e.g., Trial Balance at /api/finance/ledger/trial-balance.
 
 // ============ Identity (User Management) API ============
 // Phase 6.2: Admin user CRUD
@@ -1131,26 +1005,7 @@ export const inventoryApi = {
     const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
     return r.data;
   },
-  // ----- Notifications (Cycle 8 / DEC-073) -----
-  // GET /api/inventory/notifications — user notifications (paginated)
-  listNotifications: async (params?: { unreadOnly?: boolean; skip?: number; take?: number }): Promise<Notification[]> => {
-    const qs = new URLSearchParams();
-    if (params?.unreadOnly) qs.set('unreadOnly', 'true');
-    if (params?.skip != null) qs.set('skip', String(params.skip));
-    if (params?.take != null) qs.set('take', String(params.take));
-    const url = `/api/inventory/notifications${qs.toString() ? '?' + qs.toString() : ''}`;
-    const r = await api.get<Notification[]>(url);
-    return r.data;
-  },
-  // GET /api/inventory/notifications/unread — unread + count
-  getUnreadNotifications: async (): Promise<{ count: number; items: Notification[] }> => {
-    const r = await api.get<{ count: number; items: Notification[] }>(`/api/inventory/notifications/unread`);
-    return r.data;
-  },
-  // POST /api/inventory/notifications/{id}/mark-read — mark as read
-  markNotificationRead: async (id: string): Promise<void> => {
-    await api.post(`/api/inventory/notifications/${id}/mark-read`);
-  },
+  // Sprint 22: Notifications module deleted. listNotifications + getUnreadNotifications + markNotificationRead removed.
 };
 
 export const projectsApi = {
@@ -1449,19 +1304,7 @@ export interface ActivityItem {
   ipAddress?: string | null;
 }
 
-export const activityApi = {
-  // GET /api/activity/recent?limit=20 — recent activity feed
-  // The backend may return either an array (Sprint 3 spec) or { items: [...] }
-  // (defensive — mirrors the pattern in companiesApi.list).
-  recent: async (limit = 20): Promise<ActivityItem[]> => {
-    const r = await api.get<ActivityItem[] | { items?: ActivityItem[] }>(
-      '/api/activity/recent',
-      { params: { limit } }
-    );
-    if (Array.isArray(r.data)) return r.data;
-    return r.data?.items ?? [];
-  },
-};
+// Sprint 22: Activity module deleted. activityApi removed.
 
 // ============ Holdings API ============
 // Sprint 1: Holding detail view. Lists a Holding + its sub-companies.
@@ -1667,81 +1510,8 @@ export const usersApi = {
   },
 };
 
-// ============ Sprint 5: Global Search (Phase 5.1) ============
-// Contract: GET /api/search?q=foo&limit=20 — returns a flat list of mixed-type
-// results (customer / supplier / invoice / account). Each row carries a `type`
-// discriminator + a `url` the FE can router.push() into.
-//
-// The BE returns URLs based on the original sprint-5.md plan
-// (/admin/customers, /admin/suppliers, /sales/invoices, /accounting/accounts).
-// Our existing FE pages live at /finance/customers, /procurement/vendors,
-// /finance/sales-invoices, /finance/accounts — so we IGNORE the BE-provided
-// `url` and remap by `type` in the GlobalSearch component. The contract field
-// stays in the type for forward-compat (if the BE later aligns with FE routes
-// the component can fall back to `result.url`).
-
-export type SearchResultType = 'customer' | 'supplier' | 'invoice' | 'account';
-
-export interface SearchResult {
-  type: SearchResultType;
-  id: string;
-  title: string;
-  subtitle: string;
-  /** Full client-side path to navigate to on click. BE-provided; the FE may
-   *  remap via `searchResultHref(result)` if the BE routes don't match the
-   *  deployed FE routes. */
-  url: string;
-  /** Relevance score 0..1 (BE-side ranking, not surfaced in UI). */
-  score: number;
-}
-
-export interface GlobalSearchResponse {
-  /** The merged result list (customers → suppliers → invoices → accounts). */
-  results: SearchResult[];
-  /** The original query echoed back. */
-  query: string;
-  /** How long the BE spent (ms) — useful for telemetry but not in UI. */
-  tookMs?: number;
-}
-
-export const searchApi = {
-  // GET /api/search?q=foo&limit=20 — global search across customers, suppliers,
-  // invoices, accounts. Per-type cap is 5 rows on the BE; the total cap is
-  // `limit` (default 20, max 50).
-  globalSearch: async (q: string, limit = 20): Promise<GlobalSearchResponse> => {
-    if (!q || !q.trim()) return { results: [], query: '' };
-    const r = await api.get<GlobalSearchResponse | SearchResult[]>('/api/search', {
-      params: { q: q.trim(), limit },
-    });
-    // Defensive: BE may return the array directly or wrap it in { results }.
-    if (Array.isArray(r.data)) return { results: r.data, query: q };
-    return r.data;
-  },
-};
-
-// Map a SearchResult to a FE-side route. The BE's `url` was authored against
-// the original sprint-5.md plan (admin/*, sales/*, accounting/*) and does not
-// match the deployed FE routes (finance/*, procurement/*). We override by
-// `type` so the dropdown links land on a real page. If a future BE revision
-// aligns the routes the fallback to `result.url` would just work.
-export function searchResultHref(r: SearchResult): string {
-  switch (r.type) {
-    case 'customer':
-      return `/finance/customers/${r.id}`;
-    case 'supplier':
-      // FE has no /procurement/vendors/{id} detail page — point to the edit
-      // page, which doubles as the detail view in this codebase.
-      return `/procurement/vendors/${r.id}/edit`;
-    case 'invoice':
-      return `/finance/sales-invoices/${r.id}`;
-    case 'account':
-      // No account detail page exists — land on the list (the user can use
-      // the search filter to find the account).
-      return `/finance/accounts`;
-    default:
-      return r.url;
-  }
-}
+// Sprint 22: Search module deleted. searchApi + types + helper removed.
+// (Was: Sprint 5 Phase 5.1 global search across customers/suppliers/invoices/accounts)
 
 // ============ Sprint 5: Dashboard Charts (Phase 4.1) ============
 // Chart DTOs + dashboardApi methods are defined in the "Dashboard
@@ -1818,51 +1588,12 @@ export async function getAccounts(): Promise<AccountDto[]> {
   return r.data;
 }
 
-/** GET /api/transactions/recent?limit=N — most recent journal transactions. */
-export async function getRecentTransactions(limit = 50): Promise<TransactionDto[]> {
-  const r = await api.get<TransactionDto[] | { items: TransactionDto[] }>(
-    '/api/transactions/recent',
-    { params: { limit } }
-  );
-  if (Array.isArray(r.data)) return r.data;
-  return r.data?.items ?? [];
-}
-
-/** GET /api/reports — list of generated/saved reports. */
-export async function getReports(): Promise<ReportDto[]> {
-  const r = await api.get<ReportDto[] | { items: ReportDto[] }>('/api/reports');
-  if (Array.isArray(r.data)) return r.data;
-  return r.data?.items ?? [];
-}
+// Sprint 22: getRecentTransactions + getReports + getActivityFeed + getUnreadNotifications removed (Reports/Activity/Notifications modules deleted).
 
 /** GET /api/companies/{id}/subsidiaries — children of a specific company. */
 export async function getSubsidiaries(companyId: string): Promise<SubsidiaryListDto> {
   const r = await api.get<SubsidiaryListDto>(
     `/api/companies/${encodeURIComponent(companyId)}/subsidiaries`
-  );
-  return r.data;
-}
-
-/** GET /api/activity/recent?limit=N — recent activity feed items.
- *  Mirrors the existing `activityApi.recent` but returns the new
- *  `ActivityFeedItemDto` shape (metadata is `string | null`, not parsed). */
-export async function getActivityFeed(limit = 20): Promise<ActivityFeedItemDto[]> {
-  const r = await api.get<ActivityFeedItemDto[] | { items: ActivityFeedItemDto[] }>(
-    '/api/activity/recent',
-    { params: { limit } }
-  );
-  if (Array.isArray(r.data)) return r.data;
-  return r.data?.items ?? [];
-}
-
-/** GET /api/inventory/notifications/unread — current user's unread notifications.
- *  Returns the new `NotificationDto` shape (string `type`, optional `linkUrl`). */
-export async function getUnreadNotifications(): Promise<{
-  count: number;
-  items: NotificationDto[];
-}> {
-  const r = await api.get<{ count: number; items: NotificationDto[] }>(
-    '/api/inventory/notifications/unread'
   );
   return r.data;
 }

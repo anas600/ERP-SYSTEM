@@ -169,6 +169,8 @@ public sealed class FinanceService : IFinanceService
         // 6) Recent transactions = last 10 journal lines across all sub-companies,
         //    joined to accounts for the display code/name. The FE uses this
         //    on the Holding dashboard "recent activity" card.
+        // Sprint 22: fixed column reference — journal_lines has no created_at.
+        // Use je.created_at (the parent entry's creation timestamp).
         const string recentSql = @"
             SELECT jl.id               AS Id,
                    jl.company_id       AS CompanyId,
@@ -178,14 +180,14 @@ public sealed class FinanceService : IFinanceService
                    jl.debit            AS Debit,
                    jl.credit           AS Credit,
                    COALESCE(jl.description, '') AS Description,
-                   jl.created_at       AS CreatedAt,
+                   je.created_at       AS CreatedAt,
                    je.entry_number     AS Reference
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
             INNER JOIN accounts a          ON a.id = jl.account_id
             INNER JOIN companies c         ON c.id = jl.company_id
             WHERE c.parent_company_id IS NOT NULL
-            ORDER BY jl.created_at DESC
+            ORDER BY je.created_at DESC
             LIMIT 10";
 
         var recent = (await conn.QueryAsync<TransactionDto>(new CommandDefinition(recentSql, cancellationToken: ct))).AsList();
@@ -219,6 +221,7 @@ public sealed class FinanceService : IFinanceService
         var cap = limit <= 0 ? 20 : Math.Min(limit, 200);
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 22: fixed — use je.created_at (journal_lines has no created_at).
         const string sql = @"
             SELECT jl.id               AS Id,
                    jl.company_id       AS CompanyId,
@@ -228,13 +231,13 @@ public sealed class FinanceService : IFinanceService
                    jl.debit            AS Debit,
                    jl.credit           AS Credit,
                    COALESCE(jl.description, '') AS Description,
-                   jl.created_at       AS CreatedAt,
+                   je.created_at       AS CreatedAt,
                    je.entry_number     AS Reference
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
             INNER JOIN accounts a          ON a.id = jl.account_id
             WHERE jl.company_id = @CompanyId
-            ORDER BY jl.created_at DESC
+            ORDER BY je.created_at DESC
             LIMIT @Limit";
 
         var rows = (await conn.QueryAsync<TransactionDto>(new CommandDefinition(

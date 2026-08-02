@@ -20,7 +20,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { api, getErrorMessage } from '@/lib/api';
 
 interface PostingRule {
   id: string;
@@ -123,9 +123,7 @@ export default function PostingRulesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/posting-rules', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = (await res.json()) as PostingRule[];
+      const { data } = await api.get<PostingRule[]>('/api/finance/posting-rules');
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -171,21 +169,21 @@ export default function PostingRulesPage() {
     }
     setAddSubmitting(true);
     try {
-      const res = await fetch('/api/finance/posting-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: addForm.name,
-          description: addForm.description || null,
-          eventType: addForm.eventType,
-          isActive: true,
-          templateJson: addForm.templateJson,
-        }),
+      // Sprint 21: parse the templateJson string into the structured object the BE expects.
+      // The BE's CreatePostingRuleRequest has `template: PostingRuleTemplate` (parsed),
+      // not `templateJson: string` — sending the string would 400.
+      const parsedTemplate = JSON.parse(addForm.templateJson) as {
+        description?: string;
+        reference?: string | null;
+        lines: { accountCode: string; side: 'debit' | 'credit'; amountFormula: string }[];
+      };
+      await api.post('/api/finance/posting-rules', {
+        name: addForm.name,
+        description: addForm.description || null,
+        eventType: addForm.eventType,
+        isActive: true,
+        template: parsedTemplate,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء القاعدة');
-      }
       toast.success(`تم إنشاء القاعدة "${addForm.name}".`);
       setAddOpen(false);
       await load();
@@ -200,15 +198,14 @@ export default function PostingRulesPage() {
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/posting-rules/${deleteTarget.id}`, {
-        method: 'DELETE',
-      });
-      if (res.status === 404 || res.status === 405) {
-        throw new Error('حذف قواعد الترحيل غير مدعوم في الـ backend حالياً.');
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل الحذف');
+      try {
+        await api.delete(`/api/finance/posting-rules/${deleteTarget.id}`);
+      } catch (err: unknown) {
+        const e = err as { response?: { status?: number; data?: unknown } };
+        if (e?.response?.status === 404 || e?.response?.status === 405) {
+          throw new Error('حذف قواعد الترحيل غير مدعوم في الـ backend حالياً.');
+        }
+        throw err;
       }
       toast.success(`تم حذف القاعدة "${deleteTarget.name}".`);
       setDeleteTarget(null);

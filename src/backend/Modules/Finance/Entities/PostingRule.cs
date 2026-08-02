@@ -46,6 +46,9 @@ public class PostingRule
 {
     public Guid Id { get; set; }
 
+    /// <summary>FK to companies.id — كل قاعدة تنتمي لشركة واحدة (multi-company scoping).</summary>
+    public Guid CompanyId { get; set; }
+
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
 

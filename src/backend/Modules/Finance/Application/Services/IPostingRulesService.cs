@@ -21,7 +21,7 @@ public interface IPostingRulesService
     Task<FinanceResult<ApplyRulesResult>> ApplyRulesAndReturnAsync(Guid userId, TriggeringEvent eventType, EventPayload payload, CancellationToken ct);
 
     /// <summary>Seed القواعد الافتراضية</summary>
-    Task EnsureDefaultRulesAsync(CancellationToken ct);
+    Task EnsureDefaultRulesAsync(Guid holdingId, CancellationToken ct);
 }
 
 /// <summary>نتيجة ApplyRulesAndReturnAsync — list of JE IDs created</summary>
