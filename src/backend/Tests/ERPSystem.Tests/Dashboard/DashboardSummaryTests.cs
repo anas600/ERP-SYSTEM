@@ -45,7 +45,7 @@ public class DashboardSummaryTests
         var companyId = Guid.NewGuid();
         var userId = Guid.NewGuid();
 
-        // Seed the four source tables with known row counts. The
+        // Seed the source tables with known row counts. The
         // FakeDbCommand.ExecuteScalar ignores WHERE clauses, so each
         // table just needs the right number of rows to make COUNT(*)
         // return the expected value.
@@ -53,15 +53,13 @@ public class DashboardSummaryTests
         //   user_companies has 3 rows total
         //     - 2 rows for userId   (companies = 2)
         //     - 3 rows for companyId (users = 3, since 3 distinct users)
-        //   activity_log has 4 rows total (activities_today = 4)
-        //   journal_entries has 5 rows total (transactions = 5)
+        //   journal_entries has 5 rows total (Sprint 22: also feeds activities_today,
+        //     because activity_log table was removed when the Activity module was deleted)
+        //     - activities_today = 5 (FakeDb can't filter by created_at >= today)
+        //     - transactions     = 5
         db.AddRow("user_companies", "user_id", userId, "company_id", companyId);
         db.AddRow("user_companies", "user_id", userId, "company_id", Guid.NewGuid());
         db.AddRow("user_companies", "user_id", Guid.NewGuid(), "company_id", companyId);
-        db.AddRow("activity_log", "user_id", userId, "company_id", companyId);
-        db.AddRow("activity_log", "user_id", userId, "company_id", companyId);
-        db.AddRow("activity_log", "user_id", userId, "company_id", companyId);
-        db.AddRow("activity_log", "user_id", userId, "company_id", companyId);
         db.AddRow("journal_entries", "company_id", companyId);
         db.AddRow("journal_entries", "company_id", companyId);
         db.AddRow("journal_entries", "company_id", companyId);
@@ -101,7 +99,7 @@ public class DashboardSummaryTests
         // respectively — the integration test below asserts those.
         summary.Companies.Should().Be(3, "3 user_companies rows in total (FakeDb ignores WHERE)");
         summary.Users.Should().Be(3, "3 user_companies rows in total (FakeDb ignores WHERE)");
-        summary.ActivitiesToday.Should().Be(4, "4 activity_log rows in total");
+        summary.ActivitiesToday.Should().Be(5, "5 journal_entries rows in total (Sprint 22: activities_today proxies through journal_entries; FakeDb ignores the date filter)");
         summary.Transactions.Should().Be(5, "5 journal_entries rows in total");
     }
 
