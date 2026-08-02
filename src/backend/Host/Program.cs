@@ -137,8 +137,9 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
 //
 // When enabling:
 //   1. Uncomment below
-//   2. Add IDocumentSession to OutboxEventPublisher
-//   3. Create projections for materialized views
+//   2. Create projections for materialized views
+//   3. Use direct service calls (NOT the outbox) for cross-module writes
+//      — Sprint 22 removed the event bus + outbox pattern
 //
 // Why deferred: Event sourcing adds complexity. We need feature flag
 // infrastructure first (Sprint-4) before activating Marten.
@@ -201,6 +202,7 @@ builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepo
 builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
 builder.Services.AddScoped<ISalaryStructureRepository, SalaryStructureRepository>();
 // Sprint 22: IOutboxRepository, IProcessedEventsRepository removed (event bus deleted).
+// Sprint 24: outbox_events + processed_events tables dropped via Sprint24_DropOutboxAndProcessedEvents migration.
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
 builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
@@ -386,6 +388,7 @@ builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-09
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow-up #2: تسخين الـ pool بعد bootstrap عشان أول user request ما يعلّقش 30+ ثانية
 // Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
+// Sprint 24: outbox_events table dropped (DEC-082) — no more processor needed.
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
 // Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB

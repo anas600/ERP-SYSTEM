@@ -1,5 +1,6 @@
 using Dapper;
 using ERPSystem.Modules.HR.Entities;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.Infrastructure;
 
 namespace ERPSystem.Modules.HR.Infrastructure;
@@ -252,27 +253,32 @@ public sealed class LeaveRequestRepository : ILeaveRequestRepository
 public sealed class HRDocumentSequenceRepository : IHRDocumentSequenceRepository
 {
     private readonly IDbConnectionFactory _db;
-    public HRDocumentSequenceRepository(IDbConnectionFactory db) => _db = db;
+    private readonly ICompanyContext _companyContext;
+    public HRDocumentSequenceRepository(IDbConnectionFactory db, ICompanyContext companyContext) { _db = db; _companyContext = companyContext; }
 
     public async Task<string> GetNextEmployeeNumberAsync(CancellationToken ct)
     {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot generate employee number without company_id.");
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 24 (DEC-083): PK = (company_id, prefix) — Constitution Article 3.
         await conn.ExecuteAsync(new CommandDefinition(@"
             CREATE TABLE IF NOT EXISTS hr_document_sequences (
+                company_id UUID NOT NULL,
                 prefix VARCHAR(20) NOT NULL,
                 last_number INT NOT NULL DEFAULT 0,
-                PRIMARY KEY (prefix)
+                PRIMARY KEY (company_id, prefix)
             )", cancellationToken: ct));
 
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO hr_document_sequences (prefix, last_number)
-            VALUES ('EMP', 1)
-            ON CONFLICT (prefix) DO UPDATE SET last_number = hr_document_sequences.last_number + 1",
-            cancellationToken: ct));
+            INSERT INTO hr_document_sequences (company_id, prefix, last_number)
+            VALUES (@CompanyId, 'EMP', 1)
+            ON CONFLICT (company_id, prefix) DO UPDATE SET last_number = hr_document_sequences.last_number + 1",
+            new { CompanyId = companyId }, cancellationToken: ct));
 
         var last = await conn.QueryFirstOrDefaultAsync<int>(new CommandDefinition(
-            "SELECT last_number FROM hr_document_sequences WHERE prefix = 'EMP'",
-            cancellationToken: ct));
+            "SELECT last_number FROM hr_document_sequences WHERE company_id = @CompanyId AND prefix = 'EMP'",
+            new { CompanyId = companyId }, cancellationToken: ct));
 
         var year = DateTime.UtcNow.Year;
         return $"EMP-{year}-{last:D4}";
