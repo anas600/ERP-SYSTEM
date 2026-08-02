@@ -32,7 +32,7 @@ public class JournalEntry
     /// <summary>رقم القيد التسلسلي داخل الشركة (مثال: "JE-2026-0001")</summary>
     public string EntryNumber { get; set; } = string.Empty;
 
-    /// <summary>الشركة المالكة للقيد (Constitution Article 3: company_id فقط، لا tenant_id).</summary>
+    /// <summary>الشركة المالكة للقيد (Constitution Article 3: company_id only).</summary>
     public Guid CompanyId { get; set; }
 
     public DateTime EntryDate { get; set; }

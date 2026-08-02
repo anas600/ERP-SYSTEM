@@ -25,7 +25,7 @@ public sealed class JournalEntryService : IJournalEntryService
 
     public async Task<FinanceResult<JournalEntryResponse>> CreateDraftAsync(Guid userId, PostJournalEntryRequest request, CancellationToken ct)
     {
-        // 0) company_id من الـ context — Constitution Article 3 (لا tenant_id، فقط company_id).
+        // 0) company_id من الـ context — Constitution Article 3 (company_id only).
         // هذا يصلح كلا الـ paths: HTTP controller (companyId من middleware) + internal service calls
         // (مثل PostingRulesService.ApplyRulesInternalAsync — Sprint 23).
         var companyId = _companyContext.CompanyId

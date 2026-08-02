@@ -56,7 +56,7 @@ public sealed class CustomerService : ICustomerService
         var c = new Customer
         {
             Id = Guid.NewGuid(),
-            CompanyId = companyId, // Constitution Article 3: company_id فقط، لا tenant_id
+            CompanyId = companyId, // Constitution Article 3: company_id only (single-deployment multi-company)
             Code = req.Code.Trim(),
             Name = req.Name.Trim(),
             NameEn = req.NameEn?.Trim(),
