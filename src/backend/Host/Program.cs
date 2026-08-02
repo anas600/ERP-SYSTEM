@@ -431,6 +431,25 @@ else
     Console.WriteLine("[SPRINT-26] SeedArabicScenario=false (default) — ArabicDevSeeder SKIPPED.");
 }
 
+// ============ Sprint 27: Arabic HR dev-environment seeder ============
+// Purpose: same pattern as Sprint 26, but for HR master data (departments + employees).
+// 3-pass UPSERT to handle the cyclic FK between departments.manager_id and
+// employees.department_id. Dev env only.
+var seedHr = builder.Configuration.GetValue<bool>("Bootstrap:SeedHrScenario", false);
+if (seedHr && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicHrDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=true + env=Development — ArabicHrDevSeeder registered.");
+}
+else if (seedHr)
+{
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=false (default) — ArabicHrDevSeeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

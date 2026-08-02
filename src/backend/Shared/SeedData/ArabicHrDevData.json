@@ -1,0 +1,24 @@
+{
+  "_comment": "Sprint 27: Arabic dev-environment seeder data for HR. UTF-8 encoded. Loaded by ArabicHrDevSeederHostedService on startup when Bootstrap:SeedHrScenario=true AND environment=Development. Idempotent: UPSERT by code/employee_number, never duplicates. Represents a realistic Libyan trading-company HR structure: 5 departments (the typical org chart) + 10 employees (2 per department, including managers). The 'managerId' field references an employee's employeeNumber; the seeder resolves it to the actual ID at insert time.",
+
+  "departments": [
+    { "code": "DEPT-ADMIN", "name": "الإدارة العامة",            "nameEn": "General Administration", "parentCode": null, "managerEmployeeNumber": "EMP-0001" },
+    { "code": "DEPT-FIN",   "name": "الشؤون المالية",            "nameEn": "Finance Department",     "parentCode": "DEPT-ADMIN", "managerEmployeeNumber": "EMP-0002" },
+    { "code": "DEPT-HR",    "name": "الموارد البشرية",            "nameEn": "Human Resources",        "parentCode": "DEPT-ADMIN", "managerEmployeeNumber": "EMP-0004" },
+    { "code": "DEPT-PROC",  "name": "المشتريات والمخازن",        "nameEn": "Procurement & Warehouse","parentCode": "DEPT-ADMIN", "managerEmployeeNumber": "EMP-0007" },
+    { "code": "DEPT-ENG",   "name": "الهندسة والمشاريع",          "nameEn": "Engineering & Projects", "parentCode": "DEPT-ADMIN", "managerEmployeeNumber": "EMP-0008" }
+  ],
+
+  "employees": [
+    { "employeeNumber": "EMP-0001", "fullName": "محمد أحمد الفرج",       "email": "mohamed.alfajr@alfajr.local",     "phone": "+218 91 100 0001", "nationalId": "1001001001", "departmentCode": "DEPT-ADMIN", "jobTitle": "مدير عام",                 "hireDate": "2020-01-15", "baseSalary": 8500.00 },
+    { "employeeNumber": "EMP-0002", "fullName": "أحمد عبد الله المنصوري", "email": "ahmed.mansouri@alfajr.local",     "phone": "+218 91 100 0002", "nationalId": "1001001002", "departmentCode": "DEPT-FIN",   "jobTitle": "مدير مالي",                 "hireDate": "2020-03-01", "baseSalary": 6500.00 },
+    { "employeeNumber": "EMP-0003", "fullName": "فاطمة حميدة الزوي",      "email": "fatima.zawi@alfajr.local",        "phone": "+218 92 100 0003", "nationalId": "1001001003", "departmentCode": "DEPT-FIN",   "jobTitle": "محاسبة أولى",               "hireDate": "2021-02-10", "baseSalary": 3200.00 },
+    { "employeeNumber": "EMP-0004", "fullName": "خالد محمد التارقية",     "email": "khaled.targia@alfajr.local",      "phone": "+218 91 100 0004", "nationalId": "1001001004", "departmentCode": "DEPT-HR",    "jobTitle": "مدير موارد بشرية",          "hireDate": "2020-05-20", "baseSalary": 5000.00 },
+    { "employeeNumber": "EMP-0005", "fullName": "سارة علي الفيتوري",      "email": "sara.fituri@alfajr.local",        "phone": "+218 92 100 0005", "nationalId": "1001001005", "departmentCode": "DEPT-HR",    "jobTitle": "أخصائية موارد بشرية",       "hireDate": "2022-01-05", "baseSalary": 3000.00 },
+    { "employeeNumber": "EMP-0006", "fullName": "عمر يوسف بن غشير",       "email": "omar.benghashir@alfajr.local",    "phone": "+218 91 100 0006", "nationalId": "1001001006", "departmentCode": "DEPT-HR",    "jobTitle": "مسؤول تدريب وتطوير",        "hireDate": "2023-06-15", "baseSalary": 2800.00 },
+    { "employeeNumber": "EMP-0007", "fullName": "عبد الباسط سالم ادريس",  "email": "abdulbasit.idris@alfajr.local",   "phone": "+218 91 100 0007", "nationalId": "1001001007", "departmentCode": "DEPT-PROC",  "jobTitle": "مدير مشتريات ومخازن",      "hireDate": "2020-04-10", "baseSalary": 4800.00 },
+    { "employeeNumber": "EMP-0008", "fullName": "علي عمر الكاسح",         "email": "ali.alkasih@alfajr.local",        "phone": "+218 92 100 0008", "nationalId": "1001001008", "departmentCode": "DEPT-ENG",   "jobTitle": "مدير هندسة ومشاريع",       "hireDate": "2020-02-25", "baseSalary": 6200.00 },
+    { "employeeNumber": "EMP-0009", "fullName": "حسين منصور الشهيبي",     "email": "hussein.shihabi@alfajr.local",    "phone": "+218 91 100 0009", "nationalId": "1001001009", "departmentCode": "DEPT-ENG",   "jobTitle": "مهندس موقع أول",            "hireDate": "2021-08-20", "baseSalary": 4000.00 },
+    { "employeeNumber": "EMP-0010", "fullName": "كمال رمضان الفيتوري",    "email": "kamal.fituri@alfajr.local",       "phone": "+218 92 100 0010", "nationalId": "1001001010", "departmentCode": "DEPT-PROC",  "jobTitle": "أمين مخزن",                 "hireDate": "2022-04-15", "baseSalary": 2200.00 }
+  ]
+}

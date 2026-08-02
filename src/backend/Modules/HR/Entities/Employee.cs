@@ -10,6 +10,12 @@ public class Employee
 {
     public Guid Id { get; set; }
 
+    // Sprint 27 (DEC-091): Constitution Article 3 — every business entity must carry
+    // company_id. The HR module was missing this on all 4 entities (Employee, Department,
+    // LeaveRequest, Attendance). Added here + propagated to service (ICompanyContext)
+    // and repository (INSERT/SELECT company_id).
+    public Guid CompanyId { get; set; }
+
     /// <summary>رقم الموظف التسلسلي (فريد داخل الـ tenant). مثال: "EMP-2026-0001".</summary>
     public string EmployeeNumber { get; set; } = string.Empty;
 

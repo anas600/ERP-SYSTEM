@@ -10,7 +10,7 @@ public sealed class DepartmentRepository : IDepartmentRepository
     private readonly IDbConnectionFactory _db;
     public DepartmentRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, code, name, parent_id AS ParentId,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, parent_id AS ParentId,
         manager_id AS ManagerId, is_active AS IsActive, created_at AS CreatedAt, updated_at AS UpdatedAt";
 
     public async Task<Department?> GetByIdAsync(Guid id, CancellationToken ct)
@@ -41,9 +41,10 @@ public sealed class DepartmentRepository : IDepartmentRepository
     public async Task InsertAsync(Department d, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 27 (DEC-091): Constitution Article 3 — include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO departments (id, code, name, parent_id, manager_id, is_active, created_at, updated_at)
-            VALUES (@Id, @Code, @Name, @ParentId, @ManagerId, @IsActive, @CreatedAt, @UpdatedAt)",
+            INSERT INTO departments (id, company_id, code, name, parent_id, manager_id, is_active, created_at, updated_at)
+            VALUES (@Id, @CompanyId, @Code, @Name, @ParentId, @ManagerId, @IsActive, @CreatedAt, @UpdatedAt)",
             d, cancellationToken: ct));
     }
 
@@ -62,7 +63,7 @@ public sealed class EmployeeRepository : IEmployeeRepository
     private readonly IDbConnectionFactory _db;
     public EmployeeRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, employee_number AS EmployeeNumber, full_name AS FullName,
+    private const string Sel = @"id, company_id AS CompanyId, employee_number AS EmployeeNumber, full_name AS FullName,
         email, phone, national_id AS NationalId, department_id AS DepartmentId, job_title AS JobTitle,
         hire_date AS HireDate, termination_date AS TerminationDate, base_salary AS BaseSalary,
         is_active AS IsActive, created_at AS CreatedAt, created_by AS CreatedBy,
@@ -107,11 +108,12 @@ public sealed class EmployeeRepository : IEmployeeRepository
     public async Task InsertAsync(Employee e, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 27 (DEC-091): Constitution Article 3 — include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO employees (id, employee_number, full_name, email, phone, national_id,
+            INSERT INTO employees (id, company_id, employee_number, full_name, email, phone, national_id,
                                    department_id, job_title, hire_date, termination_date, base_salary,
                                    is_active, created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @EmployeeNumber, @FullName, @Email, @Phone, @NationalId,
+            VALUES (@Id, @CompanyId, @EmployeeNumber, @FullName, @Email, @Phone, @NationalId,
                     @DepartmentId, @JobTitle, @HireDate, @TerminationDate, @BaseSalary,
                     @IsActive, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
             e, cancellationToken: ct));
@@ -134,7 +136,7 @@ public sealed class AttendanceRepository : IAttendanceRepository
     private readonly IDbConnectionFactory _db;
     public AttendanceRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, employee_id AS EmployeeId, type, timestamp, notes, ip_address AS IpAddress, created_at AS CreatedAt";
+    private const string Sel = @"id, company_id AS CompanyId, employee_id AS EmployeeId, type, timestamp, notes, ip_address AS IpAddress, created_at AS CreatedAt";
 
     public async Task<Attendance?> GetByIdAsync(Guid id, CancellationToken ct)
     {
@@ -168,11 +170,12 @@ public sealed class AttendanceRepository : IAttendanceRepository
     public async Task InsertAsync(Attendance a, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 27 (DEC-091): Constitution Article 3 — include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO attendance (id, employee_id, type, timestamp, notes, ip_address, created_at)
-            VALUES (@Id, @EmployeeId, @Type, @Timestamp, @Notes, @IpAddress, @CreatedAt)", new
+            INSERT INTO attendance (id, company_id, employee_id, type, timestamp, notes, ip_address, created_at)
+            VALUES (@Id, @CompanyId, @EmployeeId, @Type, @Timestamp, @Notes, @IpAddress, @CreatedAt)", new
         {
-            a.Id, a.EmployeeId, Type = a.Type.ToString(), a.Timestamp, a.Notes, a.IpAddress, a.CreatedAt
+            a.Id, a.CompanyId, a.EmployeeId, Type = a.Type.ToString(), a.Timestamp, a.Notes, a.IpAddress, a.CreatedAt
         }, cancellationToken: ct));
     }
 }
@@ -182,7 +185,7 @@ public sealed class LeaveRequestRepository : ILeaveRequestRepository
     private readonly IDbConnectionFactory _db;
     public LeaveRequestRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, employee_id AS EmployeeId, leave_type AS LeaveType,
+    private const string Sel = @"id, company_id AS CompanyId, employee_id AS EmployeeId, leave_type AS LeaveType,
         start_date AS StartDate, end_date AS EndDate, total_days AS TotalDays, status, reason,
         approver_id AS ApproverId, approved_at AS ApprovedAt, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt";
@@ -222,15 +225,16 @@ public sealed class LeaveRequestRepository : ILeaveRequestRepository
     public async Task InsertAsync(LeaveRequest l, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 27 (DEC-091): Constitution Article 3 — include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO leave_requests (id, employee_id, leave_type, start_date, end_date, total_days,
+            INSERT INTO leave_requests (id, company_id, employee_id, leave_type, start_date, end_date, total_days,
                                         status, reason, approver_id, approved_at, notes,
                                         created_at, created_by, updated_at)
-            VALUES (@Id, @EmployeeId, @LeaveType, @StartDate, @EndDate, @TotalDays,
+            VALUES (@Id, @CompanyId, @EmployeeId, @LeaveType, @StartDate, @EndDate, @TotalDays,
                     @Status, @Reason, @ApproverId, @ApprovedAt, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt)", new
         {
-            l.Id, l.EmployeeId, LeaveType = l.LeaveType.ToString(),
+            l.Id, l.CompanyId, l.EmployeeId, LeaveType = l.LeaveType.ToString(),
             l.StartDate, l.EndDate, l.TotalDays, Status = l.Status.ToString(),
             l.Reason, l.ApproverId, l.ApprovedAt, l.Notes,
             l.CreatedAt, l.CreatedBy, l.UpdatedAt

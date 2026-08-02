@@ -32,6 +32,9 @@
     "SeedDemoData": true,
 
     "_comment_arabic_seeder": "Sprint 26 — Arabic seeder for dev env. Fixes the encoding bug from Sprint 25 PowerShell scripts (Arabic stored as '?'). Reads UTF-8 JSON + UPSERTs customers/vendors/items. DEV-ONLY (no-op in non-Development envs).",
-    "SeedArabicScenario": true
+    "SeedArabicScenario": true,
+
+    "_comment_arabic_hr_seeder": "Sprint 27 — Arabic HR seeder for dev env. Reads UTF-8 JSON + UPSERTs departments + employees (3-pass for cyclic FK). DEV-ONLY. Requires DEC-091 fixes to be in place (Sprint 27 C# code).",
+    "SeedHrScenario": true
   }
 }
