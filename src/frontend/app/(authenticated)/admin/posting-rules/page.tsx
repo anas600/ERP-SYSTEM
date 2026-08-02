@@ -20,7 +20,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { api, getErrorMessage } from '@/lib/api';
 
 interface PostingRule {
   id: string;
@@ -32,11 +32,15 @@ interface PostingRule {
   createdAt: string;
 }
 
+// Sprint 21: expanded event types. Note: 3 = SalesInvoicePosted, 4 = ReceiptPosted
+// (legacy aliases for backward compat with Sprint 11-12 rules).
 const EVENT_LABELS: Record<number, string> = {
   1: 'استلام مخزون (StockReceived)',
   2: 'صرف مخزون (StockIssued)',
-  3: 'إنشاء فاتورة (InvoiceCreated)',
-  4: 'استلام دفعة (PaymentReceived)',
+  3: 'فاتورة مبيعات (SalesInvoicePosted)',
+  4: 'سند قبض من عميل (ReceiptPosted)',
+  5: 'فاتورة مورّد (VendorBillPosted)',
+  6: 'دفع لمورّد (PaymentPosted)',
 };
 
 const EVENT_OPTIONS = Object.entries(EVENT_LABELS).map(([value, label]) => ({
@@ -44,13 +48,14 @@ const EVENT_OPTIONS = Object.entries(EVENT_LABELS).map(([value, label]) => ({
   value: Number(value),
 }));
 
+// Sprint 21: default template uses real CoA codes (1240 Inventory, 2210 AP).
+// Note: previous default used 1110/2010 which don't exist in the actual CoA.
 const DEFAULT_TEMPLATE = JSON.stringify(
   {
     description: 'ترحيل تلقائي',
-    reference: 'AUTO-{reference}',
     lines: [
-      { accountCode: '1110', side: 'debit', amountFormula: '{amount}' },
-      { accountCode: '2010', side: 'credit', amountFormula: '{amount}' },
+      { accountCode: '1240', side: 'debit', amountFormula: '{amount}' },
+      { accountCode: '2210', side: 'credit', amountFormula: '{amount}' },
     ],
   },
   null,
@@ -71,20 +76,21 @@ const EMPTY_FORM: FormState = {
   templateJson: DEFAULT_TEMPLATE,
 };
 
-function parseRuleSummary(templateJson: string): { accountCode: string; targetAccount: string; conditionsCount: number } {
+function parseRuleSummary(templateJson: string): { accountCodes: string; linesCount: number } {
+  // Sprint 21: show ALL lines (not just the first) for a clearer summary
   try {
     const parsed = JSON.parse(templateJson) as {
-      lines?: { accountCode?: string }[];
-      conditions?: unknown;
+      lines?: { accountCode?: string; side?: string }[];
     };
-    const firstLine = parsed.lines?.[0];
+    const codes = (parsed.lines ?? [])
+      .map((l) => `${l.accountCode ?? '?'} (${l.side === 'debit' ? 'Dr' : l.side === 'credit' ? 'Cr' : '?'})`)
+      .join(' / ');
     return {
-      accountCode: firstLine?.accountCode ?? '—',
-      targetAccount: firstLine?.accountCode ?? '—',
-      conditionsCount: Array.isArray(parsed.conditions) ? parsed.conditions.length : 0,
+      accountCodes: codes || '—',
+      linesCount: parsed.lines?.length ?? 0,
     };
   } catch {
-    return { accountCode: '—', targetAccount: '—', conditionsCount: 0 };
+    return { accountCodes: '—', linesCount: 0 };
   }
 }
 
@@ -117,9 +123,7 @@ export default function PostingRulesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/finance/posting-rules', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = (await res.json()) as PostingRule[];
+      const { data } = await api.get<PostingRule[]>('/api/finance/posting-rules');
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -165,21 +169,21 @@ export default function PostingRulesPage() {
     }
     setAddSubmitting(true);
     try {
-      const res = await fetch('/api/finance/posting-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: addForm.name,
-          description: addForm.description || null,
-          eventType: addForm.eventType,
-          isActive: true,
-          templateJson: addForm.templateJson,
-        }),
+      // Sprint 21: parse the templateJson string into the structured object the BE expects.
+      // The BE's CreatePostingRuleRequest has `template: PostingRuleTemplate` (parsed),
+      // not `templateJson: string` — sending the string would 400.
+      const parsedTemplate = JSON.parse(addForm.templateJson) as {
+        description?: string;
+        reference?: string | null;
+        lines: { accountCode: string; side: 'debit' | 'credit'; amountFormula: string }[];
+      };
+      await api.post('/api/finance/posting-rules', {
+        name: addForm.name,
+        description: addForm.description || null,
+        eventType: addForm.eventType,
+        isActive: true,
+        template: parsedTemplate,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء القاعدة');
-      }
       toast.success(`تم إنشاء القاعدة "${addForm.name}".`);
       setAddOpen(false);
       await load();
@@ -194,15 +198,14 @@ export default function PostingRulesPage() {
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/posting-rules/${deleteTarget.id}`, {
-        method: 'DELETE',
-      });
-      if (res.status === 404 || res.status === 405) {
-        throw new Error('حذف قواعد الترحيل غير مدعوم في الـ backend حالياً.');
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل الحذف');
+      try {
+        await api.delete(`/api/finance/posting-rules/${deleteTarget.id}`);
+      } catch (err: unknown) {
+        const e = err as { response?: { status?: number; data?: unknown } };
+        if (e?.response?.status === 404 || e?.response?.status === 405) {
+          throw new Error('حذف قواعد الترحيل غير مدعوم في الـ backend حالياً.');
+        }
+        throw err;
       }
       toast.success(`تم حذف القاعدة "${deleteTarget.name}".`);
       setDeleteTarget(null);
@@ -271,12 +274,12 @@ export default function PostingRulesPage() {
                     {r.description && <p className="text-sm text-gray-500 mt-1">{r.description}</p>}
                     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-gray-500">
                       <span>
-                        الحساب الهدف:{' '}
-                        <span className="font-mono text-blue-600">{summary.targetAccount}</span>
+                        السطور:{' '}
+                        <span className="font-mono text-blue-600">{summary.accountCodes}</span>
                       </span>
                       <span>
                         عدد الأسطر:{' '}
-                        <span className="font-mono">{summary.conditionsCount}</span>
+                        <span className="font-mono">{summary.linesCount}</span>
                       </span>
                     </div>
                   </div>

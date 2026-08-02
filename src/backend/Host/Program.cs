@@ -35,16 +35,8 @@ using ERPSystem.Modules.Payroll.Infrastructure;
 using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Application.Services;
 using ERPSystem.Modules.AccountsReceivable.Infrastructure;
-using ERPSystem.Modules.Reports.Application.Services;
-using ERPSystem.Modules.Notifications.Application.Services;
-using ERPSystem.Modules.Notifications.Infrastructure;
 using ERPSystem.Modules.Dashboard.Application.Services;
-using ERPSystem.Modules.Search.Application.Services;
-using ERPSystem.Modules.Finance.Application.EventHandlers;
 using ERPSystem.Modules.Finance.Infrastructure;
-using ERPSystem.Shared.Events;
-using ERPSystem.Shared.Events.Application.Services;
-using ERPSystem.Shared.Events.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.Migrations;
 using ERPSystem.Shared.SeedData;
@@ -161,10 +153,7 @@ builder.Services.AddSingleton<IDbConnectionFactory, NpgsqlConnectionFactory>();
 // DEC-053: HttpContextAccessor (for audit IP/user extraction) + AuditLogger
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ERPSystem.Host.Audit.IAuditLogger, ERPSystem.Host.Audit.AuditLogger>();
-// DEC-073: ActivityLogger (user-action log: login, refresh, logout, register)
-builder.Services.AddScoped<ERPSystem.Modules.Activity.Application.IActivityLogger, ERPSystem.Modules.Activity.Application.ActivityLogService>();
-// Sprint 3 (T1 / Block A): Activity feed reader (GET /api/activity/recent).
-builder.Services.AddScoped<ERPSystem.Modules.Activity.Application.IActivityFeedService, ERPSystem.Modules.Activity.Application.ActivityFeedService>();
+// Sprint 22: ActivityLogger/Feed removed (Activity module deleted).
 // Dapper TypeHandlers: تخزين الـ enums كـ string في DB + قراءة صحيحة
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.HR.Entities.LeaveStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.PurchaseOrderStatus>());
@@ -178,22 +167,10 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 
 // Phase 6.2: User CRUD + 20 mandatory reports
-builder.Services.AddScoped<IJournalEntryReportService, JournalEntryReportService>();
-builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
 builder.Services.AddScoped<IGeneralLedgerReportService, GeneralLedgerReportService>();
-builder.Services.AddScoped<IBalanceSheetService, BalanceSheetService>();
-builder.Services.AddScoped<ICashFlowService, CashFlowService>();
 builder.Services.AddScoped<IAPAgingService, APAgingService>();
-builder.Services.AddScoped<IAccountActivityService, AccountActivityService>();
-builder.Services.AddScoped<ICollectionsService, CollectionsService>();
-builder.Services.AddScoped<ICostCenterReportService, CostCenterReportService>();
-builder.Services.AddScoped<IVatReportService, VatReportService>();
-builder.Services.AddScoped<ISalesByCustomerService, SalesByCustomerService>();
-builder.Services.AddScoped<ISalesByItemService, SalesByItemService>();
-builder.Services.AddScoped<ITopCustomersService, TopCustomersService>();
-builder.Services.AddScoped<IPurchasesByVendorService, PurchasesByVendorService>();
-builder.Services.AddScoped<ITopVendorsService, TopVendorsService>();
-builder.Services.AddScoped<IBudgetVsActualService, BudgetVsActualService>();
+// Sprint 22: complex reports removed (Reports module deleted).
+// Simple per-module reports stay in their parent module.
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
 // Phase 6.1c: ITenantRepository removed — multi-company model has no tenants.
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
@@ -211,7 +188,6 @@ builder.Services.AddScoped<IItemCategoryRepository, ItemCategoryRepository>();
 builder.Services.AddScoped<IStockMovementRepository, StockMovementRepository>();
 builder.Services.AddScoped<IStockLevelRepository, StockLevelRepository>();
 builder.Services.AddScoped<IStockReservationRepository, StockReservationRepository>();
-builder.Services.AddScoped<INotificationRepository, NotificationRepository>();
 builder.Services.AddScoped<IVendorRepository, VendorRepository>();
 builder.Services.AddScoped<IPurchaseOrderRepository, PurchaseOrderRepository>();
 builder.Services.AddScoped<IGoodsReceiptRepository, GoodsReceiptRepository>();
@@ -224,7 +200,7 @@ builder.Services.AddScoped<ILeaveRequestRepository, LeaveRequestRepository>();
 builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepository>();
 builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
 builder.Services.AddScoped<ISalaryStructureRepository, SalaryStructureRepository>();
-builder.Services.AddScoped<IOutboxRepository, OutboxRepository>();
+// Sprint 22: IOutboxRepository, IProcessedEventsRepository removed (event bus deleted).
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
 builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
@@ -233,8 +209,6 @@ builder.Services.AddScoped<ICustomerRepository, CustomerRepository>();
 builder.Services.AddScoped<ISalesInvoiceRepository, SalesInvoiceRepository>();
 builder.Services.AddScoped<IReceiptRepository, ReceiptRepository>();
 builder.Services.AddScoped<IArDocumentSequenceRepository, ArDocumentSequenceRepository>();
-builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
-builder.Services.AddScoped<IProcessedEventsRepository, ProcessedEventsRepository>();
 
 // ============ Multi-tenancy (Phase 6.1b) ===========
 // ICompanyContext is the active abstraction.
@@ -242,10 +216,6 @@ builder.Services.AddScoped<ICompanyContext, CompanyContext>();
 
 // ============ Audit (Sprint-4.5 / DEC-056) ============
 builder.Services.AddScoped<IAuditLogger, AuditLogger>();
-
-// ============ Domain Events (Sprint-4.5 T-010 / DEC-057) ============
-// In-process Pub/Sub — lightweight cross-module integration without outbox overhead.
-builder.Services.AddSingleton<IDomainEventPublisher, DomainEventPublisher>();
 
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
@@ -272,13 +242,12 @@ builder.Services.AddScoped<IInventoryBootstrapper, InventoryBootstrapper>();
 builder.Services.AddScoped<IStockMovementService, StockMovementService>();
 builder.Services.AddScoped<IStockLevelService, StockLevelService>();
 builder.Services.AddScoped<IStockReservationService, StockReservationService>();
-builder.Services.AddScoped<INotificationService, NotificationService>();
+// Sprint 22: INotificationService removed (Notifications module deleted).
 // Sprint 1 (T1 / Block A): dashboard summary KPIs (4-count payload).
 builder.Services.AddScoped<IDashboardSummaryService, DashboardSummaryService>();
 // Sprint 5 (T1-T3 / Phase 4): dashboard chart data (revenue/expenses/top-customers).
 builder.Services.AddScoped<IDashboardChartService, DashboardChartService>();
 // Sprint 5 (T4 / Phase 5): global search across customers/vendors/invoices/accounts.
-builder.Services.AddScoped<IGlobalSearchService, GlobalSearchService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
@@ -302,14 +271,8 @@ builder.Services.AddScoped<IEosService, EosService>();
 builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
 builder.Services.AddScoped<IEosCalculator, EosCalculator>();
 builder.Services.AddScoped<ISocialInsuranceCalculator, SocialInsuranceCalculator>();
-builder.Services.AddScoped<IProjectReportService, ProjectReportService>();
-builder.Services.AddScoped<IInventoryReportService, InventoryReportService>();
-builder.Services.AddScoped<IFinanceReportService, FinanceReportService>();
-builder.Services.AddScoped<IEventBus, EventBus>();
-builder.Services.AddScoped<IIntegrationEventHandler<StockReceivedEvent>, StockReceivedEventHandler>();
-builder.Services.AddScoped<IIntegrationEventHandler<StockIssuedEvent>, StockIssuedEventHandler>();
-builder.Services.AddScoped<IIntegrationEventHandler<StockTransferredEvent>, StockTransferredEventHandler>();
-builder.Services.AddScoped<IIntegrationEventHandler<StockAdjustedEvent>, StockAdjustedEventHandler>();
+// Sprint 22: IProjectReportService, IInventoryReportService, IFinanceReportService removed (Reports module deleted).
+// Sprint 22: IEventBus + IIntegrationEventHandler<T> removed (event bus deleted). Cross-module = direct service calls.
 builder.Services.AddValidatorsFromAssemblyContaining<RegisterRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateProjectRequestValidator>();
 builder.Services.AddValidatorsFromAssemblyContaining<CreateItemRequestValidator>();
@@ -422,7 +385,7 @@ builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow-up #2: تسخين الـ pool بعد bootstrap عشان أول user request ما يعلّقش 30+ ثانية
-builder.Services.AddHostedService<OutboxProcessorHostedService>();
+// Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
 // Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB

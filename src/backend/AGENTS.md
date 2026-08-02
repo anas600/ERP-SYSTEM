@@ -2,7 +2,7 @@
 
 > **Backend (.NET 9) source.** Read `/AGENTS.md` and `/src/AGENTS.md` first.
 
-**Last updated:** 2026-07-29 (DOX framework applied)
+**Last updated:** 2026-08-02 (Sprint 22 refactor — 9 modules, no event bus, no Marten)
 
 ---
 
@@ -15,8 +15,8 @@ The .NET 9 backend API for ERP-SYSTEM. Hosts the application, exposes REST endpo
 | Subtree | Owner | Authority |
 |---------|-------|-----------|
 | `src/backend/Host/` | Jimi تنفيذي (Backend) | Entry point, controllers, middleware, hosted services |
-| `src/backend/Modules/` | Jimi تنفيذي (per module) | Business modules (13 modules) |
-| `src/backend/Shared/` | Jimi تن执行官 (shared) | Cross-cutting concerns (DataTypes, Events, Infrastructure, Migrations, SeedData) |
+| `src/backend/Modules/` | Jimi تنفيذي (per module) | Business modules (**9 modules after Sprint 22**) |
+| `src/backend/Shared/` | Jimi تن执行官 (shared) | Cross-cutting concerns (Audit, CompanyContext, DataTypes, Infrastructure, Migrations, SeedData) — **Sprint 22: Events/ deleted** |
 | `src/backend/Tests/` | Jimi تنفيذي (QA) | xUnit tests |
 
 Tech Lead (Mavis Local) coordinates. Cloud (Siti) verifies.
@@ -71,6 +71,27 @@ dotnet run --project Host          # Run API on :5001
 3. Add migration to `Shared/Migrations/`.
 4. Add controller in `Host/Controllers/`.
 5. Add unit test in `Tests/ERPSystem.Tests/`.
+
+### Cross-Module Communication (Sprint 22 — no event bus)
+- **Old:** `_eventBus.PublishAsync(...)` → OutboxProcessor → Handler
+- **New:** Direct service call in the same transaction.
+- **Example pattern:** `SalesInvoiceService.PostAsync` directly calls `PostingRulesService.ApplyRulesAsync(...)` + `ProjectsService.UpdateCostAsync(...)`.
+- **No outbox table, no retry logic, no async fire-and-forget.**
+- For background work that's truly async (e.g., heavy reports), use `IHostedService` with a polling loop, not events.
+
+### Module List (Sprint 22 — 9 modules)
+| Module | Purpose | Notable |
+|---|---|---|
+| Identity | Auth + RBAC | — |
+| Companies | Manage subsidiaries (holding + N) | — |
+| Finance | CoA, Journal, PostingRules, Ledger | Has PostingRules engine |
+| Inventory | Items, Stock, Movements | Direct calls to Finance on Post |
+| Procurement | PO, GR, Bill | Direct calls to Finance on Post |
+| AccountsReceivable | Customer, Invoice, Receipt | Direct calls to Finance on Post |
+| HR | Employee, Attendance, Leave | — |
+| Payroll | PayrollRun, SalaryStructure | — |
+| Projects | Project, Tasks, Cost | Updated on invoice post (direct) |
+| Dashboard | Single landing page | Read-only summaries |
 
 ### Migration Pattern
 ```csharp

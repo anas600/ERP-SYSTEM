@@ -1,9 +1,8 @@
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
-using ERPSystem.Modules.Notifications.Application.Services;
-using ERPSystem.Shared.Events;
-using ERPSystem.Shared.Events.Application.Services;
+using ERPSystem.Modules.Finance.Application.Services;
+using ERPSystem.Modules.Finance.Entities;
 using Microsoft.Extensions.Logging;
 using TaskStatus = ERPSystem.Modules.Inventory.Entities.StockMovementStatus;
 
@@ -42,8 +41,7 @@ public sealed class StockMovementService : IStockMovementService
     private readonly IStockLevelRepository _levels;
     private readonly IItemRepository _items;
     private readonly IStockReservationRepository _reservations;
-    private readonly INotificationService _notifications;
-    private readonly IEventBus _eventBus;
+    private readonly IPostingRulesService _postingRules;
     private readonly ILogger<StockMovementService> _logger;
 
     public StockMovementService(
@@ -51,12 +49,11 @@ public sealed class StockMovementService : IStockMovementService
         IStockLevelRepository levels,
         IItemRepository items,
         IStockReservationRepository reservations,
-        INotificationService notifications,
-        IEventBus eventBus,
+        IPostingRulesService postingRules,
         ILogger<StockMovementService> logger)
     {
         _movements = movements; _levels = levels; _items = items; _reservations = reservations;
-        _notifications = notifications; _eventBus = eventBus; _logger = logger;
+        _postingRules = postingRules; _logger = logger;
     }
 
     public async Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid userId, ReceiveStockRequest req, CancellationToken ct)
@@ -187,52 +184,44 @@ public sealed class StockMovementService : IStockMovementService
             var level = await _levels.GetAsync(movement.ItemId, movement.WarehouseId, ct);
             if (level != null && level.QuantityAvailable < item.ReorderLevel)
             {
-                // target user = creator (in real life: all admins in tenant — but here we just use the actor)
-                await _notifications.CreateAsync(userId, "LowStock",
-                    "تنبيه نقص المخزون",
-                    $"{item.Name} وصل إلى {level.QuantityAvailable} (الحد الأدنى: {item.ReorderLevel})",
-                    "Item", item.Id);
+                // Sprint 22: low-stock notification removed (Notifications module deleted).
+                // Future: re-add via inline email/push when needed.
             }
         }
 
-        // ⭐ Publish integration event (Outbox pattern) — Finance consumes async
-        if (movement.Type == StockMovementType.Receive)
+        // Sprint 23: Direct call to Posting Rules Engine (replaces deleted event bus).
+        // For StockReceived and StockIssued, apply the Libya-default posting rule
+        // synchronously. Transfer/Adjust have no default rule — just log.
+        // Failure is non-fatal (we don't want to roll back the post just because
+        // a journal entry couldn't be created — the user can fix the rule and re-post).
+        if (movement.Type == StockMovementType.Receive || movement.Type == StockMovementType.Issue)
         {
-            var receiveEvt = new StockReceivedEvent(
-                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
-                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
-                Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
-                PurchaseOrderRef: movement.SourceId?.ToString(), OccurredAt: DateTime.UtcNow);
-            await _eventBus.PublishAsync(receiveEvt, ct);
-        }
-        else if (movement.Type == StockMovementType.Issue)
-        {
-            var issueEvt = new StockIssuedEvent(
-                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
-                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
-                Quantity: Math.Abs(movement.Quantity),
-                ReferenceType: movement.SourceType, ReferenceId: movement.SourceId,
-                OccurredAt: DateTime.UtcNow);
-            await _eventBus.PublishAsync(issueEvt, ct);
-        }
-        else if (movement.Type == StockMovementType.Transfer && movement.DestinationWarehouseId.HasValue)
-        {
-            var transferEvt = new StockTransferredEvent(
-                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
-                ItemId: movement.ItemId, FromWarehouseId: movement.WarehouseId,
-                ToWarehouseId: movement.DestinationWarehouseId.Value,
-                Quantity: Math.Abs(movement.Quantity), UnitCost: movement.UnitCost,
-                OccurredAt: DateTime.UtcNow);
-            await _eventBus.PublishAsync(transferEvt, ct);
-        }
-        else if (movement.Type == StockMovementType.Adjust)
-        {
-            var adjEvt = new StockAdjustedEvent(
-                EventId: Guid.NewGuid(), StockMovementId: movement.Id,
-                ItemId: movement.ItemId, WarehouseId: movement.WarehouseId,
-                QuantityDelta: movement.Quantity, UnitCost: movement.UnitCost,
-                Reason: movement.Notes, OccurredAt: DateTime.UtcNow);
-            await _eventBus.PublishAsync(adjEvt, ct);
+            try
+            {
+                var eventType = movement.Type == StockMovementType.Receive
+                    ? TriggeringEvent.StockReceived
+                    : TriggeringEvent.StockIssued;
+                var amount = Math.Abs(movement.Quantity) * (movement.UnitCost == 0 ? 1m : movement.UnitCost);
+                var payload = new EventPayload
+                {
+                    Amount = amount,
+                    Subtotal = amount,
+                    TaxAmount = 0m,
+                    Currency = "LYD",
+                    Description = $"{movement.Type} {item?.Sku ?? movement.ItemId.ToString()} × {Math.Abs(movement.Quantity)}",
+                    Reference = movement.Reference,
+                    EntryDate = movement.MovementDate,
+                };
+                var count = await _postingRules.ApplyRulesAsync(userId, eventType, payload, ct);
+                _logger.LogInformation("Stock {Type} {Ref}: applied {Count} posting rule(s), amount={Amount}",
+                    movement.Type, movement.Reference, count, amount);
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal: log and continue. User can fix the rule and re-post manually.
+                _logger.LogWarning(ex, "Stock {Type} {Ref}: posting rule failed (non-fatal). User can re-post.",
+                    movement.Type, movement.Reference);
+            }
         }
 
         return StockMovementResult<StockMovementResponse>.Ok(MapToResponse(movement));

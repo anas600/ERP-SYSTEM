@@ -51,8 +51,6 @@ import {
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
-import { NotificationBell } from '@/components/layout/NotificationBell';
-import { GlobalSearch } from '@/components/layout/GlobalSearch';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -126,23 +124,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Payroll', href: '/hr/payroll', icon: Banknote },
     ],
   },
-  {
-    label: 'التقارير',
-    items: [
-      { label: 'نظرة عامة', href: '/reports', icon: BarChart3 },
-      { label: 'التقارير المالية', href: '/reports/financial', icon: LineChart },
-      { label: 'ميزان المراجعة', href: '/reports/financial/trial-balance', icon: FileBarChart },
-      { label: 'الميزانية العمومية', href: '/reports/financial/balance-sheet', icon: FileBarChart },
-      { label: 'قائمة الدخل', href: '/reports/financial/income-statement', icon: FileBarChart },
-      { label: 'ضريبة القيمة المضافة', href: '/reports/financial/vat', icon: FileSpreadsheet },
-      { label: 'تقارير المبيعات', href: '/reports/sales', icon: ShoppingBag },
-      { label: 'مبيعات حسب العميل', href: '/reports/sales/sales-by-customer', icon: FileBarChart },
-      { label: 'تقارير المخزون', href: '/reports/inventory', icon: Package },
-      { label: 'تقييم المخزون', href: '/reports/inventory/valuation', icon: FileBarChart },
-      { label: 'تقارير المشاريع', href: '/reports/projects', icon: Briefcase },
-      { label: 'الميزانية مقابل الفعلي', href: '/reports/projects/budget-vs-actual', icon: FileBarChart },
-    ],
-  },
+  // Sprint 22: Reports section removed (each module has its own reports).
+  // Reports section deleted — each module has its own reports now.
   {
     label: 'الإدارة',
     items: [
@@ -151,9 +134,6 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'فئات الأصناف', href: '/admin/item-categories', icon: Tag },
       { label: 'قواعد الترحيل', href: '/admin/posting-rules', icon: Settings },
       { label: 'سجل التدقيق', href: '/admin/audit', icon: Shield },
-      { label: 'إشعاراتي', href: '/notifications', icon: Bell },
-      // Sprint 3 — T2: user-facing activity feed (login/logout/switch timeline)
-      { label: 'سجل النشاط', href: '/activity', icon: Activity },
       { label: 'صحة النظام', href: '/admin/health', icon: Heart },
     ],
   },
@@ -288,15 +268,10 @@ function Topbar({ onMenuClick, userName, userEmail, onLogout }: TopbarProps) {
         </div>
         {/* Sprint 5 (Phase 5.1): Global search — Cmd/Ctrl+K to focus. Hidden on
             phones (≤ sm) to keep the topbar readable. */}
-        <div className="hidden sm:block flex-1 max-w-md ms-2">
-          <GlobalSearch />
-        </div>
+        {/* Sprint 22: GlobalSearch + NotificationBell removed (dead modules). */}
       </div>
 
       <div className="flex items-center gap-2 flex-shrink-0">
-        {/* Phase 6.3 / Cycle 8: NotificationBell — real-time unread count + dropdown */}
-        <NotificationBell />
-
         <div className="relative">
           <button
             onClick={() => setUserMenu((v) => !v)}

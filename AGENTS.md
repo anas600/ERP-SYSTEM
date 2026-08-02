@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-01 (Sprint 18: governance cleanup — removed WORKFLOW.md + state.json references, restored ACTIVE constitution, codified Two-Mode Workflow per Sprint 17)
+**Last updated:** 2026-08-02 (Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules, removed Event Bus + Marten + dead modules, direct service calls. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -92,11 +92,36 @@ Only Anas can change the Constitution. Everything else flows through the sprint 
 ### Architecture (Constitution Article 3)
 - ✅ `company_id` everywhere, NO `tenant_id`.
 - ✅ `Company` entity, NO `Tenant` entity.
-- ✅ `CompanyContext`, `CompanyMiddleware`, `[CompanyAuthorize]`.
+- ✅ `CompanyContext`, `CompanyMiddleware` (in `Shared/CompanyContext/` — folder renamed Sprint 22, was misleadingly called `MultiTenancy/`).
 - ✅ `user_companies` join table.
 - ✅ JWT carries `company_ids[]` + `X-Company-Id` header.
 - ✅ Holding-level queries require `holding_admin` role.
-- ⚠️ **MISLEADING FOLDER:** `src/backend/Shared/MultiTenancy/` contains `CompanyContext.cs` files. **Folder name should be renamed to `CompanyContext/`** in a future refactor (out of scope for current sprints).
+- ✅ **Sprint 22:** Single-deployment target. **No event bus** — cross-module = direct service calls (Posting Rules workflow).
+- ✅ **Sprint 22:** Marten references removed (DEC-017 dead code path).
+
+### Module List (Sprint 22 — 15 → 9)
+| Module | Status | Notes |
+|---|---|---|
+| Identity | ✅ Keep | Auth + RBAC |
+| Companies | ✅ Keep | Manage subsidiaries (holding + N) |
+| Finance | ✅ Keep | CoA, Journal, PostingRules, Ledger |
+| Inventory | ✅ Keep | Items, Stock, Movements |
+| Procurement | ✅ Keep | PO, GR, Bill |
+| AccountsReceivable | ✅ Keep | Customer, Invoice, Receipt |
+| HR | ✅ Keep | Employee, Attendance, Leave |
+| Payroll | ✅ Keep | PayrollRun, SalaryStructure |
+| Projects | ✅ Keep | Project, Tasks, Cost |
+| Dashboard | ✅ Keep (simplify) | Single page |
+| ~~Activity~~ | ❌ Deleted Sprint 22 | Audit covers it |
+| ~~Notifications~~ | ❌ Deleted Sprint 22 | Re-add inline when needed |
+| ~~Search~~ | ❌ Deleted Sprint 22 | Re-add if user flow emerges |
+| ~~Reports~~ | ❌ Deleted Sprint 22 | Per-module reports now |
+
+### Cross-Module Communication
+- **Old (event-driven):** `_eventBus.PublishAsync(...)` → OutboxProcessor → Handler
+- **New (Sprint 22):** Direct service call (synchronous, same transaction)
+- **Example:** `SalesInvoiceService.PostAsync` directly calls `PostingRulesService.ApplyRulesAsync` + `ProjectsService.UpdateCostAsync`
+- **No async event handling.** Simpler, fewer moving parts, easier to debug.
 
 ### Code Standards
 - **Backend:** C# / .NET 9 / Dapper (NO EF Core) / FluentMigrator / xUnit.

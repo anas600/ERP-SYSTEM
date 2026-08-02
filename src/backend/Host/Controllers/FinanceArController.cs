@@ -2,7 +2,6 @@ using System.Security.Claims;
 using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Application.Services;
 using ERPSystem.Modules.AccountsReceivable.Entities;
-using ERPSystem.Modules.Reports.Application;
 using ERPSystem.Shared.CompanyContext;
 using FluentValidation;
 using Microsoft.AspNetCore.Authorization;
@@ -22,9 +21,6 @@ public class FinanceArController : ControllerBase
     private readonly ICustomerService _customers;
     private readonly ISalesInvoiceService _invoices;
     private readonly IReceiptService _receipts;
-    private readonly ISalesByCustomerService _salesByCustomer;
-    private readonly ISalesByItemService _salesByItem;
-    private readonly ITopCustomersService _topCustomers;
     private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateCustomerRequest> _createCustomerV;
@@ -37,9 +33,6 @@ public class FinanceArController : ControllerBase
         ICustomerService customers,
         ISalesInvoiceService invoices,
         IReceiptService receipts,
-        ISalesByCustomerService salesByCustomer,
-        ISalesByItemService salesByItem,
-        ITopCustomersService topCustomers,
         IValidator<CreateCustomerRequest> createCustomerV,
         IValidator<UpdateCustomerRequest> updateCustomerV,
         IValidator<CreateSalesInvoiceRequest> createInvoiceV,
@@ -48,7 +41,6 @@ public class FinanceArController : ControllerBase
         ICompanyContext companyContext)
     {
         _customers = customers; _invoices = invoices; _receipts = receipts;
-        _salesByCustomer = salesByCustomer; _salesByItem = salesByItem; _topCustomers = topCustomers;
         _companyContext = companyContext;
         _createCustomerV = createCustomerV; _updateCustomerV = updateCustomerV;
         _createInvoiceV = createInvoiceV; _updateInvoiceV = updateInvoiceV; _createReceiptV = createReceiptV;
@@ -213,40 +205,8 @@ public class FinanceArController : ControllerBase
 
     private Guid CompanyId => _companyContext.CompanyId ?? throw new UnauthorizedAccessException();
 
-    // Report 12: Sales by Customer
-    [HttpGet("api/ar/reports/sales-by-customer")]
-    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
-    public async Task<IActionResult> SalesByCustomer(
-        [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct)
-    {
-        if (to < from) return BadRequest("to must be >= from.");
-        var r = await _salesByCustomer.GetAsync(CompanyId, from, to, ct);
-        return Ok(r);
-    }
-
-    // Report 13: Sales by Item
-    [HttpGet("api/ar/reports/sales-by-item")]
-    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
-    public async Task<IActionResult> SalesByItem(
-        [FromQuery] DateTime from, [FromQuery] DateTime to, CancellationToken ct)
-    {
-        if (to < from) return BadRequest("to must be >= from.");
-        var r = await _salesByItem.GetAsync(CompanyId, from, to, ct);
-        return Ok(r);
-    }
-
-    // Report 15: Top Customers
-    [HttpGet("api/ar/reports/top-customers")]
-    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
-    public async Task<IActionResult> TopCustomers(
-        [FromQuery] DateTime from, [FromQuery] DateTime to,
-        [FromQuery] int limit = 10, CancellationToken ct = default)
-    {
-        if (limit <= 0) limit = 10;
-        if (limit > 100) limit = 100;
-        var r = await _topCustomers.GetAsync(CompanyId, from, to, limit, ct);
-        return Ok(r);
-    }
+    // Sprint 22: complex AR reports (Sales by Customer/Item, Top Customers) removed.
+    // Reports live in their parent module. Add back later if needed.
 
     // ============== Helpers ==============
 

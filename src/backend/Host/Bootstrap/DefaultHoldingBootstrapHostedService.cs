@@ -20,6 +20,7 @@
 
 using Dapper;
 using ERPSystem.Modules.Companies.Infrastructure;
+using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.SeedData;
@@ -193,6 +194,21 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             if (await TrySeedDemoDataAsync(conn, holdingId, cancellationToken))
             {
                 _logger.LogInformation("[P6-0b] Demo data seeded (customers, vendors, items)");
+            }
+
+            // 7) Sprint 21: Seed default posting rules (5 rules: Stock + 4 Libya-default).
+            //    الـ rules تحتاج حسابات في الـ CoA (مبذورة في الخطوة 4 أعلاه).
+            //    idempotent: لو في rules موجودة، ما يضيف شي جديد.
+            try
+            {
+                using var scope = _scopeFactory.CreateScope();
+                var postingRules = scope.ServiceProvider.GetRequiredService<IPostingRulesService>();
+                await postingRules.EnsureDefaultRulesAsync(holdingId, cancellationToken);
+                _logger.LogInformation("[Sprint21] Default posting rules seeded (Libya default — no tax)");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[Sprint21] Failed to seed default posting rules (non-fatal)");
             }
 
             _logger.LogInformation(

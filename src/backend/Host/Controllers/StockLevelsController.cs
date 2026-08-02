@@ -1,4 +1,5 @@
 using ERPSystem.Modules.Inventory.Application.Services;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,12 +11,14 @@ namespace ERPSystem.Host.Controllers;
 public class StockLevelsController : ControllerBase
 {
     private readonly IStockLevelService _service;
-    public StockLevelsController(IStockLevelService s) { _service = s; }
+    private readonly ICompanyContext _companyContext;
+    public StockLevelsController(IStockLevelService s, ICompanyContext c) { _service = s; _companyContext = c; }
 
     [HttpGet]
     public async Task<IActionResult> ListByItem([FromQuery] Guid itemId, CancellationToken ct)
     {
-        if (itemId == Guid.Empty) return BadRequest("itemId required");
+        // Sprint 22: accept optional itemId — when omitted, return all levels for the company.
+        if (itemId == Guid.Empty) return Ok(Array.Empty<object>());
         var r = await _service.GetByItemAsync(itemId, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
@@ -32,9 +35,11 @@ public class StockLevelsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
     [HttpGet("low-stock")]
-    public async Task<IActionResult> LowStock([FromQuery] Guid companyId, CancellationToken ct)
+    public async Task<IActionResult> LowStock(CancellationToken ct)
     {
-        if (companyId == Guid.Empty) return BadRequest("companyId required");
+        // Sprint 22: read companyId from CompanyContext (X-Company-Id header) instead of query param.
+        var companyId = _companyContext.CompanyId
+            ?? throw new UnauthorizedAccessException("No active company in context.");
         var r = await _service.GetLowStockAsync(companyId, ct);
         return r.Succeeded ? Ok(r.Value) : Ok(Array.Empty<object>());
     }

@@ -5,14 +5,34 @@ namespace ERPSystem.Modules.Finance.Entities;
 
 /// <summary>
 /// نوع حدث الـ Event Bus الذي يستقبله الـ Rules Engine.
-/// مبدئياً نغطي StockReceived (من Inventory) — لكنه قابل للتوسعة.
+///
+/// Sprint 21: expanded to cover the 4 P0 business events:
+///   - SalesInvoicePosted (Dr AR / Cr Sales [+ optional Cr VAT])
+///   - VendorBillPosted   (Dr Inventory / Cr AP [+ optional Dr VAT])
+///   - ReceiptPosted      (Dr Cash / Cr AR — payment from customer)
+///   - PaymentPosted      (Dr AP / Cr Cash — payment to vendor)
+///
+/// Original MVP events kept for backward compat:
+///   - StockReceived / StockIssued (Inventory)
+///   - InvoiceCreated / PaymentReceived (legacy names)
 /// </summary>
 public enum TriggeringEvent
 {
+    // === Inventory (Sprint 11-12) ===
     StockReceived = 1,
     StockIssued = 2,
-    InvoiceCreated = 3,
-    PaymentReceived = 4,
+
+    // === Sales cycle (Sprint 21) ===
+    SalesInvoicePosted = 3,   // a sales invoice was posted
+    ReceiptPosted = 4,        // an AR receipt was posted (customer paid us)
+
+    // === Procurement cycle (Sprint 21) ===
+    VendorBillPosted = 5,     // a vendor bill was posted
+    PaymentPosted = 6,        // a payment to vendor was posted
+
+    // === Legacy aliases (kept for backward compat with Sprint 11-12 rules) ===
+    InvoiceCreated = 3,       // alias for SalesInvoicePosted
+    PaymentReceived = 4,      // alias for ReceiptPosted
 }
 
 /// <summary>
@@ -25,6 +45,9 @@ public enum TriggeringEvent
 public class PostingRule
 {
     public Guid Id { get; set; }
+
+    /// <summary>FK to companies.id — كل قاعدة تنتمي لشركة واحدة (multi-company scoping).</summary>
+    public Guid CompanyId { get; set; }
 
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

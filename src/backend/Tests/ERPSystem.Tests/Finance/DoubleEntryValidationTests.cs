@@ -2,9 +2,11 @@ using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace ERPSystem.Tests.Finance;
 
@@ -15,7 +17,9 @@ public class JournalEntryServiceUnitTests
         FakeAccountRepository accounts,
         FakeJournalEntryRepository entries)
     {
-        return new JournalEntryService(entries, accounts, NullLogger<JournalEntryService>.Instance);
+        var ctx = new Mock<ICompanyContext>();
+        ctx.Setup(c => c.CompanyId).Returns(Guid.NewGuid());
+        return new JournalEntryService(entries, accounts, ctx.Object, NullLogger<JournalEntryService>.Instance);
     }
 
     [Fact]

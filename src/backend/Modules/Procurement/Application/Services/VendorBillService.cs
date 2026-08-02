@@ -1,6 +1,7 @@
 using Dapper;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
+using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
@@ -25,14 +26,16 @@ public sealed class VendorBillService : IVendorBillService
     private readonly IDocumentSequenceRepository _seq;
     private readonly IJournalEntryService _journalSvc;  // DEC-075: AP posting
     private readonly IDbConnectionFactory _db;          // DEC-075: account lookup
+    private readonly IPostingRulesService _postingRules; // Sprint 21
     private readonly ILogger<VendorBillService> _logger;
 
     public VendorBillService(IVendorBillRepository bills, IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
         IDocumentSequenceRepository seq, IJournalEntryService journalSvc, IDbConnectionFactory db,
+        IPostingRulesService postingRules,
         ILogger<VendorBillService> logger)
     {
         _bills = bills; _grs = grs; _pos = pos; _seq = seq;
-        _journalSvc = journalSvc; _db = db; _logger = logger;
+        _journalSvc = journalSvc; _db = db; _postingRules = postingRules; _logger = logger;
     }
 
     public async Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid userId, CreateVendorBillRequest req, CancellationToken ct)
@@ -121,6 +124,37 @@ public sealed class VendorBillService : IVendorBillService
             return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
         }
 
+        // ===== Sprint 21: Posting Rules Engine (preferred path) =====
+        var payload = new EventPayload
+        {
+            Amount = b.TotalAmount,
+            Subtotal = b.SubTotal,
+            TaxAmount = b.TaxAmount,
+            Currency = b.Currency,
+            Description = $"Vendor Bill {b.BillNumber}",
+            Reference = $"BILL-{b.BillNumber}",
+            EntryDate = b.BillDate
+        };
+
+        var ruleResult = await _postingRules.ApplyRulesAndReturnAsync(userId, TriggeringEvent.VendorBillPosted, payload, ct);
+        if (ruleResult.Succeeded && ruleResult.Value!.EntriesCreated > 0)
+        {
+            // الـ engine أنشأ القيد — استخدمه
+            b.Status = VendorBillStatus.Posted;
+            b.JournalEntryId = ruleResult.Value.FirstJournalEntryId;
+            b.PostedAt = DateTime.UtcNow;
+            b.UpdatedAt = DateTime.UtcNow;
+            b.UpdatedBy = userId;
+            await _bills.UpdateAsync(b, ct);
+            _logger.LogInformation("Sprint 21: Bill {N} posted via rules engine — JE={JE}",
+                b.BillNumber, ruleResult.Value.FirstEntryNumber);
+            return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
+        }
+
+        // ===== Fallback: DEC-075 hardcoded path (لو ما في rules نشطة) =====
+        _logger.LogWarning("Sprint 21: no active rules for VendorBillPosted; using DEC-075 fallback for bill {N}",
+            b.BillNumber);
+
         // DEC-075: Look up account IDs for Inventory (1240) and AP (2210)
         Guid? inventoryAcctId = null, apAcctId = null;
         try
@@ -144,7 +178,6 @@ public sealed class VendorBillService : IVendorBillService
         {
             _logger.LogWarning("DEC-075: missing accounts (1240={Inv}, 2210={AP}); posting bill {N} WITHOUT JE",
                 inventoryAcctId, apAcctId, b.BillNumber);
-            // Fall back to status-only update (legacy behavior)
             b.Status = VendorBillStatus.Posted;
             b.PostedAt = DateTime.UtcNow;
             b.UpdatedAt = DateTime.UtcNow;
@@ -153,7 +186,6 @@ public sealed class VendorBillService : IVendorBillService
             return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
         }
 
-        // DEC-075: Create JournalEntry — Dr Inventory, Cr AP
         var je = await _journalSvc.CreateDraftAsync(userId, new PostJournalEntryRequest
         {
             EntryDate = b.BillDate,
@@ -175,7 +207,6 @@ public sealed class VendorBillService : IVendorBillService
                 $"فشل إنشاء القيد المحاسبي: {je.Error}", ProcurementErrorCode.BusinessRuleViolation);
         }
 
-        // Post the JE
         var postJe = await _journalSvc.PostAsync(userId, je.Value!.Id, ct);
         if (!postJe.Succeeded)
         {
@@ -184,7 +215,6 @@ public sealed class VendorBillService : IVendorBillService
                 $"فشل ترحيل القيد: {postJe.Error}", ProcurementErrorCode.BusinessRuleViolation);
         }
 
-        // Update bill status + link to JE
         b.Status = VendorBillStatus.Posted;
         b.JournalEntryId = je.Value!.Id;
         b.PostedAt = DateTime.UtcNow;

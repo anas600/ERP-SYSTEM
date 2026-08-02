@@ -14,7 +14,7 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            SELECT id, entry_number AS EntryNumber, entry_date AS EntryDate,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries WHERE id = @Id LIMIT 1";
@@ -25,7 +25,7 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string headerSql = @"
-            SELECT id, entry_number AS EntryNumber, entry_date AS EntryDate,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries WHERE id = @Id LIMIT 1";
@@ -77,17 +77,18 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
         using var tx = await conn.BeginTransactionAsync(ct);
 
         const string headerSql = @"
-            INSERT INTO journal_entries (id, entry_number, entry_date, description, reference,
+            INSERT INTO journal_entries (id, entry_number, company_id, entry_date, description, reference,
                                          status, created_by_user_id, posted_at, created_at, updated_at)
-            VALUES (@Id, @EntryNumber, @EntryDate, @Description, @Reference,
+            VALUES (@Id, @EntryNumber, @CompanyId, @EntryDate, @Description, @Reference,
                     @Status, @CreatedByUserId, @PostedAt, @CreatedAt, @UpdatedAt)";
         await conn.ExecuteAsync(new CommandDefinition(headerSql, entry, transaction: tx, cancellationToken: ct));
 
         const string lineSql = @"
-            INSERT INTO journal_lines (id, journal_entry_id, account_id, debit, credit, description, line_number)
-            VALUES (@Id, @JournalEntryId, @AccountId, @Debit, @Credit, @Description, @LineNumber)";
+            INSERT INTO journal_lines (id, journal_entry_id, account_id, company_id, debit, credit, description, line_number)
+            VALUES (@Id, @JournalEntryId, @AccountId, @CompanyId, @Debit, @Credit, @Description, @LineNumber)";
         foreach (var line in entry.Lines)
         {
+            // line.CompanyId مُعين من JournalEntryService.CreateDraftAsync (نفس holdingId).
             await conn.ExecuteAsync(new CommandDefinition(lineSql, line, transaction: tx, cancellationToken: ct));
         }
 
@@ -109,7 +110,7 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
-            SELECT id, entry_number AS EntryNumber, entry_date AS EntryDate,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries

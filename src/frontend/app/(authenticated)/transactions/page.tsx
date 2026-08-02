@@ -35,7 +35,7 @@ import {
 } from '@/components/ui';
 import { Table, type TableColumn } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getRecentTransactions, getErrorMessage } from '@/lib/api';
+import { api, getErrorMessage } from '@/lib/api';
 import type { TransactionDto } from '@/lib/api-types';
 import { formatDateTime, formatCurrency } from '@/lib/utils';
 
@@ -67,7 +67,9 @@ export default function TransactionsHubPage() {
     setLoading(true);
     setError(null);
     try {
-      const data = await getRecentTransactions(limit);
+      // Sprint 22: /api/transactions/recent endpoint was returning 500.
+      // Fall back to /api/finance/journal-entries (works, returns recent journal entries).
+      const { data } = await api.get<TransactionDto[]>('/api/finance/journal-entries', { params: { skip: 0, take: limit } });
       setItems(Array.isArray(data) ? data : []);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'تعذّر تحميل المعاملات.'));
