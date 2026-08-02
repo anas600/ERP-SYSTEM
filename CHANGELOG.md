@@ -13,7 +13,46 @@
 
 ---
 
-## Sprint 23 — company_id propagation + Stock→Posting Rules direct call (2026-08-02) ✅ DONE (LOCAL-ONLY)
+## Sprint 24 — outbox cleanup + Constitution Article 3 audit (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **DEC-082** + **DEC-083** — finish the "no event bus" cleanup (drop outbox tables) and run a code-level audit of Constitution Article 3 (every entity + every service must use `company_id` via `ICompanyContext`, never `Guid.Empty`).
+
+Branch: working on `feature/sprint-21-posting-rules-engine` (now carries Sprints 21+22+23+24). LOCAL-ONLY. Carries Sprint 21+22+23 + 23.1 (Stock→Posting direct call) work + 23.2 (company_id propagation fix).
+
+### Removed
+- **`outbox_events` table** — `Sprint24_DropOutboxAndProcessedEvents_20260802_120000` migration. Was the write-side queue for the deleted `IEventBus`. Nothing writes here anymore (Sprint 22 moved to direct service calls).
+- **`processed_events` table** — same migration. Was the dedup table for the deleted event handlers. Idempotency now lives in the standard `(source_entity, source_id)` unique index pattern (see Finance).
+- **`outbox_events.json` + `processed_events.json`** — JSON data-type definitions removed (DataTypeMigrator won't try to recreate the tables on next startup).
+- **Outbox-related code refs** — cleaned up the remaining comments in `Program.cs` + the test fixture in `RetentionTests.cs` (the expected retention-period dict no longer references the dropped tables).
+
+### Fixed
+- **DEC-083: `procurement_document_sequences` + `hr_document_sequences` lacked `company_id`.** Two CREATE TABLE statements were missing the column, and the PK was just `(prefix)`. In a single-deployment-with-N-subsidiaries world, two companies would collide on the same `PO-2026-0001`. Now both tables have:
+  - `company_id UUID NOT NULL`
+  - PK = `(company_id, prefix)`
+- **`Sprint24_DocumentSequencesAddCompanyId_20260802_121000` migration** — backfills existing rows to the first company (only safe default in a non-multi-company legacy DB), then enforces NOT NULL + swaps the PK. Idempotent (DO blocks + IF EXISTS guards).
+- **3 sequence repositories** now take `ICompanyContext` in the constructor (`DocumentSequenceRepository`, `PaymentSequenceRepository`, `HRDocumentSequenceRepository`) and use it in the UPSERT and SELECT.
+
+### Added
+- **`appsettings.Development.json.example`** — template for the gitignored `appsettings.Development.json` (new contributors can copy + edit). Documents every key (ConnectionStrings, Marten, JwtSettings, Deployment, Bootstrap) with a comment explaining the safe defaults for local dev.
+- **Sprint 24 retro** — `docs/team-charters/retrospectives/sprint-24-retro.md` (NEW, ~10KB).
+
+### Carry-over (Sprint 25+, still outstanding from Sprints 19-23)
+- **P1:** 14 P2 function workflow docs (Attendance, Leave, Department, Cost Center, Posting Rules, Stock Movement, Warehouse, Item Category, UoM, User/Role, Audit Log, Holding/Company, Notification, Activity Feed)
+- **P1:** `customerStatement` + `vendorStatement` GET endpoints (Sprint 15 carry-over)
+- **P1:** `CreateItem` API method
+- **P1:** Trial Balance validation UI ("Balanced / Unbalanced" indicator)
+- **P2:** 5th default posting rule "Sale with VAT 5%" (inactive, for demo)
+- **P2:** Audit trail for posting rule changes
+- **P2:** Multi-currency support (currently LYD-only)
+- **P2:** mvp-docker/.env to .gitignore
+- **P2:** Posting Rules integration unit tests (new — Sprint 23.1 Stock→Posting direct call needs coverage)
+
+### Verified
+- `dotnet build` → 0 errors, 0 warnings
+- No `tenant_id` regressions (Constitution Article 3)
+- 2 new migrations are idempotent + DO-block-guarded
+
+---
 
 **Goal:** Fix the **2 latent bugs** discovered by the Sprint 22 end-to-end smoke test:
 1. `JournalEntry` + `JournalLine` entities had no `CompanyId`, and `JournalEntryRepository` did not include `company_id` in INSERT/SELECTs. Posting Rules Engine (Sprint 21) failed with `null value in column "company_id" of relation "journal_entries"`.
