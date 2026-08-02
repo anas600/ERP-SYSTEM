@@ -18,7 +18,7 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
     private readonly IDbConnectionFactory _db;
     public SalaryStructureRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string StructureSel = @"id, name, code, currency,
+    private const string StructureSel = @"id, company_id AS CompanyId, name, code, currency,
         is_active AS IsActive, created_at AS CreatedAt, created_by AS CreatedBy,
         updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
@@ -52,7 +52,7 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
     public async Task<IReadOnlyList<SalaryStructureLine>> GetLinesAsync(Guid salaryStructureId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        var sql = @"id, salary_structure_id AS SalaryStructureId,
+        var sql = @"id, company_id AS CompanyId, salary_structure_id AS SalaryStructureId,
             type, name, formula, amount, sort_order AS SortOrder
             FROM salary_structure_lines
             WHERE salary_structure_id = @SalaryStructureId
@@ -65,13 +65,14 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
     public async Task InsertAsync(SalaryStructure s, IEnumerable<SalaryStructureLine> lines, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-094): include company_id in INSERTs.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO salary_structures (id, name, code, currency, is_active,
+            INSERT INTO salary_structures (id, company_id, name, code, currency, is_active,
                                            created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @Name, @Code, @Currency, @IsActive,
+            VALUES (@Id, @CompanyId, @Name, @Code, @Currency, @IsActive,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            s.Id, s.Name, s.Code, s.Currency, s.IsActive,
+            s.Id, s.CompanyId, s.Name, s.Code, s.Currency, s.IsActive,
             s.CreatedAt, s.CreatedBy, s.UpdatedAt, s.UpdatedBy
         }, cancellationToken: ct));
 
@@ -79,13 +80,13 @@ public sealed class SalaryStructureRepository : ISalaryStructureRepository
         if (linesArr.Count == 0) return;
 
         const string lineSql = @"
-            INSERT INTO salary_structure_lines (id, salary_structure_id, type, name, formula, amount, sort_order)
-            VALUES (@Id, @SalaryStructureId, @Type, @Name, @Formula, @Amount, @SortOrder)";
+            INSERT INTO salary_structure_lines (id, company_id, salary_structure_id, type, name, formula, amount, sort_order)
+            VALUES (@Id, @CompanyId, @SalaryStructureId, @Type, @Name, @Formula, @Amount, @SortOrder)";
         foreach (var ln in linesArr)
         {
             await conn.ExecuteAsync(new CommandDefinition(lineSql, new
             {
-                ln.Id, ln.SalaryStructureId,
+                ln.Id, ln.CompanyId, ln.SalaryStructureId,
                 Type = ln.Type.ToString(),
                 ln.Name, ln.Formula, ln.Amount, ln.SortOrder
             }, cancellationToken: ct));
@@ -101,18 +102,18 @@ public sealed class PayrollRepository : IPayrollRepository
     private readonly IDbConnectionFactory _db;
     public PayrollRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string RunSel = @"id, period_start AS PeriodStart, period_end AS PeriodEnd,
+    private const string RunSel = @"id, company_id AS CompanyId, period_start AS PeriodStart, period_end AS PeriodEnd,
         status, total_gross AS TotalGross, total_net AS TotalNet,
         processed_at AS ProcessedAt, posted_at AS PostedAt, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 
-    private const string ItemSel = @"id, payroll_run_id AS PayrollRunId,
+    private const string ItemSel = @"id, company_id AS CompanyId, payroll_run_id AS PayrollRunId,
         employee_id AS EmployeeId, base_salary AS BaseSalary, gross_salary AS GrossSalary,
         tax_amount AS TaxAmount, social_insurance_employee AS SocialInsuranceEmployee,
         net_salary AS NetSalary, status, payment_days AS PaymentDays, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt";
 
-    private const string ComponentSel = @"id, payroll_item_id AS PayrollItemId,
+    private const string ComponentSel = @"id, company_id AS CompanyId, payroll_item_id AS PayrollItemId,
         component_type AS ComponentType, name, amount, sort_order AS SortOrder";
 
     // =================== PayrollRun ===================
@@ -154,15 +155,16 @@ public sealed class PayrollRepository : IPayrollRepository
     public async Task InsertRunAsync(PayrollRun r, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-094): include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO payroll_runs (id, period_start, period_end, status,
+            INSERT INTO payroll_runs (id, company_id, period_start, period_end, status,
                                       total_gross, total_net, processed_at, posted_at, notes,
                                       created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @PeriodStart, @PeriodEnd, @Status,
+            VALUES (@Id, @CompanyId, @PeriodStart, @PeriodEnd, @Status,
                     @TotalGross, @TotalNet, @ProcessedAt, @PostedAt, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            r.Id, r.PeriodStart, r.PeriodEnd,
+            r.Id, r.CompanyId, r.PeriodStart, r.PeriodEnd,
             Status = r.Status.ToString(),
             r.TotalGross, r.TotalNet, r.ProcessedAt, r.PostedAt, r.Notes,
             r.CreatedAt, r.CreatedBy, r.UpdatedAt, r.UpdatedBy
@@ -206,17 +208,18 @@ public sealed class PayrollRepository : IPayrollRepository
     public async Task AddItemAsync(PayrollItem item, IEnumerable<PayslipComponent> components, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-094): include company_id in INSERTs.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO payroll_items (id, payroll_run_id, employee_id,
+            INSERT INTO payroll_items (id, company_id, payroll_run_id, employee_id,
                                        base_salary, gross_salary, tax_amount, social_insurance_employee,
                                        net_salary, status, payment_days, notes,
                                        created_at, created_by, updated_at)
-            VALUES (@Id, @PayrollRunId, @EmployeeId,
+            VALUES (@Id, @CompanyId, @PayrollRunId, @EmployeeId,
                     @BaseSalary, @GrossSalary, @TaxAmount, @SocialInsuranceEmployee,
                     @NetSalary, @Status, @PaymentDays, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt)", new
         {
-            item.Id, item.PayrollRunId, item.EmployeeId,
+            item.Id, item.CompanyId, item.PayrollRunId, item.EmployeeId,
             item.BaseSalary, item.GrossSalary, item.TaxAmount, item.SocialInsuranceEmployee,
             item.NetSalary, Status = item.Status.ToString(),
             item.PaymentDays, item.Notes,
@@ -227,13 +230,13 @@ public sealed class PayrollRepository : IPayrollRepository
         if (compArr.Count == 0) return;
 
         const string compSql = @"
-            INSERT INTO payslip_components (id, payroll_item_id, component_type, name, amount, sort_order)
-            VALUES (@Id, @PayrollItemId, @ComponentType, @Name, @Amount, @SortOrder)";
+            INSERT INTO payslip_components (id, company_id, payroll_item_id, component_type, name, amount, sort_order)
+            VALUES (@Id, @CompanyId, @PayrollItemId, @ComponentType, @Name, @Amount, @SortOrder)";
         foreach (var c in compArr)
         {
             await conn.ExecuteAsync(new CommandDefinition(compSql, new
             {
-                c.Id, c.PayrollItemId,
+                c.Id, c.CompanyId, c.PayrollItemId,
                 ComponentType = c.ComponentType.ToString(),
                 c.Name, c.Amount, c.SortOrder
             }, cancellationToken: ct));

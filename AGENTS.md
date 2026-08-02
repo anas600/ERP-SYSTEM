@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-02 (Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-02 (Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -318,7 +318,7 @@ Run before opening a PR:
 - [ ] **No secrets** in code: `grep -r "password\s*=" src/`.
 - [ ] **AGENTS.md updated** if contracts/rules changed.
 - [ ] **CHANGELOG.md** has this sprint's entry.
-- [ ] **DEC-085: Constitution Article 3 code-level audit** (recurring — Sprints 19, 21, 22, 23, 24, 25, 27 all found at least one violation):
+- [ ] **DEC-085: Constitution Article 3 code-level audit** (recurring — Sprints 19, 21, 22, 23, 24, 25, 27, 28 all found at least one violation):
   1. Every entity has `CompanyId` field. `grep -L "CompanyId" src/backend/Modules/*/Entities/*.cs`
   2. No `CompanyId = Guid.Empty` boilerplate. `grep -rn "CompanyId = Guid.Empty" src/backend/`
   3. Every `CREATE TABLE` includes `company_id` (or its absence is documented). `grep -rn "CREATE TABLE" src/backend/`
@@ -326,6 +326,8 @@ Run before opening a PR:
   5. Every PK on a shared-resource table (e.g. document sequences) includes `company_id`. Manual review.
   6. **No `?` characters in user-visible data** (DEC-087 — Sprint 25 PowerShell bug). If you see `????` or `?` strings in master data, the seeder is broken (encoding). Use `ArabicDevSeederHostedService` (C# UTF-8) not PowerShell `ConvertTo-Json` for Arabic data.
   7. **Cyclic FK requires 3-pass UPSERT** (DEC-092 — Sprint 27 HR). For 2-table cycles (e.g., `departments.manager_id` ↔ `employees.department_id`), insert parents without children FKs first, then insert children with parent FKs, then update parents.
+  8. **Service uses ICompanyContext.CompanyId, not req.CompanyId** (DEC-095, L19, L29, L30 — Sprint 28 Project + StockMovement). The request DTO's CompanyId is a spoofing risk. The service resolves the company from the JWT context. Tests use `TestCompanyContextFactory.Create()` (L26 fix). The `CreateAsync` for any aggregate that writes to multiple child tables must read the companyId once at the top and pass the local variable to all writes.
+  9. **Account.CompanyId is `Guid` (not `Guid?`)** (DEC-097 — Sprint 28). The DB column has been `NOT NULL` since Sprint 22. Nullable type is a code-level inconsistency that would cause NRE at runtime. Any entity backed by a `company_id NOT NULL` column should be `Guid` (not `Guid?`).
 
 CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 
@@ -348,6 +350,33 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/.mavis/AGENTS.md`](./.mavis/AGENTS.md) | Mavis orchestration (worker instructions for Jimis) | Active |
 
 **Note:** `src/backend/Modules/<module>/` and `src/frontend/app/<route>/` have their own AGENTS.md (created when modules become durable boundaries).
+
+---
+
+## Sprint 28 Decisions (DEC-094..097) + Lessons (L25..L30)
+
+### Decisions
+- **DEC-094 — Payroll Article 3 audit** (Sprint 28): 5 entities (`SalaryStructure`, `SalaryStructureLine`, `PayrollRun`, `PayrollItem`, `PayslipComponent`) + 1 service (`PayrollService` injects `ICompanyContext`) + 1 repo (`PayrollRepository` adds `@CompanyId` to all INSERTs). `EosService` clean (read-only).
+- **DEC-095 — Projects Article 3 audit** (Sprint 28): 4 entities + 3 services (`ProjectService`, `TaskService`, `ResourceService`, `ResourceAssignmentService` inject `ICompanyContext`) + 4 repos. `ProjectService.CreateAsync` is the critical fix — it now uses `_companyContext.CompanyId` (NOT `req.CompanyId`) for the project + the auto-created `ProjectBudget`. This is **L19 cross-tenant safety** applied to the `Project` aggregate.
+- **DEC-096 — StockMovement service refactor** (Sprint 28): entity + repo already had `CompanyId`. Only `StockMovementService` was using `req.CompanyId`. Refactored all 4 `Create*` methods (Receive/Issue/Transfer/Adjust) to use `_companyContext.CompanyId`. L19 + L30.
+- **DEC-097 — Finance/Account minor fix** (Sprint 28): `Account.CompanyId` changed from `Guid?` to `Guid`. DB column is `NOT NULL` since Sprint 22. Nullable type was an NRE risk.
+- **DEC-099 — TestCompanyContextFactory helper** (Sprint 28): centralized factory `TestCompanyContextFactory.Create()` returns a fully-set-up `ICompanyContext` (with `.Setup(c => c.CompanyId).Returns(Guid)`). Replaces the broken Sprint 27 IIFE pattern (`(function(){...})()` — JavaScript, not C#). Use this in every test that needs to instantiate a service that takes `ICompanyContext`.
+
+### Lessons (L25..L30)
+- **L25 — Audit pattern holds across 8 sprints.** Sprints 19, 21, 22, 23, 24, 25, 27, 28 all surfaced Article 3 violations. The DEC-085 checklist catches 100% of them. The bug is "if you don't enforce it explicitly, the code drifts." Each sprint fixes the worst 4-8; the rest are on the carry-over.
+- **L26 — `function(){...}()` is JavaScript, not C#.** The Sprint 27 IIFE pattern in `ProjectServiceTests.cs` was wrong — a previous bulk-replace tool injected it. **Rule:** any bulk-replace touching `.cs` files must be followed by `dotnet build` in the same commit, not deferred. The test file didn't even compile; running the suite in CI caught it.
+- **L27 — Established pattern = predictable time.** 3rd seeder (`ArabicProcurementDevSeeder`) implemented in <2h (vs 4-6h for the first). Pattern: JSON + IHostedService + UPSERT + Dapper + double-gate + Content include + appsettings flag. The pattern absorbs schema surprises (no `name_en` on vendors, no `updated_at` on `purchase_order_lines`) with brief psql `\d` lookups.
+- **L28 — Schema surprises are 1:1, not 1:1 with entity property names.** Always `psql \d <table>` before writing the INSERT. Document the surprises in the seeder's startup log.
+- **L29 — Aggregate with multiple child writes = read CompanyId once, pass local variable.** `ProjectService.CreateAsync` writes both `Project` + `ProjectBudget`. Reading `_companyContext.CompanyId` once at the top and using a local `companyId` variable in both writes is cleaner + safer than calling the property twice. The test verifies this by reading the companyId from the mock context.
+- **L30 — DTO CompanyId = security risk.** When the request DTO carries `CompanyId` but the service has access to `ICompanyContext`, the context wins. The DTO's CompanyId is spoofable; the context's is bound to the JWT. `StockMovementService` (4 methods) + `ProjectService.CreateAsync` follow this rule. Other services that still have `req.CompanyId` in the DTO are carry-over.
+
+### Pending Article 3 audit (carry-over to Sprint 29+)
+- `Payments` module — likely 4-8 violations
+- `ProjectCostCenter` (in Companies module) — likely 2-4 violations
+- `AccountService` (in Finance) — likely 2-4 violations
+- `ChartOfAccountsService` (in Finance) — likely 2-4 violations
+- `PayrollService` (in Payroll) — likely 2-4 violations
+- Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
 
 ---
 

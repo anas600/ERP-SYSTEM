@@ -3,6 +3,7 @@ using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 using TaskStatus = ERPSystem.Modules.Inventory.Entities.StockMovementStatus;
 
@@ -42,6 +43,7 @@ public sealed class StockMovementService : IStockMovementService
     private readonly IItemRepository _items;
     private readonly IStockReservationRepository _reservations;
     private readonly IPostingRulesService _postingRules;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<StockMovementService> _logger;
 
     public StockMovementService(
@@ -50,10 +52,11 @@ public sealed class StockMovementService : IStockMovementService
         IItemRepository items,
         IStockReservationRepository reservations,
         IPostingRulesService postingRules,
+        ICompanyContext companyContext,
         ILogger<StockMovementService> logger)
     {
         _movements = movements; _levels = levels; _items = items; _reservations = reservations;
-        _postingRules = postingRules; _logger = logger;
+        _postingRules = postingRules; _companyContext = companyContext; _logger = logger;
     }
 
     public async Task<StockMovementResult<StockMovementResponse>> CreateReceiveAsync(Guid userId, ReceiveStockRequest req, CancellationToken ct)
@@ -62,9 +65,12 @@ public sealed class StockMovementService : IStockMovementService
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
         var item = await _items.GetByIdAsync(req.ItemId, ct);
         if (item == null) return StockMovementResult<StockMovementResponse>.Fail("الصنف غير موجود.", StockErrorCode.NotFound);
+        // Sprint 28 (DEC-096): Constitution Article 3 — use ICompanyContext (not req.CompanyId).
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             Reference = req.Reference, Type = StockMovementType.Receive, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId, Quantity = req.Quantity, UnitCost = req.UnitCost,
             ProjectId = req.ProjectId, CostCenterId = req.CostCenterId,
@@ -86,9 +92,11 @@ public sealed class StockMovementService : IStockMovementService
         if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             Reference = req.Reference, Type = StockMovementType.Issue, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId, Quantity = -req.Quantity, UnitCost = 0,
             ProjectId = req.ProjectId, CostCenterId = req.CostCenterId,
@@ -107,9 +115,11 @@ public sealed class StockMovementService : IStockMovementService
                 $"المخزون غير كافٍ في المصدر. المتاح: {level.QuantityAvailable}, المطلوب: {req.Quantity}", StockErrorCode.InsufficientStock);
         if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             Reference = req.Reference, Type = StockMovementType.Transfer, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.SourceWarehouseId,
             DestinationWarehouseId = req.DestinationWarehouseId,
@@ -125,9 +135,11 @@ public sealed class StockMovementService : IStockMovementService
     {
         if (await _movements.GetByReferenceAsync(req.Reference, ct) != null)
             return StockMovementResult<StockMovementResponse>.Fail("المرجع مستخدم.", StockErrorCode.AlreadyExists);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var movement = new StockMovement
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,
             Reference = req.Reference, Type = StockMovementType.Adjust, MovementDate = req.MovementDate,
             ItemId = req.ItemId, WarehouseId = req.WarehouseId,
             Quantity = req.Quantity, UnitCost = req.UnitCost, Notes = req.Notes,

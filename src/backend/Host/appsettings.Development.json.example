@@ -35,6 +35,9 @@
     "SeedArabicScenario": true,
 
     "_comment_arabic_hr_seeder": "Sprint 27 — Arabic HR seeder for dev env. Reads UTF-8 JSON + UPSERTs departments + employees (3-pass for cyclic FK). DEV-ONLY. Requires DEC-091 fixes to be in place (Sprint 27 C# code).",
-    "SeedHrScenario": true
+    "SeedHrScenario": true,
+
+    "_comment_arabic_procurement_seeder": "Sprint 28 — Arabic Procurement seeder for dev env (POC #3 of the seeder pattern). UPSERTs 10 POs + 10 GRs + 10 bills via direct Dapper SQL. DEV-ONLY.",
+    "SeedProcurementScenario": true
   }
 }

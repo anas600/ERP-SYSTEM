@@ -8,6 +8,10 @@ namespace ERPSystem.Modules.Projects.Entities;
 public class ResourceAssignment
 {
     public Guid Id { get; set; }
+
+    // Sprint 28 (DEC-095): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public Guid ProjectId { get; set; }
     public Guid TaskId { get; set; }
     public Guid ResourceId { get; set; }

@@ -16,6 +16,10 @@ public enum ResourceType
 public class Resource
 {
     public Guid Id { get; set; }
+
+    // Sprint 28 (DEC-095): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public ResourceType Type { get; set; } = ResourceType.Labor;

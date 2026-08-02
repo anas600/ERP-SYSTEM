@@ -450,6 +450,26 @@ else
     Console.WriteLine("[SPRINT-27] SeedHrScenario=false (default) — ArabicHrDevSeeder SKIPPED.");
 }
 
+// ============ Sprint 28: Arabic Procurement dev-environment seeder ============
+// Purpose: POC #3 of the seeder pattern. UPSERTs 10 POs + 10 GRs + 10 bills
+// distributed across the 13 vendors from Sprint 26. Direct Dapper SQL
+// (no service layer) — avoids auto-creating JournalEntries via the posting
+// rules engine. Dev env only.
+var seedProcurement = builder.Configuration.GetValue<bool>("Bootstrap:SeedProcurementScenario", false);
+if (seedProcurement && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicProcurementDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-28] SeedProcurementScenario=true + env=Development — ArabicProcurementDevSeeder registered.");
+}
+else if (seedProcurement)
+{
+    Console.WriteLine("[SPRINT-28] SeedProcurementScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-28] SeedProcurementScenario=false (default) — ArabicProcurementDevSeeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -7,6 +7,7 @@ using ERPSystem.Modules.Payroll.Infrastructure;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Payroll.Application.Services;
@@ -85,6 +86,7 @@ public sealed class PayrollService : IPayrollService
     private readonly ISocialInsuranceCalculator _siCalc;
     private readonly IJournalEntryService _journalService;
     private readonly IAccountRepository _accounts;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<PayrollService> _logger;
 
     public PayrollService(
@@ -95,11 +97,12 @@ public sealed class PayrollService : IPayrollService
         ISocialInsuranceCalculator siCalc,
         IJournalEntryService journalService,
         IAccountRepository accounts,
+        ICompanyContext companyContext,
         ILogger<PayrollService> logger)
     {
         _runs = runs; _structures = structures; _employees = employees;
         _taxCalc = taxCalc; _siCalc = siCalc;
-        _journalService = journalService; _accounts = accounts; _logger = logger;
+        _journalService = journalService; _accounts = accounts; _companyContext = companyContext; _logger = logger;
     }
 
     // ---------- ListRunsAsync ----------
@@ -148,9 +151,13 @@ public sealed class PayrollService : IPayrollService
                 PayrollErrorCode.BusinessRuleViolation);
 
         var now = DateTime.UtcNow;
+        // Sprint 28 (DEC-094): Constitution Article 3 — read company_id from context.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var run = new PayrollRun
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             PeriodStart = req.PeriodStart.Date,
             PeriodEnd = req.PeriodEnd.Date,
             Status = PayrollRunStatus.Draft,
@@ -222,12 +229,12 @@ public sealed class PayrollService : IPayrollService
             // Payslip components: الأساسي + الضريبة + التأمينات (إن وُجد هيكل، نضيف بقية السطور).
             var components = new List<PayslipComponent>();
             var sort = 0;
-            components.Add(NewComponent(SalaryComponentType.Earning, "الراتب الأساسي", baseSalary, sort++));
+            components.Add(NewComponent(SalaryComponentType.Earning, "الراتب الأساسي", baseSalary, sort++, run.CompanyId));
             if (structureLines != null)
             {
                 foreach (var ln in structureLines.Where(l => l.Type == SalaryComponentType.Earning && !string.Equals(l.Name, "الراتب الأساسي", StringComparison.OrdinalIgnoreCase)))
                 {
-                    components.Add(NewComponent(SalaryComponentType.Earning, ln.Name, ln.Amount, sort++));
+                    components.Add(NewComponent(SalaryComponentType.Earning, ln.Name, ln.Amount, sort++, run.CompanyId));
                     gross += ln.Amount; // البدلات تُضاف للـ Gross
                 }
                 // إعادة احتساب tax/net بعد إضافة البدلات.
@@ -240,18 +247,19 @@ public sealed class PayrollService : IPayrollService
                 // إضافة deductions من الهيكل.
                 foreach (var ln in structureLines.Where(l => l.Type == SalaryComponentType.Deduction))
                 {
-                    components.Add(NewComponent(SalaryComponentType.Deduction, ln.Name, ln.Amount, sort++));
+                    components.Add(NewComponent(SalaryComponentType.Deduction, ln.Name, ln.Amount, sort++, run.CompanyId));
                     net -= ln.Amount;
                 }
             }
-            components.Add(NewComponent(SalaryComponentType.Deduction, "ضريبة الدخل (GDT)", tax, sort++));
-            components.Add(NewComponent(SalaryComponentType.Deduction, "التأمينات الاجتماعية", siEmp, sort++));
+            components.Add(NewComponent(SalaryComponentType.Deduction, "ضريبة الدخل (GDT)", tax, sort++, run.CompanyId));
+            components.Add(NewComponent(SalaryComponentType.Deduction, "التأمينات الاجتماعية", siEmp, sort++, run.CompanyId));
 
             net = Math.Max(0m, net);
 
             var item = new PayrollItem
             {
-                Id = Guid.NewGuid(), PayrollRunId = run.Id, EmployeeId = emp.Id,
+                Id = Guid.NewGuid(), CompanyId = run.CompanyId,
+                PayrollRunId = run.Id, EmployeeId = emp.Id,
                 BaseSalary = baseSalary, GrossSalary = gross, TaxAmount = tax,
                 SocialInsuranceEmployee = siEmp, NetSalary = net,
                 Status = PayrollItemStatus.Processed, PaymentDays = 30,
@@ -259,7 +267,7 @@ public sealed class PayrollService : IPayrollService
             };
 
             // ربط الـ PayslipComponents بالـ PayrollItem (FK fk_payslip_components_item)
-            foreach (var c in components) c.PayrollItemId = item.Id;
+            foreach (var c in components) { c.PayrollItemId = item.Id; c.CompanyId = run.CompanyId; }
 
             await _runs.AddItemAsync(item, components, ct);
 
@@ -405,10 +413,10 @@ public sealed class PayrollService : IPayrollService
 
     // ============== Helpers ==============
 
-    private static PayslipComponent NewComponent(SalaryComponentType type, string name, decimal amount, int sortOrder)
+    private static PayslipComponent NewComponent(SalaryComponentType type, string name, decimal amount, int sortOrder, Guid companyId)
         => new()
         {
-            Id = Guid.NewGuid(), ComponentType = type,
+            Id = Guid.NewGuid(), CompanyId = companyId, ComponentType = type,
             Name = name, Amount = amount, SortOrder = sortOrder
         };
 

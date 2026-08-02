@@ -17,6 +17,10 @@ public enum TaskStatus
 public class ProjectTask
 {
     public Guid Id { get; set; }
+
+    // Sprint 28 (DEC-095): Constitution Article 3.
+    public Guid CompanyId { get; set; }
+
     public Guid ProjectId { get; set; }
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }

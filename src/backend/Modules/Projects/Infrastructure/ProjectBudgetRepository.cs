@@ -8,7 +8,7 @@ public sealed class ProjectBudgetRepository : IProjectBudgetRepository
 {
     private readonly IDbConnectionFactory _db;
     public ProjectBudgetRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, project_id AS ProjectId, cost_center_id AS CostCenterId,
+    private const string Sel = @"id, company_id AS CompanyId, project_id AS ProjectId, cost_center_id AS CostCenterId,
         account_id AS AccountId, budget_amount AS BudgetAmount, spent_amount AS SpentAmount,
         committed_amount AS CommittedAmount, last_recalculated_at AS LastRecalculatedAt";
 
@@ -30,10 +30,11 @@ public sealed class ProjectBudgetRepository : IProjectBudgetRepository
     public async Task InsertAsync(ProjectBudget budget, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        // Sprint 28 (DEC-095): include company_id in INSERT.
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO project_budgets (id, project_id, cost_center_id, account_id,
+            INSERT INTO project_budgets (id, company_id, project_id, cost_center_id, account_id,
                                          budget_amount, spent_amount, committed_amount, last_recalculated_at)
-            VALUES (@Id, @ProjectId, @CostCenterId, @AccountId,
+            VALUES (@Id, @CompanyId, @ProjectId, @CostCenterId, @AccountId,
                     @BudgetAmount, @SpentAmount, @CommittedAmount, @LastRecalculatedAt)", budget, cancellationToken: ct));
     }
 
