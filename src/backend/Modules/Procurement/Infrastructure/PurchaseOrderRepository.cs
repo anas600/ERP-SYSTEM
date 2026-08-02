@@ -67,16 +67,16 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO purchase_orders (id, po_number, vendor_id, status, order_date, expected_date,
+            INSERT INTO purchase_orders (id, company_id, po_number, vendor_id, status, order_date, expected_date,
                                          currency, sub_total, tax_amount, total_amount, notes,
                                          approved_at, approved_by, sent_at,
                                          created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @PoNumber, @VendorId, @Status, @OrderDate, @ExpectedDate,
+            VALUES (@Id, @CompanyId, @PoNumber, @VendorId, @Status, @OrderDate, @ExpectedDate,
                     @Currency, @SubTotal, @TaxAmount, @TotalAmount, @Notes,
                     @ApprovedAt, @ApprovedBy, @SentAt,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            po.Id, po.PoNumber, po.VendorId,
+            po.Id, po.CompanyId, po.PoNumber, po.VendorId,
             Status = po.Status.ToString(),
             po.OrderDate, po.ExpectedDate, po.Currency,
             po.SubTotal, po.TaxAmount, po.TotalAmount, po.Notes,

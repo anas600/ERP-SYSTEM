@@ -10,6 +10,9 @@ public class Vendor
 {
     public Guid Id { get; set; }
 
+    /// <summary>الشركة المالكة للمورّد (Constitution Article 3).</summary>
+    public Guid CompanyId { get; set; }
+
     /// <summary>كود فريد داخل الـ tenant — يُستخدم في الـ PO و Bill.</summary>
     public string Code { get; set; } = string.Empty;
 

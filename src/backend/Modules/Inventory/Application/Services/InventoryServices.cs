@@ -1,6 +1,7 @@
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Inventory.Application.Services;
 
@@ -28,7 +29,8 @@ public interface IItemService
 public sealed class ItemService : IItemService
 {
     private readonly IItemRepository _repo;
-    public ItemService(IItemRepository r) => _repo = r;
+    private readonly ICompanyContext _companyContext;
+    public ItemService(IItemRepository r, ICompanyContext companyContext) { _repo = r; _companyContext = companyContext; }
 
     public async Task<InventoryResult<ItemResponse>> CreateAsync(Guid userId, CreateItemRequest req, CancellationToken ct)
     {
@@ -37,10 +39,12 @@ public sealed class ItemService : IItemService
         if (!string.IsNullOrEmpty(req.Barcode) && await _repo.GetByBarcodeAsync(req.Barcode, ct) != null)
             return InventoryResult<ItemResponse>.Fail("الباركود مستخدم.", InventoryErrorCode.AlreadyExists);
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot create item without company_id (Constitution Article 3).");
         var now = DateTime.UtcNow;
         var item = new Item
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit) — was req.CompanyId (client-supplied)
             Sku = req.Sku.Trim(), Barcode = req.Barcode, Name = req.Name.Trim(),
             Description = req.Description, CategoryId = req.CategoryId, UnitOfMeasureId = req.UnitOfMeasureId,
             ItemType = req.ItemType, CostingMethod = req.CostingMethod,
@@ -124,15 +128,18 @@ public interface IWarehouseService
 public sealed class WarehouseService : IWarehouseService
 {
     private readonly IWarehouseRepository _repo;
-    public WarehouseService(IWarehouseRepository r) => _repo = r;
+    private readonly ICompanyContext _companyContext;
+    public WarehouseService(IWarehouseRepository r, ICompanyContext companyContext) { _repo = r; _companyContext = companyContext; }
     public async Task<InventoryResult<WarehouseResponse>> CreateAsync(Guid userId, CreateWarehouseRequest req, CancellationToken ct)
     {
         if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return InventoryResult<WarehouseResponse>.Fail("كود المخزن مستخدم.", InventoryErrorCode.AlreadyExists);
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot create warehouse without company_id (Constitution Article 3).");
         var now = DateTime.UtcNow;
         var w = new Warehouse
         {
-            Id = Guid.NewGuid(), CompanyId = req.CompanyId,
+            Id = Guid.NewGuid(), CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit)
             Code = req.Code.Trim(), Name = req.Name.Trim(), Location = req.Location, ManagerUserId = req.ManagerUserId,
             IsActive = true, CreatedAt = now, CreatedBy = userId, UpdatedAt = now, UpdatedBy = userId
         };

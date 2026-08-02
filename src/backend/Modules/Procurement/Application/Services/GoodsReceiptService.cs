@@ -5,6 +5,7 @@ using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
@@ -26,13 +27,15 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
     private readonly ICompanyRepository _companies;
     private readonly IVendorRepository _vendors;
     private readonly IWarehouseRepository _warehouses;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<GoodsReceiptService> _logger;
 
     public GoodsReceiptService(IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
         IStockMovementService stockService, IDocumentSequenceRepository seq,
         ICompanyRepository companies, IVendorRepository vendors, IWarehouseRepository warehouses,
+        ICompanyContext companyContext,
         ILogger<GoodsReceiptService> logger)
-    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _vendors = vendors; _warehouses = warehouses; _logger = logger; }
+    { _grs = grs; _pos = pos; _stockService = stockService; _seq = seq; _companies = companies; _vendors = vendors; _warehouses = warehouses; _companyContext = companyContext; _logger = logger; }
 
     public async Task<ProcurementResult<GoodsReceiptResponse>> CreateAsync(Guid userId, CreateGoodsReceiptRequest req, CancellationToken ct)
     {
@@ -71,10 +74,13 @@ public sealed class GoodsReceiptService : IGoodsReceiptService
             });
         }
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot create GR without company_id (Constitution Article 3).");
         var now = DateTime.UtcNow;
         var gr = new GoodsReceipt
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit)
             GrNumber = grNumber, PurchaseOrderId = req.PurchaseOrderId,
             Status = GoodsReceiptStatus.Draft,
             ReceivedDate = req.ReceivedDate, WarehouseId = req.WarehouseId,

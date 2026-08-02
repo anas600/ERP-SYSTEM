@@ -52,12 +52,12 @@ public sealed class GoodsReceiptRepository : IGoodsReceiptRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO goods_receipts (id, gr_number, purchase_order_id, status, received_date,
+            INSERT INTO goods_receipts (id, company_id, gr_number, purchase_order_id, status, received_date,
                                         warehouse_id, notes, created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @GrNumber, @PurchaseOrderId, @Status, @ReceivedDate,
+            VALUES (@Id, @CompanyId, @GrNumber, @PurchaseOrderId, @Status, @ReceivedDate,
                     @WarehouseId, @Notes, @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            gr.Id, gr.GrNumber, gr.PurchaseOrderId,
+            gr.Id, gr.CompanyId, gr.GrNumber, gr.PurchaseOrderId,
             Status = gr.Status.ToString(),
             gr.ReceivedDate, gr.WarehouseId, gr.Notes,
             gr.CreatedAt, gr.CreatedBy, gr.UpdatedAt, gr.UpdatedBy

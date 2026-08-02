@@ -1,6 +1,7 @@
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
 
@@ -32,17 +33,21 @@ public interface IVendorService
 public sealed class VendorService : IVendorService
 {
     private readonly IVendorRepository _repo;
-    public VendorService(IVendorRepository repo) => _repo = repo;
+    private readonly ICompanyContext _companyContext;
+    public VendorService(IVendorRepository repo, ICompanyContext companyContext) { _repo = repo; _companyContext = companyContext; }
 
     public async Task<ProcurementResult<VendorResponse>> CreateAsync(Guid userId, CreateVendorRequest req, CancellationToken ct)
     {
         if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ProcurementResult<VendorResponse>.Fail("كود المورّد مستخدم.", ProcurementErrorCode.AlreadyExists);
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot create vendor without company_id (Constitution Article 3).");
         var now = DateTime.UtcNow;
         var v = new Vendor
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit) — was Guid.Empty / not set, FK violation
             Code = req.Code.Trim(), Name = req.Name.Trim(),
             Email = req.Email, Phone = req.Phone, Address = req.Address, TaxNumber = req.TaxNumber,
             Website = req.Website,  // DEC-081c: fix website persistence
