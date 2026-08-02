@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ERP-SYSTEM — ملخص الحالة والاستراتيجية (2026-08-02)</title>
+<style>
+  :root {
+    --bg: #0f1419; --bg-card: #1a2028; --bg-code: #0d1117;
+    --fg: #e6edf3; --fg-dim: #8b949e; --fg-mute: #6e7681;
+    --accent: #58a6ff; --accent-green: #3fb950; --accent-yellow: #d29922; --accent-red: #f85149; --accent-purple: #bc8cff;
+    --border: #30363d;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Cairo", Tahoma, sans-serif;
+    background: var(--bg); color: var(--fg);
+    margin: 0; padding: 2rem; line-height: 1.7; max-width: 1200px; margin: 0 auto;
+  }
+  h1 { color: var(--accent); border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; margin-top: 0; font-size: 2rem; }
+  h2 { color: var(--accent-green); border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; margin-top: 2.5rem; font-size: 1.5rem; }
+  h3 { color: var(--accent-purple); margin-top: 1.8rem; font-size: 1.2rem; }
+  h4 { color: var(--accent-yellow); margin-top: 1.4rem; font-size: 1.05rem; }
+  p { margin: 0.8rem 0; }
+  ul, ol { padding-right: 1.8rem; }
+  li { margin: 0.4rem 0; }
+  .lead { color: var(--fg-dim); font-size: 1.05rem; border-right: 4px solid var(--accent); padding-right: 1rem; margin: 1.5rem 0; }
+  .callout { background: var(--bg-card); border-right: 4px solid var(--accent); padding: 1rem 1.2rem; margin: 1.2rem 0; border-radius: 4px; }
+  .callout-green { border-right-color: var(--accent-green); }
+  .callout-yellow { border-right-color: var(--accent-yellow); }
+  .callout-red { border-right-color: var(--accent-red); }
+  code { background: var(--bg-code); padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.9em; color: var(--accent); font-family: "Cascadia Code", Consolas, monospace; }
+  pre { background: var(--bg-code); padding: 1rem; border-radius: 6px; overflow-x: auto; border: 1px solid var(--border); }
+  pre code { background: transparent; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: 0.95em; }
+  th, td { border: 1px solid var(--border); padding: 0.5rem 0.8rem; text-align: right; }
+  th { background: var(--bg-card); color: var(--accent); font-weight: 600; }
+  tr:nth-child(even) { background: var(--bg-card); }
+  .ok { color: var(--accent-green); font-weight: 600; }
+  .warn { color: var(--accent-yellow); font-weight: 600; }
+  .err { color: var(--accent-red); font-weight: 600; }
+  .mute { color: var(--fg-mute); }
+  .badge { display: inline-block; padding: 0.15rem 0.6rem; border-radius: 12px; font-size: 0.85em; font-weight: 600; }
+  .badge-ok { background: rgba(63, 185, 80, 0.15); color: var(--accent-green); }
+  .badge-warn { background: rgba(210, 153, 34, 0.15); color: var(--accent-yellow); }
+  .badge-err { background: rgba(248, 81, 73, 0.15); color: var(--accent-red); }
+  .badge-info { background: rgba(88, 166, 255, 0.15); color: var(--accent); }
+  .toc { background: var(--bg-card); padding: 1rem 1.2rem; border-radius: 6px; margin: 1.5rem 0; }
+  .toc a { color: var(--accent); text-decoration: none; display: block; padding: 0.2rem 0; }
+  .toc a:hover { color: var(--accent-green); }
+  .meta { color: var(--fg-mute); font-size: 0.9em; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+</style>
+</head>
+<body>
+
+<h1>ERP-SYSTEM — ملخص الحالة والاستراتيجية</h1>
+<p class="lead">آخر تحديث: 2026-08-02 14:50 UTC+2 | كاتب: Mavis (Muhammad mode) | Sprint 27 LOCAL-ONLY done، مستني "ادفع" من Anas (Mode 2 مفعّل)</p>
+
+<div class="toc">
+  <strong>📑 جدول المحتويات</strong>
+  <a href="#rec">1. توصية Tag</a>
+  <a href="#direction">2. اتجاه الـ Refactoring</a>
+  <a href="#state">3. ملخص حالة النظام</a>
+  <a href="#compliance">4. امتثال Constitution Article 3</a>
+  <a href="#stacked">5. الـ Work الـ Stacked</a>
+  <a href="#carryover">6. Carry-over</a>
+  <a href="#risk">7. المخاطر</a>
+  <a href="#next">8. الخطوة الجاية</a>
+</div>
+
+<h2 id="rec">1. 🎯 توصية Tag (Muhammad's pick)</h2>
+
+<div class="callout callout-green">
+  <strong>Picks:</strong> <code>v1.0.9-sprint24-audit-architecture</code> (نفس الـ convention)
+</div>
+
+<p><strong>السبب:</strong></p>
+<ul>
+  <li>Sprints 24+25+26+27 = incremental على Sprint 21-22-23 (اللي طلع كـ <code>v1.0.8-sprint21-22-23-architecture</code>)</li>
+  <li>v2.0 محجوز لـ breaking changes (schema migration, API contract change). الـ Article 3 audit + seeder framework = quality + tooling، مش breaking</li>
+  <li>الـ tag history linear: <code>v1.0.4 → v1.0.5 → ... → v1.0.8 → v1.0.9</code> — قابل للقراءة</li>
+  <li>الـ substance موثّق في DEC-082..093 + 20 lessons — مش محتاج version bump عشان يتشاف</li>
+</ul>
+
+<p><strong>Counter-argument (لو Anas يفضّل v1.1.0):</strong></p>
+<ul>
+  <li>4 sprints من الـ audit work (24+25+26+27) = أكبر من سبرنت واحد عادة</li>
+  <li>v1.1.0 يقول "we shipped something materially different" — والـ audit framework + seeder framework = material</li>
+</ul>
+
+<p><strong>Muhammad's lean:</strong> <code>v1.0.9</code>. لو Anas عايز v1.1.0، fine — مش deal-breaker، مجرد naming preference.</p>
+
+<h2 id="direction">2. 🧭 اتجاه الـ Refactoring (وين رايح)</h2>
+
+<h3>الـ 3 محاور الأساسية</h3>
+
+<table>
+  <tr><th>المحور</th><th>الـ Sprints</th><th>الحالة</th></tr>
+  <tr>
+    <td><strong>Architecture layer</strong></td>
+    <td>Sprints 21-23, 25, 27</td>
+    <td><span class="badge badge-ok">Done-ish</span></td>
+  </tr>
+  <tr>
+    <td><strong>Compliance layer</strong></td>
+    <td>Sprints 19, 24-25, 27</td>
+    <td><span class="badge badge-warn">Ongoing</span></td>
+  </tr>
+  <tr>
+    <td><strong>Tooling layer</strong></td>
+    <td>Sprints 26-27</td>
+    <td><span class="badge badge-info">Established</span></td>
+  </tr>
+</table>
+
+<h3>الـ Roadmap لـ Sprint 28+</h3>
+
+<table>
+  <tr><th>Sprint</th><th>الـ Focus</th><th>الـ Deliverable</th></tr>
+  <tr>
+    <td><strong>28</strong></td>
+    <td>Procurement seeder (3rd POC) + remaining Article 3 audits</td>
+    <td><code>ArabicProcurementDevSeeder</code> + audit Projects/Payments</td>
+  </tr>
+  <tr>
+    <td><strong>29</strong></td>
+    <td>Year-scenario seeder (12 monthly invoices + 6 receipts)</td>
+    <td><code>ArabicYearDevSeeder</code> extending <code>ArabicDevSeeder</code></td>
+  </tr>
+  <tr>
+    <td><strong>30</strong></td>
+    <td>Posting Rules integration tests + remaining Article 3 audits</td>
+    <td>unit tests for Sprint 23.1 Stock→Posting</td>
+  </tr>
+  <tr>
+    <td><strong>31+</strong></td>
+    <td>P2 features (statement endpoints, multi-currency, audit trail)</td>
+    <td>from carry-over list</td>
+  </tr>
+</table>
+
+<h3>الـ Long-term direction</h3>
+<ul>
+  <li><strong>Layer 2 (mvp-docker) hardening</strong> — Layer 2 هو اللي الـ client شايفه. لازم يبقى "demo ready" بدون manual setup</li>
+  <li><strong>Layer 3 (production) revisit</strong> — حالياً frozen per Anas 2026-07-31. ممكن نرجعلها لما يكون في client production deadline</li>
+  <li><strong>Frontend modernization</strong> — Next.js 14 fine بس الـ DTO sync manually. Code-gen من OpenAPI ممكن يقلل bugs</li>
+</ul>
+
+<h2 id="state">3. 📊 ملخص حالة النظام</h2>
+
+<h3>Repo state</h3>
+
+<table>
+  <tr><th>Branch</th><th>SHA</th><th>الحالة</th></tr>
+  <tr>
+    <td><code>main</code></td>
+    <td><code>afa43c7</code> (v0.0.0-pre-branch-reset)</td>
+    <td><span class="badge badge-err">🔒 LOCKED archive</span></td>
+  </tr>
+  <tr>
+    <td><code>develop</code></td>
+    <td><code>12377ff</code></td>
+    <td><span class="badge badge-ok">Default; Sprint 21+22+23 squash-merge (#196)</span></td>
+  </tr>
+  <tr>
+    <td><code>feature/sprint-21-posting-rules-engine</code></td>
+    <td><code>e95b449</code></td>
+    <td><span class="badge badge-warn">Sprints 21+22+23+24+25+26+27 stacked, LOCAL-ONLY</span></td>
+  </tr>
+</table>
+
+<h3>الـ Work الـ pushed (موجود في develop)</h3>
+<ul>
+  <li><strong>Sprint 21:</strong> Posting Rules Engine (5 default rules, Libya default)</li>
+  <li><strong>Sprint 22:</strong> 15→9 modules refactor، no event bus، no Marten</li>
+  <li><strong>Sprint 23.1:</strong> StockMovementService → PostingRulesService direct call</li>
+  <li><strong>Sprint 23.2:</strong> company_id propagation fix (JournalEntry, SalesInvoice, Receipt, Customer)</li>
+  <li>Tagged <code>v1.0.8-sprint21-22-23-architecture</code></li>
+</ul>
+
+<h3>الـ Work الـ LOCAL-ONLY (مستني "ادفع")</h3>
+
+<table>
+  <tr><th>Sprint</th><th>Commit</th><th>الـ Deliverable</th></tr>
+  <tr>
+    <td><strong>Sprint 24</strong></td>
+    <td><code>0aabf2c</code> + <code>6e36730</code></td>
+    <td>outbox drop, sequence tables company_id, appsettings.example</td>
+  </tr>
+  <tr>
+    <td><strong>Sprint 25</strong></td>
+    <td><code>4013b61</code></td>
+    <td>4 Article 3 violations في Procurement (Vendor, PO, GR, Bill) + 2 inventory services</td>
+  </tr>
+  <tr>
+    <td><strong>Sprint 26</strong></td>
+    <td><code>2942abd</code></td>
+    <td>Arabic seeder (DEC-087) — fix encoding bug من Sprint 25 PowerShell</td>
+  </tr>
+  <tr>
+    <td><strong>Sprint 27</strong></td>
+    <td><code>e95b449</code></td>
+    <td>HR Article 3 audit (8 violations) + Arabic HR seeder (3-pass UPSERT)</td>
+  </tr>
+</table>
+
+<h3>Architecture map</h3>
+
+<pre><code>ERP-SYSTEM/
+├── src/
+│   ├── backend/                  .NET 9, Dapper, FluentMigrator
+│   │   ├── Host/                 Program.cs + Bootstrap + DI
+│   │   ├── Modules/              9 modules: Identity, Companies, Finance, Inventory,
+│   │   │   │                              Procurement, AccountsReceivable, HR,
+│   │   │   │                              Payroll, Projects, Dashboard
+│   │   └── Shared/               CompanyContext, SeedData, Migrations
+│   └── frontend/                 Next.js 14, TypeScript, Tailwind, shadcn/ui
+├── docs/
+│   ├── architecture/             holding-company-architecture.md, REFACTOR-SPRINT-22.md
+│   └── team-charters/            retrospectives/ (Sprint 22-27)
+├── local-docker/                 Layer 1 (dev) — gitignored overrides
+├── mvp-docker/                   Layer 2 (clean MVP) — 9/9 smoke ✓
+├── CONSTITUTION.md               Two-Mode Workflow (Article 10)
+├── AGENTS.md                     DOX rail + DEC-085 checklist
+└── CHANGELOG.md                  27 sprints documented
+</code></pre>
+
+<h2 id="compliance">4. ✅ امتثال Constitution Article 3</h2>
+
+<table>
+  <tr>
+    <th>Module</th>
+    <th>Entity</th>
+    <th>Service</th>
+    <th>Repo</th>
+    <th>الحالة</th>
+  </tr>
+  <tr><td>Identity</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK</span></td></tr>
+  <tr><td>Companies</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK</span></td></tr>
+  <tr><td>Finance (PostingRules)</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 21)</span></td></tr>
+  <tr><td>Finance (Journal)</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 23.2)</span></td></tr>
+  <tr><td><strong>Inventory</strong></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 25)</span></td></tr>
+  <tr><td><strong>Procurement</strong></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 25)</span></td></tr>
+  <tr><td>AccountsReceivable</td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 23.2)</span></td></tr>
+  <tr><td><strong>HR</strong></td><td class="ok">✓</td><td class="ok">✓</td><td class="ok">✓</td><td><span class="badge badge-ok">OK (Sprint 27)</span></td></tr>
+  <tr><td>Payroll</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+  <tr><td>Projects</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+  <tr><td>Payments</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+  <tr><td>StockMovement (Inventory)</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+  <tr><td>AccountService (Finance)</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+  <tr><td>ChartOfAccountsService (Finance)</td><td>—</td><td>—</td><td>—</td><td><span class="badge badge-warn">⚠️ Not audited</span></td></tr>
+</table>
+
+<p><strong>Summary:</strong> 5/9 modules compliant (Inventory, Procurement, HR, Finance, AccountsReceivable). 4 services in unaudited modules need attention.</p>
+
+<h2 id="stacked">5. 📦 الـ Work الـ Stacked على feature branch</h2>
+
+<table>
+  <tr>
+    <th>#</th>
+    <th>Commit</th>
+    <th>Sprint</th>
+    <th>Title</th>
+  </tr>
+  <tr><td>1</td><td><code>504b50e</code></td><td>21</td><td>Posting Rules Engine bug fixes</td></tr>
+  <tr><td>2</td><td><code>76e857d</code></td><td>22</td><td>Major refactor: 15→9 modules</td></tr>
+  <tr><td>3</td><td><code>a6998c6</code></td><td>23</td><td>company_id propagation fix</td></tr>
+  <tr><td>4</td><td><code>999f913</code></td><td>23</td><td>CI fix</td></tr>
+  <tr><td>5</td><td><code>597dfd1</code></td><td>23</td><td>Docs commit</td></tr>
+  <tr><td>6</td><td><code>5c54632</code></td><td>23</td><td>Tests fix</td></tr>
+  <tr><td>7</td><td><code>6b2d099</code></td><td>23</td><td>Dashboard test fix</td></tr>
+  <tr><td>8</td><td><code>0aabf2c</code></td><td>24</td><td>outbox cleanup + Constitution Article 3 audit</td></tr>
+  <tr><td>9</td><td><code>6e36730</code></td><td>24</td><td>Sprint 24 docs (CHANGELOG + AGENTS.md + retro + appsettings template)</td></tr>
+  <tr><td>10</td><td><code>4013b61</code></td><td>25</td><td>4 more Article 3 violations (Procurement + Inventory)</td></tr>
+  <tr><td>11</td><td><code>2942abd</code></td><td>26</td><td>Arabic dev seeder (DEC-087)</td></tr>
+  <tr><td>12</td><td><code>e95b449</code></td><td>27</td><td>HR Article 3 audit + Arabic HR seeder (POC #2)</td></tr>
+</table>
+
+<h2 id="carryover">6. 📋 Carry-over (Sprint 28+)</h2>
+
+<h3>P1 (Prioritized)</h3>
+<ul>
+  <li>Procurement cycle demo data (10 POs + 10 GRs + 10 bills) — <code>ArabicProcurementDevSeeder</code> (3rd seeder، now trivial)</li>
+  <li>Extend <code>ArabicDevSeeder</code> (Sprint 26) to also create sales invoices + receipts + opening balance JEs from JSON</li>
+  <li>Manual JEs (12: depreciation, accruals, year-end)</li>
+  <li>Posting Rules integration unit tests</li>
+  <li>14 P2 function workflow docs (carry-over from Sprints 19+)</li>
+  <li><code>customerStatement</code> + <code>vendorStatement</code> GET endpoints</li>
+  <li><code>CreateItem</code> API method</li>
+  <li>Trial Balance validation UI</li>
+  <li><code>DepartmentResponse.managerName</code> field (small FE/BE gap)</li>
+  <li>Audit remaining modules: Projects, Payments, StockMovement, AccountService, ChartOfAccountsService, PayrollService</li>
+</ul>
+
+<h3>P2 (Later)</h3>
+<ul>
+  <li>5th default rule "Sale with VAT 5%" (inactive, for demo)</li>
+  <li>Audit trail for posting rule changes</li>
+  <li>Multi-currency support</li>
+  <li>mvp-docker/.env to .gitignore</li>
+  <li>Pre-push script: scan for <code>?</code> in user-visible columns</li>
+  <li>Build-time test that enforces DEC-085</li>
+</ul>
+
+<h2 id="risk">7. ⚠️ المخاطر</h2>
+
+<div class="callout callout-yellow">
+  <strong>Risk #1 (HIGH):</strong> الـ 4 unaudited modules (Payroll, Projects, Payments, AccountService, ChartOfAccountsService, StockMovement) almost certainly have Article 3 violations. الـ pattern has been "every audit finds 4-8" — so we're looking at 4-8 more violations. They will be found when the next user tries to use them.
+</div>
+
+<div class="callout callout-yellow">
+  <strong>Risk #2 (MEDIUM):</strong> الـ 2 seeders (Customers, HR) don't yet cover transactions. الـ sales invoices + receipts من Sprint 25 PowerShell scripts هتضل في الـ DB بس مفيش seeder "produces" them. لو حد مسح الـ DB وعايز يعمل rebuild from scratch، الـ transactions مش هترجع.
+</div>
+
+<div class="callout callout-yellow">
+  <strong>Risk #3 (LOW):</strong> mvp-docker Layer 2 غير متأثر بالـ Sprints 24-27 (الـ seederات dev-only). الـ client demo هيشتخدم Layer 2 مباشرة — ما فيش regression.
+</div>
+
+<h2 id="next">8. 🚀 الخطوة الجاية</h2>
+
+<h3>التوصية قبل "ادفع":</h3>
+
+<div class="callout callout-green">
+  <strong>الـ Option القوي:</strong> Sprint 28 = Audit + Procurement seeder combined (1 sprint, 4-6h)
+  <ol>
+    <li>Audit Payroll + Projects + Payments + AccountService + ChartOfAccountsService (5 entities + services + repos)</li>
+    <li>Build <code>ArabicProcurementDevSeeder</code> (3rd POC، 1.5-2h، trivial after L17)</li>
+    <li>Verify</li>
+  </ol>
+  كده الـ push يكون v1.0.9 مع 9/9 modules clean — أقوى بكثير كـ "production-ready audit pass".
+</div>
+
+<div class="callout callout-yellow">
+  <strong>الـ Option الـ acceptable:</strong> ادفع دلوقتي: <code>v1.0.9-sprint24-audit-architecture</code> بـ 5/9 modules clean + seeder framework + 4 unaudited in carry-over. Acceptable but not ideal.
+</div>
+
+<p><strong>القرار لـ Anas.</strong> محمد مستني "ادفع" (أو Sprint 28 لو اختار نمشي للأقوى).</p>
+
+<div class="meta">
+  <p><strong>Metadata:</strong></p>
+  <ul>
+    <li>Branch: <code>feature/sprint-21-posting-rules-engine</code> @ <code>e95b449</code></li>
+    <li>Base: <code>develop</code> @ <code>12377ff</code></li>
+    <li>Commits ahead of develop: 12 (Sprints 21-27)</li>
+    <li>Total LOC added: ~3000+ (4 sprints of audit + seeder framework)</li>
+    <li>DECisions documented: DEC-082..093 (12 decisions)</li>
+    <li>Lessons learned: L13..L20 (8 lessons)</li>
+  </ul>
+</div>
+
+</body>
+</html>
