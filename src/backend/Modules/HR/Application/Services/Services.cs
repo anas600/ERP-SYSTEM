@@ -1,6 +1,7 @@
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Entities;
 using ERPSystem.Modules.HR.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.HR.Application.Services;
 
@@ -31,7 +32,8 @@ public interface IDepartmentService
 public sealed class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _repo;
-    public DepartmentService(IDepartmentRepository repo) => _repo = repo;
+    private readonly ICompanyContext _companyContext;
+    public DepartmentService(IDepartmentRepository repo, ICompanyContext companyContext) { _repo = repo; _companyContext = companyContext; }
 
     public async Task<HRResult<DepartmentResponse>> CreateAsync(CreateDepartmentRequest req, CancellationToken ct)
     {
@@ -43,10 +45,14 @@ public sealed class DepartmentService : IDepartmentService
             if (parent == null)
                 return HRResult<DepartmentResponse>.Fail("القسم الأب غير موجود.", HRErrorCode.NotFound);
         }
+        // Sprint 27 (DEC-091): Constitution Article 3 — read company_id from context.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var now = DateTime.UtcNow;
         var d = new Department
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             Code = req.Code.Trim(), Name = req.Name.Trim(),
             ParentId = req.ParentId, ManagerId = req.ManagerId,
             IsActive = true, CreatedAt = now, UpdatedAt = now
@@ -114,18 +120,23 @@ public sealed class EmployeeService : IEmployeeService
 {
     private readonly IEmployeeRepository _repo;
     private readonly IHRDocumentSequenceRepository _seq;
-    public EmployeeService(IEmployeeRepository repo, IHRDocumentSequenceRepository seq) { _repo = repo; _seq = seq; }
+    private readonly ICompanyContext _companyContext;
+    public EmployeeService(IEmployeeRepository repo, IHRDocumentSequenceRepository seq, ICompanyContext companyContext) { _repo = repo; _seq = seq; _companyContext = companyContext; }
 
     public async Task<HRResult<EmployeeResponse>> CreateAsync(Guid userId, CreateEmployeeRequest req, CancellationToken ct)
     {
         if (!string.IsNullOrEmpty(req.Email) && await _repo.GetByEmailAsync(req.Email, ct) != null)
             return HRResult<EmployeeResponse>.Fail("البريد الإلكتروني مستخدم.", HRErrorCode.AlreadyExists);
 
+        // Sprint 27 (DEC-091): Constitution Article 3 — read company_id from context.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var empNumber = await _seq.GetNextEmployeeNumberAsync(ct);
         var now = DateTime.UtcNow;
         var e = new Employee
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             EmployeeNumber = empNumber, FullName = req.FullName.Trim(),
             Email = req.Email, Phone = req.Phone, NationalId = req.NationalId,
             DepartmentId = req.DepartmentId, JobTitle = req.JobTitle,
@@ -205,7 +216,8 @@ public sealed class AttendanceService : IAttendanceService
 {
     private readonly IAttendanceRepository _repo;
     private readonly IEmployeeRepository _employees;
-    public AttendanceService(IAttendanceRepository repo, IEmployeeRepository employees) { _repo = repo; _employees = employees; }
+    private readonly ICompanyContext _companyContext;
+    public AttendanceService(IAttendanceRepository repo, IEmployeeRepository employees, ICompanyContext companyContext) { _repo = repo; _employees = employees; _companyContext = companyContext; }
 
     public async Task<HRResult<AttendanceResponse>> RecordAsync(CheckInOutRequest req, string? ipAddress, CancellationToken ct)
     {
@@ -219,9 +231,14 @@ public sealed class AttendanceService : IAttendanceService
             return HRResult<AttendanceResponse>.Fail(
                 $"لا يمكن تسجيل {req.Type} متتالي بدون النوع المعاكس.", HRErrorCode.BusinessRuleViolation);
 
+        // Sprint 27 (DEC-091): Constitution Article 3 — read company_id from context
+        // (use the employee's company for cross-tenant safety, falling back to the
+        // active context — both are guaranteed to match in single-deployment mode).
+        var companyId = emp.CompanyId != Guid.Empty ? emp.CompanyId : _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var att = new Attendance
         {
-            Id = Guid.NewGuid(), EmployeeId = req.EmployeeId,
+            Id = Guid.NewGuid(), CompanyId = companyId, EmployeeId = req.EmployeeId,
             Type = req.Type, Timestamp = DateTime.UtcNow, Notes = req.Notes, IpAddress = ipAddress,
             CreatedAt = DateTime.UtcNow
         };
@@ -264,7 +281,8 @@ public sealed class LeaveRequestService : ILeaveRequestService
 {
     private readonly ILeaveRequestRepository _repo;
     private readonly IEmployeeRepository _employees;
-    public LeaveRequestService(ILeaveRequestRepository repo, IEmployeeRepository employees) { _repo = repo; _employees = employees; }
+    private readonly ICompanyContext _companyContext;
+    public LeaveRequestService(ILeaveRequestRepository repo, IEmployeeRepository employees, ICompanyContext companyContext) { _repo = repo; _employees = employees; _companyContext = companyContext; }
 
     public async Task<HRResult<LeaveRequestResponse>> CreateAsync(Guid userId, CreateLeaveRequestDto req, CancellationToken ct)
     {
@@ -277,10 +295,13 @@ public sealed class LeaveRequestService : ILeaveRequestService
             return HRResult<LeaveRequestResponse>.Fail("يوجد إجازة معتمدة أخرى للموظف في نفس الفترة.", HRErrorCode.BusinessRuleViolation);
 
         var totalDays = (int)(req.EndDate.Date - req.StartDate.Date).TotalDays + 1;
+        // Sprint 27 (DEC-091): Constitution Article 3 — same pattern as Attendance.
+        var companyId = emp.CompanyId != Guid.Empty ? emp.CompanyId : _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var now = DateTime.UtcNow;
         var leave = new LeaveRequest
         {
-            Id = Guid.NewGuid(), EmployeeId = req.EmployeeId,
+            Id = Guid.NewGuid(), CompanyId = companyId, EmployeeId = req.EmployeeId,
             LeaveType = req.LeaveType, StartDate = req.StartDate, EndDate = req.EndDate,
             TotalDays = totalDays, Status = LeaveStatus.Pending,
             Reason = req.Reason, Notes = req.Notes,

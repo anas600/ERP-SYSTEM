@@ -13,7 +13,147 @@
 
 ---
 
-## Sprint 23 — company_id propagation + Stock→Posting Rules direct call (2026-08-02) ✅ DONE (LOCAL-ONLY)
+## Sprint 27 — HR Article 3 audit + Arabic HR dev seeder (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's Sprint 27 directive — POC the seeder pattern a second time (`ArabicHrDevSeeder`) to establish it as a framework. As a prerequisite, the carry-over note "needs EmployeeService/DepartmentService/ProjectService Article 3 fixes" had to be addressed first. The audit found 8 violations in the HR module (4 entities + 4 services + 4 repos with no company_id propagation) — same shape as Sprint 25 (Procurement).
+
+### Fixed (DEC-091: HR Article 3 audit — 8 violations)
+- **4 entities** — added `CompanyId` field to `Employee`, `Department`, `LeaveRequest`, `Attendance` (the latter 3 had zero presence of the field).
+- **4 services** — injected `ICompanyContext` into `DepartmentService`, `EmployeeService`, `AttendanceService`, `LeaveRequestService`. Read `CompanyId = _companyContext.CompanyId ?? throw new InvalidOperationException(...)` in each `CreateAsync`. For `AttendanceService` and `LeaveRequestService` (which are employee-driven), the code prefers `emp.CompanyId` over the context (cross-tenant safety) — same pattern that other employee-driven services will use.
+- **4 repositories** — added `@CompanyId` to INSERT + SELECT in `DepartmentRepository`, `EmployeeRepository`, `AttendanceRepository`, `LeaveRequestRepository`. The DB tables already had `company_id NOT NULL` from the Sprint 22 schema, but the columns would have been set to NULL by the existing INSERTs.
+- **Migration `Sprint27_HrCompanyId_20260802_130000`** — idempotent backfill (UPDATE ... SET company_id = (first company) WHERE company_id IS NULL) for all 4 HR tables. No-op in practice today (0 rows), but future-safe.
+- **HRDocumentSequenceRepository** — was already fixed in Sprint 24 (DEC-083), no change needed.
+- **Validators** — clean (no `CompanyId != Guid.Empty` boilerplate, since the services never read CompanyId from the request DTO).
+
+### Added
+- **`src/backend/Shared/SeedData/ArabicHrDevData.json`** (NEW, ~4.5KB) — UTF-8 JSON with 5 departments + 10 employees. Includes `parentCode` (department hierarchy) and `managerEmployeeNumber` (FK to employees).
+- **`src/backend/Shared/SeedData/ArabicHrDevSeederHostedService.cs`** (NEW, ~16KB) — `IHostedService` that reads the JSON + UPSERTs departments + employees via Dapper. 3-pass approach to handle the cyclic FK:
+  - **Pass 1**: UPSERT departments (no `manager_id` yet, since the referenced employee may not exist)
+  - **Pass 2**: UPSERT employees (with `department_id` resolved from department code)
+  - **Pass 3**: UPDATE `departments.manager_id` from the manager's `employeeNumber`
+- **`Bootstrap:SeedHrScenario` config flag** — added to `appsettings.Development.json.example` + `appsettings.Development.json`. Default `false`. Double-gated on `IsDevelopment() + flag`.
+- **`<Content Include="..\Shared\SeedData\ArabicHrDevData.json" />`** in csproj.
+- **Program.cs registration block** — Sprint 27 section after Sprint 26, gated on `IsDevelopment()` + flag. Logs `[SPRINT-27] ArabicHrDevSeeder registered/skipped`.
+- **Sprint 27 retro** — `docs/team-charters/retrospectives/sprint-27-retro.md` (forthcoming).
+
+### Verified (end-to-end on local host)
+- `dotnet build` → 0 errors, 0 warnings
+- `psql` confirmed: 5 departments + 10 employees with proper Arabic stored as UTF-8 bytes (`d8a7d984d8a5d8afd8a7d8b1` = `الإدارة`).
+- 3-pass FK cycle resolved correctly: 5 manager links assigned (each department has a manager who is one of the 10 employees).
+- API `/api/hr/departments` and `/api/hr/employees` return Arabic JSON.
+- BE on `http://127.0.0.1:5001` (dev env), FE on `http://localhost:3000` (browser will show Arabic on the HR pages).
+
+### Lessons
+- **L17: "Established pattern" threshold = 2 implementations.** This is the second seeder in the same shape (Sprint 26 = customers/vendors/items, Sprint 27 = departments/employees). The pattern is now: JSON file + C# IHostedService + UPSERT + Dapper + double-gate + Content include + appsettings flag. Next seeder (`ArabicProcurementDevSeeder`?) can be 1.5-2h instead of 4-6h because the pattern is proven.
+- **L18: Cyclic FK requires 3-pass UPSERT.** `departments.manager_id` → `employees.id` AND `employees.department_id` → `departments.id`. The cycle is broken by ordering: departments first (without managers), then employees (with department), then managers (UPDATE on departments). Single-pass with `INSERT ... SELECT` won't work because the referenced row doesn't exist yet.
+- **L19: Cross-tenant safety > context-only CompanyId.** For employee-driven services (Attendance, LeaveRequest), prefer `emp.CompanyId` over `_companyContext.CompanyId` — the employee is the canonical source. In single-deployment mode they're identical, but this pattern works correctly in a multi-tenant scenario too.
+- **L20: Audit pattern is now 7 sprints running.** Sprints 19, 21, 22, 23, 24, 25, 27 all surfaced Article 3 violations. The DEC-085 checklist (in AGENTS.md) caught 100% of them. The bug is "if you don't enforce it explicitly, the code drifts."
+
+### Carry-over (Sprint 28+, still outstanding)
+- P1: Procurement cycle demo data (10 POs + 10 GRs + 10 bills) — `ArabicProcurementDevSeeder` (3rd seeder, now trivial)
+- P1: Extend `ArabicDevSeeder` (Sprint 26) to also create sales invoices + receipts + opening balance JEs from JSON
+- P1: Manual JEs (12: depreciation, accruals, year-end)
+- P1: Posting Rules integration unit tests
+- P1: 14 P2 function workflow docs
+- P1: `customerStatement` + `vendorStatement` GET endpoints
+- P1: `CreateItem` API method
+- P1: Trial Balance validation UI
+- P1: `DepartmentResponse.managerName` field — currently the API returns `managerId` but no joined name (small FE/BE gap)
+- P2: 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- P2: Audit trail for posting rule changes
+- P2: Multi-currency support
+- P2: mvp-docker/.env to .gitignore
+- P2: Pre-push script: scan for `?` in user-visible columns (would have caught Sprint 25 bug)
+
+---
+
+## Sprint 26 — Arabic dev seeder (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive ("اللغه العربيه غير مدعومه في البيانات السيدر الجديده , اريد ان يكون هناكم ملف داتا سيدر خاص ببيئه التطوير , يمثل سيناريو تشغيلي لسنه تشغيليه كامله وباللغه العربيه") — build a proper Arabic seeder for dev environment, fix the encoding bug from Sprint 25 PowerShell scripts, and let the user see real Arabic data on the local host like carry-over/migration data.
+
+### Root cause (DEC-087)
+- **Sprint 25 PowerShell scripts used `ConvertTo-Json | Invoke-RestMethod` from PowerShell 5.1, which sends the JSON body as UTF-16-LE bytes.**
+- ASP.NET Core's UTF-8 decoder can't read UTF-16-LE multi-byte sequences → each Arabic character (2-4 UTF-8 bytes) is replaced with a single `?` (0x3F).
+- Verified via `psql`: CUST-004..013, VEND-004..013, ITEM-006..020 all had `name = '? ? ? ...'`. Hex dump confirmed `3f3f3f3f` (literal question marks), not UTF-8 mojibake.
+- The original 3 customers (CUST-001..003, seeded via direct SQL in `DefaultHoldingBootstrapHostedService`) were stored correctly as UTF-8 bytes (`d8b4d8b1...` = Arabic letters) — because C# `string` literals are UTF-8 native in `.cs` files since .NET 5+.
+
+### Added
+- **`src/backend/Shared/SeedData/ArabicDevData.json`** (NEW, ~13KB) — UTF-8 encoded JSON with proper Arabic names for 13 customers + 13 vendors + 20 items. The "single source of truth" for Arabic master data on dev environment.
+- **`src/backend/Shared/SeedData/ArabicDevSeederHostedService.cs`** (NEW, ~22KB) — `IHostedService` that reads the JSON + UPSERTs customers/vendors/items via Dapper. Idempotent (UPSERT by `code`/`sku`). Dev environment only (gated on `IsDevelopment()` + `Bootstrap:SeedArabicScenario=true`). Uses the standard `IDbConnectionFactory` ephemeral connection pattern.
+- **`Bootstrap:SeedArabicScenario` config flag** — added to `appsettings.Development.json.example` (template) and `appsettings.Development.json` (gitignored local). Default `false`; explicit opt-in.
+- **`<Content Include="..\Shared\SeedData\ArabicDevData.json" CopyToOutputDirectory="PreserveNewest" />`** in `Host/ERP-SYSTEM.csproj` — copies the JSON to `bin/Debug/net9.0/Shared/SeedData/` so the seeder can find it at runtime.
+- **`Program.cs` registration block** — Sprint 26 section after the existing seeders, gated on `IsDevelopment()` + flag. Logs `[SPRINT-26] ArabicDevSeeder registered/skipped` line.
+
+### Fixed
+- **All 35 broken Arabic names** in the DB restored to proper UTF-8 Arabic. On first run: `customers updated=13 inserted=0, vendors updated=13 inserted=0, items updated=20 inserted=0`. The seeder is idempotent — re-running is safe.
+
+### Verified (end-to-end on local host)
+- `dotnet build` → 0 errors, 0 warnings
+- `psql` confirmed: `CUST-001` = `شركة الفجر للتوزيع` (hex `d8b4d8b1d983d8a920d8a7...`), `CUST-004` = `شركة النور للتوريدات`, `CUST-013` = `شركة السلامة للتوريدات`, etc. All 13 customers + 13 vendors + 20 items now have proper Arabic stored as UTF-8 bytes.
+- API check (`/api/ar/customers`, `/api/ar/receipts`): returns Arabic in JSON. Receipts that previously showed `???? ?????? ????????` (literal `?`) now show `مكتب البركة للخدمات`, `مؤسسة الهلال التجارية`, etc.
+- BE listening on `http://127.0.0.1:5001` (dev env), FE on `http://localhost:3000`. Browser on local host shows Arabic in customer list + receipts + AR aging.
+
+### Lessons
+- **L13: PowerShell 5.1 + JSON to ASP.NET Core = encoding bug.** The 2-sprint-old Sprint 25 PowerShell scripts looked fine locally (PowerShell console printed Arabic correctly), but the HTTP body bytes were UTF-16-LE. ASP.NET Core's UTF-8 decoder silently turned every multi-byte Arabic char into `?`. C# string literals in `.cs` files are UTF-8 native → `DefaultHoldingBootstrapHostedService` worked. C# string literals in `.json` files loaded via `File.ReadAllText` are also UTF-8 native → `ArabicDevSeederHostedService` works. **Rule going forward:** never use PowerShell 5.1 `ConvertTo-Json` + `Invoke-RestMethod` for Arabic (or any non-ASCII) data. Use C# hosted services, or PowerShell 7's `-Encoding utf8NoBOM` with explicit `Invoke-RestMethod -ContentType 'application/json; charset=utf-8'`.
+- **L14: "DEV-ONLY" seeder is a real category, not just a flag.** The Sprint 22-era seeders (`ScenarioSeederHostedService`, `RealisticSeedHostedService`) are gated only by config flag — they'd run in production if someone flipped the flag. `ArabicDevSeederHostedService` is double-gated: `IsDevelopment() && Bootstrap:SeedArabicScenario`. Even if a misconfig sets the flag in production, the env check stops it. This pattern should be standard for any future dev-only seeder.
+
+### Carry-over (Sprint 27+, still outstanding)
+- P1: HR demo data (10 employees + 5 departments + 5 projects) — needs `EmployeeService`/`DepartmentService`/`ProjectService` Article 3 fixes
+- P1: Procurement cycle demo data (10 POs + 10 GRs + 10 bills) via ArabicDevSeeder extension
+- P1: Manual JEs (12: depreciation, accruals, year-end)
+- P1: Posting Rules integration unit tests
+- P1: 14 P2 function workflow docs
+- P1: `customerStatement` + `vendorStatement` GET endpoints
+- P1: `CreateItem` API method
+- P1: Trial Balance validation UI
+- P2: 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- P2: Audit trail for posting rule changes
+- P2: Multi-currency support
+- P2: mvp-docker/.env to .gitignore
+- P2: Extend `ArabicDevSeeder` to create sales invoices + receipts + opening balance JEs from JSON (today: master data only; transactions remain from Sprint 25 PowerShell scripts)
+
+---
+
+## Sprint 24 — outbox cleanup + Constitution Article 3 audit (2026-08-02) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per **DEC-082** + **DEC-083** — finish the "no event bus" cleanup (drop outbox tables) and run a code-level audit of Constitution Article 3 (every entity + every service must use `company_id` via `ICompanyContext`, never `Guid.Empty`).
+
+Branch: working on `feature/sprint-21-posting-rules-engine` (now carries Sprints 21+22+23+24). LOCAL-ONLY. Carries Sprint 21+22+23 + 23.1 (Stock→Posting direct call) work + 23.2 (company_id propagation fix).
+
+### Removed
+- **`outbox_events` table** — `Sprint24_DropOutboxAndProcessedEvents_20260802_120000` migration. Was the write-side queue for the deleted `IEventBus`. Nothing writes here anymore (Sprint 22 moved to direct service calls).
+- **`processed_events` table** — same migration. Was the dedup table for the deleted event handlers. Idempotency now lives in the standard `(source_entity, source_id)` unique index pattern (see Finance).
+- **`outbox_events.json` + `processed_events.json`** — JSON data-type definitions removed (DataTypeMigrator won't try to recreate the tables on next startup).
+- **Outbox-related code refs** — cleaned up the remaining comments in `Program.cs` + the test fixture in `RetentionTests.cs` (the expected retention-period dict no longer references the dropped tables).
+
+### Fixed
+- **DEC-083: `procurement_document_sequences` + `hr_document_sequences` lacked `company_id`.** Two CREATE TABLE statements were missing the column, and the PK was just `(prefix)`. In a single-deployment-with-N-subsidiaries world, two companies would collide on the same `PO-2026-0001`. Now both tables have:
+  - `company_id UUID NOT NULL`
+  - PK = `(company_id, prefix)`
+- **`Sprint24_DocumentSequencesAddCompanyId_20260802_121000` migration** — backfills existing rows to the first company (only safe default in a non-multi-company legacy DB), then enforces NOT NULL + swaps the PK. Idempotent (DO blocks + IF EXISTS guards).
+- **3 sequence repositories** now take `ICompanyContext` in the constructor (`DocumentSequenceRepository`, `PaymentSequenceRepository`, `HRDocumentSequenceRepository`) and use it in the UPSERT and SELECT.
+
+### Added
+- **`appsettings.Development.json.example`** — template for the gitignored `appsettings.Development.json` (new contributors can copy + edit). Documents every key (ConnectionStrings, Marten, JwtSettings, Deployment, Bootstrap) with a comment explaining the safe defaults for local dev.
+- **Sprint 24 retro** — `docs/team-charters/retrospectives/sprint-24-retro.md` (NEW, ~10KB).
+
+### Carry-over (Sprint 25+, still outstanding from Sprints 19-23)
+- **P1:** 14 P2 function workflow docs (Attendance, Leave, Department, Cost Center, Posting Rules, Stock Movement, Warehouse, Item Category, UoM, User/Role, Audit Log, Holding/Company, Notification, Activity Feed)
+- **P1:** `customerStatement` + `vendorStatement` GET endpoints (Sprint 15 carry-over)
+- **P1:** `CreateItem` API method
+- **P1:** Trial Balance validation UI ("Balanced / Unbalanced" indicator)
+- **P2:** 5th default posting rule "Sale with VAT 5%" (inactive, for demo)
+- **P2:** Audit trail for posting rule changes
+- **P2:** Multi-currency support (currently LYD-only)
+- **P2:** mvp-docker/.env to .gitignore
+- **P2:** Posting Rules integration unit tests (new — Sprint 23.1 Stock→Posting direct call needs coverage)
+
+### Verified
+- `dotnet build` → 0 errors, 0 warnings
+- No `tenant_id` regressions (Constitution Article 3)
+- 2 new migrations are idempotent + DO-block-guarded
+
+---
 
 **Goal:** Fix the **2 latent bugs** discovered by the Sprint 22 end-to-end smoke test:
 1. `JournalEntry` + `JournalLine` entities had no `CompanyId`, and `JournalEntryRepository` did not include `company_id` in INSERT/SELECTs. Posting Rules Engine (Sprint 21) failed with `null value in column "company_id" of relation "journal_entries"`.

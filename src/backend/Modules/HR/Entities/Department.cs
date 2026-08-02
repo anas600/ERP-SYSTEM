@@ -9,6 +9,10 @@ namespace ERPSystem.Modules.HR.Entities;
 public class Department
 {
     public Guid Id { get; set; }
+
+    // Sprint 27 (DEC-091): Constitution Article 3 — see Employee.cs for context.
+    public Guid CompanyId { get; set; }
+
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }

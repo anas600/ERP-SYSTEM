@@ -5,6 +5,7 @@ using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.Logging;
 
@@ -27,15 +28,18 @@ public sealed class VendorBillService : IVendorBillService
     private readonly IJournalEntryService _journalSvc;  // DEC-075: AP posting
     private readonly IDbConnectionFactory _db;          // DEC-075: account lookup
     private readonly IPostingRulesService _postingRules; // Sprint 21
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<VendorBillService> _logger;
 
     public VendorBillService(IVendorBillRepository bills, IGoodsReceiptRepository grs, IPurchaseOrderRepository pos,
         IDocumentSequenceRepository seq, IJournalEntryService journalSvc, IDbConnectionFactory db,
         IPostingRulesService postingRules,
+        ICompanyContext companyContext,
         ILogger<VendorBillService> logger)
     {
         _bills = bills; _grs = grs; _pos = pos; _seq = seq;
-        _journalSvc = journalSvc; _db = db; _postingRules = postingRules; _logger = logger;
+        _journalSvc = journalSvc; _db = db; _postingRules = postingRules;
+        _companyContext = companyContext; _logger = logger;
     }
 
     public async Task<ProcurementResult<VendorBillResponse>> CreateAsync(Guid userId, CreateVendorBillRequest req, CancellationToken ct)
@@ -71,10 +75,13 @@ public sealed class VendorBillService : IVendorBillService
         }
         var total = subTotal + taxAmount;
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved — cannot create bill without company_id (Constitution Article 3).");
         var now = DateTime.UtcNow;
         var bill = new VendorBill
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit)
             BillNumber = billNumber, GoodsReceiptId = gr.Id, VendorId = vendorId,
             Status = VendorBillStatus.Draft,
             BillDate = req.BillDate, DueDate = req.DueDate,

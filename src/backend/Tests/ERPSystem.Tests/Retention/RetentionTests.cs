@@ -117,12 +117,11 @@ public class RetentionTests
     public void RetentionPeriod_IsLogical()
     {
         // Validate DEC-052 P1 retention periods are sensible
+        // Sprint 24: outbox_events + processed_events removed (DEC-082, Sprint 22 event bus delete)
         var periods = new Dictionary<string, int>
         {
             ["refresh_tokens"] = 30,
             ["password_reset_tokens"] = 1,  // 24 hours
-            ["outbox_events"] = 30,
-            ["processed_events"] = 30,
             ["notifications"] = 90,
             ["audit_log"] = 365 * 7,  // 7 years
             ["journal_entries"] = 365 * 7,  // 7 years (IFRS)

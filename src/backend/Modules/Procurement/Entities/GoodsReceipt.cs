@@ -20,6 +20,9 @@ public class GoodsReceipt
 {
     public Guid Id { get; set; }
 
+    /// <summary>الشركة المالكة لسند الاستلام (Constitution Article 3).</summary>
+    public Guid CompanyId { get; set; }
+
     /// <summary>رقم تسلسلي لسند الاستلام. مثال: "GR-2026-0001".</summary>
     public string GrNumber { get; set; } = string.Empty;
 

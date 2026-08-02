@@ -1,0 +1,40 @@
+{
+  "_comment_purpose": "Template for src/backend/Host/appsettings.Development.json (gitignored). Copy this file to appsettings.Development.json on a new dev machine, then edit the values to match your local Postgres + bootstrap choices.",
+  "_comment_security": "NEVER commit the real appsettings.Development.json. .gitignore excludes it. Use real secrets only in env vars or a secret manager; this file is for local dev convenience only.",
+  "_comment_bootstrap": "Bootstrap.CreateDefaultAdmin=true + Bootstrap.SeedDemoData=true will create an admin user (admin@erp.local / ChangeMe1234!) + 3 customers + 3 vendors + 5 items on first startup. Set to false for a clean install.",
+
+  "ConnectionStrings": {
+    "Postgres": "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=60;Connection Pruning Interval=10;Keepalive=30;Timeout=15;Command Timeout=60",
+    "Migrations": "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=false;Maximum Pool Size=1;Timeout=15;Command Timeout=60"
+  },
+
+  "Marten": {
+    "_comment_marten": "Marten is referenced in Program.cs but disabled (DEC-017). The ConnectionString is here so when the feature flag is enabled, no config change is needed.",
+    "ConnectionString": "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Pooling=true;Minimum Pool Size=1;Maximum Pool Size=20;Connection Idle Lifetime=60;Connection Pruning Interval=10;Keepalive=30;Timeout=15;Command Timeout=60"
+  },
+
+  "JwtSettings": {
+    "_comment_jwt": "Replace with a real random 64+ char secret in production. For local dev, anything matching the length constraint works.",
+    "Secret": "LOCAL_DEV_ONLY_64_CHAR_RANDOM_SECRET_NOT_FOR_PRODUCTION_xxxxxxxxxxxxxx"
+  },
+
+  "Deployment": {
+    "DefaultHoldingName": "Default Holding",
+    "DefaultCurrency": "LYD"
+  },
+
+  "Bootstrap": {
+    "_comment_bootstrap_keys": "These env-driven keys let the same code path be used for a clean install (false/false) or a demo install (true/true). mvp-docker uses true/true via .env; local dev typically wants true/true too.",
+    "CreateDefaultAdmin": true,
+    "DefaultAdminEmail": "admin@erp.local",
+    "DefaultAdminPassword": "ChangeMe1234!",
+    "DefaultAdminFullName": "Administrator",
+    "SeedDemoData": true,
+
+    "_comment_arabic_seeder": "Sprint 26 — Arabic seeder for dev env. Fixes the encoding bug from Sprint 25 PowerShell scripts (Arabic stored as '?'). Reads UTF-8 JSON + UPSERTs customers/vendors/items. DEV-ONLY (no-op in non-Development envs).",
+    "SeedArabicScenario": true,
+
+    "_comment_arabic_hr_seeder": "Sprint 27 — Arabic HR seeder for dev env. Reads UTF-8 JSON + UPSERTs departments + employees (3-pass for cyclic FK). DEV-ONLY. Requires DEC-091 fixes to be in place (Sprint 27 C# code).",
+    "SeedHrScenario": true
+  }
+}

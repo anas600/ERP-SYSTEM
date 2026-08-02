@@ -63,6 +63,7 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
         var po = new PurchaseOrder
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,  // Sprint 25 fix (DEC-085 audit) — was missing
             PoNumber = poNumber, VendorId = req.VendorId,
             Status = PurchaseOrderStatus.Draft,
             OrderDate = req.OrderDate, ExpectedDate = req.ExpectedDate,

@@ -137,8 +137,9 @@ builder.Services.Configure<NpgsqlConnectionOptions>(opts =>
 //
 // When enabling:
 //   1. Uncomment below
-//   2. Add IDocumentSession to OutboxEventPublisher
-//   3. Create projections for materialized views
+//   2. Create projections for materialized views
+//   3. Use direct service calls (NOT the outbox) for cross-module writes
+//      — Sprint 22 removed the event bus + outbox pattern
 //
 // Why deferred: Event sourcing adds complexity. We need feature flag
 // infrastructure first (Sprint-4) before activating Marten.
@@ -201,6 +202,7 @@ builder.Services.AddScoped<IHRDocumentSequenceRepository, HRDocumentSequenceRepo
 builder.Services.AddScoped<IPayrollRepository, PayrollRepository>();
 builder.Services.AddScoped<ISalaryStructureRepository, SalaryStructureRepository>();
 // Sprint 22: IOutboxRepository, IProcessedEventsRepository removed (event bus deleted).
+// Sprint 24: outbox_events + processed_events tables dropped via Sprint24_DropOutboxAndProcessedEvents migration.
 builder.Services.AddScoped<IAccountRepository, AccountRepository>();
 builder.Services.AddScoped<IJournalEntryRepository, JournalEntryRepository>();
 builder.Services.AddScoped<IPostingRuleRepository, PostingRuleRepository>();
@@ -386,6 +388,7 @@ builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-09
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow-up #2: تسخين الـ pool بعد bootstrap عشان أول user request ما يعلّقش 30+ ثانية
 // Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
+// Sprint 24: outbox_events table dropped (DEC-082) — no more processor needed.
 
 // ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
 // Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB
@@ -407,6 +410,44 @@ if (seedAlBurj)
 else
 {
     Console.WriteLine("[SPRINT-4] SeedAlBurjScenario=false (SAFE default, DEC-009 prevention).");
+}
+
+// ============ Sprint 26: Arabic dev-environment seeder ============
+// Purpose: fix the encoding bug from Sprint 25 PowerShell scripts that stored
+// Arabic as literal '?' (0x3F). Reads UTF-8 JSON with proper Arabic names and
+// UPSERTs customers/vendors/items. Idempotent. Dev env only.
+var seedArabic = builder.Configuration.GetValue<bool>("Bootstrap:SeedArabicScenario", false);
+if (seedArabic && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=true + env=Development — ArabicDevSeeder registered.");
+}
+else if (seedArabic)
+{
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-26] SeedArabicScenario=false (default) — ArabicDevSeeder SKIPPED.");
+}
+
+// ============ Sprint 27: Arabic HR dev-environment seeder ============
+// Purpose: same pattern as Sprint 26, but for HR master data (departments + employees).
+// 3-pass UPSERT to handle the cyclic FK between departments.manager_id and
+// employees.department_id. Dev env only.
+var seedHr = builder.Configuration.GetValue<bool>("Bootstrap:SeedHrScenario", false);
+if (seedHr && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicHrDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=true + env=Development — ArabicHrDevSeeder registered.");
+}
+else if (seedHr)
+{
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-27] SeedHrScenario=false (default) — ArabicHrDevSeeder SKIPPED.");
 }
 
 // ============ Auth ============

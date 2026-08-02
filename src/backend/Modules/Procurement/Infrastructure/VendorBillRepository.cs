@@ -71,7 +71,7 @@ public sealed class VendorBillRepository : IVendorBillRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO vendor_bills (id, bill_number, goods_receipt_id, vendor_id, status, bill_date, due_date,
+            INSERT INTO vendor_bills (id, company_id, bill_number, goods_receipt_id, vendor_id, status, bill_date, due_date,
                                       currency, sub_total, tax_amount, total_amount, notes,
                                       journal_entry_id, posted_at,
                                       created_at, created_by, updated_at, updated_by)
@@ -80,7 +80,7 @@ public sealed class VendorBillRepository : IVendorBillRepository
                     @JournalEntryId, @PostedAt,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)", new
         {
-            bill.Id, bill.BillNumber, bill.GoodsReceiptId, bill.VendorId,
+            bill.Id, bill.CompanyId, bill.BillNumber, bill.GoodsReceiptId, bill.VendorId,
             Status = bill.Status.ToString(),
             bill.BillDate, bill.DueDate, bill.Currency,
             bill.SubTotal, bill.TaxAmount, bill.TotalAmount, bill.Notes,

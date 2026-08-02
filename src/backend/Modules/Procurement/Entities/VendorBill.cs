@@ -21,6 +21,9 @@ public class VendorBill
 {
     public Guid Id { get; set; }
 
+    /// <summary>الشركة المالكة لفاتورة المورّد (Constitution Article 3).</summary>
+    public Guid CompanyId { get; set; }
+
     /// <summary>رقم فاتورة المورّد (فريد داخل الـ tenant). مثال: "BILL-2026-0001".</summary>
     public string BillNumber { get; set; } = string.Empty;
 

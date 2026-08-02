@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-02 (Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules, removed Event Bus + Marten + dead modules, direct service calls. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-02 (Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -318,6 +318,14 @@ Run before opening a PR:
 - [ ] **No secrets** in code: `grep -r "password\s*=" src/`.
 - [ ] **AGENTS.md updated** if contracts/rules changed.
 - [ ] **CHANGELOG.md** has this sprint's entry.
+- [ ] **DEC-085: Constitution Article 3 code-level audit** (recurring — Sprints 19, 21, 22, 23, 24, 25, 27 all found at least one violation):
+  1. Every entity has `CompanyId` field. `grep -L "CompanyId" src/backend/Modules/*/Entities/*.cs`
+  2. No `CompanyId = Guid.Empty` boilerplate. `grep -rn "CompanyId = Guid.Empty" src/backend/`
+  3. Every `CREATE TABLE` includes `company_id` (or its absence is documented). `grep -rn "CREATE TABLE" src/backend/`
+  4. Every runtime `INSERT` includes `company_id`. `grep -rn "INSERT INTO" src/backend/ | grep -v company_id`
+  5. Every PK on a shared-resource table (e.g. document sequences) includes `company_id`. Manual review.
+  6. **No `?` characters in user-visible data** (DEC-087 — Sprint 25 PowerShell bug). If you see `????` or `?` strings in master data, the seeder is broken (encoding). Use `ArabicDevSeederHostedService` (C# UTF-8) not PowerShell `ConvertTo-Json` for Arabic data.
+  7. **Cyclic FK requires 3-pass UPSERT** (DEC-092 — Sprint 27 HR). For 2-table cycles (e.g., `departments.manager_id` ↔ `employees.department_id`), insert parents without children FKs first, then insert children with parent FKs, then update parents.
 
 CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 

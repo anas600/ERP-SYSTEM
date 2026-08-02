@@ -60,4 +60,11 @@
     <Compile Include="..\Shared\**\*.cs" LinkBase="Shared" />
   </ItemGroup>
 
+  <!-- Sprint 26: ArabicDevData.json is consumed by ArabicDevSeederHostedService
+       at startup. Copy to output so the seeder can find it at runtime. -->
+  <ItemGroup>
+    <Content Include="..\Shared\SeedData\ArabicDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicDevData.json" />
+    <Content Include="..\Shared\SeedData\ArabicHrDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicHrDevData.json" />
+  </ItemGroup>
+
 </Project>

@@ -2,14 +2,25 @@ using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Entities;
 using ERPSystem.Modules.Inventory.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using FluentAssertions;
+using Moq;
 using TaskStatus = System.Threading.Tasks.TaskStatus;
 
 namespace ERPSystem.Tests.Inventory;
 
 public class ItemServiceTests
 {
-    private static (ItemService svc, FakeItemRepository repo) Build() => (new ItemService(new FakeItemRepository()), new FakeItemRepository());
+    // Sprint 25 (DEC-085): ItemService constructor now requires ICompanyContext.
+    // Use Moq to provide a stub — the service reads CompanyId from the context
+    // when the request's CompanyId is Guid.Empty (Phase 6.1c pattern).
+    private static (ItemService svc, FakeItemRepository repo) Build()
+    {
+        var repo = new FakeItemRepository();
+        var ctx = new Mock<ICompanyContext>();
+        ctx.Setup(c => c.CompanyId).Returns(Guid.NewGuid());
+        return (new ItemService(repo, ctx.Object), repo);
+    }
 
     [Fact]
     public async Task Create_DefaultsToAverageCostMethod_ZeroStandard()
@@ -75,7 +86,10 @@ public class WarehouseServiceTests
     [Fact]
     public async Task Create_DefaultsActive_WithCompany()
     {
-        var svc = new WarehouseService(new FakeWarehouseRepository());
+        // Sprint 25: WarehouseService constructor now requires ICompanyContext.
+        var ctx = new Mock<ICompanyContext>();
+        ctx.Setup(c => c.CompanyId).Returns(Guid.NewGuid());
+        var svc = new WarehouseService(new FakeWarehouseRepository(), ctx.Object);
         var r = await svc.CreateAsync(Guid.NewGuid(), new CreateWarehouseRequest
         {
             CompanyId = Guid.NewGuid(), Code = "WH-1", Name = "المخزن الرئيسي", Location = "طرابلس"
@@ -88,8 +102,10 @@ public class WarehouseServiceTests
     [Fact]
     public async Task Create_DuplicateCode_Fails()
     {
+        var ctx = new Mock<ICompanyContext>();
+        ctx.Setup(c => c.CompanyId).Returns(Guid.NewGuid());
         var repo = new FakeWarehouseRepository();
-        var svc = new WarehouseService(repo);
+        var svc = new WarehouseService(repo, ctx.Object);
         var t = Guid.NewGuid();
         await svc.CreateAsync(Guid.NewGuid(), new CreateWarehouseRequest { CompanyId = Guid.NewGuid(), Code = "WH", Name = "A" }, CancellationToken.None);
         var r = await svc.CreateAsync(Guid.NewGuid(), new CreateWarehouseRequest { CompanyId = Guid.NewGuid(), Code = "WH", Name = "B" }, CancellationToken.None);

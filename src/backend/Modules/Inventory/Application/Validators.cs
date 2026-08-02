@@ -6,7 +6,9 @@ public sealed class CreateItemRequestValidator : AbstractValidator<CreateItemReq
 {
     public CreateItemRequestValidator()
     {
-        RuleFor(x => x.CompanyId).NotEqual(Guid.Empty);
+        // Sprint 25: CompanyId is now set by the service from ICompanyContext,
+        // not from the request body. The field stays in the DTO for backward
+        // compatibility but is no longer validated here.
         RuleFor(x => x.Sku).NotEmpty().MaximumLength(50)
             .Matches("^[A-Za-z0-9\\-_]+$").WithMessage("SKU: حروف/أرقام/-/_ فقط.");
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
@@ -32,7 +34,7 @@ public sealed class CreateWarehouseRequestValidator : AbstractValidator<CreateWa
 {
     public CreateWarehouseRequestValidator()
     {
-        RuleFor(x => x.CompanyId).NotEqual(Guid.Empty);
+        // Sprint 25: CompanyId is now set by the service from ICompanyContext.
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50);
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);
     }

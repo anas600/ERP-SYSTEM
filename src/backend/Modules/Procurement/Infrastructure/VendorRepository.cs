@@ -56,10 +56,10 @@ public sealed class VendorRepository : IVendorRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         await conn.ExecuteAsync(new CommandDefinition(@"
-            INSERT INTO vendors (id, code, name, email, phone, address, tax_number, website,
+            INSERT INTO vendors (id, company_id, code, name, email, phone, address, tax_number, website,
                                  currency, payment_terms, is_active,
                                  created_at, created_by, updated_at, updated_by)
-            VALUES (@Id, @Code, @Name, @Email, @Phone, @Address, @TaxNumber, @Website,
+            VALUES (@Id, @CompanyId, @Code, @Name, @Email, @Phone, @Address, @TaxNumber, @Website,
                     @Currency, @PaymentTerms, @IsActive,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)",
             v, cancellationToken: ct));

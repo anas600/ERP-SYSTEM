@@ -25,6 +25,10 @@ public enum LeaveStatus
 public class LeaveRequest
 {
     public Guid Id { get; set; }
+
+    // Sprint 27 (DEC-091): Constitution Article 3 — see Employee.cs for context.
+    public Guid CompanyId { get; set; }
+
     public Guid EmployeeId { get; set; }
     public LeaveType LeaveType { get; set; }
     public DateTime StartDate { get; set; }

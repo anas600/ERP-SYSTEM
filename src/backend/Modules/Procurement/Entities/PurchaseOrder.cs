@@ -23,6 +23,9 @@ public class PurchaseOrder
 {
     public Guid Id { get; set; }
 
+    /// <summary>الشركة المالكة لأمر الشراء (Constitution Article 3).</summary>
+    public Guid CompanyId { get; set; }
+
     /// <summary>رقم تسلسلي للـ PO (يُولّد تلقائياً، فريد داخل الـ tenant). مثال: "PO-2026-0001".</summary>
     public string PoNumber { get; set; } = string.Empty;
 
