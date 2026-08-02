@@ -29,8 +29,11 @@ public class JournalEntry
 {
     public Guid Id { get; set; }
 
-    /// <summary>رقم القيد التسلسلي داخل المستأجر (مثال: "JE-2026-0001")</summary>
+    /// <summary>رقم القيد التسلسلي داخل الشركة (مثال: "JE-2026-0001")</summary>
     public string EntryNumber { get; set; } = string.Empty;
+
+    /// <summary>الشركة المالكة للقيد (Constitution Article 3: company_id فقط، لا tenant_id).</summary>
+    public Guid CompanyId { get; set; }
 
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
@@ -60,6 +63,9 @@ public class JournalLine
     public Guid Id { get; set; }
     public Guid JournalEntryId { get; set; }
     public Guid AccountId { get; set; }
+
+    /// <summary>الشركة المالكة للسطر (Constitution Article 3).</summary>
+    public Guid CompanyId { get; set; }
 
     public decimal Debit { get; set; }
     public decimal Credit { get; set; }

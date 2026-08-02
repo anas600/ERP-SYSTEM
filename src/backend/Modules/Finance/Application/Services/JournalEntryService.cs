@@ -1,5 +1,6 @@
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Finance.Application.Services;
 
@@ -7,20 +8,30 @@ public sealed class JournalEntryService : IJournalEntryService
 {
     private readonly IJournalEntryRepository _entries;
     private readonly IAccountRepository _accounts;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<JournalEntryService> _logger;
 
     public JournalEntryService(
         IJournalEntryRepository entries,
         IAccountRepository accounts,
+        ICompanyContext companyContext,
         ILogger<JournalEntryService> logger)
     {
         _entries = entries;
         _accounts = accounts;
+        _companyContext = companyContext;
         _logger = logger;
     }
 
     public async Task<FinanceResult<JournalEntryResponse>> CreateDraftAsync(Guid userId, PostJournalEntryRequest request, CancellationToken ct)
     {
+        // 0) company_id من الـ context — Constitution Article 3 (لا tenant_id، فقط company_id).
+        // هذا يصلح كلا الـ paths: HTTP controller (companyId من middleware) + internal service calls
+        // (مثل PostingRulesService.ApplyRulesInternalAsync — Sprint 23).
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException(
+                "No active company in context — cannot create journal entry without company_id.");
+
         // 1) التحقق من وجود وصحة كل حساب
         var accountIds = request.Lines.Select(l => l.AccountId).Distinct().ToList();
         var accounts = new Dictionary<Guid, Account>();
@@ -69,6 +80,7 @@ public sealed class JournalEntryService : IJournalEntryService
         {
             Id = entryId,
             EntryNumber = entryNumber,
+            CompanyId = companyId,
             EntryDate = request.EntryDate,
             Description = request.Description.Trim(),
             Reference = request.Reference,
@@ -82,6 +94,7 @@ public sealed class JournalEntryService : IJournalEntryService
                 Id = Guid.NewGuid(),
                 JournalEntryId = entryId,
                 AccountId = l.AccountId,
+                CompanyId = companyId,
                 Debit = l.Debit,
                 Credit = l.Credit,
                 Description = l.Description,

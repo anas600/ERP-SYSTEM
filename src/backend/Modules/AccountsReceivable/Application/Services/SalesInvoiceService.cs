@@ -102,7 +102,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         var inv = new SalesInvoice
         {
             Id = Guid.NewGuid(),
-            CompanyId = Guid.Empty,
+            CompanyId = companyId,
             CustomerId = req.CustomerId,
             InvoiceNumber = invoiceNumber,
             InvoiceDate = req.InvoiceDate,

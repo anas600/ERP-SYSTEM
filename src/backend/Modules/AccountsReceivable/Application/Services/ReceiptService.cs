@@ -108,7 +108,7 @@ public sealed class ReceiptService : IReceiptService
         var receipt = new Receipt
         {
             Id = Guid.NewGuid(),
-            CompanyId = Guid.Empty,
+            CompanyId = companyId,
             CustomerId = req.CustomerId,
             ReceiptNumber = receiptNumber,
             ReceiptDate = req.ReceiptDate,

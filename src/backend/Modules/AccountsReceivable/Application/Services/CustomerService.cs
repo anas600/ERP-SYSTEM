@@ -1,6 +1,7 @@
 using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Entities;
 using ERPSystem.Modules.AccountsReceivable.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.AccountsReceivable.Application.Services;
@@ -35,19 +36,27 @@ public interface ICustomerService
 public sealed class CustomerService : ICustomerService
 {
     private readonly ICustomerRepository _repo;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<CustomerService> _logger;
-    public CustomerService(ICustomerRepository repo, ILogger<CustomerService> logger) { _repo = repo; _logger = logger; }
+    public CustomerService(ICustomerRepository repo, ICompanyContext companyContext, ILogger<CustomerService> logger)
+    {
+        _repo = repo;
+        _companyContext = companyContext;
+        _logger = logger;
+    }
 
     public async Task<ArResult<CustomerResponse>> CreateAsync(Guid userId, CreateCustomerRequest req, CancellationToken ct)
     {
         if (await _repo.GetByCodeAsync(req.Code, ct) != null)
             return ArResult<CustomerResponse>.Fail("كود العميل مستخدم.", ArErrorCode.AlreadyExists);
 
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var now = DateTime.UtcNow;
         var c = new Customer
         {
             Id = Guid.NewGuid(),
-            CompanyId = Guid.Empty, // MVP: نُبقي CompanyId فارغاً (single-company per tenant)
+            CompanyId = companyId, // Constitution Article 3: company_id فقط، لا tenant_id
             Code = req.Code.Trim(),
             Name = req.Name.Trim(),
             NameEn = req.NameEn?.Trim(),
