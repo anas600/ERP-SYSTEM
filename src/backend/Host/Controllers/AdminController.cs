@@ -37,49 +37,37 @@ public class AdminController : ControllerBase
 
     /// <summary>
     /// تشغيل يدوي لـ AlFajr scenario seeder (~5K records — safe).
-    /// يعيد jobId فوراً، التنفيذ في background.
+    /// REMOVED Sprint 29: legacy ScenarioSeederHostedService was deleted (DEC-098).
+    /// Use the modern POC seeders (ArabicDevSeeder, ArabicHrDevSeeder, etc.) which run
+    /// automatically on dev startup when their flag is true.
     /// </summary>
     [HttpPost("seed/alfajr")]
     public IActionResult TriggerAlFajrSeed()
     {
-        var jobId = Guid.NewGuid();
-        _jobs[jobId] = new SeedJobStatus(jobId, "alfajr", "queued", DateTime.UtcNow);
-
-        _ = Task.Run(async () =>
+        return StatusCode(StatusCodes.Status410Gone, new
         {
-            await RunSeedJobAsync(jobId, "alfajr", async (sp, ct) =>
-            {
-                var seeder = sp.GetRequiredService<ScenarioSeederHostedService>();
-                await seeder.StartAsync(ct);
-            });
-        });
-
-        return Accepted(new
-        {
-            jobId,
-            scenario = "alfajr",
-            status = "started",
-            statusEndpoint = $"/api/admin/seed/status/{jobId}",
-            note = "Background execution. Poll status endpoint for progress."
+            error = "alfajr_seeder_removed",
+            message = "AlFajr scenario seeder was removed in Sprint 29 (DEC-098). " +
+                      "Legacy C# seeder pattern replaced by POC seeders (Sprint 26+27+28+29) " +
+                      "which run automatically on dev startup. See CHANGELOG.md.",
+            alternative = "POST /api/admin/seed/year-scenario (coming soon)"
         });
     }
 
     /// <summary>
     /// تشغيل يدوي لـ AlBurj scenario seeder (~30K records — DEC-009 prevention).
-    /// NOT YET IMPLEMENTED — الـ AlBurjSeeder class was removed in DEC-009 cleanup.
-    /// Use POST /api/admin/seed/alfajr for the supported scenario.
+    /// REMOVED Sprint 29: legacy ScenarioSeederHostedService was deleted (DEC-098).
     /// </summary>
     [HttpPost("seed/alburj")]
     public IActionResult TriggerAlBurjSeed()
     {
-        _logger.LogWarning("AlBurj seed requested but class not implemented (DEC-009 prevention). Use /seed/alfajr.");
-        return StatusCode(StatusCodes.Status501NotImplemented, new
+        return StatusCode(StatusCodes.Status410Gone, new
         {
-            error = "alburj_seeder_not_implemented",
-            message = "AlBurjSeeder was removed after DEC-009 incident (30K records flooded the DB). " +
-                      "Use POST /api/admin/seed/alfajr for the supported scenario. " +
-                      "Implementing AlBurjSeeder safely is tracked in Sprint-5+ roadmap.",
-            alternative = "/api/admin/seed/alfajr"
+            error = "alburj_seeder_removed",
+            message = "AlBurj scenario seeder was removed in Sprint 29 (DEC-098). " +
+                      "Legacy C# seeder pattern replaced by POC seeders (Sprint 26+27+28+29) " +
+                      "which run automatically on dev startup. See CHANGELOG.md.",
+            alternative = "POST /api/admin/seed/year-scenario (coming soon)"
         });
     }
 

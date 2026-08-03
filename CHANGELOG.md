@@ -13,6 +13,57 @@
 
 ---
 
+## Sprint 29 — Year-Scenario dev seeder (POC #4) + Legacy cleanup (2026-08-03) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive — clean up the 2 legacy seeders (ScenarioSeeder + RealisticSeed, 102.8 KB total) and replace them with a new year-scenario seeder using the established POC pattern (JSON + IHostedService + UPSERT). The new seeder adds 1 year of operational data (73 records + 73 Journal Entries) to discover bugs on the dev host.
+
+### Added (DEC-098)
+- **`src/backend/Shared/SeedData/ArabicYearScenarioDevData.json`** (NEW, ~46 KB) — 1 opening balance JE + 12 monthly sales invoices + 12 monthly vendor bills + 24 customer receipts + 24 vendor payments, all with Arabic notes.
+- **`src/backend/Shared/SeedData/ArabicYearScenarioDevSeederHostedService.cs`** (NEW, ~28 KB) — IHostedService, 5-pass execution: Pass 1 Opening Balance → Pass 2 Sales Invoices → Pass 3 Vendor Bills → Pass 4 Receipts → Pass 5 Payments. Each transaction gets a "benchmark" Journal Entry that should match the Posting Rules engine's output (any discrepancy = bug).
+- **`Bootstrap:SeedYearScenario` config flag** — added to `appsettings.Development.json.example` + `appsettings.Development.json`. Default `false`. Double-gated on `IsDevelopment() + flag`.
+- **`<Content Include="..\Shared\SeedData\ArabicYearScenarioDevData.json" />`** in csproj.
+- **Program.cs registration block** — Sprint 29 section, gated on `IsDevelopment() + flag`.
+
+### Removed (DEC-098 cleanup)
+- **`ScenarioSeederHostedService.cs`** (54.8 KB) — Sprint 4 al-Burj scenario, hardcoded C#, never enabled in fresh builds, was only registered via manual admin endpoint.
+- **`RealisticSeedHostedService.cs`** (48 KB) — Sprint 14 realistic seed, hardcoded C#, never enabled.
+- **AdminController.AlFajrSeed + AlBurjSeed endpoints** — replaced with 410 Gone responses pointing to the new POC seeders.
+
+### Fixed (L21 + L28 + L35)
+- **L21 (test refactor)** — Replaced the previous JavaScript IIFE pattern in tests with proper C# code (already done in Sprint 28 push but verified Sprint 29).
+- **L28 (schema surprise)** — `companies.is_holding` doesn't exist; the column is `is_group` (L28 fix applied in Sprint 29 code).
+- **L35 (Sprint 28 duplicate migration version)** — already fixed in the prior session.
+- **Account code 3110 → 3100** in the JSON — the equity account is "رأس المال" = 3100, not 3110. (Discovered when the seeder logged "Account 3110 not found" on first run; fixed and re-seeded.)
+
+### Verified
+- `dotnet build` → 0 errors, 0 warnings
+- `dotnet test` (Sprint 29 scope) → 8/8 tests passed (Projects + Payroll + Inventory)
+- All 4 POC seeders run on startup: 3+10 customers + 3+10 vendors + 5+15 items + 5 depts + 10 employees + 10 POs + 73 year-scenario records
+- 73 Journal Entries + 148 Journal Lines (avg 2 lines per JE)
+- Opening Balance: 105,000 debits = 105,000 credits ✓
+- L28 bug surfaced: `/api/ar/sales-invoices` returns 500 (separate bug to investigate in Sprint 30+)
+
+### Lessons (L36-L39)
+- **L36 (Sprint 29 seeder)**: 4th POC in <1.5h (vs 4-6h for first). The pattern is now muscle memory — JSON + IHostedService + UPSERT + Dapper + double-gate. The only time-consuming parts were schema surprises and the L28 fix.
+- **L37 (Sprint 29 DI lifetime)**: IHostedService is registered as Singleton by default. Cannot inject Scoped services (e.g., ICompanyContext) into the constructor. Solution: resolve the companyId directly from the DB at startup using `DbConnectionFactory.CreateEphemeralOltpConnectionAsync`.
+- **L38 (Sprint 29 legacy cleanup)**: Deleting the 2 legacy .cs files (102.8 KB) also required removing the manual admin endpoints in AdminController.cs that referenced them. The build then broke — easy to fix by replacing the endpoints with 410 Gone responses.
+- **L39 (Sprint 29 benchmark JEs)**: Each transactional record gets a "benchmark" Journal Entry inserted by the seeder. The benchmark JEs are documented as `BENCH-INV-XXX`, `BENCH-BILL-XXX`, etc. When the Posting Rules engine is run on the same transactions, its JEs should match the benchmark JEs. Any discrepancy is a bug to investigate. This is a new pattern: "seeders that test other parts of the system".
+
+### Carry-over (Sprint 30+)
+- P0: Fix the 500 error on `/api/ar/sales-invoices` endpoint (discovered by Sprint 29's data)
+- P0: Fix the 500 error on `/api/procurement/purchase-orders` (similar shape)
+- P0: Add a default warehouse to enable GR + Bill seeders (Sprint 28 carry-over)
+- P1: Audit 5 still-pending modules (Payments, ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService)
+- P1: Refactor remaining `req.CompanyId` → `_companyContext.CompanyId` (L30)
+- P1: Trial Balance validation UI
+- P1: customer/vendor statement endpoints
+- P2: Year-scenario Phase 2 (payroll + stock movements + project costs)
+- P2: Posting Rules integration unit tests
+- P2: Pre-push script: scan for `?` in user-visible columns
+- P2: Build-time test that enforces DEC-085
+
+---
+
 ## Sprint 28 — Article 3 audit (4 modules) + Procurement seeder (POC #3) + test refactor (2026-08-02) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's directive ("yes, Sprint 28") — continue the audit pattern. This sprint: 4 remaining modules (Payroll, Projects, StockMovement, Finance/Account) — then POC the seeder pattern a third time (Procurement). The audit found **8 more Article 3 violations** (4 entities + 3 services + 4 repos + 1 minor fix). The seeder proves L17 ("3rd implementation = permanent framework") by completing in <2h (vs 4-6h for the first one).
