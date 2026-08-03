@@ -91,8 +91,7 @@ export default function NewReceiptPage() {
     setError(null);
     if (!customerId) { setError('اختر العميل.'); return; }
     if (Number(amount) <= 0) { setError('مبلغ السند يجب أن يكون أكبر من صفر.'); return; }
-    if (allocations.length === 0) { setError('أضف تخصيصاً واحداً على الأقل.'); return; }
-    if (Math.abs(totalAllocated - Number(amount)) > 0.0001) {
+    if (allocations.length > 0 && Math.abs(totalAllocated - Number(amount)) > 0.0001) {
       setError(`مجموع التخصيصات (${formatNumber(totalAllocated)}) يجب أن يساوي المبلغ (${formatNumber(Number(amount))}).`);
       return;
     }

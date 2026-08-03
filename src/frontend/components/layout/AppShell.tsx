@@ -78,9 +78,9 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'المالية',
     items: [
+      // Sprint 30 (DEC-100): removed the duplicate /accounts page. The new
+      // /finance/accounts page (Sprint 11 T1) is the single source of truth.
       { label: 'دليل الحسابات', href: '/finance/accounts', icon: Wallet },
-      // Sprint 11 T1: top-level Accounts hub (new flat DTO + tree view).
-      { label: 'الحسابات (مبسّط)', href: '/accounts', icon: Wallet },
       { label: 'مراكز التكلفة', href: '/finance/cost-centers', icon: FolderTree },
       { label: 'قيود اليومية', href: '/finance/journal-entries', icon: GitBranch },
       // Sprint 11 T1: top-level Transactions hub (recent journal feed).

@@ -62,9 +62,11 @@ public sealed class ReceiptService : IReceiptService
         if (!customer.IsActive)
             return ArResult<ReceiptResponse>.Fail("العميل غير نشط.", ArErrorCode.BusinessRuleViolation);
 
-        // مجموع التخصيصات يجب أن يساوي المبلغ
+        // مجموع التخصيصات يجب أن يساوي المبلغ — لكن Sprint 30 (DEC-102): لو ما في تخصيصات،
+        // نسمح بإنشاء السند بدون تخصيص (نقدية على الحساب). هذا يبسّط الـ flow للحالات البسيطة.
         var totalAllocated = req.Allocations?.Sum(a => a.AmountApplied) ?? 0m;
-        if (Math.Abs(totalAllocated - req.Amount) > 0.0001m)
+        if (req.Allocations != null && req.Allocations.Count > 0 &&
+            Math.Abs(totalAllocated - req.Amount) > 0.0001m)
             return ArResult<ReceiptResponse>.Fail(
                 $"مجموع التخصيصات ({totalAllocated:N4}) لا يساوي مبلغ السند ({req.Amount:N4}).", ArErrorCode.ValidationError);
 
@@ -79,7 +81,7 @@ public sealed class ReceiptService : IReceiptService
                     return ArResult<ReceiptResponse>.Fail($"الفاتورة {a.SalesInvoiceId} غير موجودة.", ArErrorCode.NotFound);
                 if (inv.CustomerId != req.CustomerId)
                     return ArResult<ReceiptResponse>.Fail($"الفاتورة {inv.InvoiceNumber} لا تخص هذا العميل.", ArErrorCode.BusinessRuleViolation);
-                if (inv.Status == SalesInvoiceStatus.Cancelled)
+                if (inv.Status == "Cancelled")
                     return ArResult<ReceiptResponse>.Fail($"الفاتورة {inv.InvoiceNumber} ملغاة.", ArErrorCode.BusinessRuleViolation);
 
                 var outstanding = inv.TotalAmount - inv.PaidAmount;
@@ -227,9 +229,9 @@ public sealed class ReceiptService : IReceiptService
             inv.Outstanding = inv.TotalAmount - inv.PaidAmount;
             // تحديث الحالة
             if (inv.Outstanding <= 0.0001m)
-                inv.Status = SalesInvoiceStatus.Paid;
+                inv.Status = "Paid";
             else if (inv.PaidAmount > 0)
-                inv.Status = SalesInvoiceStatus.PartiallyPaid;
+                inv.Status = "PartiallyPaid";
             inv.UpdatedAt = DateTime.UtcNow;
             inv.UpdatedBy = userId;
             await _invoices.UpdateAsync(inv, ct);
@@ -281,9 +283,9 @@ public sealed class ReceiptService : IReceiptService
             inv.PaidAmount = Math.Max(0, inv.PaidAmount - a.AmountApplied);
             inv.Outstanding = inv.TotalAmount - inv.PaidAmount;
             if (inv.PaidAmount <= 0)
-                inv.Status = inv.PostedAt.HasValue ? SalesInvoiceStatus.Sent : SalesInvoiceStatus.Draft;
+                inv.Status = inv.PostedAt.HasValue ? "Sent" : "Draft";
             else
-                inv.Status = SalesInvoiceStatus.PartiallyPaid;
+                inv.Status = "PartiallyPaid";
             inv.UpdatedAt = DateTime.UtcNow;
             inv.UpdatedBy = userId;
             await _invoices.UpdateAsync(inv, ct);

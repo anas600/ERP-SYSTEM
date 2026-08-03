@@ -13,6 +13,66 @@
 
 ---
 
+## Sprint 30 — Architectural cleanup (6 DECs) + Full PO+GR+Bill seeder (2026-08-03) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive (2026-08-03 ~04:30 UTC+2) — fix the 14 user-experienced issues from the browser walkthrough, then continue with the 5th seeder POC. Architectural cleanup before UI band-aid fixes.
+
+### Added (DEC-100..106)
+- **DEC-100 (Single CoA page)** — `src/frontend/app/(authenticated)/accounts/page.tsx` deleted (the duplicate "الحسابات (مبسّط)" page). Only `/finance/accounts` remains. `AppShell.tsx` sidebar entry removed.
+- **DEC-101 (Default reference data)** — `TrySeedDefaultReferenceDataAsync` added to `DefaultHoldingBootstrapHostedService.cs`. Always-on (no flag) — seeds 1 default warehouse (WH-001 "المستودع الرئيسي") + 1 default cost center (CC-001 "الإدارة العامة", type=Department=2). Idempotent via `ON CONFLICT (company_id, code) DO NOTHING`.
+- **DEC-103 (Atomic document sequence)** — `DocumentSequenceRepository.GetNextNumberAsync` refactored: `INSERT ... ON CONFLICT ... DO UPDATE SET last_number = ... RETURNING last_number` in a single statement. Replaces the old UPSERT-then-SELECT race that caused `PO-2026-0002 already exists` duplicate-key errors.
+- **DEC-104 (Vendor name in DTO)** — `VendorBillResponse` now has `VendorName` + `VendorCode`. `VendorBillService.BuildVendorMapAsync` does single-batch vendor lookup. FE no longer shows raw GUIDs.
+- **DEC-105a (PO vendor enrichment)** — `PurchaseOrderResponse` now has `VendorName` + `VendorCode`. `PurchaseOrderService.BuildVendorMapAsync` (Dapper direct) added.
+- **DEC-105b/c/d (Full PO+GR+Bill seeder)** — `ArabicProcurementDevSeederHostedService` rewritten. All 3 passes implemented:
+  - **Pass 1: POs** — 10 POs with computed line `sub_total = qty * unit_price` + header `sub_total/tax_amount/total_amount`
+  - **Pass 2: GRs** — 10 GRs, status=`Received`, posted to default warehouse WH-001 (DEC-101 made this possible)
+  - **Pass 3: Bills** — 10 Bills, status=`Posted`, linked to GRs via `goods_receipt_id`. Each gets a `BENCH-BILL-2026-NNNN` Journal Entry (DR 1240 Inventory / CR 2210 AP)
+- **DEC-106 (SalesInvoiceStatus string)** — `SalesInvoice.Status` changed from `int` enum to `string` to match the seeder + schema. Fixed 6 references in `ReceiptService` + `SalesInvoiceService` (Draft/Sent/Paid/PartiallyPaid/Cancelled → "Draft"/"Sent"/etc.). Fixed the 500 error on `/api/ar/sales-invoices`.
+
+### Changed
+- **`PurchaseOrderService` constructor** — now takes `IDbConnectionFactory` (for Dapper-direct vendor enrichment). Test refactor (L21) updated.
+- **`ArabicProcurementDevSeederHostedService` class doc** — updated to reflect Sprint 30 (DEC-105) scope: all 3 passes implemented, not just POs.
+
+### Fixed
+- **/api/ar/sales-invoices 500** — Dapper couldn't map the int enum status to the string seeder output. Fixed by changing `Status` to `string` (DEC-106).
+- **Duplicate-key error on PO creation** — race in `GetNextNumberAsync` (UPSERT then SELECT). Fixed via `RETURNING` clause (DEC-103).
+- **Empty reference data on fresh install** — no warehouse, no cost center, no allocations possible. Fixed by DEC-101 (warehouse + cost center always seeded) and DEC-102 (allocations optional in receipt form).
+- **/api/procurement/purchase-orders 404** — actual endpoint is `/api/procurement/pos` (DEC-031 convention). Updated tests + docs.
+- **PO total_amount=0** — old seeder stored 0/0/0. Now computed from line totals (DEC-105b).
+- **GR + Bill seeder stubs** — Pass 2 and Pass 3 were commented as "intentionally not implemented" in Sprint 28. Now implemented (DEC-105c/d).
+- **L21 test refactor** — `PurchaseOrderService` constructor change required updating tests to inject `Mock<IDbConnectionFactory>`.
+
+### Verified (Mode 1, host local PG)
+- Wiped DB clean → restarted BE → all 5 seeders + bootstrap ran:
+  - 13 customers + 13 vendors + 20 items
+  - 5 departments + 10 employees
+  - 1 warehouse + 1 cost center
+  - 10 POs (computed totals 65–3440 LYD) + 10 GRs (Received, WH-001) + 10 Procurement Bills (Posted, 65–3440 LYD)
+  - 12 sales invoices + 12 vendor bills + 24 receipts + 24 payments (Sprint 29)
+  - 83 journal entries + 169 lines (74 benchmark JEs + OB-2025-001 + others)
+- All 4 JEs categories balanced (DR=CR):
+  - BENCH-INV: 12 JEs, 143,450 LYD
+  - BENCH-BILL: 22 JEs (12 year + 10 procurement), 240,055 LYD
+  - BENCH-RCT: 24 JEs, 153,000 LYD
+  - BENCH-PAY: 24 JEs, 191,500 LYD
+- All 5 endpoints return correct data with vendor names (no raw GUIDs):
+  - `/api/procurement/pos` → 10 POs with `vendorName`/`vendorCode` + computed totals
+  - `/api/procurement/grs` → 10 GRs with `poNumber`/`warehouseName`/`vendorName`
+  - `/api/procurement/bills` → 22 bills (12 year + 10 procurement) with `vendorName` + totals
+  - `/api/ar/sales-invoices` → 12 invoices (DEC-106 fix), no more 500
+  - `/api/finance/receipts/new` → form shows (DEC-102 fix, allocations optional)
+
+### Pending (carry-over to Sprint 31+)
+- 4 more still-pending Article 3 audit modules (Payments, ProjectCostCenter, AccountService, ChartOfAccountsService)
+- 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- Manual JEs (depreciation, accruals, year-end)
+- Posting Rules integration unit tests (benchmark vs engine comparison)
+- 14 P2 function workflow docs
+- Pre-push script: scan for `?` in user-visible columns
+- Playwright e2e tests for top 5 user flows
+
+---
+
 ## Sprint 29 — Year-Scenario dev seeder (POC #4) + Legacy cleanup (2026-08-03) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's directive — clean up the 2 legacy seeders (ScenarioSeeder + RealisticSeed, 102.8 KB total) and replace them with a new year-scenario seeder using the established POC pattern (JSON + IHostedService + UPSERT). The new seeder adds 1 year of operational data (73 records + 73 Journal Entries) to discover bugs on the dev host.

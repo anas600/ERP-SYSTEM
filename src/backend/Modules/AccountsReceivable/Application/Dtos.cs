@@ -110,7 +110,7 @@ public sealed class SalesInvoiceResponse
     public decimal TotalAmount { get; set; }
     public decimal PaidAmount { get; set; }
     public decimal Outstanding { get; set; }
-    public SalesInvoiceStatus Status { get; set; }
+    public string Status { get; set; } = "Draft";
     public string? Notes { get; set; }
     public Guid? ProjectId { get; set; }
     public DateTime? PostedAt { get; set; }

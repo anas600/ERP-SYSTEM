@@ -101,14 +101,18 @@ public sealed class VendorBillService : IVendorBillService
         var b = await _bills.GetByIdAsync(id, ct);
         if (b == null)
             return ProcurementResult<VendorBillResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
-        return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
+        // Sprint 30 (DEC-104): include vendor name in the single-record response.
+        var vendorMap = await BuildVendorMapAsync(new[] { b.VendorId }, ct);
+        return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b, vendorMap));
     }
 
     public async Task<ProcurementResult<IReadOnlyList<VendorBillResponse>>> ListAsync(Guid? vendorId, Guid? grId, VendorBillStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
         var list = await _bills.ListAsync(vendorId, grId, status, skip, take, ct);
-        return ProcurementResult<IReadOnlyList<VendorBillResponse>>.Ok(list.Select(MapToResponse).ToList());
+        // Sprint 30 (DEC-104): enrich each bill with its vendor name/code (single batch query).
+        var vendorMap = await BuildVendorMapAsync(list.Select(b => b.VendorId), ct);
+        return ProcurementResult<IReadOnlyList<VendorBillResponse>>.Ok(list.Select(b => MapToResponse(b, vendorMap)).ToList());
     }
 
     /// <summary>
@@ -234,10 +238,13 @@ public sealed class VendorBillService : IVendorBillService
         return ProcurementResult<VendorBillResponse>.Ok(MapToResponse(b));
     }
 
-    private static VendorBillResponse MapToResponse(VendorBill b) => new()
+    private static VendorBillResponse MapToResponse(VendorBill b, IReadOnlyDictionary<Guid, (string Name, string Code)>? vendorMap = null) => new()
     {
         Id = b.Id, BillNumber = b.BillNumber, GoodsReceiptId = b.GoodsReceiptId,
-        VendorId = b.VendorId, Status = b.Status, BillDate = b.BillDate, DueDate = b.DueDate,
+        VendorId = b.VendorId,
+        VendorName = vendorMap != null && vendorMap.TryGetValue(b.VendorId, out var v) ? v.Name : null,
+        VendorCode = vendorMap != null && vendorMap.TryGetValue(b.VendorId, out var vc) ? vc.Code : null,
+        Status = b.Status, BillDate = b.BillDate, DueDate = b.DueDate,
         Currency = b.Currency, SubTotal = b.SubTotal, TaxAmount = b.TaxAmount, TotalAmount = b.TotalAmount,
         Notes = b.Notes, JournalEntryId = b.JournalEntryId, PostedAt = b.PostedAt, CreatedAt = b.CreatedAt,
         Lines = b.Lines.Select(l => new VendorBillLineResponse
@@ -246,4 +253,22 @@ public sealed class VendorBillService : IVendorBillService
             TaxRate = l.TaxRate, SubTotal = l.SubTotal, LineOrder = l.LineOrder
         }).ToList()
     };
+
+    /// <summary>
+    /// Sprint 30 (DEC-104): single batch lookup of vendor name + code for a list of vendor IDs.
+    /// Returns a dictionary keyed by vendor ID. Used to enrich VendorBillResponse so the FE
+    /// can show "VEND-001 — شركة النور" instead of a raw GUID.
+    /// </summary>
+    private async Task<IReadOnlyDictionary<Guid, (string Name, string Code)>> BuildVendorMapAsync(
+        IEnumerable<Guid> vendorIds, CancellationToken ct)
+    {
+        var ids = vendorIds.Distinct().Where(id => id != Guid.Empty).ToList();
+        if (ids.Count == 0) return new Dictionary<Guid, (string, string)>();
+        // Use Dapper directly to avoid a circular dependency on the vendor service.
+        using var conn = await _db.CreateEphemeralOltpConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(Guid Id, string Name, string Code)>(
+            "SELECT id, name, code FROM vendors WHERE id = ANY(@Ids)",
+            new { Ids = ids.ToArray() });
+        return rows.ToDictionary(r => r.Id, r => (r.Name, r.Code));
+    }
 }

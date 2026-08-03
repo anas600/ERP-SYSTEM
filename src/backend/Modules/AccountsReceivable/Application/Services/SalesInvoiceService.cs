@@ -114,7 +114,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
             TotalAmount = total,
             PaidAmount = 0,
             Outstanding = total,
-            Status = SalesInvoiceStatus.Draft,
+            Status = "Draft",
             Notes = req.Notes,
             ProjectId = req.ProjectId,
             CreatedAt = now, CreatedBy = userId,
@@ -140,7 +140,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         var inv = await _invoices.GetByIdAsync(id, ct);
         if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
-        if (inv.Status != SalesInvoiceStatus.Draft)
+        if (inv.Status != "Draft")
             return ArResult<SalesInvoiceResponse>.Fail("لا يمكن تعديل فاتورة غير مسودة.", ArErrorCode.InvalidStatusTransition);
 
         // إعادة حساب الـ totals
@@ -215,7 +215,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         var inv = await _invoices.GetByIdAsync(id, ct);
         if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
-        if (inv.Status != SalesInvoiceStatus.Draft)
+        if (inv.Status != "Draft")
             return ArResult<SalesInvoiceResponse>.Fail(
                 $"لا يمكن ترحيل فاتورة في حالة {inv.Status}.", ArErrorCode.InvalidStatusTransition);
 
@@ -260,7 +260,7 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
 
         // تحديث الفاتورة
         inv.JournalEntryId = posted.FirstJournalEntryId;
-        inv.Status = SalesInvoiceStatus.Sent;
+        inv.Status = "Sent";
         inv.PostedAt = DateTime.UtcNow;
         inv.PostedBy = userId;
         inv.PaidAmount = 0;
@@ -280,12 +280,12 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         var inv = await _invoices.GetByIdAsync(id, ct);
         if (inv == null)
             return ArResult<SalesInvoiceResponse>.Fail("غير موجود.", ArErrorCode.NotFound);
-        if (inv.Status == SalesInvoiceStatus.Cancelled)
+        if (inv.Status == "Cancelled")
             return ArResult<SalesInvoiceResponse>.Fail("الفاتورة ملغاة بالفعل.", ArErrorCode.InvalidStatusTransition);
         if (inv.PaidAmount > 0)
             return ArResult<SalesInvoiceResponse>.Fail("لا يمكن إلغاء فاتورة عليها مدفوعات.", ArErrorCode.BusinessRuleViolation);
 
-        inv.Status = SalesInvoiceStatus.Cancelled;
+        inv.Status = "Cancelled";
         inv.UpdatedAt = DateTime.UtcNow;
         inv.UpdatedBy = userId;
         await _invoices.UpdateAsync(inv, ct);
@@ -378,3 +378,4 @@ public sealed class SalesInvoiceService : ISalesInvoiceService
         }).ToList(),
     };
 }
+
