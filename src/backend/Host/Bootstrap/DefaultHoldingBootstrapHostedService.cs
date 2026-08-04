@@ -176,6 +176,15 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
                 "[P6-0b] Default Item Categories seeded (count={Count}, holdingId={HoldingId})",
                 catCount, holdingId);
 
+            // 4b) Sprint 30 (DEC-101): Default reference data — 1 warehouse + 1 cost center.
+            //     Fixes the empty dropdowns in /procurement/goods-receipts/new and the
+            //     "no cost center" errors in /finance/receipts/new. Idempotent: re-runs
+            //     are no-ops (ON CONFLICT DO NOTHING).
+            var refCount = await TrySeedDefaultReferenceDataAsync(conn, holdingId, cancellationToken);
+            _logger.LogInformation(
+                "[P6-0b] Default reference data seeded (warehouses={Wh}, cost_centers={Cc}, holdingId={HoldingId})",
+                refCount.warehouses, refCount.costCenters, holdingId);
+
             // 5) Sprint 14: Optionally create a default admin user (env-driven).
             //    Layer 2 (Containerized MVP) needs a login-able user on first run.
             //    By default this is OFF (security: no default credentials in production).
@@ -817,4 +826,54 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
         (type == AccountType.Asset || type == AccountType.Expense)
             ? (int)NormalBalance.Debit
             : (int)NormalBalance.Credit;
+
+    /// <summary>
+    /// Sprint 30 (DEC-101): يبذر الحد الأدنى من reference data المطلوب لتشغيل الـ flow:
+    ///   - 1 default warehouse "المستودع الرئيسي" (WH-001) — لإصلاح dropdowns /procurement/goods-receipts/new
+    ///   - 1 default cost center "الإدارة العامة" (CC-001, type=Department=2) — لإصلاح "no cost center" errors
+    /// <para>
+    /// Idempotent عبر ON CONFLICT DO NOTHING على (company_id, code). دائماً يُشغّل
+    /// (لا flag) لأن هذه بيانات reference لازمة لكل install.
+    /// </para>
+    /// </summary>
+    private async Task<(int warehouses, int costCenters)> TrySeedDefaultReferenceDataAsync(
+        System.Data.IDbConnection conn, Guid holdingId, CancellationToken ct)
+    {
+        var now = DateTime.UtcNow;
+
+        // Default warehouse
+        var whRows = await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO warehouses
+                (id, company_id, code, name, location, is_active, created_at, created_by, updated_at, updated_by)
+            VALUES
+                (@Id, @HoldingId, 'WH-001', 'المستودع الرئيسي', 'المقر الرئيسي', true, @Now, @UserId, @Now, @UserId)
+            ON CONFLICT (company_id, code) DO NOTHING
+            RETURNING id;",
+            new
+            {
+                Id = Guid.NewGuid(),
+                HoldingId = holdingId,
+                Now = now,
+                UserId = Guid.Empty  // System-seeded, no specific user
+            },
+            cancellationToken: ct));
+
+        // Default cost center (Department type = 2)
+        var ccRows = await conn.ExecuteAsync(new CommandDefinition(@"
+            INSERT INTO cost_centers
+                (id, company_id, code, name, type, is_active, created_at, updated_at)
+            VALUES
+                (@Id, @HoldingId, 'CC-001', 'الإدارة العامة', 2, true, @Now, @Now)
+            ON CONFLICT (company_id, code) DO NOTHING
+            RETURNING id;",
+            new
+            {
+                Id = Guid.NewGuid(),
+                HoldingId = holdingId,
+                Now = now
+            },
+            cancellationToken: ct));
+
+        return (whRows, ccRows);
+    }
 }

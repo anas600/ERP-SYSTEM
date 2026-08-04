@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-02 (Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-04 (Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -350,6 +350,61 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/.mavis/AGENTS.md`](./.mavis/AGENTS.md) | Mavis orchestration (worker instructions for Jimis) | Active |
 
 **Note:** `src/backend/Modules/<module>/` and `src/frontend/app/<route>/` have their own AGENTS.md (created when modules become durable boundaries).
+
+---
+
+## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
+
+### Decisions
+- **DEC-107 — DepartmentResponse enrichment** (Sprint 31): `DepartmentResponse` now has `ManagerName` + `ManagerCode` + `EmployeeCount` (L40 pattern, single batch Dapper lookup). 5 departments now show manager name + count.
+- **DEC-108 — Posting Rules benchmark vs engine** (Sprint 31): 4 xUnit tests + SQL script that compare the engine output to the 74 benchmark JEs. All 4 categories balanced — no bugs found.
+- **DEC-109 — 5th default rule "VAT 5%" (inactive)** (Sprint 31): Added new rule for sales with VAT 5% (DR 1230 / CR 5110 / CR 1411). INACTIVE by default. Admin enables: deactivate Libya default + activate this + add 1410/1411 accounts.
+- **DEC-110 — Payments module Article 3 audit** (Sprint 31): Fixed 2 violations — `Payment.CompanyId` was `Guid?` (now `Guid`), `CreateAsync` didn't set CompanyId (now injects ICompanyContext).
+- **(bonus) Playwright MCP setup** (Sprint 31): Installed `playwright` + Chromium. `scripts/playwright-smoke.mjs` runs 24-page browser smoke test in <2 min. Discovered bugs that API tests missed (`/hr/departments` 404).
+- **(bonus) /hr/departments page** (Sprint 31): Was missing — created with hierarchy view + manager enrichment + employee counts.
+
+### Lessons (L43..L46)
+- **L43** (Sprint 30): Before `dotnet build`, ensure no `dotnet` process holds the .exe. If present, `Stop-Process -Force` first. The "file locked" error is recoverable but wastes 30s.
+- **L44** (Sprint 30): Projects module is **partially implemented** — the entities + services + controllers exist, but the underlying tables (`resources`, `tasks`, `project_assignments`, `project_budgets`) were never registered in `data-types/`. This is a Sprint 22+ bug that needs a dedicated sprint.
+- **L45 (NEW)** (Sprint 31): `npm start` serves the cached `.next/` build, not the source. After backend OR frontend code changes, always `npm run build` first. Symptom: "I changed the code but the change isn't visible in the browser."
+- **L46 (NEW)** (Sprint 31): Playwright discovers bugs that API testing misses (e.g., missing FE pages, stale builds). The 24-page smoke test takes 1.5 minutes. Use it as a CI gate.
+
+### Pending Article 3 audit (carry-over to Sprint 32+)
+- `ProjectCostCenter` (in Companies module) — likely 2-4 violations
+- `AccountService` (in Finance) — likely 2-4 violations
+- `ChartOfAccountsService` (in Finance) — likely 2-4 violations
+- `PayrollService` (in Payroll) — likely 2-4 violations
+- Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
+
+---
+
+## Sprint 30 Decisions (DEC-100..106) + Lessons (L40..L42)
+
+### Decisions
+- **DEC-100 — Single CoA page (delete duplicate)** (Sprint 30): `src/frontend/app/(authenticated)/accounts/page.tsx` deleted via `mavis-trash`. Sidebar entry removed from `AppShell.tsx`. Only `/finance/accounts` (Sprint 11 T1) remains. User feedback: "duplicate pages are technical debt."
+- **DEC-101 — Default reference data is essential, not optional** (Sprint 30): `TrySeedDefaultReferenceDataAsync` added to `DefaultHoldingBootstrapHostedService.cs`. Always-on (no flag) — seeds 1 default warehouse (WH-001 "المستودع الرئيسي") + 1 default cost center (CC-001 "الإدارة العامة", type=Department=2). Idempotent via `ON CONFLICT (company_id, code) DO NOTHING`. Without this, the new PO/GR seeder and the receipt form both fail on fresh install.
+- **DEC-102 — Make cost center / allocations optional** (Sprint 30): Receipt allocations no longer required. `ReceiptService.CreateAsync` skips validation if `req.Allocations == null || req.Allocations.Count == 0`. FE form `page.tsx` skips the "أضف تخصيصاً واحداً على الأقل" check. Cost center already optional. Rule: don't overcomplicate — make the form work for the common case (single payment, no allocation).
+- **DEC-103 — Atomic document sequence** (Sprint 30): `DocumentSequenceRepository.GetNextNumberAsync` refactored from UPSERT-then-SELECT (race condition) to `INSERT ... ON CONFLICT ... DO UPDATE SET last_number = ... RETURNING last_number` in a single statement. Fixes `PO-2026-0002 already exists` duplicate-key errors.
+- **DEC-104 — Vendor name in DTO** (Sprint 30): `VendorBillResponse` now has `VendorName` + `VendorCode`. `VendorBillService.BuildVendorMapAsync` does single-batch vendor lookup. FE no longer shows raw GUIDs (L40: API must return human-readable names).
+- **DEC-105 — Full PO+GR+Bill seeder** (Sprint 30): `ArabicProcurementDevSeederHostedService` rewritten. All 3 passes implemented:
+  - Pass 1: 10 POs with computed line `sub_total` + header totals
+  - Pass 2: 10 GRs, status=`Received`, posted to default warehouse WH-001 (DEC-101 made this possible)
+  - Pass 3: 10 Bills, status=`Posted`, linked to GRs, each with `BENCH-BILL-2026-NNNN` Journal Entry (L39: "seeders that test other parts of the system")
+- **DEC-105a — PO vendor enrichment** (Sprint 30): `PurchaseOrderResponse` now has `VendorName` + `VendorCode`. `PurchaseOrderService.BuildVendorMapAsync` (Dapper direct) added. Same pattern as DEC-104 for bills.
+- **DEC-106 — SalesInvoiceStatus as string, not int enum** (Sprint 30): `SalesInvoice.Status` + `SalesInvoiceResponse.Status` changed from `int` to `string` to match the seeder + schema. Fixed 6 references in `ReceiptService` + `SalesInvoiceService` (Draft/Sent/Paid/PartiallyPaid/Cancelled → "Draft"/"Sent"/etc.). Fixed the 500 error on `/api/ar/sales-invoices` (Dapper couldn't map the int enum to the string seeder output).
+
+### Lessons (L40..L42)
+- **L40 — API must return human-readable names, not raw GUIDs** (DEC-104 + DEC-105a). Every list/GET endpoint that returns a foreign-key reference should also include the referenced entity's `Name` + `Code`. Pattern: build a `Dictionary<Id, (Name, Code)>` via single batch lookup, enrich the response. This applies to PO, GR, Bill, Receipt, Payment, JournalEntry, Project — anywhere a FK is exposed. New endpoints: add the enrichment from day 1, not as an afterthought.
+- **L41 — Seeders that create transactions must compute totals from line items** (DEC-105b). The old PO seeder stored `sub_total=0, tax_amount=0, total_amount=0` because it didn't compute from lines. Always: line `sub_total = qty * unit_price`; header `sub_total = sum(lines.sub_total)`; `tax_amount = sum(lines.sub_total * lines.tax_rate)`; `total_amount = sub_total + tax_amount`. Libya default = 0 tax. Don't trust the JSON to carry totals — compute them at insert time.
+- **L42 — Seeder cross-pass dependencies need explicit lookups** (DEC-105c/d). Pass 2 (GRs) needs the PO ids from Pass 1. Pass 3 (Bills) needs the GR ids from Pass 2. Build lookup maps (`Dictionary<string, Guid>`) after each pass: `poMap = po_number → id`, `grMap = gr_number → id`. Pass 3 also needs `goods_receipt_id` — link via PO → GR. The map keeps the passes order-independent and idempotent.
+
+### Pending Article 3 audit (carry-over to Sprint 31+)
+- `Payments` module — likely 4-8 violations
+- `ProjectCostCenter` (in Companies module) — likely 2-4 violations
+- `AccountService` (in Finance) — likely 2-4 violations
+- `ChartOfAccountsService` (in Finance) — likely 2-4 violations
+- `PayrollService` (in Payroll) — likely 2-4 violations
+- Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
 
 ---
 

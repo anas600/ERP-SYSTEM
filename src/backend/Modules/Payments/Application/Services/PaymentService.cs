@@ -5,6 +5,7 @@ using ERPSystem.Modules.Payments.Application;
 using ERPSystem.Modules.Payments.Entities;
 using ERPSystem.Modules.Payments.Infrastructure;
 using ERPSystem.Modules.Procurement.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.Logging;
 
@@ -40,6 +41,7 @@ public sealed class PaymentService : IPaymentService
     private readonly IAccountRepository _accounts;
     private readonly IJournalEntryRepository _entries;
     private readonly IDbConnectionFactory _db;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<PaymentService> _logger;
 
     public PaymentService(
@@ -49,10 +51,12 @@ public sealed class PaymentService : IPaymentService
         IAccountRepository accounts,
         IJournalEntryRepository entries,
         IDbConnectionFactory db,
+        ICompanyContext companyContext,
         ILogger<PaymentService> logger)
     {
         _payments = payments; _seq = seq; _vendors = vendors;
-        _accounts = accounts; _entries = entries; _db = db; _logger = logger;
+        _accounts = accounts; _entries = entries; _db = db;
+        _companyContext = companyContext; _logger = logger;
     }
 
     public async Task<PaymentResult<PaymentResponse>> CreateAsync(Guid userId, CreatePaymentRequest req, CancellationToken ct)
@@ -91,9 +95,13 @@ public sealed class PaymentService : IPaymentService
 
         // 4) إنشاء الـ Payment (Draft)
         var now = DateTime.UtcNow;
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
         var payment = new Payment
         {
             Id = Guid.NewGuid(),
+            // Sprint 31 (DEC-110): L19 — companyId from ICompanyContext, not from request.
+            CompanyId = companyId,
             PartyType = req.PartyType,
             PartyId = req.PartyId,
             PaymentNumber = await _seq.GetNextPaymentNumberAsync(ct),

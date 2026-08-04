@@ -58,7 +58,10 @@ public class SalesInvoice
     /// <summary>المتبقي — يُحسب في الـ repository: TotalAmount - PaidAmount.</summary>
     public decimal Outstanding { get; set; }
 
-    public SalesInvoiceStatus Status { get; set; } = SalesInvoiceStatus.Draft;
+    // Sprint 30 (DEC-106): stored as string in the DB (matches the seeder + Procurement pattern).
+    // The old enum (int) mapping broke the seeder's "Posted" string value. Using a string here
+    // matches the schema (varchar(20)) and the seeder convention.
+    public string Status { get; set; } = "Draft";
 
     public string? Notes { get; set; }
 

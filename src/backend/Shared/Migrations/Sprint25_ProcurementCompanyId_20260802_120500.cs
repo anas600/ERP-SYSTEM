@@ -29,7 +29,7 @@ namespace ERPSystem.Shared.Migrations;
 ///
 /// Idempotency: the UPDATE has WHERE company_id IS NULL so re-runs are no-ops.
 /// </summary>
-[Migration(20260802_120000, TransactionBehavior.None)]
+[Migration(20260802_120500, TransactionBehavior.None)]
 public class Sprint25_ProcurementCompanyId : Migration
 {
     public override void Up()

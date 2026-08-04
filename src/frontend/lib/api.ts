@@ -404,6 +404,11 @@ export interface Department {
   code: string;
   parentId?: string;
   managerId?: string;
+  // Sprint 31 (DEC-107): manager name + code (L40) so the FE doesn't show raw GUIDs.
+  managerName?: string;
+  managerCode?: string;
+  // Sprint 31 (DEC-107): employee count per department.
+  employeeCount?: number;
   isActive: boolean;
 }
 

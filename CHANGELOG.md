@@ -13,6 +13,161 @@
 
 ---
 
+## Sprint 31 — Browser-based testing (Playwright) + DEC-107..110 (2026-08-04) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's approval — install Playwright MCP for browser-based testing, do full P0 + P1 in 8h budget.
+
+### Added (DEC-107..110 + bonuses)
+- **DEC-107**: `DepartmentResponse` now has `ManagerName` + `ManagerCode` + `EmployeeCount` (L40 pattern, single batch Dapper lookup). 5 departments now show manager name + count.
+- **DEC-108**: Posting Rules benchmark vs engine comparison (4 xUnit tests + SQL script). All 4 categories balanced — no bugs found.
+- **DEC-109**: 5th default rule "فاتورة مبيعات (افتراضي - ليبيا + 5% ضريبة)" (INACTIVE). Template: DR 1230 / CR 5110 / CR 1411 (VAT Output). Formulas: {tax+subtotal} + {subtotal} + {tax}.
+- **DEC-110**: Payments module Article 3 audit (L19 + L30). Fixed: `Payment.CompanyId` (Guid? → Guid) + `CreateAsync` (injects ICompanyContext).
+- **Playwright MCP**: Installed `playwright` + Chromium (Chrome for Testing 151). `scripts/playwright-smoke.mjs` runs 24-page smoke test in <2 minutes.
+- **`/hr/departments` page** (was missing — discovered by Playwright 404). Shows hierarchy: 1 root dept + 4 sub-depts with manager names + employee counts.
+- **AppShell**: "الأقسام" added to HR sidebar nav.
+
+### Fixed
+- **`/hr/departments` 404**: Missing FE page created (was not discovered in any previous test).
+- **Stale `.next/` cache (L45 NEW)**: Playwright run #1 showed "الحسابات (مبسّط)" in sidebar even after DEC-100 removed it. Fix: `npm run build` + `npm start` to serve new build.
+- **DEC-110 — L19**: `PaymentService.CreateAsync` was creating payments without CompanyId. Now reads from `ICompanyContext.CompanyId`.
+- **DEC-110 — L30**: `Payment.CompanyId` was `Guid?` but DB column is NOT NULL. Now `Guid`.
+
+### Verified
+- Final Playwright: **24/24 pages 200, 0 × 404, 0 × 500** ✓
+- ProjectService tests: **8/8 PASS** (Sprint 28 tests still green)
+- Benchmark vs engine: **ALL 4 categories balanced** (no bugs in Posting Rules)
+- DB: 6 posting rules (5 active + 1 inactive VAT 5%)
+
+### Lessons (L40-L46)
+- **L45 (NEW)**: `npm start` serves the cached `.next/` build, not the source. After backend OR frontend code changes, always `npm run build` first.
+- **L46 (NEW)**: Playwright discovers bugs that API testing misses (e.g., missing FE pages, stale builds). The 24-page smoke test takes 1.5 minutes.
+- **L25 (re-confirmed)**: DEC-085 audit pattern keeps finding violations. Sprint 31 found DEC-110 in Payments. **4 of 5 still-pending modules now audited**.
+
+### Pending (carry-over to Sprint 32+)
+- **P0**: Add 4 `data-types/*.json` (resources, tasks, project_assignments, project_budgets) — Projects module
+- **P0**: Audit ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService
+- **P1**: Manual JEs (depreciation + accruals + year-end)
+- **P1**: customerStatement + vendorStatement GET endpoints
+- **P1**: Trial Balance validation UI ("Balanced / Unbalanced")
+- **P2**: Add 1410/1411 (VAT) accounts to CoA + test DEC-109 rule
+- **P2**: Add CI to run `playwright-smoke.mjs` automatically
+
+---
+
+## Sprint 30 — Architectural cleanup (6 DECs) + Full PO+GR+Bill seeder (2026-08-03) ✅ DONE (LOCAL-ONLY)
+---
+
+## Sprint 30 — Architectural cleanup (6 DECs) + Full PO+GR+Bill seeder (2026-08-03) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive (2026-08-03 ~04:30 UTC+2) — fix the 14 user-experienced issues from the browser walkthrough, then continue with the 5th seeder POC. Architectural cleanup before UI band-aid fixes.
+
+### Added (DEC-100..106)
+- **DEC-100 (Single CoA page)** — `src/frontend/app/(authenticated)/accounts/page.tsx` deleted (the duplicate "الحسابات (مبسّط)" page). Only `/finance/accounts` remains. `AppShell.tsx` sidebar entry removed.
+- **DEC-101 (Default reference data)** — `TrySeedDefaultReferenceDataAsync` added to `DefaultHoldingBootstrapHostedService.cs`. Always-on (no flag) — seeds 1 default warehouse (WH-001 "المستودع الرئيسي") + 1 default cost center (CC-001 "الإدارة العامة", type=Department=2). Idempotent via `ON CONFLICT (company_id, code) DO NOTHING`.
+- **DEC-103 (Atomic document sequence)** — `DocumentSequenceRepository.GetNextNumberAsync` refactored: `INSERT ... ON CONFLICT ... DO UPDATE SET last_number = ... RETURNING last_number` in a single statement. Replaces the old UPSERT-then-SELECT race that caused `PO-2026-0002 already exists` duplicate-key errors.
+- **DEC-104 (Vendor name in DTO)** — `VendorBillResponse` now has `VendorName` + `VendorCode`. `VendorBillService.BuildVendorMapAsync` does single-batch vendor lookup. FE no longer shows raw GUIDs.
+- **DEC-105a (PO vendor enrichment)** — `PurchaseOrderResponse` now has `VendorName` + `VendorCode`. `PurchaseOrderService.BuildVendorMapAsync` (Dapper direct) added.
+- **DEC-105b/c/d (Full PO+GR+Bill seeder)** — `ArabicProcurementDevSeederHostedService` rewritten. All 3 passes implemented:
+  - **Pass 1: POs** — 10 POs with computed line `sub_total = qty * unit_price` + header `sub_total/tax_amount/total_amount`
+  - **Pass 2: GRs** — 10 GRs, status=`Received`, posted to default warehouse WH-001 (DEC-101 made this possible)
+  - **Pass 3: Bills** — 10 Bills, status=`Posted`, linked to GRs via `goods_receipt_id`. Each gets a `BENCH-BILL-2026-NNNN` Journal Entry (DR 1240 Inventory / CR 2210 AP)
+- **DEC-106 (SalesInvoiceStatus string)** — `SalesInvoice.Status` changed from `int` enum to `string` to match the seeder + schema. Fixed 6 references in `ReceiptService` + `SalesInvoiceService` (Draft/Sent/Paid/PartiallyPaid/Cancelled → "Draft"/"Sent"/etc.). Fixed the 500 error on `/api/ar/sales-invoices`.
+
+### Changed
+- **`PurchaseOrderService` constructor** — now takes `IDbConnectionFactory` (for Dapper-direct vendor enrichment). Test refactor (L21) updated.
+- **`ArabicProcurementDevSeederHostedService` class doc** — updated to reflect Sprint 30 (DEC-105) scope: all 3 passes implemented, not just POs.
+
+### Fixed
+- **/api/ar/sales-invoices 500** — Dapper couldn't map the int enum status to the string seeder output. Fixed by changing `Status` to `string` (DEC-106).
+- **Duplicate-key error on PO creation** — race in `GetNextNumberAsync` (UPSERT then SELECT). Fixed via `RETURNING` clause (DEC-103).
+- **Empty reference data on fresh install** — no warehouse, no cost center, no allocations possible. Fixed by DEC-101 (warehouse + cost center always seeded) and DEC-102 (allocations optional in receipt form).
+- **/api/procurement/purchase-orders 404** — actual endpoint is `/api/procurement/pos` (DEC-031 convention). Updated tests + docs.
+- **PO total_amount=0** — old seeder stored 0/0/0. Now computed from line totals (DEC-105b).
+- **GR + Bill seeder stubs** — Pass 2 and Pass 3 were commented as "intentionally not implemented" in Sprint 28. Now implemented (DEC-105c/d).
+- **L21 test refactor** — `PurchaseOrderService` constructor change required updating tests to inject `Mock<IDbConnectionFactory>`.
+
+### Verified (Mode 1, host local PG)
+- Wiped DB clean → restarted BE → all 5 seeders + bootstrap ran:
+  - 13 customers + 13 vendors + 20 items
+  - 5 departments + 10 employees
+  - 1 warehouse + 1 cost center
+  - 10 POs (computed totals 65–3440 LYD) + 10 GRs (Received, WH-001) + 10 Procurement Bills (Posted, 65–3440 LYD)
+  - 12 sales invoices + 12 vendor bills + 24 receipts + 24 payments (Sprint 29)
+  - 83 journal entries + 169 lines (74 benchmark JEs + OB-2025-001 + others)
+- All 4 JEs categories balanced (DR=CR):
+  - BENCH-INV: 12 JEs, 143,450 LYD
+  - BENCH-BILL: 22 JEs (12 year + 10 procurement), 240,055 LYD
+  - BENCH-RCT: 24 JEs, 153,000 LYD
+  - BENCH-PAY: 24 JEs, 191,500 LYD
+- All 5 endpoints return correct data with vendor names (no raw GUIDs):
+  - `/api/procurement/pos` → 10 POs with `vendorName`/`vendorCode` + computed totals
+  - `/api/procurement/grs` → 10 GRs with `poNumber`/`warehouseName`/`vendorName`
+  - `/api/procurement/bills` → 22 bills (12 year + 10 procurement) with `vendorName` + totals
+  - `/api/ar/sales-invoices` → 12 invoices (DEC-106 fix), no more 500
+  - `/api/finance/receipts/new` → form shows (DEC-102 fix, allocations optional)
+
+### Pending (carry-over to Sprint 31+)
+- 4 more still-pending Article 3 audit modules (Payments, ProjectCostCenter, AccountService, ChartOfAccountsService)
+- 5th default rule "Sale with VAT 5%" (inactive, for demo)
+- Manual JEs (depreciation, accruals, year-end)
+- Posting Rules integration unit tests (benchmark vs engine comparison)
+- 14 P2 function workflow docs
+- Pre-push script: scan for `?` in user-visible columns
+- Playwright e2e tests for top 5 user flows
+
+---
+
+## Sprint 29 — Year-Scenario dev seeder (POC #4) + Legacy cleanup (2026-08-03) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive — clean up the 2 legacy seeders (ScenarioSeeder + RealisticSeed, 102.8 KB total) and replace them with a new year-scenario seeder using the established POC pattern (JSON + IHostedService + UPSERT). The new seeder adds 1 year of operational data (73 records + 73 Journal Entries) to discover bugs on the dev host.
+
+### Added (DEC-098)
+- **`src/backend/Shared/SeedData/ArabicYearScenarioDevData.json`** (NEW, ~46 KB) — 1 opening balance JE + 12 monthly sales invoices + 12 monthly vendor bills + 24 customer receipts + 24 vendor payments, all with Arabic notes.
+- **`src/backend/Shared/SeedData/ArabicYearScenarioDevSeederHostedService.cs`** (NEW, ~28 KB) — IHostedService, 5-pass execution: Pass 1 Opening Balance → Pass 2 Sales Invoices → Pass 3 Vendor Bills → Pass 4 Receipts → Pass 5 Payments. Each transaction gets a "benchmark" Journal Entry that should match the Posting Rules engine's output (any discrepancy = bug).
+- **`Bootstrap:SeedYearScenario` config flag** — added to `appsettings.Development.json.example` + `appsettings.Development.json`. Default `false`. Double-gated on `IsDevelopment() + flag`.
+- **`<Content Include="..\Shared\SeedData\ArabicYearScenarioDevData.json" />`** in csproj.
+- **Program.cs registration block** — Sprint 29 section, gated on `IsDevelopment() + flag`.
+
+### Removed (DEC-098 cleanup)
+- **`ScenarioSeederHostedService.cs`** (54.8 KB) — Sprint 4 al-Burj scenario, hardcoded C#, never enabled in fresh builds, was only registered via manual admin endpoint.
+- **`RealisticSeedHostedService.cs`** (48 KB) — Sprint 14 realistic seed, hardcoded C#, never enabled.
+- **AdminController.AlFajrSeed + AlBurjSeed endpoints** — replaced with 410 Gone responses pointing to the new POC seeders.
+
+### Fixed (L21 + L28 + L35)
+- **L21 (test refactor)** — Replaced the previous JavaScript IIFE pattern in tests with proper C# code (already done in Sprint 28 push but verified Sprint 29).
+- **L28 (schema surprise)** — `companies.is_holding` doesn't exist; the column is `is_group` (L28 fix applied in Sprint 29 code).
+- **L35 (Sprint 28 duplicate migration version)** — already fixed in the prior session.
+- **Account code 3110 → 3100** in the JSON — the equity account is "رأس المال" = 3100, not 3110. (Discovered when the seeder logged "Account 3110 not found" on first run; fixed and re-seeded.)
+
+### Verified
+- `dotnet build` → 0 errors, 0 warnings
+- `dotnet test` (Sprint 29 scope) → 8/8 tests passed (Projects + Payroll + Inventory)
+- All 4 POC seeders run on startup: 3+10 customers + 3+10 vendors + 5+15 items + 5 depts + 10 employees + 10 POs + 73 year-scenario records
+- 73 Journal Entries + 148 Journal Lines (avg 2 lines per JE)
+- Opening Balance: 105,000 debits = 105,000 credits ✓
+- L28 bug surfaced: `/api/ar/sales-invoices` returns 500 (separate bug to investigate in Sprint 30+)
+
+### Lessons (L36-L39)
+- **L36 (Sprint 29 seeder)**: 4th POC in <1.5h (vs 4-6h for first). The pattern is now muscle memory — JSON + IHostedService + UPSERT + Dapper + double-gate. The only time-consuming parts were schema surprises and the L28 fix.
+- **L37 (Sprint 29 DI lifetime)**: IHostedService is registered as Singleton by default. Cannot inject Scoped services (e.g., ICompanyContext) into the constructor. Solution: resolve the companyId directly from the DB at startup using `DbConnectionFactory.CreateEphemeralOltpConnectionAsync`.
+- **L38 (Sprint 29 legacy cleanup)**: Deleting the 2 legacy .cs files (102.8 KB) also required removing the manual admin endpoints in AdminController.cs that referenced them. The build then broke — easy to fix by replacing the endpoints with 410 Gone responses.
+- **L39 (Sprint 29 benchmark JEs)**: Each transactional record gets a "benchmark" Journal Entry inserted by the seeder. The benchmark JEs are documented as `BENCH-INV-XXX`, `BENCH-BILL-XXX`, etc. When the Posting Rules engine is run on the same transactions, its JEs should match the benchmark JEs. Any discrepancy is a bug to investigate. This is a new pattern: "seeders that test other parts of the system".
+
+### Carry-over (Sprint 30+)
+- P0: Fix the 500 error on `/api/ar/sales-invoices` endpoint (discovered by Sprint 29's data)
+- P0: Fix the 500 error on `/api/procurement/purchase-orders` (similar shape)
+- P0: Add a default warehouse to enable GR + Bill seeders (Sprint 28 carry-over)
+- P1: Audit 5 still-pending modules (Payments, ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService)
+- P1: Refactor remaining `req.CompanyId` → `_companyContext.CompanyId` (L30)
+- P1: Trial Balance validation UI
+- P1: customer/vendor statement endpoints
+- P2: Year-scenario Phase 2 (payroll + stock movements + project costs)
+- P2: Posting Rules integration unit tests
+- P2: Pre-push script: scan for `?` in user-visible columns
+- P2: Build-time test that enforces DEC-085
+
+---
+
 ## Sprint 28 — Article 3 audit (4 modules) + Procurement seeder (POC #3) + test refactor (2026-08-02) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's directive ("yes, Sprint 28") — continue the audit pattern. This sprint: 4 remaining modules (Payroll, Projects, StockMovement, Finance/Account) — then POC the seeder pattern a third time (Procurement). The audit found **8 more Article 3 violations** (4 entities + 3 services + 4 repos + 1 minor fix). The seeder proves L17 ("3rd implementation = permanent framework") by completing in <2h (vs 4-6h for the first one).

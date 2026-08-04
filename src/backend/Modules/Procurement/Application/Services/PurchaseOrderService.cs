@@ -1,7 +1,9 @@
+using Dapper;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Entities;
 using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Shared.CompanyContext;
+using ERPSystem.Shared.Infrastructure;
 using Microsoft.Extensions.Logging;
 
 namespace ERPSystem.Modules.Procurement.Application.Services;
@@ -21,10 +23,11 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
     private readonly IVendorRepository _vendors;
     private readonly IDocumentSequenceRepository _seq;
     private readonly ICompanyContext _companyContext;
+    private readonly IDbConnectionFactory _db;
     private readonly ILogger<PurchaseOrderService> _logger;
 
-    public PurchaseOrderService(IPurchaseOrderRepository pos, IVendorRepository vendors, IDocumentSequenceRepository seq, ICompanyContext companyContext, ILogger<PurchaseOrderService> logger)
-    { _pos = pos; _vendors = vendors; _seq = seq; _companyContext = companyContext; _logger = logger; }
+    public PurchaseOrderService(IPurchaseOrderRepository pos, IVendorRepository vendors, IDocumentSequenceRepository seq, ICompanyContext companyContext, IDbConnectionFactory db, ILogger<PurchaseOrderService> logger)
+    { _pos = pos; _vendors = vendors; _seq = seq; _companyContext = companyContext; _db = db; _logger = logger; }
 
     public async Task<ProcurementResult<PurchaseOrderResponse>> CreateAsync(Guid userId, CreatePurchaseOrderRequest req, CancellationToken ct)
     {
@@ -86,14 +89,37 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
         var po = await _pos.GetByIdAsync(id, ct);
         if (po == null)
             return ProcurementResult<PurchaseOrderResponse>.Fail("غير موجود.", ProcurementErrorCode.NotFound);
-        return ProcurementResult<PurchaseOrderResponse>.Ok(MapToResponse(po));
+        var resp = MapToResponse(po);
+
+        // Sprint 30 (DEC-105a): enrich with vendor name + code.
+        var vendorMap = await BuildVendorMapAsync(new[] { po.VendorId }, ct);
+        if (vendorMap.TryGetValue(po.VendorId, out var v))
+        {
+            resp.VendorName = v.Name;
+            resp.VendorCode = v.Code;
+        }
+
+        return ProcurementResult<PurchaseOrderResponse>.Ok(resp);
     }
 
     public async Task<ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>> ListAsync(Guid? vendorId, PurchaseOrderStatus? status, int skip, int take, CancellationToken ct)
     {
         if (take is < 1 or > 200) take = 50;
         var list = await _pos.ListAsync(vendorId, status, skip, take, ct);
-        return ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>.Ok(list.Select(MapToResponse).ToList());
+        var responses = list.Select(MapToResponse).ToList();
+
+        // Sprint 30 (DEC-105a): enrich with vendor name + code so FE doesn't show raw GUIDs.
+        var vendorMap = await BuildVendorMapAsync(list.Select(p => p.VendorId), ct);
+        foreach (var r in responses)
+        {
+            if (vendorMap.TryGetValue(r.VendorId, out var v))
+            {
+                r.VendorName = v.Name;
+                r.VendorCode = v.Code;
+            }
+        }
+
+        return ProcurementResult<IReadOnlyList<PurchaseOrderResponse>>.Ok(responses);
     }
 
     public async Task<ProcurementResult<PurchaseOrderResponse>> ApproveAsync(Guid userId, Guid id, CancellationToken ct)
@@ -150,4 +176,21 @@ public sealed class PurchaseOrderService : IPurchaseOrderService
             TaxRate = l.TaxRate, SubTotal = l.SubTotal, LineOrder = l.LineOrder
         }).ToList()
     };
+
+    // Sprint 30 (DEC-105a): one-batch vendor lookup for enrichment. Same pattern as
+    // VendorBillService.BuildVendorMapAsync (DEC-104) — single query instead of N+1.
+    private async Task<IReadOnlyDictionary<Guid, (string Name, string Code)>> BuildVendorMapAsync(
+        IEnumerable<Guid> vendorIds, CancellationToken ct)
+    {
+        var ids = vendorIds.Distinct().Where(id => id != Guid.Empty).ToList();
+        if (ids.Count == 0)
+            return new Dictionary<Guid, (string Name, string Code)>();
+
+        // Use Dapper directly to avoid a circular dependency on the vendor service.
+        using var conn = await _db.CreateEphemeralOltpConnectionAsync(ct);
+        var rows = await conn.QueryAsync<(Guid Id, string Name, string Code)>(
+            "SELECT id, name, code FROM vendors WHERE id = ANY(@Ids)",
+            new { Ids = ids.ToArray() });
+        return rows.ToDictionary(r => r.Id, r => (r.Name, r.Code));
+    }
 }

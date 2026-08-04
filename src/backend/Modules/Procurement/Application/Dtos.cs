@@ -83,6 +83,9 @@ public sealed class PurchaseOrderResponse
     public Guid Id { get; set; }
     public string PoNumber { get; set; } = string.Empty;
     public Guid VendorId { get; set; }
+    // Sprint 30 (DEC-105a): include vendor name + code so the FE doesn't show raw GUIDs.
+    public string? VendorName { get; set; }
+    public string? VendorCode { get; set; }
     public PurchaseOrderStatus Status { get; set; }
     public DateTime OrderDate { get; set; }
     public DateTime? ExpectedDate { get; set; }
@@ -184,6 +187,9 @@ public sealed class VendorBillResponse
     public string BillNumber { get; set; } = string.Empty;
     public Guid GoodsReceiptId { get; set; }
     public Guid VendorId { get; set; }
+    // Sprint 30 (DEC-104): include vendor name + code so the FE doesn't show raw GUIDs.
+    public string? VendorName { get; set; }
+    public string? VendorCode { get; set; }
     public VendorBillStatus Status { get; set; }
     public DateTime BillDate { get; set; }
     public DateTime? DueDate { get; set; }

@@ -1,0 +1,916 @@
+{
+    "openingBalance":  {
+                           "reference":  "OB-2025-001",
+                           "lines":  [
+                                         {
+                                             "description":  "رصيد نقدية افتتاحي",
+                                             "debit":  50000,
+                                             "credit":  0,
+                                             "accountCode":  "1210"
+                                         },
+                                         {
+                                             "description":  "ذمم مدينة - عملاء (افتتاحي)",
+                                             "debit":  25000,
+                                             "credit":  0,
+                                             "accountCode":  "1230"
+                                         },
+                                         {
+                                             "description":  "مخزون افتتاحي",
+                                             "debit":  30000,
+                                             "credit":  0,
+                                             "accountCode":  "1240"
+                                         },
+                                         {
+                                             "description":  "دائنون - موردين (افتتاحي)",
+                                             "debit":  0,
+                                             "credit":  15000,
+                                             "accountCode":  "2210"
+                                         },
+                                         {
+                                             "description":  "رأس المال - حصة المؤسسين",
+                                             "debit":  0,
+                                             "credit":  90000,
+                                             "accountCode":  "3100"
+                                         }
+                                     ],
+                           "description":  "رصيد افتتاحي - 1 يناير 2025",
+                           "entryDate":  "2025-01-01T00:00:00Z"
+                       },
+    "scenario":  "year-2025",
+    "description":  "سنة تشغيلية كاملة 2025 - لاختبار الـ Posting Rules engine و AR/AP aging و Trial Balance",
+    "payments":  [
+                     {
+                         "amount":  5000,
+                         "paymentDate":  "2025-01-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-001",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-001",
+                         "notes":  "دفعة مورد - يناير"
+                     },
+                     {
+                         "amount":  4000,
+                         "paymentDate":  "2025-01-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-002",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-002",
+                         "notes":  "دفعة مورد - يناير"
+                     },
+                     {
+                         "amount":  5000,
+                         "paymentDate":  "2025-02-28",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-002",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-003",
+                         "notes":  "دفعة مورد - فبراير"
+                     },
+                     {
+                         "amount":  4500,
+                         "paymentDate":  "2025-02-28",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-003",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-004",
+                         "notes":  "دفعة مورد - فبراير"
+                     },
+                     {
+                         "amount":  6000,
+                         "paymentDate":  "2025-03-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-003",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-005",
+                         "notes":  "دفعة مورد - مارس"
+                     },
+                     {
+                         "amount":  10000,
+                         "paymentDate":  "2025-03-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-004",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-006",
+                         "notes":  "دفعة مورد - مارس"
+                     },
+                     {
+                         "amount":  9000,
+                         "paymentDate":  "2025-04-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-004",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-007",
+                         "notes":  "دفعة مورد - أبريل"
+                     },
+                     {
+                         "amount":  5000,
+                         "paymentDate":  "2025-04-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-005",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-008",
+                         "notes":  "دفعة مورد - أبريل"
+                     },
+                     {
+                         "amount":  6000,
+                         "paymentDate":  "2025-05-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-005",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-009",
+                         "notes":  "دفعة مورد - مايو"
+                     },
+                     {
+                         "amount":  8000,
+                         "paymentDate":  "2025-05-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-006",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-010",
+                         "notes":  "دفعة مورد - مايو"
+                     },
+                     {
+                         "amount":  9000,
+                         "paymentDate":  "2025-06-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-006",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-011",
+                         "notes":  "دفعة مورد - يونيو"
+                     },
+                     {
+                         "amount":  7000,
+                         "paymentDate":  "2025-06-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-001",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-012",
+                         "notes":  "دفعة مورد - يونيو"
+                     },
+                     {
+                         "amount":  8500,
+                         "paymentDate":  "2025-07-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-001",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-013",
+                         "notes":  "دفعة مورد - يوليو"
+                     },
+                     {
+                         "amount":  7000,
+                         "paymentDate":  "2025-07-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-002",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-014",
+                         "notes":  "دفعة مورد - يوليو"
+                     },
+                     {
+                         "amount":  8000,
+                         "paymentDate":  "2025-08-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-002",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-015",
+                         "notes":  "دفعة مورد - أغسطس"
+                     },
+                     {
+                         "amount":  10000,
+                         "paymentDate":  "2025-08-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-003",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-016",
+                         "notes":  "دفعة مورد - أغسطس"
+                     },
+                     {
+                         "amount":  11000,
+                         "paymentDate":  "2025-09-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-003",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-017",
+                         "notes":  "دفعة مورد - سبتمبر"
+                     },
+                     {
+                         "amount":  9000,
+                         "paymentDate":  "2025-09-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-004",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-018",
+                         "notes":  "دفعة مورد - سبتمبر"
+                     },
+                     {
+                         "amount":  8000,
+                         "paymentDate":  "2025-10-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-004",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-019",
+                         "notes":  "دفعة مورد - أكتوبر"
+                     },
+                     {
+                         "amount":  9000,
+                         "paymentDate":  "2025-10-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-005",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-020",
+                         "notes":  "دفعة مورد - أكتوبر"
+                     },
+                     {
+                         "amount":  12000,
+                         "paymentDate":  "2025-11-30",
+                         "paymentMethod":  "Cash",
+                         "vendorCode":  "VEND-005",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-021",
+                         "notes":  "دفعة مورد - نوفمبر"
+                     },
+                     {
+                         "amount":  10000,
+                         "paymentDate":  "2025-11-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-006",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-022",
+                         "notes":  "دفعة مورد - نوفمبر"
+                     },
+                     {
+                         "amount":  11500,
+                         "paymentDate":  "2025-12-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-006",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-023",
+                         "notes":  "دفعة مورد - ديسمبر"
+                     },
+                     {
+                         "amount":  9000,
+                         "paymentDate":  "2025-12-30",
+                         "paymentMethod":  "BankTransfer",
+                         "vendorCode":  "VEND-001",
+                         "partyType":  "Vendor",
+                         "paymentNumber":  "PAY-2025-024",
+                         "notes":  "دفعة مورد - ديسمبر"
+                     }
+                 ],
+    "salesInvoices":  [
+                          {
+                              "invoiceNumber":  "INV-2025-001",
+                              "dueDate":  "2025-02-15",
+                              "invoiceDate":  "2025-01-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-001",
+                                                "unitPrice":  100,
+                                                "quantity":  50
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-002",
+                                                "unitPrice":  150,
+                                                "quantity":  30
+                                            }
+                                        ],
+                              "customerCode":  "CUST-001",
+                              "notes":  "فاتورة يناير - شركة الفجر"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-002",
+                              "dueDate":  "2025-03-15",
+                              "invoiceDate":  "2025-02-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-003",
+                                                "unitPrice":  250,
+                                                "quantity":  20
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-004",
+                                                "unitPrice":  180,
+                                                "quantity":  15
+                                            }
+                                        ],
+                              "customerCode":  "CUST-002",
+                              "notes":  "فاتورة فبراير - شركة النور"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-003",
+                              "dueDate":  "2025-04-15",
+                              "invoiceDate":  "2025-03-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-005",
+                                                "unitPrice":  90,
+                                                "quantity":  40
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-001",
+                                                "unitPrice":  100,
+                                                "quantity":  25
+                                            }
+                                        ],
+                              "customerCode":  "CUST-003",
+                              "notes":  "فاتورة مارس - مؤسسة الأمل"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-004",
+                              "dueDate":  "2025-05-15",
+                              "invoiceDate":  "2025-04-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-002",
+                                                "unitPrice":  150,
+                                                "quantity":  60
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-003",
+                                                "unitPrice":  250,
+                                                "quantity":  30
+                                            }
+                                        ],
+                              "customerCode":  "CUST-004",
+                              "notes":  "فاتورة أبريل - شركة السلامة"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-005",
+                              "dueDate":  "2025-06-15",
+                              "invoiceDate":  "2025-05-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-004",
+                                                "unitPrice":  180,
+                                                "quantity":  25
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-005",
+                                                "unitPrice":  90,
+                                                "quantity":  50
+                                            }
+                                        ],
+                              "customerCode":  "CUST-005",
+                              "notes":  "فاتورة مايو - مكتب البركة"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-006",
+                              "dueDate":  "2025-07-15",
+                              "invoiceDate":  "2025-06-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-001",
+                                                "unitPrice":  100,
+                                                "quantity":  80
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-002",
+                                                "unitPrice":  150,
+                                                "quantity":  20
+                                            }
+                                        ],
+                              "customerCode":  "CUST-006",
+                              "notes":  "فاتورة يونيو - مؤسسة الهلال"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-007",
+                              "dueDate":  "2025-08-15",
+                              "invoiceDate":  "2025-07-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-003",
+                                                "unitPrice":  250,
+                                                "quantity":  35
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-005",
+                                                "unitPrice":  90,
+                                                "quantity":  40
+                                            }
+                                        ],
+                              "customerCode":  "CUST-001",
+                              "notes":  "فاتورة يوليو - شركة الفجر"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-008",
+                              "dueDate":  "2025-09-15",
+                              "invoiceDate":  "2025-08-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-004",
+                                                "unitPrice":  180,
+                                                "quantity":  45
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-001",
+                                                "unitPrice":  100,
+                                                "quantity":  30
+                                            }
+                                        ],
+                              "customerCode":  "CUST-002",
+                              "notes":  "فاتورة أغسطس - شركة النور"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-009",
+                              "dueDate":  "2025-10-15",
+                              "invoiceDate":  "2025-09-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-002",
+                                                "unitPrice":  150,
+                                                "quantity":  70
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-003",
+                                                "unitPrice":  250,
+                                                "quantity":  20
+                                            }
+                                        ],
+                              "customerCode":  "CUST-003",
+                              "notes":  "فاتورة سبتمبر - مؤسسة الأمل"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-010",
+                              "dueDate":  "2025-11-15",
+                              "invoiceDate":  "2025-10-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-005",
+                                                "unitPrice":  90,
+                                                "quantity":  60
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-004",
+                                                "unitPrice":  180,
+                                                "quantity":  25
+                                            }
+                                        ],
+                              "customerCode":  "CUST-004",
+                              "notes":  "فاتورة أكتوبر - شركة السلامة"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-011",
+                              "dueDate":  "2025-12-15",
+                              "invoiceDate":  "2025-11-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-001",
+                                                "unitPrice":  100,
+                                                "quantity":  100
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-002",
+                                                "unitPrice":  150,
+                                                "quantity":  40
+                                            }
+                                        ],
+                              "customerCode":  "CUST-005",
+                              "notes":  "فاتورة نوفمبر - مكتب البركة"
+                          },
+                          {
+                              "invoiceNumber":  "INV-2025-012",
+                              "dueDate":  "2026-01-15",
+                              "invoiceDate":  "2025-12-15",
+                              "lines":  [
+                                            {
+                                                "itemSku":  "ITEM-003",
+                                                "unitPrice":  250,
+                                                "quantity":  50
+                                            },
+                                            {
+                                                "itemSku":  "ITEM-004",
+                                                "unitPrice":  180,
+                                                "quantity":  35
+                                            }
+                                        ],
+                              "customerCode":  "CUST-006",
+                              "notes":  "فاتورة ديسمبر - مؤسسة الهلال"
+                          }
+                      ],
+    "defaultDueDays":  30,
+    "defaultCurrency":  "LYD",
+    "vendorBills":  [
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-001",
+                                              "unitPrice":  80,
+                                              "quantity":  100
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-002",
+                                              "unitPrice":  120,
+                                              "quantity":  50
+                                          }
+                                      ],
+                            "dueDate":  "2025-02-20",
+                            "billDate":  "2025-01-20",
+                            "vendorCode":  "VEND-001",
+                            "billNumber":  "BILL-2025-001",
+                            "notes":  "فاتورة مشتريات يناير"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-003",
+                                              "unitPrice":  200,
+                                              "quantity":  40
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-004",
+                                              "unitPrice":  150,
+                                              "quantity":  30
+                                          }
+                                      ],
+                            "dueDate":  "2025-03-20",
+                            "billDate":  "2025-02-20",
+                            "vendorCode":  "VEND-002",
+                            "billNumber":  "BILL-2025-002",
+                            "notes":  "فاتورة مشتريات فبراير"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-005",
+                                              "unitPrice":  70,
+                                              "quantity":  80
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-001",
+                                              "unitPrice":  80,
+                                              "quantity":  50
+                                          }
+                                      ],
+                            "dueDate":  "2025-04-20",
+                            "billDate":  "2025-03-20",
+                            "vendorCode":  "VEND-003",
+                            "billNumber":  "BILL-2025-003",
+                            "notes":  "فاتورة مشتريات مارس"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-002",
+                                              "unitPrice":  120,
+                                              "quantity":  120
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-003",
+                                              "unitPrice":  200,
+                                              "quantity":  60
+                                          }
+                                      ],
+                            "dueDate":  "2025-05-20",
+                            "billDate":  "2025-04-20",
+                            "vendorCode":  "VEND-004",
+                            "billNumber":  "BILL-2025-004",
+                            "notes":  "فاتورة مشتريات أبريل"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-004",
+                                              "unitPrice":  150,
+                                              "quantity":  50
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-005",
+                                              "unitPrice":  70,
+                                              "quantity":  100
+                                          }
+                                      ],
+                            "dueDate":  "2025-06-20",
+                            "billDate":  "2025-05-20",
+                            "vendorCode":  "VEND-005",
+                            "billNumber":  "BILL-2025-005",
+                            "notes":  "فاتورة مشتريات مايو"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-001",
+                                              "unitPrice":  80,
+                                              "quantity":  160
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-002",
+                                              "unitPrice":  120,
+                                              "quantity":  40
+                                          }
+                                      ],
+                            "dueDate":  "2025-07-20",
+                            "billDate":  "2025-06-20",
+                            "vendorCode":  "VEND-006",
+                            "billNumber":  "BILL-2025-006",
+                            "notes":  "فاتورة مشتريات يونيو"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-003",
+                                              "unitPrice":  200,
+                                              "quantity":  70
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-005",
+                                              "unitPrice":  70,
+                                              "quantity":  80
+                                          }
+                                      ],
+                            "dueDate":  "2025-08-20",
+                            "billDate":  "2025-07-20",
+                            "vendorCode":  "VEND-001",
+                            "billNumber":  "BILL-2025-007",
+                            "notes":  "فاتورة مشتريات يوليو"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-004",
+                                              "unitPrice":  150,
+                                              "quantity":  90
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-001",
+                                              "unitPrice":  80,
+                                              "quantity":  60
+                                          }
+                                      ],
+                            "dueDate":  "2025-09-20",
+                            "billDate":  "2025-08-20",
+                            "vendorCode":  "VEND-002",
+                            "billNumber":  "BILL-2025-008",
+                            "notes":  "فاتورة مشتريات أغسطس"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-002",
+                                              "unitPrice":  120,
+                                              "quantity":  140
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-003",
+                                              "unitPrice":  200,
+                                              "quantity":  40
+                                          }
+                                      ],
+                            "dueDate":  "2025-10-20",
+                            "billDate":  "2025-09-20",
+                            "vendorCode":  "VEND-003",
+                            "billNumber":  "BILL-2025-009",
+                            "notes":  "فاتورة مشتريات سبتمبر"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-005",
+                                              "unitPrice":  70,
+                                              "quantity":  120
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-004",
+                                              "unitPrice":  150,
+                                              "quantity":  50
+                                          }
+                                      ],
+                            "dueDate":  "2025-11-20",
+                            "billDate":  "2025-10-20",
+                            "vendorCode":  "VEND-004",
+                            "billNumber":  "BILL-2025-010",
+                            "notes":  "فاتورة مشتريات أكتوبر"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-001",
+                                              "unitPrice":  80,
+                                              "quantity":  200
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-002",
+                                              "unitPrice":  120,
+                                              "quantity":  80
+                                          }
+                                      ],
+                            "dueDate":  "2025-12-20",
+                            "billDate":  "2025-11-20",
+                            "vendorCode":  "VEND-005",
+                            "billNumber":  "BILL-2025-011",
+                            "notes":  "فاتورة مشتريات نوفمبر"
+                        },
+                        {
+                            "lines":  [
+                                          {
+                                              "itemSku":  "ITEM-003",
+                                              "unitPrice":  200,
+                                              "quantity":  100
+                                          },
+                                          {
+                                              "itemSku":  "ITEM-004",
+                                              "unitPrice":  150,
+                                              "quantity":  70
+                                          }
+                                      ],
+                            "dueDate":  "2026-01-20",
+                            "billDate":  "2025-12-20",
+                            "vendorCode":  "VEND-006",
+                            "billNumber":  "BILL-2025-012",
+                            "notes":  "فاتورة مشتريات ديسمبر"
+                        }
+                    ],
+    "receipts":  [
+                     {
+                         "notes":  "دفعة جزئية - يناير",
+                         "receiptNumber":  "RCT-2025-001",
+                         "amount":  4000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-001",
+                         "receiptDate":  "2025-01-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - يناير",
+                         "receiptNumber":  "RCT-2025-002",
+                         "amount":  3500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-002",
+                         "receiptDate":  "2025-01-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - فبراير",
+                         "receiptNumber":  "RCT-2025-003",
+                         "amount":  5000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-002",
+                         "receiptDate":  "2025-02-28"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - فبراير",
+                         "receiptNumber":  "RCT-2025-004",
+                         "amount":  3000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-003",
+                         "receiptDate":  "2025-02-28"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - مارس",
+                         "receiptNumber":  "RCT-2025-005",
+                         "amount":  4500,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-003",
+                         "receiptDate":  "2025-03-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - مارس",
+                         "receiptNumber":  "RCT-2025-006",
+                         "amount":  8000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-004",
+                         "receiptDate":  "2025-03-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أبريل",
+                         "receiptNumber":  "RCT-2025-007",
+                         "amount":  7000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-004",
+                         "receiptDate":  "2025-04-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أبريل",
+                         "receiptNumber":  "RCT-2025-008",
+                         "amount":  4000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-005",
+                         "receiptDate":  "2025-04-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - مايو",
+                         "receiptNumber":  "RCT-2025-009",
+                         "amount":  5000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-005",
+                         "receiptDate":  "2025-05-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - مايو",
+                         "receiptNumber":  "RCT-2025-010",
+                         "amount":  6000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-006",
+                         "receiptDate":  "2025-05-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - يونيو",
+                         "receiptNumber":  "RCT-2025-011",
+                         "amount":  7500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-006",
+                         "receiptDate":  "2025-06-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - يونيو",
+                         "receiptNumber":  "RCT-2025-012",
+                         "amount":  5000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-001",
+                         "receiptDate":  "2025-06-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - يوليو",
+                         "receiptNumber":  "RCT-2025-013",
+                         "amount":  6500,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-001",
+                         "receiptDate":  "2025-07-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - يوليو",
+                         "receiptNumber":  "RCT-2025-014",
+                         "amount":  5500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-002",
+                         "receiptDate":  "2025-07-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أغسطس",
+                         "receiptNumber":  "RCT-2025-015",
+                         "amount":  6000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-002",
+                         "receiptDate":  "2025-08-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أغسطس",
+                         "receiptNumber":  "RCT-2025-016",
+                         "amount":  8000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-003",
+                         "receiptDate":  "2025-08-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - سبتمبر",
+                         "receiptNumber":  "RCT-2025-017",
+                         "amount":  9000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-003",
+                         "receiptDate":  "2025-09-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - سبتمبر",
+                         "receiptNumber":  "RCT-2025-018",
+                         "amount":  7500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-004",
+                         "receiptDate":  "2025-09-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أكتوبر",
+                         "receiptNumber":  "RCT-2025-019",
+                         "amount":  6500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-004",
+                         "receiptDate":  "2025-10-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - أكتوبر",
+                         "receiptNumber":  "RCT-2025-020",
+                         "amount":  7000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-005",
+                         "receiptDate":  "2025-10-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - نوفمبر",
+                         "receiptNumber":  "RCT-2025-021",
+                         "amount":  10000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-005",
+                         "receiptDate":  "2025-11-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - نوفمبر",
+                         "receiptNumber":  "RCT-2025-022",
+                         "amount":  8000,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-006",
+                         "receiptDate":  "2025-11-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - ديسمبر",
+                         "receiptNumber":  "RCT-2025-023",
+                         "amount":  9500,
+                         "paymentMethod":  "BankTransfer",
+                         "customerCode":  "CUST-006",
+                         "receiptDate":  "2025-12-30"
+                     },
+                     {
+                         "notes":  "دفعة جزئية - ديسمبر",
+                         "receiptNumber":  "RCT-2025-024",
+                         "amount":  7000,
+                         "paymentMethod":  "Cash",
+                         "customerCode":  "CUST-001",
+                         "receiptDate":  "2025-12-30"
+                     }
+                 ],
+    "defaultTaxRate":  0
+}

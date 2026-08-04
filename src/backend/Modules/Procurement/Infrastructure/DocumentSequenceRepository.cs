@@ -38,15 +38,16 @@ public sealed class DocumentSequenceRepository : IDocumentSequenceRepository
                 PRIMARY KEY (company_id, prefix)
             )", cancellationToken: ct));
 
-        // UPSERT per (company_id, prefix)
-        await conn.ExecuteAsync(new CommandDefinition(@"
+        // Sprint 30 (DEC-103): atomic increment + read in a SINGLE statement (RETURNING).
+        // The previous version did UPSERT then SELECT separately, which has a race condition
+        // when 2+ requests run concurrently — both see the same last_number. The fix uses
+        // ON CONFLICT ... DO UPDATE ... RETURNING to get the new value atomically.
+        var last = await conn.ExecuteScalarAsync<int>(new CommandDefinition(@"
             INSERT INTO procurement_document_sequences (company_id, prefix, last_number)
             VALUES (@CompanyId, @Prefix, 1)
-            ON CONFLICT (company_id, prefix) DO UPDATE SET last_number = procurement_document_sequences.last_number + 1",
-            new { CompanyId = companyId, Prefix = prefix }, cancellationToken: ct));
-
-        var last = await conn.QueryFirstOrDefaultAsync<int>(new CommandDefinition(
-            "SELECT last_number FROM procurement_document_sequences WHERE company_id = @CompanyId AND prefix = @Prefix",
+            ON CONFLICT (company_id, prefix) DO UPDATE
+                SET last_number = procurement_document_sequences.last_number + 1
+            RETURNING last_number",
             new { CompanyId = companyId, Prefix = prefix }, cancellationToken: ct));
 
         // تنسيق: PO-2026-0001 (السنة الحالية + رقم تسلسلي 4 أرقام)

@@ -38,6 +38,9 @@
     "SeedHrScenario": true,
 
     "_comment_arabic_procurement_seeder": "Sprint 28 — Arabic Procurement seeder for dev env (POC #3 of the seeder pattern). UPSERTs 10 POs + 10 GRs + 10 bills via direct Dapper SQL. DEV-ONLY.",
-    "SeedProcurementScenario": true
+    "SeedProcurementScenario": true,
+
+    "_comment_arabic_year_scenario_seeder": "Sprint 29 — Year-Scenario seeder for dev env (POC #4). A full year of operational data: 1 opening balance JE + 12 sales invoices + 12 vendor bills + 24 receipts + 24 payments, all with 'benchmark' Journal Entries to detect Posting Rules bugs. DEV-ONLY.",
+    "SeedYearScenario": true
   }
 }

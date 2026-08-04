@@ -390,27 +390,15 @@ builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow
 // Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
 // Sprint 24: outbox_events table dropped (DEC-082) — no more processor needed.
 
-// ============ Seeders DISABLED for fresh-build deployments (2026-07-23, Mavis) ============
-// Per the owner's "fresh build on HF Space" vision: the deploy starts with an empty DB
-// (only DefaultCoASeed + DefaultInventorySeed as reference data). The owner registers the
-// first real user via /api/auth/register.
+// ============ Sprint 29: Legacy seeders REMOVED ============
+// Per Sprint 29 directive, the legacy ScenarioSeederHostedService (Sprint 4 al-Burj, 54.8 KB)
+// + RealisticSeedHostedService (Sprint 14, 48 KB) have been deleted. Both were big C# files with
+// hardcoded scenarios that were never enabled in fresh builds. The new POC seeder pattern
+// (JSON + IHostedService + UPSERT + double-gate) replaces them. See DEC-098.
 //
-// To re-enable seeders in a future environment (e.g., a demo/staging space), flip the
-// flags in appsettings.json + revert this block. The seeder files (ScenarioSeederHostedService
-// + RealisticSeedHostedService) are kept for re-enable but currently not registered in DI.
-var seedAlFajr = builder.Configuration.GetValue<bool>("Database:SeedAlFajrScenario", false);
-var seedAlBurj = builder.Configuration.GetValue<bool>("Database:SeedAlBurjScenario", false);
-var seedRealistic = builder.Configuration.GetValue<bool>("Database:SeedRealisticScenario", false);
-if (seedAlFajr) { builder.Services.AddHostedService<ScenarioSeederHostedService>(); Console.WriteLine("[SPRINT-4] SeedAlFajrScenario=true — AlFajr seeder registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedAlFajrScenario=false — AlFajr seeder SKIPPED."); }
-if (seedRealistic) { builder.Services.AddHostedService<RealisticSeedHostedService>(); Console.WriteLine("[SPRINT-4.5] SeedRealisticScenario=true — RealisticSeed registered."); } else { Console.WriteLine("[FRESH-BUILD] SeedRealisticScenario=false — RealisticSeed SKIPPED."); }
-if (seedAlBurj)
-{
-    Console.Error.WriteLine("[SPRINT-4] WARNING: SeedAlBurjScenario=true — AlBurj seeder would run if registered (30K records; ensure DB is clean). NOT registered automatically (use manual endpoint).");
-}
-else
-{
-    Console.WriteLine("[SPRINT-4] SeedAlBurjScenario=false (SAFE default, DEC-009 prevention).");
-}
+// What runs now in dev: DefaultCoASeed + DefaultInventorySeed + DefaultHoldingBootstrap +
+// ArabicDev (Sprint 26) + ArabicHrDev (Sprint 27) + ArabicProcurementDev (Sprint 28) +
+// ArabicYearScenarioDev (Sprint 29, POC #4).
 
 // ============ Sprint 26: Arabic dev-environment seeder ============
 // Purpose: fix the encoding bug from Sprint 25 PowerShell scripts that stored
@@ -468,6 +456,26 @@ else if (seedProcurement)
 else
 {
     Console.WriteLine("[SPRINT-28] SeedProcurementScenario=false (default) — ArabicProcurementDevSeeder SKIPPED.");
+}
+
+// ============ Sprint 29: Year-Scenario Dev Seeder (POC #4) ============
+// A full year of operational data (12 sales invoices + 12 vendor bills + 24 receipts + 24 payments
+// + 1 opening balance JE) for bug discovery on the dev host. Each transaction includes a
+// "benchmark" Journal Entry that should match the Posting Rules engine's output. Any discrepancy
+// is a bug. Direct Dapper SQL (no service layer). Dev env only.
+var seedYear = builder.Configuration.GetValue<bool>("Bootstrap:SeedYearScenario", false);
+if (seedYear && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ArabicYearScenarioDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-29] SeedYearScenario=true + env=Development — ArabicYearScenarioDevSeeder registered.");
+}
+else if (seedYear)
+{
+    Console.WriteLine("[SPRINT-29] SeedYearScenario=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-29] SeedYearScenario=false (default) — ArabicYearScenarioDevSeeder SKIPPED.");
 }
 
 // ============ Auth ============
