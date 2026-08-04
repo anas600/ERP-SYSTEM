@@ -1,4 +1,8 @@
-name: CI + Deploy
+﻿name: CI + Deploy
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 # DEC-054: Tests + HF Space deploy (on demand only).
 # For fast feedback on every push, see ci-fast.yml (no deploy).

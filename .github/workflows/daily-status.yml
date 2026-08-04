@@ -1,7 +1,11 @@
-# DEC-067: Daily status report
+﻿# DEC-067: Daily status report
 # Runs every day at 23:00 UTC, generates Markdown report + Telegram summary.
 
 name: Daily Status Report
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 on:
   schedule:
@@ -77,3 +81,4 @@ jobs:
             curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
               -d "chat_id=${TG_CHAT_ID}&text=📊 Daily status report generated" > /dev/null || true
           fi
+

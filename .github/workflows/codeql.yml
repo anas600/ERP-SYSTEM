@@ -1,4 +1,8 @@
-name: CodeQL Security Analysis
+﻿name: CodeQL Security Analysis
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 # Improvement 5: Security scanning (DEC-061).
 # Runs CodeQL on every push + weekly schedule.

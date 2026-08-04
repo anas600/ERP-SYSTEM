@@ -1,7 +1,11 @@
-# DEC-053 P2: RBAC matrix generation + verification
+﻿# DEC-053 P2: RBAC matrix generation + verification
 # Runs on every PR + nightly to keep the matrix in sync
 
 name: RBAC Matrix
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 on:
   pull_request:
@@ -63,3 +67,4 @@ jobs:
             curl -s -X POST "https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage" \
               -d "chat_id=${TG_CHAT_ID}&text=📊 RBAC matrix regenerated" > /dev/null || true
           fi
+

@@ -1,4 +1,8 @@
-name: Playwright E2E
+﻿name: Playwright E2E
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 on:
   push:
@@ -161,3 +165,4 @@ jobs:
       - name: Stop backend
         if: always()
         run: pkill -f 'dotnet run' || true
+

@@ -1,4 +1,4 @@
-# DEC-051: Nightly PostgreSQL backup to Cloudflare R2
+﻿# DEC-051: Nightly PostgreSQL backup to Cloudflare R2
 # Runs at 02:00 UTC daily. Can also be triggered manually.
 #
 # Required GitHub secrets (Settings → Secrets and variables → Actions):
@@ -11,6 +11,10 @@
 #   TG_CHAT_ID         — Telegram chat ID (optional)
 
 name: Nightly PG Backup
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 on:
   schedule:
@@ -115,3 +119,4 @@ jobs:
           name: backup-logs
           path: /tmp/erp-backup-*.log
           retention-days: 7
+

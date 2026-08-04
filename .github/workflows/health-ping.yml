@@ -1,4 +1,8 @@
-name: Health Ping (token-free)
+﻿name: Health Ping (token-free)
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 # DEC-072 implementation: token-free health monitoring.
 # Runs the bash script on a schedule, writes a JSON status file,
@@ -87,3 +91,4 @@ jobs:
           echo "::error::Health ping reports status=stuck for >30 min"
           echo "سيتی may be offline. See docs/governance/lessons-learned.md"
           exit 1
+

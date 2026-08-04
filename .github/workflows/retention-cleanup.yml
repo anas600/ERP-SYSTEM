@@ -1,8 +1,12 @@
-# DEC-052: Nightly Tier 1 retention cleanup
+﻿# DEC-052: Nightly Tier 1 retention cleanup
 # Runs at 03:00 UTC daily (after backup at 02:00).
 # Can be triggered manually with DRY_RUN=1 to preview.
 
 name: Retention Cleanup
+
+# Sprint 31 (DEC-111): disabled — slow workflow, replaced by local mvp-docker CI + Mode 1 validation.
+if: false
+
 
 on:
   schedule:
@@ -74,3 +78,4 @@ jobs:
           name: retention-cleanup-logs
           path: /tmp/retention-cleanup.log
           retention-days: 7
+
