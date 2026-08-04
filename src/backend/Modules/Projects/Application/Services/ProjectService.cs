@@ -50,10 +50,16 @@ public sealed class ProjectService : IProjectService
         if (await _projects.GetByCodeAsync(req.Code, ct) != null)
             return ProjectResult<ProjectResponse>.Fail("كود المشروع مستخدم.", ProjectErrorCode.AlreadyExists);
 
+        // Sprint 32 P0 followup (DEC-113): resolve companyId ONCE from ICompanyContext (L19/L30 pattern).
+        // Previously the CostCenter used req.CompanyId while the Project used _companyContext.CompanyId —
+        // inconsistent and a security risk (DTO spoofable). Now both use the JWT-derived company.
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("Company not resolved");
+
         // 1) Auto-create CostCenter (type=Project, code=PRJ code)
         var ccReq = new CreateCostCenterRequest
         {
-            CompanyId = req.CompanyId,
+            CompanyId = companyId,
             Code = $"CC-{req.Code}",
             Name = req.Name,
             Type = CostCenterType.Project,
@@ -67,9 +73,6 @@ public sealed class ProjectService : IProjectService
 
         // 2) Create Project
         var now = DateTime.UtcNow;
-        // Sprint 28 (DEC-095): Constitution Article 3 — use ICompanyContext (not req.CompanyId)
-        var companyId = _companyContext.CompanyId
-            ?? throw new InvalidOperationException("Company not resolved");
         var project = new Project
         {
             Id = Guid.NewGuid(),

@@ -22,13 +22,14 @@ interface FormState {
   code: string;
   name: string;
   description: string;
-  costCenterId: string;
   status: number;
   budget: string;
   startDate: string;
   endDate: string;
 }
 
+// Sprint 32 P0 followup (DEC-113): the BE service auto-creates a CostCenter for each
+// project (type=Project, code="CC-{code}"). The form does NOT need a costCenterId field.
 export default function NewProjectPage() {
   const router = useRouter();
   useAuth();
@@ -36,7 +37,6 @@ export default function NewProjectPage() {
     code: '',
     name: '',
     description: '',
-    costCenterId: '',
     status: 2,
     budget: '0',
     startDate: new Date().toISOString().split('T')[0],
@@ -57,12 +57,18 @@ export default function NewProjectPage() {
     setError(null);
     setSubmitting(true);
     try {
+      // DEC-113: companyId is NOT sent — BE service uses ICompanyContext from JWT (L19/L30).
       const res = await fetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...form,
+          code: form.code,
+          name: form.name,
+          description: form.description || undefined,
+          status: form.status,
           budget: Number(form.budget),
+          startDate: new Date(form.startDate).toISOString(),
+          endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
           isActive: true,
         }),
       });
@@ -72,7 +78,7 @@ export default function NewProjectPage() {
       }
       router.push('/projects');
     } catch (e: unknown) {
-      setError(getErrorMessage(e, 'فشل إنشاء المشروع. تأكد من البيانات وأن الـ backend يدعم الـ endpoint.'));
+      setError(getErrorMessage(e, 'فشل إنشاء المشروع. تأكد من البيانات.'));
       setSubmitting(false);
     }
   };
@@ -135,13 +141,9 @@ export default function NewProjectPage() {
             placeholder="وصف تفصيلي للمشروع (اختياري)"
           />
 
-          <Input
-            label="مركز التكلفة *"
-            value={form.costCenterId}
-            onChange={onChange('costCenterId')}
-            required
-            placeholder="UUID أو كود مركز التكلفة"
-          />
+          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
+            ℹ️ سيُنشأ مركز تكلفة تلقائياً باسم <span className="font-mono">CC-{'{كود المشروع}'}</span> لهذا المشروع.
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input
