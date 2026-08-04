@@ -198,6 +198,26 @@ export const PROJECT_STATUSES: Record<number, string> = {
   5: 'ملغي',
 };
 
+// ============ Resources (Sprint 32 / DEC-112) ============
+export interface Resource {
+  id: string;
+  companyId: string;
+  code: string;
+  name: string;
+  type: number;  // 1=Labor, 2=Equipment, 3=Material, 4=Service
+  hourlyRate: number;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export const RESOURCE_TYPES: Record<number, string> = {
+  1: 'عمالة',
+  2: 'معدات',
+  3: 'مواد',
+  4: 'خدمات',
+};
+
 // ============ Reports ============
 export interface TrialBalanceRow {
   accountId: string;
@@ -1016,6 +1036,18 @@ export const inventoryApi = {
 export const projectsApi = {
   listProjects: async (): Promise<Project[]> => {
     const r = await api.get<Project[]>('/api/projects');
+    return r.data;
+  },
+};
+
+// Sprint 32 (DEC-112): Resources API
+export const resourcesApi = {
+  listResources: async (): Promise<Resource[]> => {
+    const r = await api.get<Resource[]>('/api/resources');
+    return r.data;
+  },
+  createResource: async (data: Partial<Resource>): Promise<Resource> => {
+    const r = await api.post<Resource>('/api/resources', data);
     return r.data;
   },
 };
