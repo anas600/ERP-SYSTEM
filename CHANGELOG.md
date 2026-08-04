@@ -13,6 +13,49 @@
 
 ---
 
+## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's Q1 from Sprint 31 (defer to Sprint 32) — fix the Projects module's 4 missing `data-types/*.json` files so the tables get created. Closed the loop on L44 ("Projects module is partially implemented").
+
+### Added (DEC-112)
+- **4 `data-types/*.json` files** (matching entity columns, verified via `\d` on existing tables):
+  - `resources.json` (Resource: id, company_id, code, name, type, hourly_rate, is_active, created_at, updated_at)
+  - `project_tasks.json` (ProjectTask: + project_id, description, status, estimated/actual_hours, start/end_date, progress_percent)
+  - `resource_assignments.json` (ResourceAssignment: + task_id, resource_id, user_id, **quoted `from` + `to`**)
+  - `project_budgets.json` (ProjectBudget: + cost_center_id, account_id, budget/spent/committed_amount, last_recalculated_at)
+- **`quoted: true` flag on `FieldDefinition`** (DEC-112): escape hatch for SQL reserved words. DataTypeMigrator forces double-quoted SQL identifier for the column (e.g., `"from"`, `"to"`). The migrator is otherwise idempotent — re-running adds nothing for existing tables.
+
+### Changed
+- **DataTypeMigrator.CreateTableAsync** + **AddColumnAsync**: when `field.Quoted == true`, force `"<col>"` in CREATE TABLE / ALTER TABLE. Without this, `from` and `to` are parsed as the SQL FROM keyword and the table can't be created.
+- **ResourceAssignmentRepository.Sel + InsertAsync**: changed unquoted `from, to` → `"from" AS "From"`, `"to" AS "To"` in SELECT, and `"from", "to"` in the INSERT column list. Once the column is created as a quoted identifier, every subsequent reference must be quoted (Postgres rule).
+- **PostingRulesBenchmarkTests.cs** (Sprint 31 collateral): 4 integration tests had `await using IDbConnection` (C# error CS8417) and a legacy `NpgsqlConnectionFactory(string)` ctor (Postgres/Sprint 22 added `IOptions<NpgsqlConnectionOptions>` + `ILogger<NpgsqlConnectionFactory>`). Refactored to `using var` + `Options.Create(new NpgsqlConnectionOptions { OltpConnectionString = ... })` + `NullLogger<NpgsqlConnectionFactory>.Instance`. Tests are still `[Fact(Skip = "Integration test — needs live DB")]` so no behavior change — just compilable.
+
+### Verified (manual smoke + tests)
+- **All 4 tables created** by DataTypeMigrator: `\dt` shows 48 tables (44 + 4). `\d resource_assignments` shows quoted `from` + `to` columns + 3 indexes + 6 FKs.
+- **End-to-end CRUD test** (admin login + POST + GET roundtrip):
+  - POST /api/resources → 201 (id=c5896f3b...)
+  - POST /api/projects → 201 (id=44fd023e...)
+  - POST /api/tasks → 201 (id=a8068d72...)
+  - POST /api/projects/{id}/assignments → 201 (id=75c4a111..., from/to preserved, **estimatedHours=10, estimatedCost=500** computed correctly)
+  - GET /api/projects/{id}/tasks → 1 task listed
+  - GET /api/projects/{id}/assignments → 1 assignment listed
+  - GET /api/resources → 1 resource listed
+  - GET /api/finance/ledger/accounts/{guid for 1230} → 37 ledger lines
+- **18-endpoint smoke regression** (all 200): HR (employees, departments), Finance (accounts, ledger/trial-balance, posting-rules), AR (customers, sales-invoices, receipts, payments), Procurement (pos, grs, bills, vendors), Inventory (items, warehouses), Projects, Cost-centers, Resources. **0 × 500, 0 × 404.**
+- **24/24 Project tests PASS** (`dotnet test --filter Projects`): 8 ProjectService + 5 Task + 3 Resource + 6 Budget + 2 ResourceAssignmentComputed.
+- **378/403 full test suite pass** (94% — 2 unrelated retention integration tests fail needing `postgres` user, 23 [Skip] are intentional).
+
+### Carry-over to Sprint 33+
+- **Pending Article 3 audit**: `ProjectCostCenter`, `AccountService`, `ChartOfAccountsService`, `PayrollService` (still untouched since DEC-085 cycle).
+- **P1**: Manual JEs (depreciation + accruals + year-end), customer/vendor statement GET endpoints, Trial Balance validation UI ("Balanced / Unbalanced").
+- **P2**: Activate 5th VAT rule (DEC-109) — needs 1410/1411 accounts added to CoA.
+- **P2**: Add Playwright e2e as CI gate (DEC-111 follow-up).
+- **P2**: Fix Health Ping + Daily Status workflows (DEC-111 disabled them).
+- **Cleanup**: 2 retention integration tests fail on local (need `postgres` user setup or skip-by-environment).
+- **L49 (NEW)**: When a table needs a column with a SQL reserved word, the JSON must use `quoted: true` AND every reference (SELECT/INSERT/ORDER BY) must be quoted. Best to avoid reserved words in entity column names from day 1 (rename to `start_at`/`end_at` instead of `from`/`to`).
+
+---
+
 ## Sprint 31 — Browser-based testing (Playwright) + DEC-107..110 (2026-08-04) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's approval — install Playwright MCP for browser-based testing, do full P0 + P1 in 8h budget.

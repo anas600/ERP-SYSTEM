@@ -258,7 +258,9 @@ public sealed class DataTypeMigrator
         {
             if (!first) sb.Append(", ");
             first = false;
-            sb.Append(QuoteIdent(f.Name)).Append(' ').Append(f.Type);
+            // DEC-112: Quoted=true forces double-quoted SQL identifier (e.g., "from", "to" — SQL reserved words).
+            var ident = f.Quoted ? "\"" + f.Name.Replace("\"", "\"\"") + "\"" : QuoteIdent(f.Name);
+            sb.Append(ident).Append(' ').Append(f.Type);
             if (pkFields.Contains(f.Name)) sb.Append(" NOT NULL");  // PK columns are implicitly NOT NULL
             else if (!f.Nullable) sb.Append(" NOT NULL");
             if (!string.IsNullOrEmpty(f.Default)) sb.Append(" DEFAULT ").Append(f.Default);
@@ -276,7 +278,9 @@ public sealed class DataTypeMigrator
     private static async Task AddColumnAsync(IDbConnection conn, string table, FieldDefinition f, CancellationToken ct)
     {
         var sb = new StringBuilder();
-        sb.Append($"ALTER TABLE {table} ADD COLUMN {QuoteIdent(f.Name)} {f.Type}");
+        // DEC-112: Quoted=true forces double-quoted SQL identifier (for SQL reserved words).
+        var ident = f.Quoted ? "\"" + f.Name.Replace("\"", "\"\"") + "\"" : QuoteIdent(f.Name);
+        sb.Append($"ALTER TABLE {table} ADD COLUMN {ident} {f.Type}");
         if (!f.Nullable) sb.Append(" NOT NULL");
         if (!string.IsNullOrEmpty(f.Default)) sb.Append(" DEFAULT ").Append(f.Default);
         await conn.ExecuteAsync(new CommandDefinition(sb.ToString(), cancellationToken: ct));

@@ -6,7 +6,11 @@ public sealed class CreateProjectRequestValidator : AbstractValidator<CreateProj
 {
     public CreateProjectRequestValidator()
     {
-        RuleFor(x => x.CompanyId).NotEqual(Guid.Empty);
+        // Sprint 32 P0 followup (DEC-113): CompanyId is now optional in the DTO.
+        // The service uses ICompanyContext.CompanyId from the JWT (L19/L30 pattern).
+        // The DTO still has the property for backward compat, but the validator
+        // doesn't require it. Old clients that send it still work; new clients
+        // can skip it.
         RuleFor(x => x.Code).NotEmpty().MaximumLength(50)
             .Matches("^[A-Za-z0-9\\-_]+$").WithMessage("كود المشروع: حروف/أرقام/-/_ فقط.");
         RuleFor(x => x.Name).NotEmpty().MaximumLength(200);

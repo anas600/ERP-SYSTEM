@@ -20,6 +20,7 @@ import {
   Boxes,
   Wallet,
   Briefcase,
+  Hammer,
   Banknote,
   Hourglass,
   UserPlus,
@@ -104,6 +105,7 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'المشاريع',
     items: [
       { label: 'المشاريع', href: '/projects', icon: Briefcase },
+      { label: 'الموارد', href: '/resources', icon: Hammer },
     ],
   },
   {
