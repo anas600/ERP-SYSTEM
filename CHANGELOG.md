@@ -13,6 +13,50 @@
 
 ---
 
+## Sprint 31 — Browser-based testing (Playwright) + DEC-107..110 (2026-08-04) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's approval — install Playwright MCP for browser-based testing, do full P0 + P1 in 8h budget.
+
+### Added (DEC-107..110 + bonuses)
+- **DEC-107**: `DepartmentResponse` now has `ManagerName` + `ManagerCode` + `EmployeeCount` (L40 pattern, single batch Dapper lookup). 5 departments now show manager name + count.
+- **DEC-108**: Posting Rules benchmark vs engine comparison (4 xUnit tests + SQL script). All 4 categories balanced — no bugs found.
+- **DEC-109**: 5th default rule "فاتورة مبيعات (افتراضي - ليبيا + 5% ضريبة)" (INACTIVE). Template: DR 1230 / CR 5110 / CR 1411 (VAT Output). Formulas: {tax+subtotal} + {subtotal} + {tax}.
+- **DEC-110**: Payments module Article 3 audit (L19 + L30). Fixed: `Payment.CompanyId` (Guid? → Guid) + `CreateAsync` (injects ICompanyContext).
+- **Playwright MCP**: Installed `playwright` + Chromium (Chrome for Testing 151). `scripts/playwright-smoke.mjs` runs 24-page smoke test in <2 minutes.
+- **`/hr/departments` page** (was missing — discovered by Playwright 404). Shows hierarchy: 1 root dept + 4 sub-depts with manager names + employee counts.
+- **AppShell**: "الأقسام" added to HR sidebar nav.
+
+### Fixed
+- **`/hr/departments` 404**: Missing FE page created (was not discovered in any previous test).
+- **Stale `.next/` cache (L45 NEW)**: Playwright run #1 showed "الحسابات (مبسّط)" in sidebar even after DEC-100 removed it. Fix: `npm run build` + `npm start` to serve new build.
+- **DEC-110 — L19**: `PaymentService.CreateAsync` was creating payments without CompanyId. Now reads from `ICompanyContext.CompanyId`.
+- **DEC-110 — L30**: `Payment.CompanyId` was `Guid?` but DB column is NOT NULL. Now `Guid`.
+
+### Verified
+- Final Playwright: **24/24 pages 200, 0 × 404, 0 × 500** ✓
+- ProjectService tests: **8/8 PASS** (Sprint 28 tests still green)
+- Benchmark vs engine: **ALL 4 categories balanced** (no bugs in Posting Rules)
+- DB: 6 posting rules (5 active + 1 inactive VAT 5%)
+
+### Lessons (L40-L46)
+- **L45 (NEW)**: `npm start` serves the cached `.next/` build, not the source. After backend OR frontend code changes, always `npm run build` first.
+- **L46 (NEW)**: Playwright discovers bugs that API testing misses (e.g., missing FE pages, stale builds). The 24-page smoke test takes 1.5 minutes.
+- **L25 (re-confirmed)**: DEC-085 audit pattern keeps finding violations. Sprint 31 found DEC-110 in Payments. **4 of 5 still-pending modules now audited**.
+
+### Pending (carry-over to Sprint 32+)
+- **P0**: Add 4 `data-types/*.json` (resources, tasks, project_assignments, project_budgets) — Projects module
+- **P0**: Audit ProjectCostCenter, AccountService, ChartOfAccountsService, PayrollService
+- **P1**: Manual JEs (depreciation + accruals + year-end)
+- **P1**: customerStatement + vendorStatement GET endpoints
+- **P1**: Trial Balance validation UI ("Balanced / Unbalanced")
+- **P2**: Add 1410/1411 (VAT) accounts to CoA + test DEC-109 rule
+- **P2**: Add CI to run `playwright-smoke.mjs` automatically
+
+---
+
+## Sprint 30 — Architectural cleanup (6 DECs) + Full PO+GR+Bill seeder (2026-08-03) ✅ DONE (LOCAL-ONLY)
+---
+
 ## Sprint 30 — Architectural cleanup (6 DECs) + Full PO+GR+Bill seeder (2026-08-03) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's directive (2026-08-03 ~04:30 UTC+2) — fix the 14 user-experienced issues from the browser walkthrough, then continue with the 5th seeder POC. Architectural cleanup before UI band-aid fixes.

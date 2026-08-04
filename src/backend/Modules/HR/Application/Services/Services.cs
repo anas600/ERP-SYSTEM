@@ -1,7 +1,9 @@
+using Dapper;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Entities;
 using ERPSystem.Modules.HR.Infrastructure;
 using ERPSystem.Shared.CompanyContext;
+using ERPSystem.Shared.Infrastructure;
 
 namespace ERPSystem.Modules.HR.Application.Services;
 
@@ -33,7 +35,8 @@ public sealed class DepartmentService : IDepartmentService
 {
     private readonly IDepartmentRepository _repo;
     private readonly ICompanyContext _companyContext;
-    public DepartmentService(IDepartmentRepository repo, ICompanyContext companyContext) { _repo = repo; _companyContext = companyContext; }
+    private readonly IDbConnectionFactory _db;
+    public DepartmentService(IDepartmentRepository repo, ICompanyContext companyContext, IDbConnectionFactory db) { _repo = repo; _companyContext = companyContext; _db = db; }
 
     public async Task<HRResult<DepartmentResponse>> CreateAsync(CreateDepartmentRequest req, CancellationToken ct)
     {
@@ -58,7 +61,7 @@ public sealed class DepartmentService : IDepartmentService
             IsActive = true, CreatedAt = now, UpdatedAt = now
         };
         await _repo.InsertAsync(d, ct);
-        return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
+        return HRResult<DepartmentResponse>.Ok(await MapToResponseAsync(d, ct));
     }
 
     public async Task<HRResult<DepartmentResponse>> UpdateAsync(Guid id, UpdateDepartmentRequest req, CancellationToken ct)
@@ -72,7 +75,7 @@ public sealed class DepartmentService : IDepartmentService
         d.IsActive = req.IsActive;
         d.UpdatedAt = DateTime.UtcNow;
         await _repo.UpdateAsync(d, ct);
-        return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
+        return HRResult<DepartmentResponse>.Ok(await MapToResponseAsync(d, ct));
     }
 
     public async Task<HRResult<DepartmentResponse>> GetByIdAsync(Guid id, CancellationToken ct)
@@ -80,13 +83,44 @@ public sealed class DepartmentService : IDepartmentService
         var d = await _repo.GetByIdAsync(id, ct);
         if (d == null)
             return HRResult<DepartmentResponse>.Fail("غير موجود.", HRErrorCode.NotFound);
-        return HRResult<DepartmentResponse>.Ok(MapToResponse(d));
+        return HRResult<DepartmentResponse>.Ok(await MapToResponseAsync(d, ct));
     }
 
     public async Task<HRResult<IReadOnlyList<DepartmentResponse>>> ListAsync(bool includeInactive, CancellationToken ct)
     {
         var list = await _repo.ListAsync(includeInactive, ct);
-        return HRResult<IReadOnlyList<DepartmentResponse>>.Ok(list.Select(MapToResponse).ToList());
+
+        // Sprint 31 (DEC-107): single-batch manager lookup + employee counts (L40 pattern).
+        var managerIds = list.Where(d => d.ManagerId.HasValue).Select(d => d.ManagerId!.Value).Distinct().ToList();
+        var managerMap = new Dictionary<Guid, (string Name, string Code)>();
+        if (managerIds.Count > 0)
+        {
+            using var conn = await _db.CreateEphemeralOltpConnectionAsync(ct);
+            var rows = await conn.QueryAsync<(Guid Id, string Name, string EmployeeNumber)>(
+                "SELECT id, full_name, employee_number FROM employees WHERE id = ANY(@Ids)",
+                new { Ids = managerIds.ToArray() });
+            managerMap = rows.ToDictionary(r => r.Id, r => (r.Name, r.EmployeeNumber));
+        }
+
+        // Employee counts per department
+        using var conn2 = await _db.CreateEphemeralOltpConnectionAsync(ct);
+        var counts = (await conn2.QueryAsync<(Guid DepartmentId, int Count)>(
+            "SELECT department_id, COUNT(*)::int FROM employees WHERE department_id = ANY(@Ids) AND is_active = true GROUP BY department_id",
+            new { Ids = list.Select(d => d.Id).ToArray() })).ToDictionary(t => t.DepartmentId, t => t.Count);
+
+        var responses = list.Select(d =>
+        {
+            var resp = MapToResponse(d);
+            if (d.ManagerId.HasValue && managerMap.TryGetValue(d.ManagerId.Value, out var mgr))
+            {
+                resp.ManagerName = mgr.Name;
+                resp.ManagerCode = mgr.Code;
+            }
+            resp.EmployeeCount = counts.TryGetValue(d.Id, out var c) ? c : 0;
+            return resp;
+        }).ToList();
+
+        return HRResult<IReadOnlyList<DepartmentResponse>>.Ok(responses);
     }
 
     public async Task<HRResult<bool>> DeactivateAsync(Guid id, CancellationToken ct)
@@ -105,6 +139,29 @@ public sealed class DepartmentService : IDepartmentService
         Id = d.Id, Code = d.Code, Name = d.Name,
         ParentId = d.ParentId, ManagerId = d.ManagerId, IsActive = d.IsActive
     };
+
+    // Sprint 31 (DEC-107): single-item enrichment with manager name + employee count.
+    private async Task<DepartmentResponse> MapToResponseAsync(Department d, CancellationToken ct)
+    {
+        var resp = MapToResponse(d);
+        if (d.ManagerId.HasValue)
+        {
+            using var conn = await _db.CreateEphemeralOltpConnectionAsync(ct);
+            var row = await conn.QueryFirstOrDefaultAsync<(string Name, string EmployeeNumber)?>(
+                "SELECT full_name, employee_number FROM employees WHERE id = @Id",
+                new { Id = d.ManagerId.Value });
+            if (row.HasValue)
+            {
+                resp.ManagerName = row.Value.Name;
+                resp.ManagerCode = row.Value.EmployeeNumber;
+            }
+        }
+        using var conn2 = await _db.CreateEphemeralOltpConnectionAsync(ct);
+        resp.EmployeeCount = await conn2.ExecuteScalarAsync<int?>(
+            "SELECT COUNT(*)::int FROM employees WHERE department_id = @Id AND is_active = true",
+            new { Id = d.Id }) ?? 0;
+        return resp;
+    }
 }
 
 public interface IEmployeeService

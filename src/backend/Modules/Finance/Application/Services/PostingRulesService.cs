@@ -327,6 +327,42 @@ public sealed class PostingRulesService : IPostingRulesService
             };
             await _rules.InsertAsync(paymentRule, ct);
         }
+
+        // ====== Sprint 31 (DEC-109): 5th default rule — Sale with VAT 5% (INACTIVE by default) ======
+        // Libya default has no tax. This rule shows the VAT-enabled template for future use.
+        // Admins can enable by: (1) deactivating the Libya rule for SalesInvoicePosted,
+        // (2) activating this one, (3) creating a 1410 (VAT Input) account.
+        // We check by NAME (not by event) to avoid conflict with the active Libya rule.
+        var existingVatRule = (await _rules.ListAsync(ct))
+            .FirstOrDefault(r => r.Name == "فاتورة مبيعات (افتراضي - ليبيا + 5% ضريبة)");
+        if (existingVatRule == null)
+        {
+            var vatRule = new PostingRule
+            {
+                Id = Guid.NewGuid(),
+                CompanyId = holdingId,
+                Name = "فاتورة مبيعات (افتراضي - ليبيا + 5% ضريبة)",
+                Description = "ترحيل فاتورة مبيعات مع ضريبة 5%: مدين ذمم مدينة (المبلغ+الضريبة) / دائن إيرادات (المبلغ) / دائن ضريبة مخرجات (الضريبة)",
+                EventType = TriggeringEvent.SalesInvoicePosted,
+                IsActive = false,   // INACTIVE — don't override the Libya default
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                TemplateJson = JsonSerializer.Serialize(new PostingRuleTemplate
+                {
+                    Description = "بيع مع ضريبة 5%",
+                    Lines = new()
+                    {
+                        // DR 1230 (AR) for {tax+subtotal} = total invoice
+                        new() { AccountCode = "1230", Side = "debit", AmountFormula = "{tax+subtotal}" },
+                        // CR 5110 (Revenue) for {subtotal}
+                        new() { AccountCode = "5110", Side = "credit", AmountFormula = "{subtotal}" },
+                        // CR 1411 (VAT Output — ضريبة مخرجات) for {tax}
+                        new() { AccountCode = "1411", Side = "credit", AmountFormula = "{tax}" }
+                    }
+                })
+            };
+            await _rules.InsertAsync(vatRule, ct);
+        }
     }
 
     /// <summary>

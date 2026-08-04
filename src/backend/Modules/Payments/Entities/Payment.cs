@@ -68,7 +68,8 @@ public static class PaymentRefTypes
 public class Payment
 {
     public Guid Id { get; set; }
-    public Guid? CompanyId { get; set; }
+    // Sprint 31 (DEC-110): Article 3 — CompanyId is non-nullable (DB column is NOT NULL).
+    public Guid CompanyId { get; set; }
 
     /// <summary>نوع الطرف: "Customer" أو "Vendor".</summary>
     public string PartyType { get; set; } = string.Empty;

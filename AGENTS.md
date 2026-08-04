@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-03 (Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-04 (Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -350,6 +350,31 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 | [`/.mavis/AGENTS.md`](./.mavis/AGENTS.md) | Mavis orchestration (worker instructions for Jimis) | Active |
 
 **Note:** `src/backend/Modules/<module>/` and `src/frontend/app/<route>/` have their own AGENTS.md (created when modules become durable boundaries).
+
+---
+
+## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
+
+### Decisions
+- **DEC-107 — DepartmentResponse enrichment** (Sprint 31): `DepartmentResponse` now has `ManagerName` + `ManagerCode` + `EmployeeCount` (L40 pattern, single batch Dapper lookup). 5 departments now show manager name + count.
+- **DEC-108 — Posting Rules benchmark vs engine** (Sprint 31): 4 xUnit tests + SQL script that compare the engine output to the 74 benchmark JEs. All 4 categories balanced — no bugs found.
+- **DEC-109 — 5th default rule "VAT 5%" (inactive)** (Sprint 31): Added new rule for sales with VAT 5% (DR 1230 / CR 5110 / CR 1411). INACTIVE by default. Admin enables: deactivate Libya default + activate this + add 1410/1411 accounts.
+- **DEC-110 — Payments module Article 3 audit** (Sprint 31): Fixed 2 violations — `Payment.CompanyId` was `Guid?` (now `Guid`), `CreateAsync` didn't set CompanyId (now injects ICompanyContext).
+- **(bonus) Playwright MCP setup** (Sprint 31): Installed `playwright` + Chromium. `scripts/playwright-smoke.mjs` runs 24-page browser smoke test in <2 min. Discovered bugs that API tests missed (`/hr/departments` 404).
+- **(bonus) /hr/departments page** (Sprint 31): Was missing — created with hierarchy view + manager enrichment + employee counts.
+
+### Lessons (L43..L46)
+- **L43** (Sprint 30): Before `dotnet build`, ensure no `dotnet` process holds the .exe. If present, `Stop-Process -Force` first. The "file locked" error is recoverable but wastes 30s.
+- **L44** (Sprint 30): Projects module is **partially implemented** — the entities + services + controllers exist, but the underlying tables (`resources`, `tasks`, `project_assignments`, `project_budgets`) were never registered in `data-types/`. This is a Sprint 22+ bug that needs a dedicated sprint.
+- **L45 (NEW)** (Sprint 31): `npm start` serves the cached `.next/` build, not the source. After backend OR frontend code changes, always `npm run build` first. Symptom: "I changed the code but the change isn't visible in the browser."
+- **L46 (NEW)** (Sprint 31): Playwright discovers bugs that API testing misses (e.g., missing FE pages, stale builds). The 24-page smoke test takes 1.5 minutes. Use it as a CI gate.
+
+### Pending Article 3 audit (carry-over to Sprint 32+)
+- `ProjectCostCenter` (in Companies module) — likely 2-4 violations
+- `AccountService` (in Finance) — likely 2-4 violations
+- `ChartOfAccountsService` (in Finance) — likely 2-4 violations
+- `PayrollService` (in Payroll) — likely 2-4 violations
+- Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
 
 ---
 

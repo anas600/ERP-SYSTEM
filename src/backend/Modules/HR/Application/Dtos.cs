@@ -29,6 +29,10 @@ public sealed class DepartmentResponse
     public string Name { get; set; } = string.Empty;
     public Guid? ParentId { get; set; }
     public Guid? ManagerId { get; set; }
+    // Sprint 31 (DEC-107): manager name + code (L40) so the FE doesn't show raw GUIDs.
+    public string? ManagerName { get; set; }
+    public string? ManagerCode { get; set; }
+    public int? EmployeeCount { get; set; }
     public bool IsActive { get; set; }
 }
 

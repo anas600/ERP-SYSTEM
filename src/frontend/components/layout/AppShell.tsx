@@ -118,6 +118,7 @@ const NAV_GROUPS: NavGroup[] = [
   {
     label: 'الموارد البشرية',
     items: [
+      { label: 'الأقسام', href: '/hr/departments', icon: Building2 },
       { label: 'الموظفين', href: '/hr/employees', icon: UserCog },
       { label: 'الحضور', href: '/hr/attendance', icon: Clock },
       { label: 'الإجازات', href: '/hr/leaves', icon: CalendarOff },
