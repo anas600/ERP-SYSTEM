@@ -4,6 +4,7 @@ using ERPSystem.Shared.CompanyContext;
 using ERPSystem.Shared.Infrastructure;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace ERPSystem.Tests.Finance;
@@ -24,8 +25,15 @@ public class PostingRulesBenchmarkTests
     public async Task SalesInvoices_BenchVsEngine_Match()
     {
         // Setup: connect to local PG
-        var dbFactory = new NpgsqlConnectionFactory("Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true");
-        await using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
+        // Sprint 32 (DEC-112 followup): NpgsqlConnectionFactory constructor requires IOptions + ILogger (was changed in Sprint 22-23 refactor, benchmark test still used the legacy ctor).
+        // Tests are [Skip] integration tests — kept compilable for future use.
+        var dbFactory = new NpgsqlConnectionFactory(
+            Microsoft.Extensions.Options.Options.Create(new NpgsqlConnectionOptions
+            {
+                OltpConnectionString = "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+            }),
+            NullLogger<NpgsqlConnectionFactory>.Instance);
+        using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
 
         // Get all 12 BENCH-INV JEs (from year scenario seeder)
         var benchedInvoices = (await conn.QueryAsync<(string EntryNumber, Guid EntryId)>(
@@ -73,8 +81,13 @@ public class PostingRulesBenchmarkTests
     [Fact(Skip = "Integration test — needs live DB")]
     public async Task VendorBills_BenchVsEngine_Match()
     {
-        var dbFactory = new NpgsqlConnectionFactory("Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true");
-        await using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
+        var dbFactory = new NpgsqlConnectionFactory(
+            Microsoft.Extensions.Options.Options.Create(new NpgsqlConnectionOptions
+            {
+                OltpConnectionString = "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+            }),
+            NullLogger<NpgsqlConnectionFactory>.Instance);
+        using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
 
         var benchLines = (await conn.QueryAsync<(string EntryNumber, string AccountCode, decimal Debit, decimal Credit)>(
             @"SELECT je.entry_number, a.code, jl.debit, jl.credit
@@ -115,8 +128,13 @@ public class PostingRulesBenchmarkTests
     [Fact(Skip = "Integration test — needs live DB")]
     public async Task Receipts_BenchVsEngine_Match()
     {
-        var dbFactory = new NpgsqlConnectionFactory("Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true");
-        await using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
+        var dbFactory = new NpgsqlConnectionFactory(
+            Microsoft.Extensions.Options.Options.Create(new NpgsqlConnectionOptions
+            {
+                OltpConnectionString = "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+            }),
+            NullLogger<NpgsqlConnectionFactory>.Instance);
+        using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
 
         var benchLines = (await conn.QueryAsync<(string EntryNumber, string AccountCode, decimal Debit, decimal Credit)>(
             @"SELECT je.entry_number, a.code, jl.debit, jl.credit
@@ -146,8 +164,13 @@ public class PostingRulesBenchmarkTests
     [Fact(Skip = "Integration test — needs live DB")]
     public async Task Payments_BenchVsEngine_Match()
     {
-        var dbFactory = new NpgsqlConnectionFactory("Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true");
-        await using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
+        var dbFactory = new NpgsqlConnectionFactory(
+            Microsoft.Extensions.Options.Options.Create(new NpgsqlConnectionOptions
+            {
+                OltpConnectionString = "Host=127.0.0.1;Port=5432;Database=erp_system;Username=erp;Password=erp_local_password;Include Error Detail=true"
+            }),
+            NullLogger<NpgsqlConnectionFactory>.Instance);
+        using var conn = await dbFactory.CreateEphemeralOltpConnectionAsync(CancellationToken.None);
 
         var benchLines = (await conn.QueryAsync<(string EntryNumber, string AccountCode, decimal Debit, decimal Credit)>(
             @"SELECT je.entry_number, a.code, jl.debit, jl.credit

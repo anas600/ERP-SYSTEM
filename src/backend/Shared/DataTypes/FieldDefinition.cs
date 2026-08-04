@@ -24,6 +24,14 @@ public sealed class FieldDefinition
     [JsonPropertyName("default")]
     public string? Default { get; set; }  // raw SQL expression, e.g. "now()", "'LYD'", "false"
 
+    /// <summary>
+    /// Sprint 32 (DEC-112): if true, the migrator forces double-quoted SQL identifier for
+    /// this column (e.g., `"from"`, `"to"`). Required for SQL reserved words that would
+    /// otherwise cause a syntax error in CREATE TABLE / ALTER TABLE.
+    /// </summary>
+    [JsonPropertyName("quoted")]
+    public bool Quoted { get; set; }  // DEC-112: escape hatch for SQL reserved words
+
     [JsonPropertyName("foreign_key")]
     public ForeignKeyDefinition? ForeignKey { get; set; }
 }

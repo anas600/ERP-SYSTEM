@@ -353,6 +353,27 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 
 ---
 
+## Sprint 32 Decisions (DEC-112) + Lessons (L47..L49)
+
+### Decisions
+- **DEC-112 — Projects module tables + `quoted` flag** (Sprint 32): 4 missing `data-types/*.json` (resources, project_tasks, resource_assignments, project_budgets) added. `FieldDefinition` got a `quoted: true` flag so DataTypeMigrator can force double-quoted SQL identifiers (Postgres needs this for reserved words like `from` and `to`). `ResourceAssignmentRepository` updated to use `"from"`/`"to"` in SELECT + INSERT. **L44 closed**: Projects module is no longer "partially implemented" — all 4 tables + 8 indexes + 14 FKs registered.
+- **DEC-112-collateral — PostingRulesBenchmarkTests** (Sprint 32): 4 integration tests from Sprint 31 had broken constructor (`NpgsqlConnectionFactory(string)` was changed to `(IOptions<NpgsqlConnectionOptions>, ILogger<NpgsqlConnectionFactory>)` in Sprint 22-23). Fixed with `Options.Create(new NpgsqlConnectionOptions { OltpConnectionString = ... })` + `NullLogger<NpgsqlConnectionFactory>.Instance`. Also fixed `await using IDbConnection` → `using var` (CS8417). Tests stay `[Fact(Skip = ...)]` — only made them compilable.
+
+### Lessons
+- **L47** (Sprint 32): Always check the actual table name from `\d <table>` or the repo's SQL, not the entity name. `ProjectTask` entity → `project_tasks` table (not `tasks`). `ResourceAssignment` entity → `resource_assignments` table (not `project_assignments`). The repos confirmed the real table names; the entity name alone is misleading.
+- **L48** (Sprint 32): When a table column would be a SQL reserved word (`from`, `to`, `user`, `order`, `table`, etc.), you have 2 options:
+  1. Rename the entity property (cleanest, but breaking change to entity + every repo)
+  2. Add a `quoted: true` flag and quote the column everywhere it's referenced (DEC-112 used this)
+  Once a column is created with quoted identifier, every subsequent reference (SELECT/INSERT/ORDER BY) must also be quoted — Postgres is strict.
+- **L49 (NEW)** (Sprint 32): Best to avoid SQL reserved words in entity column names from day 1. If the entity already has `from`/`to`/`user`/`order` (e.g. from a domain term), use `quoted: true` + repo updates. Prefer `start_at`/`end_at` over `from`/`to` if the entity is being created fresh.
+
+### Pending Article 3 audit (carry-over to Sprint 33+)
+- `ProjectCostCenter` (in Companies module) — likely 2-4 violations
+- `AccountService` (in Finance) — likely 2-4 violations
+- `ChartOfAccountsService` (in Finance) — likely 2-4 violations
+- `PayrollService` (in Payroll) — likely 2-4 violations
+- Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
+
 ## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
 
 ### Decisions
