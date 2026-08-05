@@ -11,7 +11,9 @@ import { PageHeader, Card, Button } from '@/components/ui';
 import {
   financeApi,
   TrialBalanceRow,
+  AccountTypeName,
   ACCOUNT_TYPE_LABELS,
+  ACCOUNT_TYPE_ORDER,
   getErrorMessage,
 } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
@@ -56,7 +58,7 @@ export default function TrialBalancePage() {
 
   // Group by account type
   const grouped = useMemo(() => {
-    const map = new Map<number, TrialBalanceRow[]>();
+    const map = new Map<AccountTypeName, TrialBalanceRow[]>();
     for (const r of rows) {
       if (!map.has(r.type)) map.set(r.type, []);
       map.get(r.type)!.push(r);
@@ -80,8 +82,6 @@ export default function TrialBalancePage() {
     const balanced = Math.abs(totalDebit - totalCredit) < 0.0001;
     return { totalDebit, totalCredit, balanced };
   }, [rows]);
-
-  const typeOrder: number[] = [1, 2, 3, 4, 5]; // Asset, Liability, Equity, Revenue, Expense
 
   return (
     <div>
@@ -191,7 +191,7 @@ export default function TrialBalancePage() {
 
           {/* Grouped tables per AccountType */}
           <div className="space-y-4">
-            {typeOrder
+            {ACCOUNT_TYPE_ORDER
               .filter((t) => grouped.has(t) && grouped.get(t)!.length > 0)
               .map((t) => {
                 const list = grouped.get(t)!;
@@ -201,7 +201,7 @@ export default function TrialBalancePage() {
                   <Card key={t} className="overflow-x-auto p-0">
                     <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
                       <h3 className="text-sm font-bold text-gray-800">
-                        {ACCOUNT_TYPE_LABELS[t as 1 | 2 | 3 | 4 | 5]}{' '}
+                        {ACCOUNT_TYPE_LABELS[t]}{' '}
                         <span className="text-xs text-gray-500 font-normal">({list.length} حساب)</span>
                       </h3>
                       <div className="text-xs text-gray-600 font-mono">
@@ -237,11 +237,11 @@ export default function TrialBalancePage() {
                             <td
                               className={`px-4 py-2 text-end font-mono font-bold ${
                                 r.balance > 0
-                                  ? r.normalBalance === 1
+                                  ? r.normalBalance === 'Debit'
                                     ? 'text-blue-700'
                                     : 'text-orange-700'
                                   : r.balance < 0
-                                  ? r.normalBalance === 1
+                                  ? r.normalBalance === 'Debit'
                                     ? 'text-orange-700'
                                     : 'text-blue-700'
                                   : 'text-gray-500'
@@ -250,7 +250,7 @@ export default function TrialBalancePage() {
                               {formatNumber(r.balance)}
                             </td>
                             <td className="px-4 py-2 text-center text-xs text-gray-500">
-                              {r.normalBalance === 1 ? 'مدين' : 'دائن'}
+                              {r.normalBalance === 'Debit' ? 'مدين' : 'دائن'}
                             </td>
                           </tr>
                         ))}

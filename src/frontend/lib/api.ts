@@ -221,23 +221,35 @@ export const RESOURCE_TYPES: Record<number, string> = {
 // ============ Reports ============
 // Sprint 36 (DEC-122): Trial Balance + Customer/Vendor Statements
 // Trial Balance — matches AccountBalanceResponse in FinanceDtos.cs
-export type AccountType = 1 | 2 | 3 | 4 | 5; // 1=Asset, 2=Liability, 3=Equity, 4=Revenue, 5=Expense
-export type NormalBalance = 1 | 2; // 1=Debit, 2=Credit
+// AccountType enum: Asset=1, Liability=2, Equity=3, Revenue=4, Expense=5
+// BE returns type/normalBalance as STRING (Dapper EnumStringTypeHandler) for
+// human-readable JSON. We accept string here and look up via a map.
+export type AccountTypeName = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+export type NormalBalanceName = 'Debit' | 'Credit';
 
-export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
-  1: 'أصول',
-  2: 'خصوم',
-  3: 'حقوق ملكية',
-  4: 'إيرادات',
-  5: 'مصروفات',
+export const ACCOUNT_TYPE_LABELS: Record<AccountTypeName, string> = {
+  Asset: 'أصول',
+  Liability: 'خصوم',
+  Equity: 'حقوق ملكية',
+  Revenue: 'إيرادات',
+  Expense: 'مصروفات',
 };
+
+// Display order for grouped tables
+export const ACCOUNT_TYPE_ORDER: AccountTypeName[] = [
+  'Asset',
+  'Liability',
+  'Equity',
+  'Revenue',
+  'Expense',
+];
 
 export interface TrialBalanceRow {
   accountId: string;
   accountCode: string;
   accountName: string;
-  type: AccountType;
-  normalBalance: NormalBalance;
+  type: AccountTypeName;
+  normalBalance: NormalBalanceName;
   totalDebit: number;
   totalCredit: number;
   balance: number;
