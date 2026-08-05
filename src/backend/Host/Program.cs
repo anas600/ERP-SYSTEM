@@ -253,6 +253,8 @@ builder.Services.AddScoped<IDashboardChartService, DashboardChartService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+// Sprint 36 (DEC-122): vendor statement
+builder.Services.AddScoped<IVendorStatementService, VendorStatementService>();
 
 // DEC-100 / DL 69: Register Payments services (was missing → 500 on /api/payments)
 builder.Services.AddScoped<ERPSystem.Modules.Payments.Application.Services.IPaymentService, ERPSystem.Modules.Payments.Application.Services.PaymentService>();
@@ -269,6 +271,8 @@ builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+// Sprint 36 (DEC-122): customer statement
+builder.Services.AddScoped<ICustomerStatementService, CustomerStatementService>();
 builder.Services.AddScoped<IEosService, EosService>();
 builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
 builder.Services.AddScoped<IEosCalculator, EosCalculator>();

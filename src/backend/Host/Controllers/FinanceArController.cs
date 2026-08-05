@@ -21,6 +21,8 @@ public class FinanceArController : ControllerBase
     private readonly ICustomerService _customers;
     private readonly ISalesInvoiceService _invoices;
     private readonly IReceiptService _receipts;
+    // Sprint 36 (DEC-122): customer statement (AR aging + invoice/receipt detail).
+    private readonly ICustomerStatementService _customerStatements;
     private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateCustomerRequest> _createCustomerV;
@@ -33,6 +35,7 @@ public class FinanceArController : ControllerBase
         ICustomerService customers,
         ISalesInvoiceService invoices,
         IReceiptService receipts,
+        ICustomerStatementService customerStatements,
         IValidator<CreateCustomerRequest> createCustomerV,
         IValidator<UpdateCustomerRequest> updateCustomerV,
         IValidator<CreateSalesInvoiceRequest> createInvoiceV,
@@ -41,6 +44,7 @@ public class FinanceArController : ControllerBase
         ICompanyContext companyContext)
     {
         _customers = customers; _invoices = invoices; _receipts = receipts;
+        _customerStatements = customerStatements;
         _companyContext = companyContext;
         _createCustomerV = createCustomerV; _updateCustomerV = updateCustomerV;
         _createInvoiceV = createInvoiceV; _updateInvoiceV = updateInvoiceV; _createReceiptV = createReceiptV;
@@ -64,6 +68,15 @@ public class FinanceArController : ControllerBase
     public async Task<IActionResult> GetCustomer(Guid id, CancellationToken ct)
     {
         var r = await _customers.GetByIdAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    /// <summary>Sprint 36 (DEC-122): كشف حساب عميل (opening + invoices + receipts + closing).</summary>
+    [HttpGet("api/ar/customers/{id:guid}/statement")]
+    public async Task<IActionResult> GetCustomerStatement(
+        Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct = default)
+    {
+        var r = await _customerStatements.GetStatementAsync(id, from, to, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 

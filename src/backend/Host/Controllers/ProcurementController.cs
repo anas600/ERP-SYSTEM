@@ -22,6 +22,8 @@ public class ProcurementController : ControllerBase
     private readonly IPurchaseOrderService _pos;
     private readonly IGoodsReceiptService _grs;
     private readonly IVendorBillService _bills;
+    // Sprint 36 (DEC-122): vendor statement (bills + payments ledger).
+    private readonly IVendorStatementService _vendorStatements;
     private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateVendorRequest> _createVendorV;
@@ -32,12 +34,14 @@ public class ProcurementController : ControllerBase
 
     public ProcurementController(
         IVendorService vendors, IPurchaseOrderService pos, IGoodsReceiptService grs, IVendorBillService bills,
+        IVendorStatementService vendorStatements,
         IValidator<CreateVendorRequest> createVendorV, IValidator<UpdateVendorRequest> updateVendorV,
         IValidator<CreatePurchaseOrderRequest> createPoV,
         IValidator<CreateGoodsReceiptRequest> createGrV, IValidator<CreateVendorBillRequest> createBillV,
         ICompanyContext companyContext)
     {
         _vendors = vendors; _pos = pos; _grs = grs; _bills = bills;
+        _vendorStatements = vendorStatements;
         _createVendorV = createVendorV; _updateVendorV = updateVendorV; _createPoV = createPoV;
         _createGrV = createGrV; _createBillV = createBillV;
         _companyContext = companyContext;
@@ -66,6 +70,15 @@ public class ProcurementController : ControllerBase
     public async Task<IActionResult> GetVendor(Guid id, CancellationToken ct)
     {
         var r = await _vendors.GetByIdAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    /// <summary>Sprint 36 (DEC-122): كشف حساب مورّد (opening + bills + payments + closing).</summary>
+    [HttpGet("api/procurement/vendors/{id:guid}/statement")]
+    public async Task<IActionResult> GetVendorStatement(
+        Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct = default)
+    {
+        var r = await _vendorStatements.GetStatementAsync(id, from, to, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
