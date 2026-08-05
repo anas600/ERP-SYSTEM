@@ -13,6 +13,51 @@
 
 ---
 
+## Sprint 37 — L19 audit sweep + 4 Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's "Sprint 37" (auto-continue per "نتقدم في تنفيذ الاسبرينت التالي ادا لم يكن هناك ملاحظات") — close out the L19 carry-over from Sprint 34 audit (5 more repos) + ship 4 of 8 remaining manual JE templates (Sprint 34 shipped 4, total now 8 of 12 planned).
+
+### Added (DEC-123)
+- **5 CoA accounts** to `DefaultCoASeed.cs` (47 → 52 accounts):
+  - `1300` مجمع إهلاك الأصول الثابتة (Asset, parent 1100) — for depreciation template
+  - `1410` سلف الموظفين (Asset, parent 1200) — for loan template
+  - `2110` مصروفات مستحقة (Liability, parent 2200) — for accrual template
+  - `5410` ديون معدومة (Expense, parent 4200) — for bad-debt template
+  - `5500` إهلاك الأصول الثابتة (Expense, parent 4200) — for depreciation template
+- **4 new manual JE templates** in `/finance/journal-entries/new`:
+  - رواتب (salary) — Dr 4112 (Direct Labor) / Cr 1210 (Cash)
+  - سلفة موظف (loan) — Dr 1410 (Loans Receivable) / Cr 1210 (Cash)
+  - ديون معدومة (bad-debt) — Dr 5410 (Bad Debt Expense) / Cr 1230 (AR)
+  - تسوية مخزون (inventory-adjust) — Dr/Cr 1240 (Inventory) for variance
+
+### Fixed (L19)
+- **5 repos** had `Sel` / `SelVb` / `SelPo` / `SelGr` missing `company_id AS CompanyId`:
+  - `StockReservationRepository.Sel` (Inventory)
+  - `ItemCategoryRepository.Sel` (Inventory)
+  - `VendorBillRepository.SelVb` (Procurement)
+  - `PurchaseOrderRepository.SelPo` (Procurement)
+  - `GoodsReceiptRepository.SelGr` (Procurement)
+- **Pre-existing bug in JE form** (caught by smoke test): `journal-entries/new/page.tsx` was using raw `fetch('/api/finance/accounts')` without JWT → 401 silently, accounts dropdown was always empty. Now uses `financeApi.listAccounts()` which attaches the auth token. Bug had been there since Sprint 11/12.
+
+### Verification
+- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
+- `npm run type-check`: 0 errors
+- `npm run build`: success
+- Playwright smoke: 14/14 (CoA 52 accounts, all 8 templates in dropdown, 4 new templates apply correctly with right account codes)
+- BE smoke: 5 new accounts present in /api/finance/accounts
+
+### Lessons (L61, L62)
+- **L61**: L19 audit focus on `Sel` / `SelVb` / `SelX` constants. Each is a string used in multiple queries — fixing once in the constant fixes everywhere. Audit pattern: `grep -rn "private const string Sel" src/backend/Modules/` then check each for `company_id AS CompanyId`.
+- **L62**: Check CoA first before adding JE templates. If a needed account doesn't exist, add it to `DefaultCoASeed.cs` in the correct topological order (parent before child in array). Don't add templates that require missing accounts.
+
+### Carry-over (Sprint 38+)
+- **P0**: L19 audit on remaining repos with direct SQL (no `Sel` constants) — e.g., JournalEntryService, aging-ar queries, account ledger
+- **P1**: UI feedback from Anas (Sprint 32+33+37 carry-over) — click-to-expand receipts/invoices (partially done), overall UI polish
+- **P2**: 4 more manual JE templates (8 of 12 done): Tax payment, Bank reconciliation, Year-end closing, Foreign currency revaluation
+- **P2**: 4 VAT-related workflows (Sprint 35.5 — currently deferred)
+
+---
+
 ## Sprint 36 — Customer/Vendor Statements + Trial Balance FE (2026-08-05) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's "نتقدم في تنفيد الاسبرينت التالي" — close out the remaining P1 carry-over from Sprint 33-34 plan: كشف حساب العميل + كشف حساب المورّد + ميزان المراجعة.

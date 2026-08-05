@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-05 (Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-05 (Sprint 37: L19 audit sweep (5 repos) + 4 manual JE templates + 5 CoA accounts (DEC-123). Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -400,6 +400,49 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 - `VendorBillRepository.SelVb` — verify it includes `company_id AS CompanyId` (Sprint 34 missed; same pattern as `VendorRepository`)
 - Other `IRepository.Sel*` projections in finance/procurement modules — full sweep
 - All `req.CompanyId` DTO references still in services — refactor to `_companyContext.CompanyId` (L30)
+
+## Sprint 37 Decisions (DEC-123) + Lessons (L61..L62)
+
+### Decisions
+- **DEC-123 — L19 audit sweep (5 repos)** (Sprint 37): After Sprint 36 caught `VendorRepository.L19`, this sprint audited the rest of the `Sel*` constants across all repos. Found 5 more missing `company_id AS CompanyId`:
+  - `StockReservationRepository.Sel` (Inventory) — stock reservations never read CompanyId
+  - `ItemCategoryRepository.Sel` (Inventory) — same bug
+  - `VendorBillRepository.SelVb` (Procurement) — vendor bills never read CompanyId
+  - `PurchaseOrderRepository.SelPo` (Procurement) — same bug
+  - `GoodsReceiptRepository.SelGr` (Procurement) — same bug
+  - All `SelLine` / `SelAlloc` projections were clean (line entities don't have company_id column; parent's `Sel*` covers it)
+  - **L19 audit now complete** across all standard repos
+- **DEC-123 — CoA extension (5 accounts)** (Sprint 37): To enable 4 more manual JE templates, added 5 missing accounts to `DefaultCoASeed.cs`:
+  - `1300` مجمع إهلاك الأصول الثابتة (Asset, parent 1100) — for depreciation
+  - `1410` سلف الموظفين (Asset, parent 1200) — for loan
+  - `2110` مصروفات مستحقة (Liability, parent 2200) — for accrual
+  - `5410` ديون معدومة (Expense, parent 4200) — for bad-debt
+  - `5500` إهلاك الأصول الثابتة (Expense, parent 4200) — for depreciation
+  - Total CoA: 47 → 52 accounts
+  - Topological order preserved (parent code before child in array — L56)
+- **DEC-123 — 4 new manual JE templates** (Sprint 37): Added to `/finance/journal-entries/new`:
+  - رواتب (salary) — Dr 4112 (Direct Labor) / Cr 1210 (Cash)
+  - سلفة موظف (loan) — Dr 1410 (Loans Receivable) / Cr 1210 (Cash)
+  - ديون معدومة (bad-debt) — Dr 5410 (Bad Debt Expense) / Cr 1230 (AR)
+  - تسوية مخزون (inventory-adjust) — Dr/Cr 1240 (Inventory) for variance
+  - Total templates: 8 (4 Sprint 34 + 4 Sprint 37)
+- **DEC-123-collateral — Pre-existing bug fix** (Sprint 37): `journal-entries/new/page.tsx` was using raw `fetch('/api/finance/accounts')` without JWT → 401 silently. The accounts dropdown was always empty since Sprint 11/12. Now uses `financeApi.listAccounts()`. Caught by Playwright smoke test (L59 in action).
+
+### Lessons
+- **L61 (NEW)** (Sprint 37): L19 audit focus on `Sel` / `SelVb` / `SelX` constants in the repository classes. Each one is a string used in multiple queries (GetByIdAsync, ListAsync, GetByCodeAsync, etc.) — fixing once in the constant fixes everywhere. **Audit pattern:**
+  1. `grep -rn "private const string Sel" src/backend/Modules/`
+  2. For each `Sel*` constant, check if it includes `company_id AS CompanyId`
+  3. For the entity that IS the tenant table (Company itself), company_id is not needed
+  4. For line entities (no company_id column on the table), the parent's `Sel*` must include company_id
+- **L62 (NEW)** (Sprint 37): Check the existing CoA first before adding a JE template. If a needed account doesn't exist (e.g., 1300 accumulated depreciation, 5410 bad debt), add it to `DefaultCoASeed.cs` in the correct topological order (parent code before child in array). **Don't add templates that require missing accounts** — the user picks an account from the dropdown and the right code might not be there.
+  **Pattern before writing a template:**
+  1. List the account codes you'll need
+  2. `grep` for each in `DefaultCoASeed.cs`
+  3. For missing ones, add them with the right parent + correct topological position
+
+### Pending L19 audit (carry-over to Sprint 38+)
+- Direct SQL queries in service layer (e.g., JournalEntryService, aging-ar service, account ledger) — these don't have `Sel*` constants
+- Any `IRepository` that uses inline SQL instead of `Sel*` constants
 
 ## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
 
