@@ -9,7 +9,7 @@ public sealed class ItemCategoryRepository : IItemCategoryRepository
 {
     private readonly IDbConnectionFactory _db;
     public ItemCategoryRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, code, name, description, parent_id AS ParentId,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, description, parent_id AS ParentId,
         is_active AS IsActive, created_at AS CreatedAt, updated_at AS UpdatedAt";
 
     public async Task<ItemCategory?> GetByIdAsync(Guid id, CancellationToken ct)

@@ -10,7 +10,7 @@ public sealed class PurchaseOrderRepository : IPurchaseOrderRepository
     private readonly IDbConnectionFactory _db;
     public PurchaseOrderRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelPo = @"id, po_number AS PoNumber, vendor_id AS VendorId,
+    private const string SelPo = @"id, company_id AS CompanyId, po_number AS PoNumber, vendor_id AS VendorId,
         status, order_date AS OrderDate, expected_date AS ExpectedDate, currency,
         sub_total AS SubTotal, tax_amount AS TaxAmount, total_amount AS TotalAmount, notes,
         approved_at AS ApprovedAt, approved_by AS ApprovedBy, sent_at AS SentAt,

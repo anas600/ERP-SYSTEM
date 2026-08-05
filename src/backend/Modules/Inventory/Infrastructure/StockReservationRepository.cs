@@ -8,7 +8,7 @@ public sealed class StockReservationRepository : IStockReservationRepository
 {
     private readonly IDbConnectionFactory _db;
     public StockReservationRepository(IDbConnectionFactory db) => _db = db;
-    private const string Sel = @"id, item_id AS ItemId, warehouse_id AS WarehouseId,
+    private const string Sel = @"id, company_id AS CompanyId, item_id AS ItemId, warehouse_id AS WarehouseId,
         quantity, reference_type AS ReferenceType, reference_id AS ReferenceId,
         expires_at AS ExpiresAt, created_at AS CreatedAt, created_by AS CreatedBy";
 

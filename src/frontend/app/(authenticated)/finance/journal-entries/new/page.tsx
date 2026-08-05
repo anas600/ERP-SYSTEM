@@ -1,11 +1,13 @@
 'use client';
 
 // إنشاء قيد محاسبي جديد (Journal Entry)
+// Sprint 37 (DEC-123): 4 new manual JE templates (Salary, Loan, Bad debt, Inventory adjustment).
+//   Plus Sprint 34 templates (Manual, Depreciation, Accrual, Prepaid) merge in their own branch.
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Save, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Save, Plus, Trash2, FileText } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { getErrorMessage } from '@/lib/api';
@@ -30,6 +32,142 @@ interface FormState {
   lines: LineDraft[];
 }
 
+// ===== Templates (Sprint 34 + Sprint 37) =====
+//
+// Sprint 34 shipped: manual, depreciation, accrual, prepaid (4)
+// Sprint 37 adds:   salary, loan, bad-debt, inventory-adjust (4) → 8 total
+//
+// CoA accounts required (Sprint 37 also added the missing ones to DefaultCoASeed.cs):
+//   1210 النقدية                  (Cash)
+//   1230 ذمم مدينة                 (AR)
+//   1240 مخزون                     (Inventory)
+//   1300 مجمع إهلاك                (Accumulated Depreciation)  — new
+//   1410 سلف الموظفين              (Loans Receivable - Employees) — new
+//   2110 مصروفات مستحقة             (Accrued Expenses)          — new
+//   2210 دائنون لموردين             (AP)
+//   4112 أجور مباشرة                (Direct Labor)
+//   5410 ديون معدومة                (Bad Debt Expense)          — new
+//   5500 إهلاك الأصول               (Depreciation Expense)      — new
+interface JeTemplate {
+  id: string;
+  label: string;
+  description: string;
+  build: (accounts: AccountOption[]) => { description: string; reference: string; lines: LineDraft[] } | null;
+}
+
+// Helper: lookup account by code from the loaded options.
+const acct = (accounts: AccountOption[], code: string): string => {
+  const a = accounts.find((x) => x.code === code);
+  return a ? a.id : '';
+};
+
+const TEMPLATES: JeTemplate[] = [
+  // === Sprint 34: 4 original templates ===
+  {
+    id: 'manual',
+    label: 'تسوية يدوية',
+    description: 'قيد تسوية يدوية (Dr حساب / Cr حساب) — افتراضي',
+    build: () => ({
+      description: 'تسوية يدوية',
+      reference: 'ADJ',
+      lines: [emptyLine(), emptyLine()],
+    }),
+  },
+  {
+    id: 'depreciation',
+    label: 'إهلاك أصول',
+    description: 'Dr 5500 مصروف إهلاك / Cr 1300 مجمع الإهلاك (إهلاك شهري/سنوي)',
+    build: (a) => ({
+      description: 'إهلاك أصول ثابتة',
+      reference: 'DEP',
+      lines: [
+        { accountId: acct(a, '5500'), debit: '0', credit: '0', description: 'مصروف إهلاك' },
+        { accountId: acct(a, '1300'), debit: '0', credit: '0', description: 'مجمع إهلاك' },
+      ],
+    }),
+  },
+  {
+    id: 'accrual',
+    label: 'مصروف مستحق',
+    description: 'Dr 5xxx مصروف / Cr 2110 مصروف مستحق (مصروف لم يُدفع بعد)',
+    build: (a) => ({
+      description: 'مصروف مستحق',
+      reference: 'ACCR',
+      lines: [
+        { accountId: '', debit: '0', credit: '0', description: 'مصروف مستحق' },
+        { accountId: acct(a, '2110'), debit: '0', credit: '0', description: 'مصروف مستحق' },
+      ],
+    }),
+  },
+  {
+    id: 'prepaid',
+    label: 'مصروف مسبق الدفع',
+    description: 'Dr 1250 مصروف مسبق / Cr 1210 نقدية (دفع مقدماً لمصروف مستقبلي)',
+    build: (a) => ({
+      description: 'مصروف مسبق الدفع',
+      reference: 'PREP',
+      lines: [
+        { accountId: acct(a, '1250'), debit: '0', credit: '0', description: 'مصروف مسبق' },
+        { accountId: acct(a, '1210'), debit: '0', credit: '0', description: 'نقدية' },
+      ],
+    }),
+  },
+
+  // === Sprint 37 (DEC-123): 4 new templates ===
+  {
+    id: 'salary',
+    label: 'رواتب',
+    description: 'Dr 4112 أجور مباشرة / Cr 1210 نقدية (دفع رواتب الموظفين)',
+    build: (a) => ({
+      description: 'صرف رواتب',
+      reference: 'SAL',
+      lines: [
+        { accountId: acct(a, '4112'), debit: '0', credit: '0', description: 'أجور مباشرة' },
+        { accountId: acct(a, '1210'), debit: '0', credit: '0', description: 'نقدية' },
+      ],
+    }),
+  },
+  {
+    id: 'loan',
+    label: 'سلفة موظف',
+    description: 'Dr 1410 سلف / Cr 1210 نقدية (إقراض موظف من الصندوق)',
+    build: (a) => ({
+      description: 'سلفة موظف',
+      reference: 'LOAN',
+      lines: [
+        { accountId: acct(a, '1410'), debit: '0', credit: '0', description: 'سلفة موظف' },
+        { accountId: acct(a, '1210'), debit: '0', credit: '0', description: 'نقدية' },
+      ],
+    }),
+  },
+  {
+    id: 'bad-debt',
+    label: 'ديون معدومة',
+    description: 'Dr 5410 ديون معدومة / Cr 1230 ذمم مدينة (شطب دين متعسر)',
+    build: (a) => ({
+      description: 'شطب دين معدوم',
+      reference: 'BD',
+      lines: [
+        { accountId: acct(a, '5410'), debit: '0', credit: '0', description: 'ديون معدومة' },
+        { accountId: acct(a, '1230'), debit: '0', credit: '0', description: 'ذمم مدينة' },
+      ],
+    }),
+  },
+  {
+    id: 'inventory-adjust',
+    label: 'تسوية مخزون',
+    description: 'Dr/Cr 1240 مخزون (تسوية فروقات الجرد الفعلي مقابل الدفتري)',
+    build: (a) => ({
+      description: 'تسوية مخزون',
+      reference: 'INV-ADJ',
+      lines: [
+        { accountId: acct(a, '1240'), debit: '0', credit: '0', description: 'مخزون (تسوية بالزيادة)' },
+        { accountId: acct(a, '1240'), debit: '0', credit: '0', description: 'مخزون (تسوية بالنقص)' },
+      ],
+    }),
+  },
+];
+
 const emptyLine = (): LineDraft => ({ accountId: '', debit: '0', credit: '0', description: '' });
 
 export default function NewJournalEntryPage() {
@@ -44,16 +182,36 @@ export default function NewJournalEntryPage() {
   const [accounts, setAccounts] = useState<AccountOption[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sprint 34+: selected template (default = manual)
+  const [selectedTemplate, setSelectedTemplate] = useState<string>('manual');
+
+  // Sprint 34+: apply selected template (pre-fills description/reference/lines)
+  const onApplyTemplate = () => {
+    const tpl = TEMPLATES.find((t) => t.id === selectedTemplate);
+    if (!tpl) return;
+    const built = tpl.build(accounts);
+    if (!built) {
+      setError(`القالب "${tpl.label}" يتطلب حسابات غير متوفرة في دليل الحسابات.`);
+      return;
+    }
+    setForm({
+      entryDate: form.entryDate,
+      description: built.description,
+      reference: built.reference,
+      lines: built.lines,
+    });
+    setError(null);
+  };
 
   useEffect(() => {
     const loadAccounts = async () => {
       try {
-        const res = await fetch('/api/finance/accounts');
-        if (!res.ok) return;
-        const data = await res.json();
+        // Sprint 37: use api.get to attach JWT (raw fetch returned 401 silently)
+        const { financeApi } = await import('@/lib/api');
+        const data = await financeApi.listAccounts();
         setAccounts(data.map((a: AccountOption) => ({ id: a.id, code: a.code, name: a.name })));
       } catch {
-        // ignore
+        // ignore — keep empty
       }
     };
     loadAccounts();
@@ -139,6 +297,33 @@ export default function NewJournalEntryPage() {
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">
+          {/* Sprint 34+: Templates selector — pre-fills description/reference/lines */}
+          <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="h-4 w-4 text-blue-600" />
+              <h3 className="font-semibold text-blue-900 text-sm">قوالب جاهزة (Templates)</h3>
+            </div>
+            <div className="flex items-end gap-2">
+              <div className="flex-1">
+                <label className="block text-xs text-gray-600 mb-1">اختر قالب</label>
+                <select
+                  value={selectedTemplate}
+                  onChange={(e) => setSelectedTemplate(e.target.value)}
+                  className="w-full border border-gray-300 rounded px-2 py-1.5 text-sm bg-white"
+                >
+                  {TEMPLATES.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.label} — {t.description}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <Button type="button" variant="secondary" size="sm" onClick={onApplyTemplate}>
+                تطبيق القالب
+              </Button>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <Input label="التاريخ *" type="date" value={form.entryDate} onChange={(e) => setForm({ ...form, entryDate: e.target.value })} required />
             <Input label="المرجع" value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} placeholder="اختياري" />

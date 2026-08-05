@@ -12,6 +12,8 @@ public static class DefaultCoASeed
         ("1101", "العقارات", AccountType.Asset, "1100", true, false),
         ("1102", "المركبات والأثاث", AccountType.Asset, "1100", true, false),
         ("1103", "أصول ثابتة أخرى", AccountType.Asset, "1100", true, false),
+        // Sprint 37 (DEC-123): Accumulated depreciation account for manual JE templates (depreciation).
+        ("1300", "مجمع إهلاك الأصول الثابتة", AccountType.Asset, "1100", true, false),
         ("1200", "أصول متداولة", AccountType.Asset, "1000", false, false),
         ("1210", "النقدية", AccountType.Asset, "1200", true, false),
         ("1220", "مدينون من شركات شقيقة", AccountType.Asset, "1200", false, true),
@@ -21,6 +23,8 @@ public static class DefaultCoASeed
         ("1230", "ذمم مدينة (عملاء خارجيين)", AccountType.Asset, "1200", true, false),
         ("1240", "مخزون", AccountType.Asset, "1200", true, false),
         ("1250", "مصروفات مقدمة", AccountType.Asset, "1200", true, false),
+        // Sprint 37 (DEC-123): Loans receivable (employee advances) for manual JE template (loan).
+        ("1410", "سلف الموظفين", AccountType.Asset, "1200", true, false),
         ("2000", "الالتزامات", AccountType.Liability, null, false, false),
         ("2100", "التزامات غير متداولة", AccountType.Liability, "2000", false, false),
         ("2200", "التزامات متداولة", AccountType.Liability, "2000", false, false),
@@ -30,6 +34,8 @@ public static class DefaultCoASeed
         ("2222", "دائنون - شركة النظافة", AccountType.Liability, "2220", true, true),
         ("2223", "دائنون - شركة الإعاشة", AccountType.Liability, "2220", true, true),
         ("2230", "إيرادات مقبوضة مقدماً", AccountType.Liability, "2200", true, false),
+        // Sprint 37 (DEC-123): Accrued expenses for manual JE template (accrual).
+        ("2110", "مصروفات مستحقة", AccountType.Liability, "2200", true, false),
         ("3000", "حقوق الملكية", AccountType.Equity, null, false, false),
         ("3100", "رأس المال", AccountType.Equity, "3000", true, false),
         ("3200", "أرباح محتجزة", AccountType.Equity, "3000", true, false),
@@ -42,6 +48,9 @@ public static class DefaultCoASeed
         ("4113", "مقاولي الباطن", AccountType.Expense, "4110", true, false),
         ("4114", "تخصيص مصروفات غير مباشرة", AccountType.Expense, "4110", true, false),
         ("4200", "مصروفات إدارية وعمومية", AccountType.Expense, "4000", true, false),
+        // Sprint 37 (DEC-123): Bad debt expense + Depreciation expense for manual JE templates.
+        ("5410", "ديون معدومة", AccountType.Expense, "4200", true, false),
+        ("5500", "إهلاك الأصول الثابتة", AccountType.Expense, "4200", true, false),
         ("4300", "مصروفات تمويلية", AccountType.Expense, "4000", true, false),
         ("4400", "مصروفات بين شركات", AccountType.Expense, "4000", false, true),
         ("4410", "خدمات من شركات شقيقة", AccountType.Expense, "4400", true, true),
