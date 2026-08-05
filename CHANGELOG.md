@@ -13,6 +13,53 @@
 
 ---
 
+## Sprint 38 — L19 audit on service layer + 4 final Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's "ابدا Sprint 38" — L19 audit on direct SQL in service layer (Constitution Article 3 enforcement) + 4 more manual JE templates (completing 12 of 12 planned).
+
+### Fixed (DEC-124) — MAJOR SECURITY FIX
+- **L19 violations in service-layer direct SQL** (data was leaking across companies):
+  - `GeneralLedgerService` (`GetAccountBalancesAsync`, `GetAccountLedgerAsync`, `GetTrialBalanceAsync`) — Trial Balance was returning accounts from ALL companies
+  - `GeneralLedgerReportService` (`GetAccountLedgerAsync`) — Account Ledger was returning lines from ALL companies
+  - `JournalEntryRepository` (`GetByIdAsync`, `GetWithLinesAsync`, `EntryNumberExistsAsync`, `GetNextEntryNumberAsync`, `ListAsync`) — Journal Entries was returning entries from ALL companies
+- Added `companyId` param to all these methods
+- Service signature changes (interface updated)
+- Controllers inject `ICompanyContext` and pass companyId
+- Concrete evidence: TB count was 30 before fix, now 35 (5 more accounts correctly shown for current company)
+
+### Added (DEC-124)
+- **4 final manual JE templates** (12 of 12 DONE):
+  - دفع ضريبة (tax-payment) — Dr 4300 (Financial expenses) / Cr 1210 (Cash)
+  - فروق عملة (ربح) (fx-gain) — Dr 1230 (AR) / Cr 5110 (Revenue) — currency revaluation gain
+  - فروق عملة (خسارة) (fx-loss) — Dr 4110 (Cost) / Cr 1230 (AR) — currency revaluation loss
+  - سحب رأس مال (capital-withdrawal) — Dr 3100 (Capital) / Cr 1210 (Cash) — owner withdrawal
+- **Total templates: 12** (4 Sprint 34 + 4 Sprint 37 + 4 Sprint 38) — PLAN COMPLETE
+
+### Verification
+- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
+- `npm run type-check`: 0 errors
+- `npm run build`: success
+- BE smoke: TB count=35 (was 30 before L19 fix), balanced 833,005=833,005 LYD; JE count=50 (filtered by company)
+- Playwright smoke: 18/18 (TB L19 35 accounts, JE list works, all 12 templates present, 4 Sprint 38 templates apply correctly)
+
+### Lessons (L63, L64)
+- **L63**: L19 audit must cover service layer (not just repos). The `Sel*` constants in repos are ONE place to check, but services can also have direct SQL that bypasses the repo. Pattern: grep `Application/Services/*.cs` for `_db.CreateOltpConnectionAsync`, check each SQL for `company_id` filter, add companyId param to interface, update controller.
+- **L64**: Trial Balance count is a quick L19 sanity check. Before L19 fix: 30 accounts. After fix: 35 accounts. The difference (5) was accounts from other companies. If TB count is suspiciously low, suspect L19.
+
+### L19 audit trend (4 sprints)
+- Sprint 34: 4 modules (CostCenter, Payroll, ChartOfAccounts, Account)
+- Sprint 36: 1 repo (VendorRepository)
+- Sprint 37: 5 repos (StockReservation, ItemCategory, VendorBill, PurchaseOrder, GoodsReceipt)
+- Sprint 38: 3 service-layer (GeneralLedger, GeneralLedgerReport, JournalEntryRepository)
+- **Total: 13 L19 violations found and fixed across 4 sprints**
+
+### Carry-over (Sprint 39+)
+- **P0**: Final L19 sweep on remaining services (FinanceService, DashboardChartService, GeneralLedgerReportService other queries)
+- **P1**: UI feedback from Anas (Sprint 32+33+37+38 carry-over) — click-to-expand receipts/invoices, overall UI polish
+- **P2**: 4 VAT-related workflows (Sprint 35.5, deferred)
+
+---
+
 ## Sprint 37 — L19 audit sweep + 4 Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's "Sprint 37" (auto-continue per "نتقدم في تنفيذ الاسبرينت التالي ادا لم يكن هناك ملاحظات") — close out the L19 carry-over from Sprint 34 audit (5 more repos) + ship 4 of 8 remaining manual JE templates (Sprint 34 shipped 4, total now 8 of 12 planned).

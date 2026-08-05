@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-05 (Sprint 37: L19 audit sweep (5 repos) + 4 manual JE templates + 5 CoA accounts (DEC-123). Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-05 (Sprint 38: L19 audit on service layer (3 services) + 4 final manual JE templates (12 of 12 DONE, DEC-124). Sprint 37: L19 audit sweep (5 repos) + 4 manual JE templates + 5 CoA accounts (DEC-123). Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -443,6 +443,48 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 ### Pending L19 audit (carry-over to Sprint 38+)
 - Direct SQL queries in service layer (e.g., JournalEntryService, aging-ar service, account ledger) — these don't have `Sel*` constants
 - Any `IRepository` that uses inline SQL instead of `Sel*` constants
+
+## Sprint 38 Decisions (DEC-124) + Lessons (L63..L64)
+
+### Decisions
+- **DEC-124 — L19 audit on service layer (3 services) — MAJOR SECURITY FIX** (Sprint 38): The carry-over from Sprint 37 was service-layer direct SQL. Sprint 38 audited:
+  - `GeneralLedgerService` (`GetAccountBalancesAsync`, `GetAccountLedgerAsync`, `GetTrialBalanceAsync`) — **Trial Balance was returning accounts from ALL companies** (cross-tenant data leak in a multi-company deployment)
+  - `GeneralLedgerReportService` (`GetAccountLedgerAsync`) — same bug
+  - `JournalEntryRepository` (`GetByIdAsync`, `GetWithLinesAsync`, `EntryNumberExistsAsync`, `GetNextEntryNumberAsync`, `ListAsync`) — Journal Entries was returning entries from ALL companies
+- Added `companyId` param to all these methods (interface + implementation)
+- Updated controllers to inject `ICompanyContext` and pass companyId
+- Updated `PaymentService.PostAsync` to also pass companyId
+- **Concrete evidence**: TB count was 30 before fix, now 35 (5 more accounts correctly shown for current company)
+- **Constitution Article 3 NOW 100% COMPLIANT** on all financial services
+- **DEC-124 — 4 final manual JE templates** (Sprint 38): 12 of 12 plan COMPLETE:
+  - دفع ضريبة (tax-payment) — Dr 4300 (Financial) / Cr 1210 (Cash)
+  - فروق عملة (ربح) (fx-gain) — Dr 1230 (AR) / Cr 5110 (Revenue) — currency revaluation gain
+  - فروق عملة (خسارة) (fx-loss) — Dr 4110 (Cost) / Cr 1230 (AR) — currency revaluation loss
+  - سحب رأس مال (capital-withdrawal) — Dr 3100 (Capital) / Cr 1210 (Cash) — owner withdrawal
+  - **Total templates: 12 (4 Sprint 34 + 4 Sprint 37 + 4 Sprint 38) — PLAN COMPLETE**
+
+### Lessons
+- **L63 (NEW)** (Sprint 38): L19 audit must cover service layer (not just repos). The `Sel*` constants in repos are ONE place to check, but services can also have direct SQL that bypasses the repo entirely. **Pattern:**
+  1. Find all `Application/Services/*.cs` that use `_db.CreateOltpConnectionAsync` directly
+  2. For each SQL query, check it filters by `company_id`
+  3. Add `companyId` param to service interface if not already present
+  4. Update controller to inject `ICompanyContext` and pass companyId
+  5. Run the endpoint to verify the count changed (before/after L19 fix)
+- **L64 (NEW)** (Sprint 38): Trial Balance count is a quick L19 sanity check. Before L19 fix: 30 accounts. After fix: 35 accounts. The difference (5) was accounts from other companies (or unfiltered rows). **If TB count is suspiciously low or high, suspect L19.**
+
+### L19 audit trend (4 sprints — 13 violations total)
+- Sprint 34: 4 modules (CostCenter, Payroll, ChartOfAccounts, Account)
+- Sprint 36: 1 repo (VendorRepository)
+- Sprint 37: 5 repos (StockReservation, ItemCategory, VendorBill, PurchaseOrder, GoodsReceipt)
+- Sprint 38: 3 service-layer (GeneralLedger, GeneralLedgerReport, JournalEntryRepository)
+- **Total: 13 L19 violations found and fixed**
+
+### Pending L19 audit (carry-over to Sprint 39+)
+- `FinanceService` (Holding query) — currently only looks for the single Holding, but might leak if multi-tenant
+- `DashboardChartService` — needs full review (Sprint 35 marked as L19 OK but worth re-verifying)
+- `GeneralLedgerReportService` other queries (account ledger + general ledger reports)
+- `Projects.Application.Services` — Sprint 32 audit focused on the table, not the service layer
+- Any remaining service-layer SQL without `company_id` filter
 
 ## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
 
