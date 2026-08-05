@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, projectsApi } from '@/lib/api';
 
 const PROJECT_STATUSES = [
   { label: 'تخطيط (Planning)', value: 1 },
@@ -58,24 +58,17 @@ export default function NewProjectPage() {
     setSubmitting(true);
     try {
       // DEC-113: companyId is NOT sent — BE service uses ICompanyContext from JWT (L19/L30).
-      const res = await fetch('/api/projects', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          code: form.code,
-          name: form.name,
-          description: form.description || undefined,
-          status: form.status,
-          budget: Number(form.budget),
-          startDate: new Date(form.startDate).toISOString(),
-          endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
-          isActive: true,
-        }),
+      // Sprint 40 (L67): use projectsApi.createProject (auto-JWT) instead of raw fetch
+      await projectsApi.createProject({
+        code: form.code,
+        name: form.name,
+        description: form.description || undefined,
+        status: form.status,
+        budget: Number(form.budget),
+        startDate: new Date(form.startDate).toISOString(),
+        endDate: form.endDate ? new Date(form.endDate).toISOString() : undefined,
+        isActive: true,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء المشروع');
-      }
       router.push('/projects');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء المشروع. تأكد من البيانات.'));

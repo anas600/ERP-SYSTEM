@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface ItemCategory {
   id: string;
@@ -45,9 +45,8 @@ export default function ItemCategoriesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/inventory/categories', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = (await res.json()) as ItemCategory[];
+      // Sprint 40 (L67): use inventoryApi.listCategories (auto-JWT) instead of raw fetch
+      const data = await inventoryApi.listCategories() as unknown as ItemCategory[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -64,16 +63,8 @@ export default function ItemCategoriesPage() {
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/inventory/categories/${deleteTarget.id}`, {
-        method: 'DELETE',
-      });
-      if (res.status === 404 || res.status === 405) {
-        throw new Error('حذف الفئات غير مدعوم في الـ backend حالياً.');
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل الحذف');
-      }
+      // Sprint 40 (L67): use inventoryApi.deleteCategory (auto-JWT) instead of raw fetch
+      await inventoryApi.deleteCategory(deleteTarget.id);
       toast.success(`تم حذف الفئة "${deleteTarget.name}".`);
       setDeleteTarget(null);
       await load();

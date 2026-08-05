@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 const EVENT_TYPES = [
   { label: 'استلام مخزون (StockReceived)', value: 1 },
@@ -64,21 +64,14 @@ export default function NewPostingRulePage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch('/api/finance/posting-rules', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description || null,
-          eventType: form.eventType,
-          isActive: true,
-          templateJson: form.templateJson,
-        }),
+      // Sprint 40 (L67): use financeApi.createPostingRule (auto-JWT) instead of raw fetch
+      await financeApi.createPostingRule({
+        name: form.name,
+        description: form.description || undefined,
+        eventType: form.eventType,
+        isActive: true,
+        templateJson: form.templateJson,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء القاعدة');
-      }
       router.push('/admin/posting-rules');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء القاعدة.'));

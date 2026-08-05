@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Pencil } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 interface CostCenter {
   id: string;
@@ -43,9 +43,8 @@ export default function CostCentersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/cost-centers', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = await res.json();
+      // Sprint 40 (L67): use financeApi.listCostCenters (auto-JWT) instead of raw fetch
+      const data = (await financeApi.listCostCenters()) as unknown as CostCenter[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 interface PostingRule {
   id: string;
@@ -37,10 +37,10 @@ export default function PostingRuleDetailPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/finance/posting-rules', { cache: 'no-store' });
-        if (!res.ok) throw new Error('فشل التحميل');
-        const list = await res.json();
-        const found = list.find((x: PostingRule) => x.id === params.id);
+        if (!params.id) return;
+        // Sprint 40 (L67): use financeApi.listPostingRules (auto-JWT) instead of raw fetch
+        const list = (await financeApi.listPostingRules()) as unknown as PostingRule[];
+        const found = list.find((x) => x.id === params.id);
         if (!found) throw new Error('القاعدة غير موجودة');
         setItem(found);
       } catch (e: unknown) {

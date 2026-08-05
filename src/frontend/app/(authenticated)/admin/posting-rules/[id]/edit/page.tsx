@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { ArrowRight, Save, Trash2 } from 'lucide-react';
 import { Button, Card, Input, PageHeader, Select } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 import { useToast } from '@/lib/useToast';
 
 interface PostingRule {
@@ -57,9 +57,9 @@ export default function EditPostingRulePage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/finance/posting-rules', { cache: 'no-store' });
-        if (!res.ok) throw new Error('فشل التحميل');
-        const list = (await res.json()) as PostingRule[];
+        if (!params.id) return;
+        // Sprint 40 (L67): use financeApi.listPostingRules (auto-JWT) instead of raw fetch
+        const list = (await financeApi.listPostingRules()) as unknown as PostingRule[];
         const found = list.find((x) => x.id === params.id);
         if (!found) throw new Error('القاعدة غير موجودة');
         setForm({
@@ -99,24 +99,14 @@ export default function EditPostingRulePage() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/posting-rules/${params.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: form.name,
-          description: form.description || null,
-          eventType: form.eventType,
-          isActive: form.isActive,
-          templateJson: form.templateJson,
-        }),
+      // Sprint 40 (L67): use financeApi.updatePostingRule (auto-JWT) instead of raw fetch
+      await financeApi.updatePostingRule(params.id!, {
+        name: form.name,
+        description: form.description || undefined,
+        eventType: form.eventType,
+        isActive: form.isActive,
+        templateJson: form.templateJson,
       });
-      if (res.status === 404 || res.status === 405) {
-        throw new Error('تعديل قواعد الترحيل غير مدعوم في الـ backend حالياً.');
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل تحديث القاعدة');
-      }
       toast.success('تم تحديث القاعدة.');
       router.push('/admin/posting-rules');
     } catch (e: unknown) {
@@ -130,16 +120,8 @@ export default function EditPostingRulePage() {
     if (!confirm('هل أنت متأكد من حذف هذه القاعدة؟')) return;
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/finance/posting-rules/${params.id}`, {
-        method: 'DELETE',
-      });
-      if (res.status === 404 || res.status === 405) {
-        throw new Error('حذف قواعد الترحيل غير مدعوم في الـ backend حالياً.');
-      }
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل الحذف');
-      }
+      // Sprint 40 (L67): use financeApi.deletePostingRule (auto-JWT) for posting rules
+      await financeApi.deletePostingRule(params.id!);
       toast.success('تم حذف القاعدة.');
       router.push('/admin/posting-rules');
     } catch (e: unknown) {

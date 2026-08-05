@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Eye } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface StockReservation {
   id: string;
@@ -35,9 +35,8 @@ export default function ReservationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/inventory/reservations', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = await res.json();
+      // Sprint 40 (L67): use inventoryApi.listReservations (auto-JWT) instead of raw fetch
+      const data = await inventoryApi.listReservations() as unknown as StockReservation[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));

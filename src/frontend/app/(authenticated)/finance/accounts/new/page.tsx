@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 const ACCOUNT_TYPES = [
   { label: 'أصول (Asset)', value: 1 },
@@ -60,18 +60,11 @@ export default function NewAccountPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/finance/accounts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          parentAccountId: form.parentAccountId || null,
-        }),
+      // Sprint 40 (L67): use financeApi.createAccount (auto-JWT) instead of raw fetch
+      await financeApi.createAccount({
+        ...form,
+        parentAccountId: form.parentAccountId || undefined,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء الحساب');
-      }
       router.push('/finance/accounts');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الحساب.'));

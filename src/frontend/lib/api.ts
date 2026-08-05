@@ -1071,6 +1071,43 @@ export const financeApi = {
     const r = await api.post<{ reversedEntryId: string; reversalEntryId: string; entryNumber: string }>(`/api/finance/journal-entries/${id}/reverse`, { reason });
     return r.data;
   },
+  // Sprint 40 (L67): Posting rules CRUD
+  listPostingRules: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/finance/posting-rules');
+    return r.data;
+  },
+  getPostingRule: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/finance/posting-rules/${id}`);
+    return r.data;
+  },
+  createPostingRule: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/finance/posting-rules', data);
+    return r.data;
+  },
+  updatePostingRule: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/finance/posting-rules/${id}`, data);
+    return r.data;
+  },
+  deletePostingRule: async (id: string): Promise<void> => {
+    await api.delete(`/api/finance/posting-rules/${id}`);
+  },
+  // Sprint 40 (L67): Cost Centers CRUD
+  listCostCenters: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/cost-centers');
+    return r.data;
+  },
+  getCostCenter: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/cost-centers/${id}`);
+    return r.data;
+  },
+  createCostCenter: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/cost-centers', data);
+    return r.data;
+  },
+  updateCostCenter: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/cost-centers/${id}`, data);
+    return r.data;
+  },
 };
 
 // Sprint 22: Reports module deleted. Complex report APIs (Trial Balance, P&L,
@@ -1173,6 +1210,11 @@ export const inventoryApi = {
     const r = await api.get<Item>(`/api/inventory/items/${id}`);
     return r.data;
   },
+  // POST /api/inventory/items
+  createItem: async (data: Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>): Promise<Item> => {
+    const r = await api.post<Item>('/api/inventory/items', data);
+    return r.data;
+  },
   // PUT /api/inventory/items/{id}
   updateItem: async (id: string, data: Partial<Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>>): Promise<Item> => {
     const r = await api.put<Item>(`/api/inventory/items/${id}`, data);
@@ -1183,9 +1225,67 @@ export const inventoryApi = {
     const r = await api.get<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]>(`/api/inventory/categories`);
     return r.data;
   },
+  // POST /api/inventory/categories — Sprint 40 (L67)
+  createCategory: async (data: { code: string; name: string; parentId?: string; isActive?: boolean }): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>('/api/inventory/categories', data);
+    return r.data;
+  },
+  // PUT /api/inventory/categories/{id} — Sprint 40 (L67)
+  updateCategory: async (id: string, data: { code: string; name: string; parentId?: string; isActive?: boolean }): Promise<{ id: string }> => {
+    const r = await api.put<{ id: string }>(`/api/inventory/categories/${id}`, data);
+    return r.data;
+  },
+  // DELETE /api/inventory/categories/{id} — Sprint 40 (L67)
+  deleteCategory: async (id: string): Promise<void> => {
+    await api.delete(`/api/inventory/categories/${id}`);
+  },
   // GET /api/inventory/units — قائمة وحدات القياس (UoM)
   listUnitsOfMeasure: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
     const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
+    return r.data;
+  },
+  // GET /api/inventory/warehouses — المستودعات (لـ select في form)
+  listWarehouses: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/warehouses`);
+    return r.data;
+  },
+  // GET /api/inventory/reservations
+  listReservations: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/inventory/reservations');
+    return r.data;
+  },
+  // GET /api/inventory/reservations/{id}
+  getReservation: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/inventory/reservations/${id}`);
+    return r.data;
+  },
+  // POST /api/inventory/reservations
+  createReservation: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/inventory/reservations', data);
+    return r.data;
+  },
+  // PUT /api/inventory/reservations/{id}
+  updateReservation: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/inventory/reservations/${id}`, data);
+    return r.data;
+  },
+  // DELETE /api/inventory/reservations/{id} — Sprint 40 (L67)
+  deleteReservation: async (id: string): Promise<void> => {
+    await api.delete(`/api/inventory/reservations/${id}`);
+  },
+  // GET /api/inventory/movements
+  listMovements: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/inventory/movements');
+    return r.data;
+  },
+  // POST /api/inventory/movements
+  createMovement: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/inventory/movements', data);
+    return r.data;
+  },
+  // GET /api/inventory/items/{id}/stock — get stock level for an item
+  getItemStock: async (itemId: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/inventory/items/${itemId}/stock`);
     return r.data;
   },
   // Sprint 22: Notifications module deleted. listNotifications + getUnreadNotifications + markNotificationRead removed.
@@ -1194,6 +1294,11 @@ export const inventoryApi = {
 export const projectsApi = {
   listProjects: async (): Promise<Project[]> => {
     const r = await api.get<Project[]>('/api/projects');
+    return r.data;
+  },
+  // Sprint 40 (L67): Project CRUD
+  createProject: async (data: Partial<Project>): Promise<Project> => {
+    const r = await api.post<Project>('/api/projects', data);
     return r.data;
   },
 };

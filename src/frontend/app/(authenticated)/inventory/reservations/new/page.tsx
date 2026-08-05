@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 const REF_TYPES = [
   { label: 'أمر بيع (SalesOrder)', value: 'SalesOrder' },
@@ -49,22 +49,15 @@ export default function NewReservationPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          itemId: form.itemId,
-          warehouseId: form.warehouseId,
-          quantity: Number(form.quantity),
-          referenceType: form.referenceType,
-          referenceId: form.referenceId,
-          expiresAt: form.expiresAt,
-        }),
+      // Sprint 40 (L67): use inventoryApi.createReservation (auto-JWT) instead of raw fetch
+      await inventoryApi.createReservation({
+        itemId: form.itemId,
+        warehouseId: form.warehouseId,
+        quantity: Number(form.quantity),
+        referenceType: form.referenceType,
+        referenceId: form.referenceId,
+        expiresAt: form.expiresAt,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء الحجز');
-      }
       router.push('/inventory/reservations');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الحجز.'));

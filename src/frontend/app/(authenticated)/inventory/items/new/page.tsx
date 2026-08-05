@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 const ITEM_TYPES = [
   { label: 'منتج (Stock)', value: 'Stock' },
@@ -64,21 +64,14 @@ export default function NewItemPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/items', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          averageCost: Number(form.averageCost),
-          reorderLevel: Number(form.reorderLevel),
-          reorderQuantity: Number(form.reorderQuantity),
-          isActive: true,
-        }),
-      });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء المنتج');
-      }
+      // Sprint 40 (L67): use inventoryApi.createItem (auto-JWT) instead of raw fetch
+      await inventoryApi.createItem({
+        ...form,
+        averageCost: Number(form.averageCost),
+        reorderLevel: Number(form.reorderLevel),
+        reorderQuantity: Number(form.reorderQuantity),
+        isActive: true,
+      } as Parameters<typeof inventoryApi.createItem>[0]);
       router.push('/inventory/items');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء المنتج. تأكد من البيانات وأن الـ backend يدعم الـ endpoint.'));

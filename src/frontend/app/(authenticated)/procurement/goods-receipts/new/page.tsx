@@ -45,13 +45,9 @@ export default function NewGoodsReceiptPage() {
     try {
       // نحاول جلب الـ warehouses (إن وُجدت)
       try {
-        const wRes = await fetch('/api/inventory/warehouses', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
-        });
-        if (wRes.ok) {
-          const data = await wRes.json();
-          if (Array.isArray(data)) setWarehouses(data);
-        }
+        // Sprint 40 (L67): use inventoryApi.listWarehouses (auto-JWT) instead of raw fetch
+        const data = await inventoryApi.listWarehouses();
+        if (Array.isArray(data)) setWarehouses(data);
       } catch {
         // ignore
       }

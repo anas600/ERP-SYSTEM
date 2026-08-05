@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 const CC_TYPES = [
   { label: 'إنتاج (Production)', value: 1 },
@@ -50,18 +50,11 @@ export default function NewCostCenterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/cost-centers', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          parentId: form.parentId || null,
-        }),
+      // Sprint 40 (L67): use financeApi.createCostCenter (auto-JWT) instead of raw fetch
+      await financeApi.createCostCenter({
+        ...form,
+        parentId: form.parentId || undefined,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء مركز التكلفة');
-      }
       router.push('/finance/cost-centers');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء مركز التكلفة.'));

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { useToast } from '@/lib/useToast';
-import { identityApi, getErrorMessage } from '@/lib/api';
+import { identityApi, getErrorMessage, companiesApi } from '@/lib/api';
 
 interface RoleItem { id: string; name: string; description?: string; }
 interface CompanyItem { id: string; name: string; code: string; isHolding?: boolean; }
@@ -27,7 +27,8 @@ export default function NewUserPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    Promise.all([identityApi.listRoles(), fetch('/api/companies').then(r => r.json()).catch(() => [])])
+    // Sprint 40 (L67): use companiesApi.list (auto-JWT) instead of raw fetch
+    Promise.all([identityApi.listRoles(), companiesApi.list({ pageSize: 100 }).then(p => p.items).catch(() => [])])
       .then(([r, c]) => {
         setRoles(r);
         setCompanies(Array.isArray(c) ? c : []);

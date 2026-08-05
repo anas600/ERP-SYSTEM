@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface CategoryOption {
   id: string;
@@ -34,9 +34,8 @@ export default function NewCategoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/inventory/categories');
-        if (!res.ok) return;
-        const data = await res.json();
+        // Sprint 40 (L67): use inventoryApi.listCategories (auto-JWT) instead of raw fetch
+        const data = (await inventoryApi.listCategories()) as unknown as CategoryOption[];
         setParents(data.map((c: CategoryOption) => ({ id: c.id, code: c.code, name: c.name })));
       } catch {
         // ignore
@@ -54,19 +53,12 @@ export default function NewCategoryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/categories', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          parentId: form.parentId || null,
-          isActive: true,
-        }),
+      // Sprint 40 (L67): use inventoryApi.createCategory (auto-JWT) instead of raw fetch
+      await inventoryApi.createCategory({
+        ...form,
+        parentId: form.parentId || undefined,
+        isActive: true,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء الفئة');
-      }
       router.push('/admin/item-categories');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الفئة.'));

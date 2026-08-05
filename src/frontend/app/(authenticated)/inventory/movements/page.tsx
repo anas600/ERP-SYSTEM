@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Eye, ArrowRight } from 'lucide-react';
 import { Card, Badge, PageHeader, Button, Input } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface StockMovement {
   id: string;
@@ -57,9 +57,8 @@ export default function StockMovementsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/inventory/movements', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const data = await res.json();
+      // Sprint 40 (L67): use inventoryApi.listMovements (auto-JWT) instead of raw fetch
+      const data = await inventoryApi.listMovements() as unknown as StockMovement[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));

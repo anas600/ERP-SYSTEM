@@ -13,6 +13,47 @@
 
 ---
 
+## Sprint 40 — L67 Audit (Raw Fetch Fix) + 2 UI Polish Rounds (2026-08-05) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's "ابدأ Sprint 40" — fix all 17 files using raw `fetch('/api/...')` (L67 carry-over from Sprint 39 — silently 401s). Pause noisy crons temporarily.
+
+### Fixed (L67)
+- **17 files converted from raw `fetch()` to API client methods** — JWT now auto-attached via axios interceptor
+- All forms (create/edit/delete) now work without 401 errors
+- No more silent data loss on create/update
+
+### Added
+- 13 new API client methods in `lib/api.ts` (inventoryApi +13, financeApi +10, projectsApi +1)
+- `lib/api.ts` complete CRUD coverage for: items, categories, warehouses, reservations, movements, posting rules, cost centers, projects
+
+### Changed
+- `lib/api.ts` (+200 lines) — now has full CRUD for all entities
+- 17 page.tsx files updated to use API client
+
+### Operational
+- 2 noisy crons paused (mode2-admin-monitor, mvp-auto-rebuild-on-develop-push) — will auto-resume in 2h via self-reminder
+
+### Lessons (L69..L71)
+- **L69**: Use the established API client pattern (`async (data): Promise<T> => { const r = await api.post<T>('/endpoint', data); return r.data; }`). Always import `api` and use the axios instance.
+- **L70**: Fix the API client FIRST (add all needed methods), then fix the files. Pattern: API client → 1 file as test → remaining files in parallel.
+- **L71**: To pause noisy crons temporarily, use `mavis cron update --enabled false` for specific crons. Set a `mavis cron self` reminder to re-enable them. Don't delete them.
+
+### Verification
+- npm type-check: 0 errors
+- npm build: 50+ pages compiled
+- Playwright page sweep: 50/50 (200 OK)
+- Playwright Sprint 40 fixes test: 6/6 (0 401 errors!)
+- Sprint 39 UI tests: 9/9 (regression check)
+- Sprint 39 interactive tests: 8/8 (regression check)
+
+### Carry-over Sprint 40+1
+- **P1**: Sidebar collapse toggle + page transition animations
+- **P1**: Take fresh manual screenshots with latest design
+- **P2**: 4 VAT-related workflows (Sprint 35.5 cancelled, still pending)
+- **P2**: mvp-docker rebuild (deferred)
+
+---
+
 ## Sprint 39 — UI/UX Overhaul + Tax Optional Enforcement (2026-08-05) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's "Sprint 39" — tax is OPT-IN (Libya = no default tax), design system overhaul, comprehensive Playwright sweep.

@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, X } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface StockReservation {
   id: string;
@@ -32,12 +32,11 @@ export default function ReservationDetailPage() {
 
   const load = async () => {
     try {
-      const res = await fetch('/api/inventory/reservations', { cache: 'no-store' });
-      if (!res.ok) throw new Error('فشل التحميل');
-      const all = await res.json();
-      const found = all.find((x: StockReservation) => x.id === params.id);
-      if (!found) throw new Error('الحجز غير موجود');
-      setItem(found);
+      if (!params.id) return;
+      // Sprint 40 (L67): use inventoryApi.getReservation (auto-JWT) instead of raw fetch
+      const item = await inventoryApi.getReservation(params.id) as unknown as StockReservation;
+      if (!item) throw new Error('الحجز غير موجود');
+      setItem(item);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
     } finally {
@@ -52,8 +51,8 @@ export default function ReservationDetailPage() {
     if (!confirm('إلغاء هذا الحجز؟')) return;
     setActionRunning(true);
     try {
-      const res = await fetch(`/api/inventory/reservations/${item.id}`, { method: 'DELETE' });
-      if (!res.ok && res.status !== 204) throw new Error('فشل الإلغاء');
+      // Sprint 40 (L67): use inventoryApi.deleteReservation (auto-JWT) instead of raw fetch
+      await inventoryApi.deleteReservation(item.id);
       router.push('/inventory/reservations');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل الإلغاء.'));

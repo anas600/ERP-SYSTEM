@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface ItemCategory {
   id: string;
@@ -39,21 +39,18 @@ export default function EditCategoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/inventory/categories/${params.id}`);
-        if (!res.ok) throw new Error('فشل التحميل');
-        const data = await res.json();
+        if (!params.id) return;
+        // Sprint 40 (L67): use inventoryApi (auto-JWT) instead of raw fetch
+        const data = (await inventoryApi.listCategories()) as unknown as ItemCategory[];
+        const current = data.find((c) => c.id === params.id);
+        if (!current) throw new Error('الفئة غير موجودة');
         setForm({
-          name: data.name,
-          description: data.description || '',
-          parentId: data.parentId || '',
-          isActive: data.isActive ?? true,
+          name: current.name,
+          description: current.description || '',
+          parentId: current.parentId || '',
+          isActive: current.isActive ?? true,
         });
-
-        const listRes = await fetch('/api/inventory/categories');
-        if (listRes.ok) {
-          const list = await listRes.json();
-          setParents(list.filter((c: ItemCategory) => c.id !== params.id));
-        }
+        setParents(data.filter((c) => c.id !== params.id));
       } catch (e: unknown) {
         setError(getErrorMessage(e, 'فشل التحميل'));
       } finally {
@@ -73,18 +70,13 @@ export default function EditCategoryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/inventory/categories/${params.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          parentId: form.parentId || null,
-        }),
+      // Sprint 40 (L67): use inventoryApi.updateCategory (auto-JWT) instead of raw fetch
+      await inventoryApi.updateCategory(params.id!, {
+        code: '',  // code is immutable on update (BE will keep existing)
+        name: form.name,
+        parentId: form.parentId || undefined,
+        isActive: form.isActive,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل تحديث الفئة');
-      }
       router.push('/admin/item-categories');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحديث.'));
