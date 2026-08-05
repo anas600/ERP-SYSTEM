@@ -220,7 +220,7 @@ export default function CompanyDetailPage() {
           }
         />
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg flex items-start gap-3"
+          className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg flex items-start gap-3"
           role="alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -286,7 +286,7 @@ export default function CompanyDetailPage() {
 
       {error && (
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
+          className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
           role="alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />

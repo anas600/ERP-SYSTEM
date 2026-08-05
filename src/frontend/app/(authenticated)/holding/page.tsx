@@ -228,7 +228,7 @@ export default function HoldingPage() {
       {/* Error banner — لو الـ endpoint غير متاح بعد */}
       {error && !loading && (
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
+          className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
           role="alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -238,7 +238,7 @@ export default function HoldingPage() {
               {error} — Endpoint:{' '}
               <code className="text-xs">/api/holdings/{DEMO_HOLDING_SLUG}</code>
             </p>
-            <p className="text-xs mt-1 text-red-600">
+            <p className="text-xs mt-1 text-danger-600">
               ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.
             </p>
           </div>
@@ -496,7 +496,7 @@ function HoldingKpiPanel({ dashboard, loading, error, onRefresh }: HoldingKpiPan
                     </span>
                   )}
                   {Number(t.credit || 0) > 0 && (
-                    <span className="text-red-700">
+                    <span className="text-danger-700">
                       {' '}−{Number(t.credit).toLocaleString('en', { minimumFractionDigits: 2 })}
                     </span>
                   )}
@@ -521,7 +521,7 @@ interface KpiCardProps {
 function KpiCard({ label, value, icon, accent, loading }: KpiCardProps) {
   const accentMap: Record<string, string> = {
     green: 'text-green-600 bg-green-50',
-    red: 'text-red-600 bg-red-50',
+    red: 'text-danger-600 bg-red-50',
     blue: 'text-blue-600 bg-blue-50',
     purple: 'text-purple-600 bg-purple-50',
   };

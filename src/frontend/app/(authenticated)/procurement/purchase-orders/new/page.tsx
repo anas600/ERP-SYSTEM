@@ -131,7 +131,7 @@ export default function NewPurchaseOrderPage() {
 
       <form onSubmit={onSubmit} className="space-y-4 max-w-4xl">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error}</div>
         )}
 
         <Card title="معلومات الأمر">
@@ -239,7 +239,7 @@ export default function NewPurchaseOrderPage() {
                     type="button"
                     onClick={() => removeLine(idx)}
                     disabled={lines.length === 1}
-                    className="text-red-500 hover:text-red-700 p-1 disabled:opacity-30"
+                    className="text-danger-500 hover:text-danger-700 p-1 disabled:opacity-30"
                     aria-label="حذف البند"
                   >
                     <Trash2 className="h-4 w-4" />

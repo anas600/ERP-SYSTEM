@@ -93,7 +93,7 @@ export default function EditCategoryPage() {
   };
 
   if (loading) return <div><PageHeader title="فئة" /><Card><div className="text-center py-12 text-gray-500">جاري التحميل...</div></Card></div>;
-  if (!form) return <div><PageHeader title="فئة" /><Card><div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/item-categories"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
+  if (!form) return <div><PageHeader title="فئة" /><Card><div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/item-categories"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
 
   return (
     <div>
@@ -112,7 +112,7 @@ export default function EditCategoryPage() {
       />
 
       <Card className="max-w-2xl">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <Input label="الاسم *" value={form.name} onChange={onChange('name')} required />

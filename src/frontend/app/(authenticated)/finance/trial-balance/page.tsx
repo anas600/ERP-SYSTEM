@@ -122,7 +122,7 @@ export default function TrialBalancePage() {
       </Card>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm flex items-start gap-2">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm flex items-start gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -145,7 +145,7 @@ export default function TrialBalancePage() {
             className={`p-4 mb-4 ${
               totals.balanced
                 ? 'border-r-4 border-green-500 bg-green-50/40'
-                : 'border-r-4 border-red-500 bg-red-50/40'
+                : 'border-r-4 border-danger-500 bg-red-50/40'
             }`}
           >
             <div className="flex flex-wrap items-center justify-between gap-4">
@@ -153,7 +153,7 @@ export default function TrialBalancePage() {
                 {totals.balanced ? (
                   <CheckCircle2 className="h-7 w-7 text-green-600" />
                 ) : (
-                  <XCircle className="h-7 w-7 text-red-600" />
+                  <XCircle className="h-7 w-7 text-danger-600" />
                 )}
                 <div>
                   <p

@@ -1,6 +1,7 @@
 'use client';
 
-// مكوّن Select موحد — يلف native <select> مع label و error
+// مكوّن Select موحد — Sprint 39 (DEC-125) Design System
+// يلف native <select> مع label و error — uses ink-* + brand focus
 
 import { SelectHTMLAttributes, forwardRef, ReactNode } from 'react';
 import { cn } from '@/lib/utils';
@@ -39,7 +40,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
   return (
     <div className={cn('w-full', containerClassName)}>
       {label && (
-        <label htmlFor={selectId} className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor={selectId} className="block text-sm font-medium text-ink-700 mb-1.5">
           {label}
         </label>
       )}
@@ -48,10 +49,12 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         id={selectId}
         value={value ?? ''}
         className={cn(
-          'w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm',
-          'focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200',
-          'disabled:bg-gray-50 disabled:text-gray-400',
-          error && 'border-red-400 focus:border-red-500 focus:ring-red-200',
+          'w-full rounded-lg border bg-white text-ink-900 px-3 py-2 text-sm',
+          'transition-colors duration-150',
+          'focus:outline-none focus:ring-2 focus:ring-offset-0',
+          'border-ink-300 focus:border-brand-500 focus:ring-brand-500/20',
+          'disabled:bg-ink-50 disabled:text-ink-400 disabled:cursor-not-allowed',
+          error && 'border-danger-500 focus:border-danger-500 focus:ring-danger-500/20',
           className
         )}
         {...props}
@@ -68,9 +71,9 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
         ))}
       </select>
       {error ? (
-        <p className="mt-1 text-xs text-red-600">{error}</p>
+        <p className="mt-1.5 text-xs text-danger-600">{error}</p>
       ) : hint ? (
-        <p className="mt-1 text-xs text-gray-500">{hint}</p>
+        <p className="mt-1.5 text-xs text-ink-500">{hint}</p>
       ) : null}
     </div>
   );

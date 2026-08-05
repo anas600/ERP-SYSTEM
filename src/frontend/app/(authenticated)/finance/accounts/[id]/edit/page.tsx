@@ -88,7 +88,7 @@ export default function EditAccountPage() {
       <div>
         <PageHeader title="حساب" />
         <Card className="max-w-2xl">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error || 'الحساب غير موجود'}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error || 'الحساب غير موجود'}</div>
           <div className="mt-4"><Link href="/finance/accounts"><Button variant="ghost">رجوع</Button></Link></div>
         </Card>
       </div>
@@ -114,7 +114,7 @@ export default function EditAccountPage() {
 
       <Card className="max-w-2xl">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
         <div className="grid grid-cols-2 gap-4 text-sm">

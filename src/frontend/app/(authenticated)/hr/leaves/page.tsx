@@ -276,7 +276,7 @@ export default function LeavesPage() {
             <button
               onClick={() => handleReject(l.id)}
               disabled={actionId === l.id || bulkBusy}
-              className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 disabled:opacity-50"
+              className="p-1.5 rounded-lg text-danger-600 hover:bg-danger-50 disabled:opacity-50"
               title="رفض"
               aria-label="رفض"
             >
@@ -317,7 +317,7 @@ export default function LeavesPage() {
         </Card>
         <Card accent="red">
           <p className="text-xs text-gray-500">مرفوضة</p>
-          <p className="text-2xl font-bold text-red-600 mt-1">
+          <p className="text-2xl font-bold text-danger-600 mt-1">
             {leaves.filter((l) => l.status === 3).length}
           </p>
         </Card>
@@ -388,7 +388,7 @@ export default function LeavesPage() {
       )}
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}

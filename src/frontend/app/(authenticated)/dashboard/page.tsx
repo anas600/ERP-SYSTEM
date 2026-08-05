@@ -204,7 +204,7 @@ export default function DashboardPage() {
       {/* Error state — رسالة ودودة بالعربي لو الـ endpoint غير متاح */}
       {error && !loading && (
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
+          className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
           role="alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
@@ -213,7 +213,7 @@ export default function DashboardPage() {
             <p className="text-sm mt-0.5">
               {error} — Endpoint: <code className="text-xs">/api/dashboard/summary</code>
             </p>
-            <p className="text-xs mt-1 text-red-600">
+            <p className="text-xs mt-1 text-danger-600">
               ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.
             </p>
           </div>
@@ -240,20 +240,20 @@ export default function DashboardPage() {
               <Card key={tile.key} accent={tile.accent}>
                 <div className="flex items-start justify-between">
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm text-gray-500">{tile.label}</p>
+                    <p className="text-sm text-ink-500">{tile.label}</p>
                     {value == null ? (
                       <div
-                        className="mt-2 h-9 w-20 rounded bg-gray-100 animate-pulse"
+                        className="mt-2 h-9 w-20 rounded bg-ink-100 shimmer"
                         role="status"
                         aria-label="جاري التحميل"
                       />
                     ) : (
-                      <p className="text-3xl font-bold text-gray-800 mt-1 tabular-nums">
+                      <p className="text-3xl font-bold text-ink-800 mt-1 tabular-nums">
                         {formatNumber(value)}
                       </p>
                     )}
                     <KpiTrend value={trendValue} loading={loading} />
-                    <p className="text-xs text-gray-400 mt-1">{tile.hint}</p>
+                    <p className="text-xs text-ink-400 mt-1">{tile.hint}</p>
                   </div>
                   <div
                     className={`h-12 w-12 rounded-lg ${tile.iconBg} flex items-center justify-center flex-shrink-0`}
@@ -289,7 +289,7 @@ export default function DashboardPage() {
 
       {/* Sprint 1: "as of" timestamp when present */}
       {summary?.asOf && !error && (
-        <div className="text-xs text-gray-400 text-center mt-2">
+        <div className="text-xs text-ink-400 text-center mt-2">
           آخر تحديث: {new Date(summary.asOf).toLocaleString('en-GB')}
         </div>
       )}

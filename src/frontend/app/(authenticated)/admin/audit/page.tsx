@@ -386,7 +386,7 @@ export default function AuditPage() {
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 text-red-700 text-sm">
+        <div className="bg-danger-50 border border-danger-200 rounded-lg p-4 mb-4 text-danger-700 text-sm">
           {error}
         </div>
       )}

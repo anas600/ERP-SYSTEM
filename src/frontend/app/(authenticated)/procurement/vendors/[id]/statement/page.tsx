@@ -141,7 +141,7 @@ export default function VendorStatementPage() {
       </Card>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm flex items-start gap-2">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm flex items-start gap-2">
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>

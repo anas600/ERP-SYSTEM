@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { ArrowRight, Save, Plus, Trash2, FileText } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 interface AccountOption {
   id: string;
@@ -302,26 +302,18 @@ export default function NewJournalEntryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/finance/journal-entries', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          entryDate: form.entryDate,
-          description: form.description,
-          reference: form.reference || null,
-          lines: form.lines.map((l) => ({
-            accountId: l.accountId,
-            debit: Number(l.debit) || 0,
-            credit: Number(l.credit) || 0,
-            description: l.description || null,
-          })),
-        }),
+      // Sprint 39 (DEC-125) L60: use financeApi.createJournalEntry (auto-JWT) instead of raw fetch
+      const created = await financeApi.createJournalEntry({
+        entryDate: form.entryDate,
+        description: form.description,
+        reference: form.reference || undefined,
+        lines: form.lines.map((l) => ({
+          accountId: l.accountId,
+          debit: Number(l.debit) || 0,
+          credit: Number(l.credit) || 0,
+          description: l.description || undefined,
+        })),
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل إنشاء القيد');
-      }
-      const created = await res.json();
       router.push(`/finance/journal-entries/${created.id}`);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء القيد.'));
@@ -348,7 +340,7 @@ export default function NewJournalEntryPage() {
 
       <Card className="max-w-4xl">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">
@@ -440,7 +432,7 @@ export default function NewJournalEntryPage() {
                         <button
                           type="button"
                           onClick={() => removeLine(idx)}
-                          className="text-red-600 hover:bg-red-50 p-1.5 rounded"
+                          className="text-danger-600 hover:bg-danger-50 p-1.5 rounded"
                           aria-label="حذف البند"
                         >
                           <Trash2 className="h-4 w-4" />

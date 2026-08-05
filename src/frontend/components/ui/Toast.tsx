@@ -103,22 +103,23 @@ const TYPE_STYLES: Record<
   ToastType,
   { ring: string; bg: string; text: string; icon: typeof CheckCircle2 }
 > = {
+  // Sprint 39 (DEC-125): use ink + semantic color tokens for consistency
   success: {
-    ring: 'ring-green-200',
-    bg: 'bg-green-50',
-    text: 'text-green-800',
+    ring: 'ring-success-200',
+    bg: 'bg-success-50',
+    text: 'text-success-700',
     icon: CheckCircle2,
   },
   error: {
-    ring: 'ring-red-200',
-    bg: 'bg-red-50',
-    text: 'text-red-800',
+    ring: 'ring-danger-200',
+    bg: 'bg-danger-50',
+    text: 'text-danger-700',
     icon: XCircle,
   },
   info: {
-    ring: 'ring-blue-200',
-    bg: 'bg-blue-50',
-    text: 'text-blue-800',
+    ring: 'ring-brand-200',
+    bg: 'bg-brand-50',
+    text: 'text-brand-700',
     icon: Info,
   },
 };
@@ -157,7 +158,7 @@ function ToastViewport({ toasts, onDismiss }: ToastViewportProps) {
               onClick={() => onDismiss(t.id)}
               className={cn(
                 'flex-shrink-0 rounded p-0.5 transition-colors',
-                'text-gray-400 hover:text-gray-700 hover:bg-white/60'
+                'text-ink-400 hover:text-ink-700 hover:bg-white/60'
               )}
               aria-label="إغلاق الإشعار"
             >

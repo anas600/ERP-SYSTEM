@@ -57,7 +57,7 @@ const LS_EXPANDED_KEY = 'erp.coa.expanded';
 /** AccountType → display label + Tailwind accent for the badge + tree line. */
 const TYPE_ACCENT: Record<number, { label: string; color: string; chip: string }> = {
   1: { label: 'أصول', color: 'text-blue-700', chip: 'bg-blue-50 text-blue-700' },
-  2: { label: 'خصوم', color: 'text-red-700', chip: 'bg-red-50 text-red-700' },
+  2: { label: 'خصوم', color: 'text-red-700', chip: 'bg-danger-50 text-red-700' },
   3: { label: 'حقوق ملكية', color: 'text-purple-700', chip: 'bg-purple-50 text-purple-700' },
   4: { label: 'إيرادات', color: 'text-green-700', chip: 'bg-green-50 text-green-700' },
   5: { label: 'مصروفات', color: 'text-orange-700', chip: 'bg-orange-50 text-orange-700' },
@@ -331,7 +331,7 @@ export default function AccountsPage() {
       </Card>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
@@ -628,7 +628,7 @@ function AddChildAccountModal({ parent, onClose, onCreated }: AddChildModalProps
     >
       <form id="add-child-form" onSubmit={onSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
             <XIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>

@@ -26,7 +26,7 @@ export default function AuthenticatedError({
   return (
     <div dir="rtl" className="py-8">
       <Card className="max-w-2xl mx-auto text-center py-10">
-        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-red-50 text-red-600 mb-4">
+        <div className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-danger-50 text-danger-600 mb-4">
           <AlertTriangle className="h-8 w-8" />
         </div>
         <h1 className="text-2xl font-bold text-gray-800 mb-2">حدث خطأ غير متوقع</h1>

@@ -13,6 +13,52 @@
 
 ---
 
+## Sprint 39 — UI/UX Overhaul + Tax Optional Enforcement (2026-08-05) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's "Sprint 39" — tax is OPT-IN (Libya = no default tax), design system overhaul, comprehensive Playwright sweep.
+
+### Added (DEC-125)
+- **Design tokens** (tailwind.config.js + globals.css): brand 50→950, success/warning/danger/ink semantic colors, soft shadows, smooth animations (fade-in/slide-up/scale-in/shimmer)
+- **Sales Invoice form**: `useVat5` toggle ("تطبيق ضريبة 5%") — OFF by default, with "اختياري" badge. When ON: per-line taxRate column hidden, tax row in summary, save button shows "Dr 1230 / Cr 5110 / Cr 1411"
+- **Login page**: brand gradient + glassmorphism card + Toast on success
+- **AppShell**: gradient avatar, refined user menu (الملف الشخصي link), brand-50 active state
+- **Playwright scripts**: 4 new test files (UI smoke 9 tests, page sweep 50 tests, key screens 13, interactive 8)
+
+### Changed
+- 12 UI components redesigned with new design tokens (Button, Card, Input, Select, Badge, Table, PageHeader, EmptyState, LoadingSkeleton, Modal, ConfirmDialog, Toast)
+- Toast uses semantic colors (success-50/danger-50/brand-50)
+- SalesInvoice interface: `+useVat5?: boolean`
+
+### Fixed (L60/L67)
+- **Journal Entries list** — was using raw `fetch()` without JWT (401 silently failed). Now uses `financeApi.listJournalEntries()` (auto-JWT). **50+ entries now load correctly** with balanced summary
+- **Journal Entry detail** — raw `fetch` → `financeApi.getJournalEntry` + `financeApi.postJournalEntry`. Added ConfirmDialog for post action
+- **Journal Entry new** — raw `fetch` → `financeApi.createJournalEntry`
+- **Receipts page** — replaced native `confirm()`/`alert()` with `<ConfirmDialog>` + `<Toast>`. Added EmptyState + SkeletonTable
+- **All pages (82)** — bulk color migration: `bg-red-50/border-red-200/text-red-700` → `bg-danger-50/border-danger-200/text-danger-700` (330 substitutions)
+- **9 pages** — secondary red→danger migration (icons, asterisks, hover states)
+
+### Lessons (L65..L68)
+- **L65**: Bulk color/token migration via Python script (don't do per-file)
+- **L66**: Use `<ConfirmDialog>` + `<Toast>` instead of native `confirm()` + `alert()` — always
+- **L67**: Never use raw `fetch('/api/...')` — always use the API client (L60 was about types, L67 is about runtime 401)
+- **L68**: Playwright sweep is the highest-ROI test (50 pages in ~2 min, catches bugs API tests miss)
+
+### Verification
+- npm type-check: 0 errors
+- npm build: 50+ pages compiled
+- Playwright UI smoke: 9/9
+- Playwright page sweep: 50/50 (200 OK, 0 JS errors)
+- Playwright interactive: 8/8 (login → dashboard → journal → customer → user menu → confirm dialog)
+- L19 audit: stable (no regressions; Sprint 38 fixes still in place)
+
+### Carry-over Sprint 40+
+- **P0**: 17 files still use raw `fetch()` (L67 carry-over): admin/* (8), finance/cost-centers/* + accounts/new (3), inventory/items/new + movements + reservations/* (4), procurement/goods-receipts/new, projects/new
+- **P1**: UI feedback from Anas (click-to-expand, form improvements)
+- **P2**: 4 VAT-related workflows (Sprint 35.5 cancelled)
+- **P2**: mvp-docker rebuild (auto-rebuild still failing, deferred)
+
+---
+
 ## Sprint 38 — L19 audit on service layer + 4 final Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's "ابدا Sprint 38" — L19 audit on direct SQL in service layer (Constitution Article 3 enforcement) + 4 more manual JE templates (completing 12 of 12 planned).

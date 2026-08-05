@@ -198,7 +198,7 @@ export default function EditSalesInvoicePage() {
     return (
       <div>
         <PageHeader title="✏️ تعديل فاتورة مبيعات" />
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">
           {error}
         </div>
         <div className="mt-4">
@@ -283,7 +283,7 @@ export default function EditSalesInvoicePage() {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
       )}
 
       <form onSubmit={onSubmit}>
@@ -392,7 +392,7 @@ export default function EditSalesInvoicePage() {
                           <button
                             type="button"
                             onClick={() => removeLine(l.localId)}
-                            className="text-red-500 hover:text-red-700 p-1"
+                            className="text-danger-500 hover:text-danger-700 p-1"
                             disabled={lines.length === 1}
                             title="حذف البند"
                           >

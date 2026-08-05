@@ -60,7 +60,7 @@ export default function StockLevelDetailPage() {
       <div>
         <PageHeader title="مستوى المخزون" />
         <Card>
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div>
           <div className="mt-4"><Link href="/inventory/stock-levels"><Button variant="ghost">رجوع</Button></Link></div>
         </Card>
       </div>

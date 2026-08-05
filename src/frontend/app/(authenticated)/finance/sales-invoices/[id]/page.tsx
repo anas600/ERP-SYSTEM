@@ -99,7 +99,7 @@ export default function SalesInvoiceDetailPage() {
     return (
       <div>
         <PageHeader title="فاتورة مبيعات" description="خطأ" />
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error}</div>
       </div>
     );
   }
@@ -252,9 +252,9 @@ export default function SalesInvoiceDetailPage() {
                 <span className="text-green-700">المدفوع:</span>
                 <span className="font-mono font-semibold text-green-700">{formatNumber(invoice.paidAmount)}</span>
               </div>
-              <div className="flex justify-between border-t pt-2 bg-red-50 -mx-4 px-4 py-2 mt-2">
-                <span className="font-bold text-red-700">المتبقي:</span>
-                <span className="font-mono font-bold text-red-700 text-lg">{formatNumber(invoice.outstanding)}</span>
+              <div className="flex justify-between border-t pt-2 bg-danger-50 -mx-4 px-4 py-2 mt-2">
+                <span className="font-bold text-danger-700">المتبقي:</span>
+                <span className="font-mono font-bold text-danger-700 text-lg">{formatNumber(invoice.outstanding)}</span>
               </div>
             </div>
           </Card>

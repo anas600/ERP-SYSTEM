@@ -164,7 +164,7 @@ export default function EditPostingRulePage() {
       <div>
         <PageHeader title="قاعدة" />
         <Card>
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">
             {error || 'غير موجود'}
           </div>
           <div className="mt-4">
@@ -203,7 +203,7 @@ export default function EditPostingRulePage() {
 
       <Card className="max-w-3xl">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}

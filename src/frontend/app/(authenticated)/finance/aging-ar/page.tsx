@@ -56,7 +56,7 @@ export default function AgingArPage() {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
       )}
 
       {report && (
@@ -80,13 +80,13 @@ export default function AgingArPage() {
               <p className="text-xs text-gray-500">61-90 يوم</p>
               <p className="font-mono font-bold text-orange-700">{formatNumber(report.grandTotal.bucket61To90)}</p>
             </div>
-            <div className="bg-red-50 rounded-lg p-3">
+            <div className="bg-danger-50 rounded-lg p-3">
               <p className="text-xs text-gray-500">91-120 يوم</p>
-              <p className="font-mono font-bold text-red-700">{formatNumber(report.grandTotal.bucket91To120)}</p>
+              <p className="font-mono font-bold text-danger-700">{formatNumber(report.grandTotal.bucket91To120)}</p>
             </div>
             <div className="bg-red-100 rounded-lg p-3">
               <p className="text-xs text-gray-500">+120 يوم</p>
-              <p className="font-mono font-bold text-red-800">{formatNumber(report.grandTotal.bucket120Plus)}</p>
+              <p className="font-mono font-bold text-danger-700">{formatNumber(report.grandTotal.bucket120Plus)}</p>
             </div>
             <div className="bg-blue-50 rounded-lg p-3">
               <p className="text-xs text-gray-500">المجموع</p>
@@ -130,13 +130,13 @@ export default function AgingArPage() {
             key: 'b91_120',
             header: '91-120',
             align: 'end',
-            render: (r) => <span className="font-mono text-red-700">{formatNumber(r.buckets.bucket91To120)}</span>,
+            render: (r) => <span className="font-mono text-danger-700">{formatNumber(r.buckets.bucket91To120)}</span>,
           },
           {
             key: 'b120p',
             header: '+120',
             align: 'end',
-            render: (r) => <span className="font-mono text-red-800 font-bold">{formatNumber(r.buckets.bucket120Plus)}</span>,
+            render: (r) => <span className="font-mono text-danger-700 font-bold">{formatNumber(r.buckets.bucket120Plus)}</span>,
           },
           {
             key: 'total',

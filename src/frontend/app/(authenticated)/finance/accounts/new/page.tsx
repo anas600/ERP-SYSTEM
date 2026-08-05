@@ -98,7 +98,7 @@ export default function NewAccountPage() {
 
       <Card className="max-w-2xl">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">

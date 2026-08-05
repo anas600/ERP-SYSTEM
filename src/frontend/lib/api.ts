@@ -701,6 +701,8 @@ export interface SalesInvoice {
   status: number;
   notes?: string;
   projectId?: string;
+  // Sprint 35 (DEC-118) + Sprint 39 (DEC-125): VAT 5% opt-in flag
+  useVat5?: boolean;
   postedAt?: string;
   journalEntryId?: string;
   createdAt: string;
@@ -816,6 +818,10 @@ export const arApi = {
     exchangeRate: number;
     notes?: string;
     projectId?: string;
+    // Sprint 39 (DEC-125): useVat5 is opt-in, OFF by default. Per Libyan rule
+    // ("لا نطبق الضريبة بشكل افتراضي"). When true, the BE applies the VAT 5%
+    // posting rule and emits Cr 1411 (VAT Output). When false, no VAT.
+    useVat5?: boolean;
     lines: { description: string; quantity: number; unitPrice: number; taxRate: number; itemId?: string }[];
     postImmediately?: boolean;
   }): Promise<SalesInvoice> => {
@@ -983,6 +989,50 @@ export const authApi = {
   },
 };
 
+// ============ Journal Entry types (Sprint 39, DEC-125) ============
+// الـ API client methods (L60): يجب استخدام api client method بدلاً من raw fetch()
+// حتى يتم إرفاق JWT تلقائياً. الـ types موحدة هنا لتجنب duplicate interfaces.
+
+export interface JournalEntryLine {
+  lineNumber: number;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  reference?: string;
+  status: number; // 1=Draft, 2=Posted, 3=Reversed
+  postedAt?: string;
+  totalDebit: number;
+  totalCredit: number;
+  lines?: JournalEntryLine[];
+}
+
+export interface JournalEntryDetail extends JournalEntry {
+  lines: JournalEntryLine[];
+  createdAt?: string;
+  createdBy?: string;
+  postingRuleId?: string;
+  sourceType?: string;
+  sourceId?: string;
+}
+
+export interface CreateJournalEntryRequest {
+  entryDate: string;
+  description: string;
+  reference?: string;
+  lines: { accountId: string; debit: number; credit: number; description?: string }[];
+  postImmediately?: boolean;
+}
+
 export const financeApi = {
   listAccounts: async (): Promise<Account[]> => {
     const r = await api.get<Account[]>('/api/finance/accounts');
@@ -998,6 +1048,27 @@ export const financeApi = {
     const r = await api.get<TrialBalanceRow[]>('/api/finance/ledger/trial-balance', {
       params: asOf ? { asOf } : undefined,
     });
+    return r.data;
+  },
+  // Sprint 39 (DEC-125): Journal entries list (L60 — API client method so JWT is attached)
+  listJournalEntries: async (): Promise<JournalEntry[]> => {
+    const r = await api.get<JournalEntry[]>('/api/finance/journal-entries');
+    return r.data;
+  },
+  getJournalEntry: async (id: string): Promise<JournalEntryDetail> => {
+    const r = await api.get<JournalEntryDetail>(`/api/finance/journal-entries/${id}`);
+    return r.data;
+  },
+  createJournalEntry: async (data: CreateJournalEntryRequest): Promise<JournalEntry> => {
+    const r = await api.post<JournalEntry>('/api/finance/journal-entries', data);
+    return r.data;
+  },
+  postJournalEntry: async (id: string): Promise<{ journalEntryId: string; entryNumber: string; status: string }> => {
+    const r = await api.post<{ journalEntryId: string; entryNumber: string; status: string }>(`/api/finance/journal-entries/${id}/post`, {});
+    return r.data;
+  },
+  reverseJournalEntry: async (id: string, reason: string): Promise<{ reversedEntryId: string; reversalEntryId: string; entryNumber: string }> => {
+    const r = await api.post<{ reversedEntryId: string; reversalEntryId: string; entryNumber: string }>(`/api/finance/journal-entries/${id}/reverse`, { reason });
     return r.data;
   },
 };

@@ -1,6 +1,7 @@
 'use client';
 
-// مكوّن ConfirmDialog — نافذة تأكيد قابلة لإعادة الاستخدام
+// مكوّن ConfirmDialog — Sprint 39 (DEC-125) Design System
+// نافذة تأكيد قابلة لإعادة الاستخدام
 // تُستخدم لعمليات الحذف/التعطيل/الإجراءات الحساسة
 // الاستخدام:
 //   <ConfirmDialog
@@ -19,7 +20,7 @@ import { AlertTriangle, Info } from 'lucide-react';
 import { Button } from './Button';
 import { cn } from '@/lib/utils';
 
-export type ConfirmDialogVariant = 'danger' | 'primary';
+export type ConfirmDialogVariant = 'danger' | 'primary' | 'warning';
 
 export interface ConfirmDialogProps {
   /** هل الـ Dialog مفتوح؟ */
@@ -42,18 +43,24 @@ export interface ConfirmDialogProps {
   onCancel: () => void;
 }
 
-const VARIANT_STYLES: Record<ConfirmDialogVariant, { btn: 'danger' | 'primary'; iconBg: string; iconText: string; Icon: typeof AlertTriangle }> = {
+const VARIANT_STYLES: Record<ConfirmDialogVariant, { btn: 'danger' | 'primary' | 'success'; iconBg: string; iconText: string; Icon: typeof AlertTriangle }> = {
   danger: {
     btn: 'danger',
-    iconBg: 'bg-red-100',
-    iconText: 'text-red-600',
+    iconBg: 'bg-danger-100',
+    iconText: 'text-danger-600',
     Icon: AlertTriangle,
   },
   primary: {
     btn: 'primary',
-    iconBg: 'bg-blue-100',
-    iconText: 'text-blue-600',
+    iconBg: 'bg-brand-100',
+    iconText: 'text-brand-600',
     Icon: Info,
+  },
+  warning: {
+    btn: 'primary',
+    iconBg: 'bg-warning-100',
+    iconText: 'text-warning-700',
+    Icon: AlertTriangle,
   },
 };
 
@@ -97,7 +104,7 @@ export function ConfirmDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/50 animate-fade-in"
       onClick={loading ? undefined : onCancel}
       dir="rtl"
       role="dialog"
@@ -106,7 +113,7 @@ export function ConfirmDialog({
     >
       <div
         className={cn(
-          'w-full max-w-md bg-white rounded-2xl shadow-xl',
+          'w-full max-w-md bg-white rounded-2xl shadow-xl animate-scale-in',
           'flex flex-col overflow-hidden'
         )}
         onClick={(e) => e.stopPropagation()}
@@ -121,13 +128,13 @@ export function ConfirmDialog({
             <Icon className={cn('h-5 w-5', style.iconText)} />
           </div>
           <div className="flex-1 min-w-0">
-            <h2 id="confirm-dialog-title" className="text-base font-bold text-gray-800">
+            <h2 id="confirm-dialog-title" className="text-base font-bold text-ink-800">
               {title}
             </h2>
-            <div className="mt-1.5 text-sm text-gray-600 leading-6">{message}</div>
+            <div className="mt-1.5 text-sm text-ink-600 leading-6">{message}</div>
           </div>
         </div>
-        <div className="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-start gap-2">
+        <div className="px-6 py-3 bg-ink-50 border-t border-ink-100 flex items-center justify-start gap-2">
           <Button variant={style.btn} onClick={onConfirm} loading={loading}>
             {confirmLabel}
           </Button>

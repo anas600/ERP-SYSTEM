@@ -1,7 +1,7 @@
 'use client';
 
 // مكوّن Table — جدول موحد مع loading / empty states
-// الاستخدام: <Table columns={...} data={...} loading={...} emptyMessage="..." />
+// Sprint 39 (DEC-125): uses ink-* tokens, soft shadows, smooth hover states
 
 import { ReactNode } from 'react';
 import Link from 'next/link';
@@ -42,8 +42,8 @@ export function Table<T>({
 }: TableProps<T>) {
   if (loading) {
     return (
-      <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
-        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+      <div className="bg-white rounded-xl shadow-soft border border-ink-200 p-12 text-center text-ink-500">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-brand-500 border-r-transparent" />
         <p className="mt-3 text-sm">جاري التحميل...</p>
       </div>
     );
@@ -51,23 +51,23 @@ export function Table<T>({
 
   if (data.length === 0) {
     return (
-      <div className="bg-white rounded-xl shadow-sm p-12 text-center text-gray-500">
+      <div className="bg-white rounded-xl shadow-soft border border-ink-200 p-12 text-center text-ink-500">
         {emptyMessage}
       </div>
     );
   }
 
   return (
-    <div className={cn('bg-white rounded-xl shadow-sm overflow-hidden', className)}>
+    <div className={cn('bg-white rounded-xl shadow-soft border border-ink-200 overflow-hidden', className)}>
       <div className="overflow-x-auto">
         <table className="w-full">
-          <thead className="bg-gray-50 border-b border-gray-200">
+          <thead className="bg-ink-50 border-b border-ink-200">
             <tr>
               {columns.map((col) => (
                 <th
                   key={col.key}
                   className={cn(
-                    'px-4 py-3 text-xs font-semibold text-gray-600',
+                    'px-4 py-3 text-xs font-semibold text-ink-600',
                     col.align === 'center' && 'text-center',
                     col.align === 'end' && 'text-end',
                     (!col.align || col.align === 'start') && 'text-start',
@@ -104,8 +104,8 @@ export function Table<T>({
                   key={rowKey(row)}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   className={cn(
-                    'border-b border-gray-100 last:border-0',
-                    (onRowClick || rowHref) && 'cursor-pointer hover:bg-gray-50'
+                    'border-b border-ink-100 last:border-0 transition-colors duration-150',
+                    (onRowClick || rowHref) && 'cursor-pointer hover:bg-ink-50'
                   )}
                 >
                   {href ? (
