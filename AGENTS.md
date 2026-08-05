@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-04 (Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-05 (Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -373,6 +373,33 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 - `ChartOfAccountsService` (in Finance) — likely 2-4 violations
 - `PayrollService` (in Payroll) — likely 2-4 violations
 - Any service that still has `req.CompanyId` in the DTO — refactor to `_companyContext.CompanyId` (L30)
+
+## Sprint 36 Decisions (DEC-122) + Lessons (L59..L60)
+
+### Decisions
+- **DEC-122 — Customer + Vendor Statement + Trial Balance** (Sprint 36): 
+  - 2 new BE services (`CustomerStatementService` + `VendorStatementService`) with opening balance + chronological line items + running balance
+  - 2 new BE endpoints (`GET /api/ar/customers/{id}/statement`, `GET /api/procurement/vendors/{id}/statement`)
+  - 3 new FE pages (customer statement + vendor statement + trial balance) with date range filters, summary cards, color-coded running balance
+  - TB UI: balanced/unbalanced bar + 5 per-type grouped tables (أصول / خصوم / حقوق ملكية / إيرادات / مصروفات) with subtotals
+  - L19 enforcement: each service reads `_companyContext.CompanyId` (not from DTO) and verifies the customer/vendor belongs to current tenant
+  - Posted-only filter: invoices/bills with `status NOT IN ('Cancelled', 'Draft')`; receipts/payments with `posted_at IS NOT NULL`
+- **DEC-122-collateral — VendorRepository L19 fix** (Sprint 36): `Sel` was missing `company_id AS CompanyId`. Without it, every vendor returned "not found" because Dapper mapped `CompanyId=Guid.Empty`. Sprint 34 audit (DEC-114..117) missed this repo.
+- **DEC-122-collateral — Receipts / VendorBills / Payments schema corrections**: removed `status` from receipts SELECT (table has no such column), removed `paid_amount` from vendor_bills SELECT (no such column), removed `status` from payments SELECT (it's INT, not string).
+- **DEC-122-collateral — FE enum types**: replaced `AccountType` (int union) with `AccountTypeName` ('Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense'). BE returns string via Dapper `EnumStringTypeHandler`.
+
+### Lessons
+- **L59 (NEW)** (Sprint 36): ALWAYS run the actual endpoint with a real seed before declaring a Sprint "BE done". The Postgres error "column X does not exist" is the canonical source of truth. We caught 3 separate column-name bugs in DEC-122 BE work that typecheck alone would not have surfaced:
+  1. `vendor_repository.Sel` missing `company_id` (L19 violation)
+  2. `receipts` has no `status` column
+  3. `vendor_bills` has no `paid_amount` column
+  The pattern: write the SQL, run it via `Invoke-RestMethod`, check the JSON, fix the errors. Don't trust the typecheck.
+- **L60 (NEW)** (Sprint 36): When the BE registers `SqlMapper.AddTypeHandler(new EnumStringTypeHandler<...>())`, the matching FE interface MUST use string literal types, not int enums. The handler silently converts every enum property to its string name on read. Affects: `AccountType`, `NormalBalance`, `PaymentStatus`, `POStatus`, `SalesInvoiceStatus`, etc. When in doubt, `Invoke-RestMethod` the endpoint and check the actual JSON shape — the type IS the source of truth.
+
+### Pending L19 audit (carry-over to Sprint 37+)
+- `VendorBillRepository.SelVb` — verify it includes `company_id AS CompanyId` (Sprint 34 missed; same pattern as `VendorRepository`)
+- Other `IRepository.Sel*` projections in finance/procurement modules — full sweep
+- All `req.CompanyId` DTO references still in services — refactor to `_companyContext.CompanyId` (L30)
 
 ## Sprint 31 Decisions (DEC-107..110) + Lessons (L43..L46)
 

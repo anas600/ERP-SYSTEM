@@ -13,6 +13,55 @@
 
 ---
 
+## Sprint 36 — Customer/Vendor Statements + Trial Balance FE (2026-08-05) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's "نتقدم في تنفيد الاسبرينت التالي" — close out the remaining P1 carry-over from Sprint 33-34 plan: كشف حساب العميل + كشف حساب المورّد + ميزان المراجعة.
+
+### Added (DEC-122)
+- **BE — 2 new services + 2 DTO files**:
+  - `CustomerStatementService.GetStatementAsync(customerId, from, to)` — opening balance + invoices + receipts + running balance (Posted only)
+  - `VendorStatementService.GetStatementAsync(vendorId, from, to)` — opening balance + bills + payments (PartyType='Vendor') + running balance (Posted only)
+  - `StatementDtos.cs` in both modules (CustomerStatement / VendorStatement / StatementLine)
+- **BE — 2 new endpoints**:
+  - `GET /api/ar/customers/{id:guid}/statement?from=&to=`
+  - `GET /api/procurement/vendors/{id:guid}/statement?from=&to=`
+- **FE — 3 new pages**:
+  - `/finance/customers/[id]/statement` — date range + 4 summary cards (opening/invoiced/received/closing) + chronological lines table with running balance
+  - `/procurement/vendors/[id]/statement` — same pattern, AP convention (orange theme)
+  - `/finance/trial-balance` — date-as-of + balanced/unbalanced bar + 5 per-type grouped tables (أصول / خصوم / حقوق ملكية / إيرادات / مصروفات)
+- **FE — quick links**:
+  - Customer list: new "إجراءات" column with "كشف حساب" link per row
+  - Vendor list: same
+  - Customer detail page: "كشف حساب العميل" primary action button
+- **FE — AppShell**: new "ميزان المراجعة" sidebar entry (Scale icon)
+- **FE — `lib/api.ts`**: 3 new methods (`arApi.getCustomerStatement`, `procurementApi.getVendorStatement`, `financeApi.getTrialBalance`)
+
+### Fixed
+- **VendorRepository.L19 violation (caught by smoke test)**: `Sel` was missing `company_id AS CompanyId`, causing every vendor to fail the L19 `vendor.CompanyId != companyId` check. Sprint 34 audit missed this repo.
+- **CustomerStatementService SQL bugs**: removed `status` from `receipts` SELECT (column doesn't exist; `posted_at IS NOT NULL` is used instead). Removed `Status` from `StatementReceiptRow` DTO.
+- **VendorStatementService SQL bugs**: removed `paid_amount` from `vendor_bills` SELECT (no such column; the running balance formula was wrong because of it), removed `status` from `payments` SELECT (column is INT, not string), fixed opening balance formula.
+- **Trial Balance FE enum type**: `AccountType` was typed as int union `[1|2|3|4|5]` but BE returns string (`"Asset"`, `"Liability"`, etc.) via Dapper's `EnumStringTypeHandler`. Now using `AccountTypeName` ('Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense').
+
+### Verification
+- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
+- `npm run type-check`: 0 errors
+- `npm run build`: success, 3 new routes
+- Playwright smoke: 6/6 (TB balanced bar + 30 accounts; customer/vendor list links; customer/vendor statement summary cards)
+- BE smoke: customer statement 200, vendor statement 200, trial balance 200 (balanced: 833,005 = 833,005 LYD)
+
+### Lessons (L59, L60)
+- **L59**: Run the actual endpoint with a real seed before declaring BE done. The Postgres error "column X does not exist" is the source of truth. Typecheck + tests don't catch missing columns.
+- **L60**: When BE uses Dapper EnumStringTypeHandler, FE interfaces MUST use string literal types, not int enums. The handler silently converts every enum property to its string name on read.
+
+### Carry-over (Sprint 37+)
+- **P0**: Audit `VendorBillRepository` and all other `IRepository.Sel*` for L19 SELECT patterns (Sprint 34 audit missed `VendorRepository`)
+- **P1**: UI feedback from Anas (Sprint 32 + 33 carry-over) — receipt/invoice click-to-expand (partially done in Sprint 33), overall UI polish
+- **P2**: 8 more manual JE templates (Sprint 34 shipped 4 of 12)
+
+---
+
+
+
 ## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's Q1 from Sprint 31 (defer to Sprint 32) — fix the Projects module's 4 missing `data-types/*.json` files so the tables get created. Closed the loop on L44 ("Projects module is partially implemented").
