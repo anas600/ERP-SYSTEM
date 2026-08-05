@@ -4,7 +4,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, Mail, Phone, MapPin } from 'lucide-react';
+import { Plus, Mail, Phone, MapPin, FileBarChart } from 'lucide-react';
 import { Button, Input, Table, Badge, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
 import { procurementApi, Vendor, PAYMENT_TERMS, getErrorMessage } from '@/lib/api';
@@ -131,6 +131,22 @@ export default function VendorsPage() {
             header: 'الحالة',
             align: 'center',
             render: (v) => (v.isActive ? <Badge variant="success">نشط</Badge> : <Badge variant="neutral">غير نشط</Badge>),
+          },
+          // Sprint 36 (DEC-122): quick statement link
+          {
+            key: 'actions',
+            header: 'إجراءات',
+            align: 'center',
+            render: (v) => (
+              <Link
+                href={`/procurement/vendors/${v.id}/statement`}
+                className="inline-flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                title="كشف حساب المورّد"
+              >
+                <FileBarChart className="h-3.5 w-3.5" />
+                كشف حساب
+              </Link>
+            ),
           },
         ]}
         data={filtered}

@@ -219,18 +219,71 @@ export const RESOURCE_TYPES: Record<number, string> = {
 };
 
 // ============ Reports ============
+// Sprint 36 (DEC-122): Trial Balance + Customer/Vendor Statements
+// Trial Balance — matches AccountBalanceResponse in FinanceDtos.cs
+export type AccountType = 1 | 2 | 3 | 4 | 5; // 1=Asset, 2=Liability, 3=Equity, 4=Revenue, 5=Expense
+export type NormalBalance = 1 | 2; // 1=Debit, 2=Credit
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  1: 'أصول',
+  2: 'خصوم',
+  3: 'حقوق ملكية',
+  4: 'إيرادات',
+  5: 'مصروفات',
+};
+
 export interface TrialBalanceRow {
   accountId: string;
   accountCode: string;
   accountName: string;
-  accountType: number;
-  debit: number;
-  credit: number;
+  type: AccountType;
+  normalBalance: NormalBalance;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
 }
 
 export interface TrialBalanceReport {
   asOfDate: string;
   rows: TrialBalanceRow[];
+}
+
+// ============ Statements (Customer / Vendor) ============
+// Sprint 36 (DEC-122) — chronological ledger per party
+export interface StatementLine {
+  date: string;
+  type: 'Opening' | 'فاتورة' | 'سند قبض' | 'فاتورة مورّد' | 'دفعة';
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface CustomerStatement {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  totalInvoiced: number;
+  totalReceived: number;
+  closingBalance: number;
+  lines: StatementLine[];
+}
+
+export interface VendorStatement {
+  vendorId: string;
+  vendorCode: string;
+  vendorName: string;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  totalBilled: number;
+  totalPaid: number;
+  closingBalance: number;
+  lines: StatementLine[];
 }
 
 // ============ Procurement ============
@@ -720,6 +773,20 @@ export const arApi = {
     await api.delete(`/api/ar/customers/${id}`);
   },
 
+  // ----- Customer Statement (Sprint 36, DEC-122) -----
+  // كشـف حساب العميل: رصيد افتتاحي + فواتير + مقبوضات + رصيد ختامي
+  getCustomerStatement: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<CustomerStatement> => {
+    const r = await api.get<CustomerStatement>(
+      `/api/ar/customers/${id}/statement`,
+      { params: { from, to } }
+    );
+    return r.data;
+  },
+
   // ----- Sales Invoices -----
   listInvoices: async (): Promise<SalesInvoice[]> => {
     const r = await api.get<SalesInvoice[]>('/api/ar/sales-invoices');
@@ -913,6 +980,14 @@ export const financeApi = {
     const r = await api.post<Account>('/api/finance/accounts', data);
     return r.data;
   },
+  // ----- Trial Balance (Sprint 36, DEC-122) -----
+  // ميزان المراجعة: كل الحسابات وأرصدتها في تاريخ معين
+  getTrialBalance: async (asOf?: string): Promise<TrialBalanceRow[]> => {
+    const r = await api.get<TrialBalanceRow[]>('/api/finance/ledger/trial-balance', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
 };
 
 // Sprint 22: Reports module deleted. Complex report APIs (Trial Balance, P&L,
@@ -1068,6 +1143,20 @@ export const procurementApi = {
   },
   createVendor: async (data: Partial<Vendor>): Promise<Vendor> => {
     const r = await api.post<Vendor>('/api/procurement/vendors', data);
+    return r.data;
+  },
+
+  // ----- Vendor Statement (Sprint 36, DEC-122) -----
+  // كشـف حساب المورّد: رصيد افتتاحي + فواتير + مدفوعات + رصيد ختامي
+  getVendorStatement: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<VendorStatement> => {
+    const r = await api.get<VendorStatement>(
+      `/api/procurement/vendors/${id}/statement`,
+      { params: { from, to } }
+    );
     return r.data;
   },
   // PUT /api/procurement/vendors/{id}

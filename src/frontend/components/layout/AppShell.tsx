@@ -49,6 +49,8 @@ import {
   Package,
   FileSpreadsheet,
   ArrowRightLeft,
+  // Sprint 36 (DEC-122): Trial Balance
+  Scale,
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
@@ -86,6 +88,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'قيود اليومية', href: '/finance/journal-entries', icon: GitBranch },
       // Sprint 11 T1: top-level Transactions hub (recent journal feed).
       { label: 'المعاملات الأخيرة', href: '/transactions', icon: ArrowRightLeft },
+      // Sprint 36 (DEC-122): ميزان المراجعة (Trial Balance)
+      { label: 'ميزان المراجعة', href: '/finance/trial-balance', icon: Scale },
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },

@@ -63,7 +63,7 @@ public sealed class VendorStatementService : IVendorStatementService
             p.Add("From", from.Value);
             const string openSql = @"
                 SELECT COALESCE(SUM(CASE WHEN vb.status NOT IN ('Cancelled', 'Draft')
-                                        THEN vb.total_amount - vb.paid_amount ELSE 0 END), 0) AS BillOutstanding
+                                        THEN vb.total_amount ELSE 0 END), 0) AS BillOutstanding
                 FROM vendor_bills vb
                 WHERE vb.vendor_id = @VendorId
                   AND vb.bill_date < @From
@@ -76,9 +76,10 @@ public sealed class VendorStatementService : IVendorStatementService
         // 2) Period: كل فواتير المورّد المُرحَّلة + كل المدفوعات (PartyType='Vendor') في الفترة
         var p2 = new DynamicParameters();
         p2.Add("VendorId", vendorId);
+        // NOTE: vendor_bills has NO paid_amount column — just total_amount
         var billSql = @"
             SELECT id, bill_number AS BillNumber, bill_date AS Date,
-                   total_amount AS TotalAmount, paid_amount AS PaidAmount, status,
+                   total_amount AS TotalAmount, status,
                    COALESCE(notes, '') AS Notes
             FROM vendor_bills
             WHERE vendor_id = @VendorId AND status NOT IN ('Cancelled', 'Draft')";
@@ -90,9 +91,10 @@ public sealed class VendorStatementService : IVendorStatementService
         var p3 = new DynamicParameters();
         p3.Add("VendorId", vendorId);
         // payments حيث PartyType = 'Vendor' (مدفوعاتنا للمورد)
+        // NOTE: payments.status is INT — use posted_at IS NOT NULL to filter posted payments only.
         var paySql = @"
             SELECT id, payment_number AS PaymentNumber, payment_date AS Date,
-                   amount AS Amount, status,
+                   amount AS Amount,
                    COALESCE(notes, '') AS Notes
             FROM payments
             WHERE party_type = 'Vendor' AND party_id = @VendorId AND posted_at IS NOT NULL";
@@ -167,7 +169,6 @@ public sealed class VendorStatementService : IVendorStatementService
         public string BillNumber { get; set; } = string.Empty;
         public DateTime Date { get; set; }
         public decimal TotalAmount { get; set; }
-        public decimal PaidAmount { get; set; }
         public string Status { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
     }
@@ -178,7 +179,6 @@ public sealed class VendorStatementService : IVendorStatementService
         public string PaymentNumber { get; set; } = string.Empty;
         public DateTime Date { get; set; }
         public decimal Amount { get; set; }
-        public string Status { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
     }
 }

@@ -104,9 +104,10 @@ public sealed class CustomerStatementService : ICustomerStatementService
 
         var p3 = new DynamicParameters();
         p3.Add("CustomerId", customerId);
+        // NOTE: receipts table has NO `status` column — use posted_at IS NOT NULL to determine if posted.
         var recSql = @"
             SELECT id, receipt_number AS ReceiptNumber, receipt_date AS Date,
-                   amount AS Amount, status,
+                   amount AS Amount,
                    COALESCE(notes, '') AS Notes
             FROM receipts
             WHERE customer_id = @CustomerId AND posted_at IS NOT NULL";
@@ -137,8 +138,8 @@ public sealed class CustomerStatementService : ICustomerStatementService
 
         // Merge invoices + receipts sorted by date
         var combined = invoices
-            .Select(i => new { Date = i.Date, Kind = "Invoice", Ref = i.InvoiceNumber, Desc = i.Notes, Dr = i.TotalAmount, Cr = 0m, Inv = (object)i, Rec = (object?)null })
-            .Concat(receipts.Select(r => new { Date = r.Date, Kind = "Receipt", Ref = r.ReceiptNumber, Desc = r.Notes, Dr = 0m, Cr = r.Amount, Inv = (object?)null, Rec = (object)r }))
+            .Select(i => new { Date = i.Date, Kind = "Invoice", Ref = i.InvoiceNumber, Desc = i.Notes, Dr = i.TotalAmount, Cr = 0m })
+            .Concat(receipts.Select(r => new { Date = r.Date, Kind = "Receipt", Ref = r.ReceiptNumber, Desc = r.Notes, Dr = 0m, Cr = r.Amount }))
             .OrderBy(x => x.Date)
             .ThenBy(x => x.Ref)
             .ToList();
@@ -192,7 +193,6 @@ public sealed class CustomerStatementService : ICustomerStatementService
         public string ReceiptNumber { get; set; } = string.Empty;
         public DateTime Date { get; set; }
         public decimal Amount { get; set; }
-        public string Status { get; set; } = string.Empty;
         public string Notes { get; set; } = string.Empty;
     }
 }
