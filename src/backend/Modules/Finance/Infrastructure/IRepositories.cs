@@ -21,13 +21,14 @@ public interface IAccountRepository
 
 public interface IJournalEntryRepository
 {
-    Task<JournalEntry?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<JournalEntry?> GetWithLinesAsync(Guid id, CancellationToken ct);
-    Task<bool> EntryNumberExistsAsync(string entryNumber, CancellationToken ct);
-    Task<string> GetNextEntryNumberAsync(CancellationToken ct);
+    // Sprint 38 (DEC-124): L19 — all read methods accept companyId for tenant isolation
+    Task<JournalEntry?> GetByIdAsync(Guid companyId, Guid id, CancellationToken ct);
+    Task<JournalEntry?> GetWithLinesAsync(Guid companyId, Guid id, CancellationToken ct);
+    Task<bool> EntryNumberExistsAsync(Guid companyId, string entryNumber, CancellationToken ct);
+    Task<string> GetNextEntryNumberAsync(Guid companyId, CancellationToken ct);
     Task InsertAsync(JournalEntry entry, CancellationToken ct);
     Task UpdateAsync(JournalEntry entry, CancellationToken ct);
-    Task<IReadOnlyList<JournalEntry>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct);
+    Task<IReadOnlyList<JournalEntry>> ListAsync(Guid companyId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct);
 }
 
 public interface IPostingRuleRepository

@@ -1,6 +1,7 @@
 'use client';
 
 // إنشاء قيد محاسبي جديد (Journal Entry)
+// Sprint 38 (DEC-124): 4 final manual JE templates (tax, fx-gain, fx-loss, capital-withdrawal) — completes 12/12.
 // Sprint 37 (DEC-123): 4 new manual JE templates (Salary, Loan, Bad debt, Inventory adjustment).
 //   Plus Sprint 34 templates (Manual, Depreciation, Accrual, Prepaid) merge in their own branch.
 
@@ -163,6 +164,60 @@ const TEMPLATES: JeTemplate[] = [
       lines: [
         { accountId: acct(a, '1240'), debit: '0', credit: '0', description: 'مخزون (تسوية بالزيادة)' },
         { accountId: acct(a, '1240'), debit: '0', credit: '0', description: 'مخزون (تسوية بالنقص)' },
+      ],
+    }),
+  },
+
+  // === Sprint 38 (DEC-124): 4 final templates (9-12 of 12) ===
+  {
+    id: 'tax-payment',
+    label: 'دفع ضريبة',
+    description: 'Dr 4300 مصروفات تمويلية / Cr 1210 نقدية (دفع ضريبة/رسوم للسلطات)',
+    build: (a) => ({
+      description: 'دفع ضريبة',
+      reference: 'TAX',
+      lines: [
+        { accountId: acct(a, '4300'), debit: '0', credit: '0', description: 'مصروفات تمويلية' },
+        { accountId: acct(a, '1210'), debit: '0', credit: '0', description: 'نقدية' },
+      ],
+    }),
+  },
+  {
+    id: 'fx-gain',
+    label: 'فروق عملة (ربح)',
+    description: 'Dr 1230 ذمم / Cr 5110 إيرادات (ربح فروق تقييم عملة)',
+    build: (a) => ({
+      description: 'ربح فروق عملة',
+      reference: 'FX-G',
+      lines: [
+        { accountId: acct(a, '1230'), debit: '0', credit: '0', description: 'ذمم مدينة (بالزيادة بعد التقييم)' },
+        { accountId: acct(a, '5110'), debit: '0', credit: '0', description: 'إيرادات فروق عملة' },
+      ],
+    }),
+  },
+  {
+    id: 'fx-loss',
+    label: 'فروق عملة (خسارة)',
+    description: 'Dr 4110 تكلفة / Cr 1230 ذمم (خسارة فروق تقييم عملة)',
+    build: (a) => ({
+      description: 'خسارة فروق عملة',
+      reference: 'FX-L',
+      lines: [
+        { accountId: acct(a, '4110'), debit: '0', credit: '0', description: 'تكلفة فروق عملة' },
+        { accountId: acct(a, '1230'), debit: '0', credit: '0', description: 'ذمم مدينة (بالنقص بعد التقييم)' },
+      ],
+    }),
+  },
+  {
+    id: 'capital-withdrawal',
+    label: 'سحب رأس مال',
+    description: 'Dr 3100 رأس المال / Cr 1210 نقدية (سحب الشريك لرأس المال)',
+    build: (a) => ({
+      description: 'سحب رأس مال',
+      reference: 'CAP-WD',
+      lines: [
+        { accountId: acct(a, '3100'), debit: '0', credit: '0', description: 'رأس المال' },
+        { accountId: acct(a, '1210'), debit: '0', credit: '0', description: 'نقدية' },
       ],
     }),
   },

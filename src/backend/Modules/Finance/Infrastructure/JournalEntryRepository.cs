@@ -10,59 +10,64 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
 
     public JournalEntryRepository(IDbConnectionFactory db) => _db = db;
 
-    public async Task<JournalEntry?> GetByIdAsync(Guid id, CancellationToken ct)
+    // Sprint 38 (DEC-124): all read methods now filter by company_id (L19)
+    public async Task<JournalEntry?> GetByIdAsync(Guid companyId, Guid id, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
             SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
-            FROM journal_entries WHERE id = @Id LIMIT 1";
-        return await conn.QueryFirstOrDefaultAsync<JournalEntry>(new CommandDefinition(sql, new { Id = id }, cancellationToken: ct));
+            FROM journal_entries WHERE id = @Id AND company_id = @CompanyId LIMIT 1";
+        return await conn.QueryFirstOrDefaultAsync<JournalEntry>(new CommandDefinition(sql,
+            new { CompanyId = companyId, Id = id }, cancellationToken: ct));
     }
 
-    public async Task<JournalEntry?> GetWithLinesAsync(Guid id, CancellationToken ct)
+    public async Task<JournalEntry?> GetWithLinesAsync(Guid companyId, Guid id, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string headerSql = @"
             SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
-            FROM journal_entries WHERE id = @Id LIMIT 1";
+            FROM journal_entries WHERE id = @Id AND company_id = @CompanyId LIMIT 1";
         const string linesSql = @"
             SELECT id, journal_entry_id AS JournalEntryId, account_id AS AccountId,
                    debit, credit, description, line_number AS LineNumber
-            FROM journal_lines WHERE journal_entry_id = @Id ORDER BY line_number";
+            FROM journal_lines WHERE journal_entry_id = @Id AND company_id = @CompanyId ORDER BY line_number";
 
         var entry = await conn.QueryFirstOrDefaultAsync<JournalEntry>(
-            new CommandDefinition(headerSql, new { Id = id }, cancellationToken: ct));
+            new CommandDefinition(headerSql, new { CompanyId = companyId, Id = id }, cancellationToken: ct));
         if (entry == null) return null;
 
         var lines = await conn.QueryAsync<JournalLine>(
-            new CommandDefinition(linesSql, new { Id = id }, cancellationToken: ct));
+            new CommandDefinition(linesSql, new { CompanyId = companyId, Id = id }, cancellationToken: ct));
         entry.Lines = lines.AsList();
         return entry;
     }
 
-    public async Task<bool> EntryNumberExistsAsync(string entryNumber, CancellationToken ct)
+    public async Task<bool> EntryNumberExistsAsync(Guid companyId, string entryNumber, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
-        const string sql = "SELECT 1 FROM journal_entries WHERE entry_number = @EntryNumber LIMIT 1";
-        var hit = await conn.QueryFirstOrDefaultAsync<int?>(new CommandDefinition(sql, new { EntryNumber = entryNumber }, cancellationToken: ct));
+        const string sql = "SELECT 1 FROM journal_entries WHERE entry_number = @EntryNumber AND company_id = @CompanyId LIMIT 1";
+        var hit = await conn.QueryFirstOrDefaultAsync<int?>(new CommandDefinition(sql,
+            new { CompanyId = companyId, EntryNumber = entryNumber }, cancellationToken: ct));
         return hit.HasValue;
     }
 
-    public async Task<string> GetNextEntryNumberAsync(CancellationToken ct)
+    public async Task<string> GetNextEntryNumberAsync(Guid companyId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
             SELECT entry_number FROM journal_entries
-            WHERE entry_number LIKE @Prefix
+            WHERE entry_number LIKE @Prefix AND company_id = @CompanyId
             ORDER BY entry_number DESC LIMIT 1";
         var year = DateTime.UtcNow.Year;
         var prefix = $"JE-{year}-";
         var last = await conn.QueryFirstOrDefaultAsync<string>(
-            new CommandDefinition(sql, new { Prefix = prefix + "%" }, cancellationToken: ct));
+            new CommandDefinition(sql,
+                new { CompanyId = companyId, Prefix = prefix + "%" },
+                cancellationToken: ct));
 
         if (last == null) return $"{prefix}0001";
 
@@ -106,7 +111,7 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
         await conn.ExecuteAsync(new CommandDefinition(sql, entry, cancellationToken: ct));
     }
 
-    public async Task<IReadOnlyList<JournalEntry>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct)
+    public async Task<IReadOnlyList<JournalEntry>> ListAsync(Guid companyId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
@@ -114,8 +119,9 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
                    description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries
-            WHERE 1=1";
+            WHERE company_id = @CompanyId";
         var p = new DynamicParameters();
+        p.Add("CompanyId", companyId);
         if (from.HasValue) { sql += " AND entry_date >= @From"; p.Add("From", from.Value); }
         if (to.HasValue) { sql += " AND entry_date <= @To"; p.Add("To", to.Value); }
         if (status.HasValue) { sql += " AND status = @Status"; p.Add("Status", (int)status.Value); }

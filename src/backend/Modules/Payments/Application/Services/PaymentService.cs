@@ -159,6 +159,9 @@ public sealed class PaymentService : IPaymentService
 
     public async Task<PaymentResult<PaymentResponse>> PostAsync(Guid userId, Guid id, CancellationToken ct)
     {
+        // Sprint 38 (DEC-124): L19 — read companyId from context
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
         var payment = await _payments.GetByIdAsync(id, ct);
         if (payment == null)
             return PaymentResult<PaymentResponse>.Fail("السند غير موجود.", PaymentErrorCode.NotFound);
@@ -185,7 +188,7 @@ public sealed class PaymentService : IPaymentService
                 PaymentErrorCode.ValidationError);
 
         // 2) أنشئ القيد
-        var entryNumber = await _entries.GetNextEntryNumberAsync(ct);
+        var entryNumber = await _entries.GetNextEntryNumberAsync(companyId, ct);
         var now = DateTime.UtcNow;
         var entry = new JournalEntry
         {

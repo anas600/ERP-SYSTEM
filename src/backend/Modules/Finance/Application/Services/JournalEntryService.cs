@@ -71,7 +71,7 @@ public sealed class JournalEntryService : IJournalEntryService
         }
 
         // 3) توليد رقم القيد
-        var entryNumber = await _entries.GetNextEntryNumberAsync(ct);
+        var entryNumber = await _entries.GetNextEntryNumberAsync(companyId, ct);
 
         // 4) بناء الـ aggregate
         var now = DateTime.UtcNow;
@@ -111,7 +111,10 @@ public sealed class JournalEntryService : IJournalEntryService
 
     public async Task<FinanceResult<JournalEntryResponse>> PostAsync(Guid userId, Guid entryId, CancellationToken ct)
     {
-        var entry = await _entries.GetWithLinesAsync(entryId, ct);
+        // Sprint 38 (DEC-124): L19 — read companyId from context
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var entry = await _entries.GetWithLinesAsync(companyId, entryId, ct);
         if (entry == null)
         {
             return FinanceResult<JournalEntryResponse>.Fail("القيد غير موجود.", FinanceErrorCode.NotFound);
@@ -150,7 +153,10 @@ public sealed class JournalEntryService : IJournalEntryService
 
     public async Task<FinanceResult<JournalEntryResponse>> GetByIdAsync(Guid id, CancellationToken ct)
     {
-        var entry = await _entries.GetWithLinesAsync(id, ct);
+        // Sprint 38 (DEC-124): L19 — read companyId from context
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var entry = await _entries.GetWithLinesAsync(companyId, id, ct);
         if (entry == null)
         {
             return FinanceResult<JournalEntryResponse>.Fail("القيد غير موجود.", FinanceErrorCode.NotFound);
@@ -166,12 +172,15 @@ public sealed class JournalEntryService : IJournalEntryService
 
     public async Task<FinanceResult<IReadOnlyList<JournalEntryResponse>>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct)
     {
-        var rows = await _entries.ListAsync(from, to, status, skip, take, ct);
+        // Sprint 38 (DEC-124): L19 — read companyId from context
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var rows = await _entries.ListAsync(companyId, from, to, status, skip, take, ct);
         var result = new List<JournalEntryResponse>();
         foreach (var e in rows)
         {
             // نحمل entry كاملاً بالسطور لعرض totals
-            var full = await _entries.GetWithLinesAsync(e.Id, ct);
+            var full = await _entries.GetWithLinesAsync(companyId, e.Id, ct);
             if (full == null) continue;
             var accounts = new List<Account>();
             foreach (var line in full.Lines)

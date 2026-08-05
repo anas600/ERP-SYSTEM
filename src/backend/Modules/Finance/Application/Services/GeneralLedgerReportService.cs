@@ -9,7 +9,7 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 public interface IGeneralLedgerReportService
 {
     Task<FinanceResult<GeneralLedgerReportResponse>> GetAccountLedgerAsync(
-        Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
+        Guid companyId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
 }
 
 /// <summary>
@@ -33,15 +33,17 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     }
 
     public async Task<FinanceResult<GeneralLedgerReportResponse>> GetAccountLedgerAsync(
-        Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
+        Guid companyId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
     {
         var account = await _accounts.GetByIdAsync(accountId, ct);
-        if (account == null)
+        // Sprint 38 (DEC-124): L19 check on account lookup
+        if (account == null || account.CompanyId != companyId)
             return FinanceResult<GeneralLedgerReportResponse>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
 
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
         // 1) Opening Balance — مجموع الحركات على الحساب قبل `from` (Posted only)
+        // Sprint 38: added L19 filter on journal_lines + journal_entries
         decimal opening = 0m;
         if (from.HasValue)
         {
@@ -49,15 +51,20 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                 SELECT COALESCE(SUM(jl.debit), 0) AS Dr, COALESCE(SUM(jl.credit), 0) AS Cr
                 FROM journal_lines jl
                 INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+                    AND je.company_id = @CompanyId
                 WHERE jl.account_id = @AccountId
+                  AND jl.company_id = @CompanyId
                   AND je.status = 2 AND je.entry_date < @From";
             var opRow = await conn.QueryFirstOrDefaultAsync<(decimal Dr, decimal Cr)>(
-                new CommandDefinition(openingSql, new { AccountId = accountId, From = from.Value }, cancellationToken: ct));
+                new CommandDefinition(openingSql,
+                    new { CompanyId = companyId, AccountId = accountId, From = from.Value },
+                    cancellationToken: ct));
             opening = account.NormalBalance == NormalBalance.Debit ? (opRow.Dr - opRow.Cr) : (opRow.Cr - opRow.Dr);
         }
 
-        // 2) Period lines
+        // 2) Period lines — Sprint 38: L19 filter on journal_lines + journal_entries
         var p = new DynamicParameters();
+        p.Add("CompanyId", companyId);
         p.Add("AccountId", accountId);
         var sql = @"
             SELECT je.entry_date AS EntryDate, je.entry_number AS EntryNumber, je.id AS JournalEntryId,
@@ -65,7 +72,10 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                    jl.debit AS Debit, jl.credit AS Credit
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
-            WHERE jl.account_id = @AccountId AND je.status = 2";
+                AND je.company_id = @CompanyId
+            WHERE jl.account_id = @AccountId
+              AND jl.company_id = @CompanyId
+              AND je.status = 2";
         if (from.HasValue) { sql += " AND je.entry_date >= @From"; p.Add("From", from.Value); }
         if (to.HasValue) { sql += " AND je.entry_date <= @To"; p.Add("To", to.Value); }
         sql += " ORDER BY je.entry_date, je.entry_number, jl.line_number";
