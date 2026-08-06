@@ -117,11 +117,19 @@ function buildTree(flat: Account[]): AccountNode[] {
   return roots;
 }
 
-/** Convert a tree to a flat list in DFS (pre-order) order — what the UI walks. */
-function flattenTree(roots: AccountNode[]): AccountNode[] {
+/**
+ * Convert a tree to a flat list in DFS (pre-order) order — what the UI walks.
+ * Sprint 41 (L76): only walks children whose parent is in `expanded` (root
+ * nodes are always included). Without the expanded filter the tree is
+ * effectively always fully expanded regardless of UI state.
+ */
+function flattenTree(roots: AccountNode[], expanded: Set<string>): AccountNode[] {
   const out: AccountNode[] = [];
   const walk = (n: AccountNode) => {
     out.push(n);
+    // Non-leaf parents only walk their children when explicitly expanded.
+    if (n.children.length === 0) return;
+    if (!expanded.has(n.id)) return;
     for (const c of n.children) walk(c);
   };
   for (const r of roots) walk(r);
@@ -219,7 +227,7 @@ export default function AccountsPage() {
     return buildTree(flat);
   }, [accounts, typeFilter, showInactive, search]);
 
-  const flatRows = useMemo(() => flattenTree(tree), [tree]);
+  const flatRows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
 
   // Auto-expand all roots when the filter changes so the user always sees
   // the top of the result set. We avoid auto-expanding deeply because that

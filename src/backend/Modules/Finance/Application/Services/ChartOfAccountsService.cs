@@ -1,22 +1,36 @@
 using ERPSystem.Modules.Finance.Entities;
 using ERPSystem.Modules.Finance.Infrastructure;
+using ERPSystem.Shared.CompanyContext;
 
 namespace ERPSystem.Modules.Finance.Application.Services;
 
 public sealed class ChartOfAccountsService : IChartOfAccountsService
 {
     private readonly IAccountRepository _accounts;
+    private readonly ICompanyContext _companyContext;
     private readonly ILogger<ChartOfAccountsService> _logger;
 
-    public ChartOfAccountsService(IAccountRepository accounts, ILogger<ChartOfAccountsService> logger)
+    public ChartOfAccountsService(
+        IAccountRepository accounts,
+        ICompanyContext companyContext,
+        ILogger<ChartOfAccountsService> logger)
     {
         _accounts = accounts;
+        _companyContext = companyContext;
         _logger = logger;
     }
 
     public async Task<FinanceResult<AccountResponse>> CreateAsync(CreateAccountRequest request, CancellationToken ct)
     {
-        if (await _accounts.GetByCodeAsync(request.Code, ct) != null)
+        // Sprint 41 (DEC-127): resolve companyId from JWT context — never trust the DTO.
+        if (!_companyContext.IsResolved || _companyContext.CompanyId is not { } companyId)
+        {
+            return FinanceResult<AccountResponse>.Fail(
+                "لا يمكن إنشاء حساب بدون تحديد الشركة النشطة. أعد تسجيل الدخول أو اختر شركة من القائمة.",
+                FinanceErrorCode.ValidationError);
+        }
+
+        if (await _accounts.GetByCodeAsync(request.Code, companyId, ct) != null)
         {
             return FinanceResult<AccountResponse>.Fail(
                 $"كود الحساب '{request.Code}' مستخدم بالفعل.",
@@ -31,6 +45,11 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
             {
                 return FinanceResult<AccountResponse>.Fail("الحساب الأب غير موجود.", FinanceErrorCode.NotFound);
             }
+            // Parent must belong to the same company.
+            if (parent.CompanyId != companyId)
+            {
+                return FinanceResult<AccountResponse>.Fail("الحساب الأب لا ينتمي للشركة النشطة.", FinanceErrorCode.TenantMismatch);
+            }
             parentId = parent.Id;
         }
 
@@ -38,6 +57,7 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
         var acc = new Account
         {
             Id = Guid.NewGuid(),
+            CompanyId = companyId,
             Code = request.Code.Trim(),
             Name = request.Name.Trim(),
             Description = request.Description,
@@ -54,7 +74,7 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
             UpdatedAt = now
         };
         await _accounts.InsertAsync(acc, ct);
-        _logger.LogInformation("تم إنشاء حساب جديد {Code}", acc.Code);
+        _logger.LogInformation("تم إنشاء حساب جديد {Code} في الشركة {CompanyId}", acc.Code, companyId);
         return FinanceResult<AccountResponse>.Ok(MapToResponse(acc));
     }
 

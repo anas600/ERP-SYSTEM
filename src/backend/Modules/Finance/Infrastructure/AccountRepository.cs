@@ -23,6 +23,14 @@ public sealed class AccountRepository : IAccountRepository
         return await QueryFirstAsync(conn, "WHERE id = @Id", new { Id = id }, ct);
     }
 
+    // Sprint 41 (DEC-127): company-scoped variant — uniqueness is per company.
+    public async Task<Account?> GetByCodeAsync(string code, Guid companyId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await QueryFirstAsync(conn, "WHERE LOWER(code) = LOWER(@Code) AND company_id = @CompanyId",
+            new { Code = code, CompanyId = companyId }, ct);
+    }
+
     public async Task<Account?> GetByCodeAsync(string code, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
