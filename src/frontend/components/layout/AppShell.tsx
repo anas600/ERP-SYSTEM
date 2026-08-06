@@ -51,6 +51,9 @@ import {
   ArrowRightLeft,
   // Sprint 36 (DEC-122): Trial Balance
   Scale,
+  // Sprint 48: Financial Reports group
+  TrendingUp,
+  Droplet,
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
@@ -88,12 +91,22 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'قيود اليومية', href: '/finance/journal-entries', icon: GitBranch },
       // Sprint 11 T1: top-level Transactions hub (recent journal feed).
       { label: 'المعاملات الأخيرة', href: '/transactions', icon: ArrowRightLeft },
-      // Sprint 36 (DEC-122): ميزان المراجعة (Trial Balance)
-      { label: 'ميزان المراجعة', href: '/finance/trial-balance', icon: Scale },
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },
-      { label: 'أعمار الذمم AR', href: '/finance/aging-ar', icon: Hourglass },
+    ],
+  },
+  // Sprint 48: مجموعة التقارير المالية — كل التقارير في مكان واحد
+  {
+    label: 'التقارير المالية',
+    items: [
+      { label: 'ميزان المراجعة', href: '/finance/reports/trial-balance', icon: Scale },
+      { label: 'دفتر الأستاذ', href: '/finance/reports/general-ledger', icon: FileText },
+      { label: 'الميزانية العمومية', href: '/finance/reports/balance-sheet', icon: FileBarChart },
+      { label: 'قائمة الدخل', href: '/finance/reports/income-statement', icon: TrendingUp },
+      { label: 'التدفقات النقدية', href: '/finance/reports/cash-flow', icon: Droplet },
+      { label: 'أعمار الذمم (AR + AP)', href: '/finance/reports/aging-summary', icon: Hourglass },
+      { label: 'أعمار الذمم AR', href: '/finance/aging-ar', icon: Activity },
     ],
   },
   {

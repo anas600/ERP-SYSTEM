@@ -260,6 +260,99 @@ export interface TrialBalanceReport {
   rows: TrialBalanceRow[];
 }
 
+// ============== Sprint 48 — Financial Reports DTOs ==============
+
+export interface BalanceSheetRow {
+  accountCode: string;
+  accountName: string;
+  balance: number;
+}
+
+export interface BalanceSheetSection {
+  title: string;
+  rows: BalanceSheetRow[];
+  subtotal: number;
+}
+
+export interface BalanceSheetReport {
+  asOfDate: string;
+  assets: BalanceSheetSection;
+  liabilities: BalanceSheetSection;
+  equity: BalanceSheetSection;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
+  variance: number;
+}
+
+export interface IncomeStatementRow {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+}
+
+export interface IncomeStatementSection {
+  title: string;
+  rows: IncomeStatementRow[];
+  subtotal: number;
+}
+
+export interface IncomeStatementReport {
+  from: string;
+  to: string;
+  revenue: IncomeStatementSection;
+  expenses: IncomeStatementSection;
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number;
+  isProfitable: boolean;
+}
+
+export interface CashFlowLine {
+  description: string;
+  amount: number;
+}
+
+export interface CashFlowSection {
+  title: string;
+  lines: CashFlowLine[];
+  subtotal: number;
+}
+
+export interface CashFlowReport {
+  from: string;
+  to: string;
+  operating: CashFlowSection;
+  investing: CashFlowSection;
+  financing: CashFlowSection;
+  netOperatingCash: number;
+  netInvestingCash: number;
+  netFinancingCash: number;
+  netChangeInCash: number;
+}
+
+export interface APAgingBucket {
+  vendorCode: string;
+  vendorName: string;
+  current: number;
+  days31To60: number;
+  days61To90: number;
+  days91Plus: number;
+  total: number;
+}
+
+export interface APAgingReport {
+  asOfDate: string;
+  vendors: APAgingBucket[];
+  totalCurrent: number;
+  total31To60: number;
+  total61To90: number;
+  total91Plus: number;
+  grandTotal: number;
+}
+
 // ============ Statements (Customer / Vendor) ============
 // Sprint 36 (DEC-122) — chronological ledger per party
 export interface StatementLine {
@@ -1046,6 +1139,43 @@ export const financeApi = {
   // ميزان المراجعة: كل الحسابات وأرصدتها في تاريخ معين
   getTrialBalance: async (asOf?: string): Promise<TrialBalanceRow[]> => {
     const r = await api.get<TrialBalanceRow[]>('/api/finance/ledger/trial-balance', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  // ----- General Ledger per account (Sprint 38, DEC-124) -----
+  // دفتر الأستاذ: كل الحركات على حساب معين بترتيب زمني
+  getAccountLedger: async (accountId: string, from?: string, to?: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/finance/ledger/accounts/${accountId}`, {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  // ----- Sprint 48 (DEC-130..132) — Financial Reports -----
+  /** الميزانية العمومية — Balance Sheet */
+  getBalanceSheet: async (asOf?: string): Promise<BalanceSheetReport> => {
+    const r = await api.get<BalanceSheetReport>('/api/finance/ledger/balance-sheet', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  /** قائمة الدخل — Income Statement (P&L) */
+  getIncomeStatement: async (from?: string, to?: string): Promise<IncomeStatementReport> => {
+    const r = await api.get<IncomeStatementReport>('/api/finance/ledger/income-statement', {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  /** التدفقات النقدية — Cash Flow (Indirect Method) */
+  getCashFlow: async (from?: string, to?: string): Promise<CashFlowReport> => {
+    const r = await api.get<CashFlowReport>('/api/finance/ledger/cash-flow', {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  /** أعمار الذمم الدائنة — AP Aging */
+  getAPAging: async (asOf?: string): Promise<APAgingReport> => {
+    const r = await api.get<APAgingReport>('/api/procurement/ap-aging', {
       params: asOf ? { asOf } : undefined,
     });
     return r.data;
