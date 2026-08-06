@@ -482,6 +482,24 @@ else
     Console.WriteLine("[SPRINT-29] SeedYearScenario=false (default) — ArabicYearScenarioDevSeeder SKIPPED.");
 }
 
+// ============ Sprint 50: Libyan SME Scenario Dev Seeder ============
+// Unified CoA (70+ accounts) + 18 months of journal entries
+// (Holding ≤500, each subsidiary ≤200) for realistic report testing.
+var seedLibyanSme = builder.Configuration.GetValue<bool>("Bootstrap:SeedLibyanSme", false);
+if (seedLibyanSme && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<LibyanSmeScenarioDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=true + env=Development — LibyanSmeScenarioDevSeeder registered.");
+}
+else if (seedLibyanSme)
+{
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=false (default) — LibyanSmeScenarioDevSeeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
