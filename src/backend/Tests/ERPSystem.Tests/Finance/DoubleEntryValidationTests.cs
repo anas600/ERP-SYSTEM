@@ -161,6 +161,7 @@ internal class FakeAccountRepository : IAccountRepository
     public void Add(Account a) => _accounts.Add(a);
     public Task<Account?> GetByIdAsync(Guid id, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.Id == id));
     public Task<Account?> GetByCodeAsync(string code, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.Code == code));
+    public Task<Account?> GetByCodeAsync(string code, Guid companyId, CancellationToken ct) => Task.FromResult(_accounts.FirstOrDefault(a => a.Code == code && a.CompanyId == companyId));
     public Task<IReadOnlyList<Account>> ListAsync(bool includeInactive, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Account>>(_accounts.Where(a => (includeInactive || a.IsActive)).ToList());
     public Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct) =>
@@ -181,17 +182,17 @@ internal class FakeJournalEntryRepository : IJournalEntryRepository
     private readonly Dictionary<Guid, JournalEntry> _entries = new();
     private int _counter = 1;
 
-    public Task<JournalEntry?> GetByIdAsync(Guid id, CancellationToken ct) =>
+    public Task<JournalEntry?> GetByIdAsync(Guid companyId, Guid id, CancellationToken ct) =>
         Task.FromResult(_entries.TryGetValue(id, out var e) ? e : null);
-    public Task<JournalEntry?> GetWithLinesAsync(Guid id, CancellationToken ct) =>
+    public Task<JournalEntry?> GetWithLinesAsync(Guid companyId, Guid id, CancellationToken ct) =>
         Task.FromResult(_entries.TryGetValue(id, out var e) ? e : null);
-    public Task<bool> EntryNumberExistsAsync(string entryNumber, CancellationToken ct) =>
+    public Task<bool> EntryNumberExistsAsync(Guid companyId, string entryNumber, CancellationToken ct) =>
         Task.FromResult(_entries.Values.Any(e => e.EntryNumber == entryNumber));
-    public Task<string> GetNextEntryNumberAsync(CancellationToken ct) =>
+    public Task<string> GetNextEntryNumberAsync(Guid companyId, CancellationToken ct) =>
         Task.FromResult($"JE-{DateTime.UtcNow.Year}-{_counter++:D4}");
     public Task InsertAsync(JournalEntry entry, CancellationToken ct) { _entries[entry.Id] = entry; return Task.CompletedTask; }
     public Task UpdateAsync(JournalEntry entry, CancellationToken ct) { _entries[entry.Id] = entry; return Task.CompletedTask; }
-    public Task<IReadOnlyList<JournalEntry>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct) =>
+    public Task<IReadOnlyList<JournalEntry>> ListAsync(Guid companyId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<JournalEntry>>(_entries.Values
             .OrderByDescending(e => e.EntryDate)
             .ToList());

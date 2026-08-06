@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using ERPSystem.Modules.Finance.Application;
+using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Procurement.Application;
 using ERPSystem.Modules.Procurement.Application.Services;
 using ERPSystem.Modules.Procurement.Entities;
@@ -24,6 +26,8 @@ public class ProcurementController : ControllerBase
     private readonly IVendorBillService _bills;
     // Sprint 36 (DEC-122): vendor statement (bills + payments ledger).
     private readonly IVendorStatementService _vendorStatements;
+    // Sprint 48 (DEC-133): AP Aging — أعمار الذمم الدائنة.
+    private readonly IAPAgingService _apAging;
     private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateVendorRequest> _createVendorV;
@@ -35,6 +39,7 @@ public class ProcurementController : ControllerBase
     public ProcurementController(
         IVendorService vendors, IPurchaseOrderService pos, IGoodsReceiptService grs, IVendorBillService bills,
         IVendorStatementService vendorStatements,
+        IAPAgingService apAging,
         IValidator<CreateVendorRequest> createVendorV, IValidator<UpdateVendorRequest> updateVendorV,
         IValidator<CreatePurchaseOrderRequest> createPoV,
         IValidator<CreateGoodsReceiptRequest> createGrV, IValidator<CreateVendorBillRequest> createBillV,
@@ -42,6 +47,7 @@ public class ProcurementController : ControllerBase
     {
         _vendors = vendors; _pos = pos; _grs = grs; _bills = bills;
         _vendorStatements = vendorStatements;
+        _apAging = apAging;
         _createVendorV = createVendorV; _updateVendorV = updateVendorV; _createPoV = createPoV;
         _createGrV = createGrV; _createBillV = createBillV;
         _companyContext = companyContext;
@@ -225,6 +231,18 @@ public class ProcurementController : ControllerBase
     {
         var r = await _bills.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>أعمار الذمم الدائنة (AP Aging) — Sprint 48 (DEC-133).</summary>
+    [HttpGet("api/procurement/ap-aging")]
+    [ProducesResponseType(typeof(APAgingReportResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> APAging([FromQuery] DateTime? asOf, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var asOfDate = (asOf ?? DateTime.UtcNow).Date;
+        var r = await _apAging.GetAsync(companyId, asOfDate, ct);
+        return Ok(r);
     }
 
     // ============== Helpers ==============

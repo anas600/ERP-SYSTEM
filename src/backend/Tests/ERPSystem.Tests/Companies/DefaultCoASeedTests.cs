@@ -126,6 +126,8 @@ internal class FakeAccountRepository : IAccountRepository
         Task.FromResult(_accounts.FirstOrDefault(a => a.Id == id));
     public Task<Account?> GetByCodeAsync(string code, CancellationToken ct) =>
         Task.FromResult(_accounts.FirstOrDefault(a => a.Code == code));
+    public Task<Account?> GetByCodeAsync(string code, Guid companyId, CancellationToken ct) =>
+        Task.FromResult(_accounts.FirstOrDefault(a => a.Code == code && a.CompanyId == companyId));
     public Task<IReadOnlyList<Account>> ListAsync(bool includeInactive, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<Account>>(_accounts.ToList());
     public Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct) =>

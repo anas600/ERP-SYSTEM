@@ -93,6 +93,35 @@ public sealed class CashFlowResponse
     public decimal NetChangeInCash => NetOperatingCash + NetInvestingCash + NetFinancingCash;
 }
 
+// ============== Income Statement (P&L) ==============
+
+public sealed class IncomeStatementRow
+{
+    public string AccountCode { get; set; } = string.Empty;
+    public string AccountName { get; set; } = string.Empty;
+    public decimal Amount { get; set; }
+}
+
+public sealed class IncomeStatementSection
+{
+    public string Title { get; set; } = string.Empty;
+    public List<IncomeStatementRow> Rows { get; set; } = new();
+    public decimal Subtotal => Rows.Sum(r => r.Amount);
+}
+
+public sealed class IncomeStatementResponse
+{
+    public DateTime From { get; set; }
+    public DateTime To { get; set; }
+    public IncomeStatementSection Revenue { get; set; } = new() { Title = "الإيرادات" };
+    public IncomeStatementSection Expenses { get; set; } = new() { Title = "المصروفات" };
+    public decimal TotalRevenue => Revenue.Subtotal;
+    public decimal TotalExpenses => Expenses.Subtotal;
+    /// <summary>صافي الربح/الخسارة = الإيرادات − المصروفات</summary>
+    public decimal NetIncome => TotalRevenue - TotalExpenses;
+    public bool IsProfitable => NetIncome > 0;
+}
+
 // ============== AP Aging (per-vendor) ==============
 
 public sealed class APAgingVendorBucket

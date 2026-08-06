@@ -44,6 +44,44 @@ public class LedgerController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
+    /// <summary>الميزانية العمومية — Sprint 48 (DEC-130). Σ Assets = Σ Liab + Σ Equity.</summary>
+    [HttpGet("balance-sheet")]
+    [ProducesResponseType(typeof(BalanceSheetResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> BalanceSheet([FromQuery] DateTime? asOf, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var asOfDate = (asOf ?? DateTime.UtcNow).Date;
+        var r = await _report.GetBalanceSheetAsync(companyId, asOfDate, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>قائمة الدخل — Sprint 48 (DEC-131). Revenue − Expenses = Net Income.</summary>
+    [HttpGet("income-statement")]
+    [ProducesResponseType(typeof(IncomeStatementResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> IncomeStatement([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var toDate = (to ?? DateTime.UtcNow).Date;
+        var fromDate = (from ?? new DateTime(toDate.Year, 1, 1)).Date;
+        var r = await _report.GetIncomeStatementAsync(companyId, fromDate, toDate, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>التدفقات النقدية (الطريقة غير المباشرة) — Sprint 48 (DEC-132).</summary>
+    [HttpGet("cash-flow")]
+    [ProducesResponseType(typeof(CashFlowResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CashFlow([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var toDate = (to ?? DateTime.UtcNow).Date;
+        var fromDate = (from ?? new DateTime(toDate.Year, 1, 1)).Date;
+        var r = await _report.GetCashFlowAsync(companyId, fromDate, toDate, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
     private static ProblemDetails Problem<T>(FinanceResult<T> r) => new()
     {
         Title = "Ledger Error",

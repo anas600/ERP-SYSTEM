@@ -1,0 +1,16 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/dashboard/page": "app/dashboard/page.js",
+  "/admin/posting-rules/page": "app/admin/posting-rules/page.js",
+  "/finance/accounts/page": "app/finance/accounts/page.js",
+  "/finance/receipts/page": "app/finance/receipts/page.js",
+  "/finance/customers/page": "app/finance/customers/page.js",
+  "/finance/sales-invoices/page": "app/finance/sales-invoices/page.js",
+  "/login/page": "app/login/page.js",
+  "/hr/employees/page": "app/hr/employees/page.js",
+  "/inventory/items/page": "app/inventory/items/page.js",
+  "/procurement/purchase-orders/page": "app/procurement/purchase-orders/page.js",
+  "/page": "app/page.js",
+  "/procurement/goods-receipts/page": "app/procurement/goods-receipts/page.js",
+  "/projects/page": "app/projects/page.js"
+}
