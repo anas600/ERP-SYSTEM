@@ -13,6 +13,13 @@
 
 ---
 
+## Sprint 41 — P0 Fixes for UI Exploration (2026-08-06)
+### Fixed
+- **DEC-127**: `ChartOfAccountsService.CreateAsync` now injects `ICompanyContext` and sets `Account.CompanyId` from JWT context. Fixes the FK violation (`fk_accounts_company_id`) when adding a sub-account.
+- **DEC-127**: `IAccountRepository.GetByCodeAsync` has a new company-scoped overload `(code, companyId)`. Old single-arg overload kept for 4 other callers (out of scope).
+- **DEC-128**: `AccountsController.CreateLegacy` wraps the call in try/catch on `PostgresException` SqlState 23503/23502. Maps the raw FK/NOT NULL message to a friendly Arabic problem-detail. Real exception still logged via `ILogger` for ops.
+- **L76**: `flattenTree(roots, expanded)` now filters children by the `expanded` Set state. The CoA tree icons on `/finance/accounts` actually collapse/expand now (was 52 rows always visible → now correctly filtered, ~19 visible at default expansion).
+
 ## Sprint 40 — L67 Audit (Raw Fetch Fix) + 2 UI Polish Rounds (2026-08-05) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's "ابدأ Sprint 40" — fix all 17 files using raw `fetch('/api/...')` (L67 carry-over from Sprint 39 — silently 401s). Pause noisy crons temporarily.
