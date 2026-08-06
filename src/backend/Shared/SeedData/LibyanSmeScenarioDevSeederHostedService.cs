@@ -148,9 +148,23 @@ public sealed class LibyanSmeScenarioDevSeederHostedService : IHostedService
     }
 
     // ============== شجرة الحسابات الموحدة ==============
+    // Sprint 51: تنظيف الـ CoA القديم قبل الإدراج — كل حساب بكود غير موجود في الـ UnifiedCoA يُحذف
     private async Task<Dictionary<string, Guid>> SeedCoAAsync(System.Data.IDbConnection conn, Guid companyId, IReadOnlyList<UnifiedCoA.Account> coa, CancellationToken ct)
     {
         var map = new Dictionary<string, Guid>();
+        var unifiedCodes = coa.Select(c => c.Code).ToHashSet();
+
+        // 1) Sprint 51: حذف الحسابات القديمة اللي مش في الـ UnifiedCoA
+        var unifiedCodesArray = unifiedCodes.ToArray();
+        var oldCount = await conn.ExecuteAsync(
+            "DELETE FROM accounts WHERE company_id = @CompanyId AND code != ALL(@Codes)",
+            new { CompanyId = companyId, Codes = unifiedCodesArray });
+        if (oldCount > 0)
+        {
+            _logger.LogInformation("[SPRINT-51] {Company} dropped {Count} old CoA accounts not in unified set", companyId, oldCount);
+        }
+
+        // 2) إدراج الحسابات الموحدة (idempotent)
         foreach (var a in coa)
         {
             // فحص وجود

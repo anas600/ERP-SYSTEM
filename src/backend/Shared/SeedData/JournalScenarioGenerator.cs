@@ -27,6 +27,10 @@ public sealed class JournalScenarioGenerator
     private string _currentYear = "2025";
     private readonly Random _rand = new(42); // Seed ثابت للـ reproducibility
 
+    // Sprint 51: تتبع الفواتير اللي ما اندفعت (للـ AP aging)
+    private int _billCounter = 0;
+    private readonly HashSet<int> _unpaidBills = new();
+
     public JournalScenarioGenerator(
         IDbConnection conn, Guid companyId,
         Dictionary<string, Guid> accounts,
@@ -72,7 +76,95 @@ public sealed class JournalScenarioGenerator
             }
             if (totalEntries >= _targetEntries) break;
         }
+
+        // 3) Sprint 51: إقفال نهاية السنة 2025 — ينقل صافي الدخل إلى 3210 (Current Year P&L)
+        await SeedYearEndClosingAsync(2025, totalEntries);
         return totalEntries;
+    }
+
+    /// <summary>
+    /// Sprint 51: إقفال نهاية السنة.
+    /// ينقل رصيد كل حسابات الإيرادات والمصروفات إلى 3210 (Current Year P&L).
+    /// بعد الإقفال: Σ حسابات الإيرادات = 0، Σ حسابات المصروفات = 0، 3210 = NetIncome.
+    /// </summary>
+    private async Task SeedYearEndClosingAsync(int year, int totalEntriesSoFar)
+    {
+        if (!_accounts.ContainsKey("3210")) return;
+
+        // 1) استعلام: رصيد كل حساب إيراد ومصروف في هذه السنة
+        var sql = @"
+            SELECT a.id, a.code, a.name, a.normal_balance,
+                   COALESCE(SUM(jl.debit), 0) AS Dr, COALESCE(SUM(jl.credit), 0) AS Cr
+            FROM accounts a
+            LEFT JOIN journal_lines jl ON jl.account_id = a.id AND jl.company_id = a.company_id
+            LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
+                AND je.company_id = a.company_id AND je.status = 2
+                AND je.entry_date >= @YearStart AND je.entry_date < @YearEndExclusive
+            WHERE a.company_id = @CompanyId AND a.is_postable = true AND a.is_active = true
+              AND a.type IN (4, 5)
+            GROUP BY a.id, a.code, a.name, a.normal_balance";
+
+        var rows = (await _conn.QueryAsync<(Guid Id, string Code, string Name, int NormalBalance, decimal Dr, decimal Cr)>(
+            new CommandDefinition(sql,
+                new { CompanyId = _companyId, YearStart = new DateTime(year, 1, 1), YearEndExclusive = new DateTime(year + 1, 1, 1) },
+                cancellationToken: _ct))).ToList();
+
+        if (rows.Count == 0) return;
+
+        var lines = new List<(string, decimal, decimal, string)>();
+        decimal netIncome = 0m;
+
+        foreach (var r in rows)
+        {
+            // رصيد الحساب في هذه السنة بحسب NormalBalance
+            var balance = r.NormalBalance == 1 ? (r.Dr - r.Cr) : (r.Cr - r.Dr);
+            if (Math.Abs(balance) < 0.01m) continue;
+
+            if (r.Code == "3210") continue; // تخطي 3210 نفسه (يأخذ الفارق)
+
+            // لإقفال الحساب: عكس الرصيد
+            // Revenue (Cr normal, balance موجب): DR balance (يصفّر الرصيد)
+            // Expense (Dr normal, balance موجب): CR balance (يصفّر الرصيد)
+            if (r.NormalBalance == 2) // Revenue (Cr)
+            {
+                lines.Add((r.Code, balance, 0m, $"إقفال {r.Name} — نهاية {year}"));
+                netIncome += balance; // صافي موجب
+            }
+            else // Expense (Dr)
+            {
+                lines.Add((r.Code, 0m, balance, $"إقفال {r.Name} — نهاية {year}"));
+                netIncome -= balance; // يطرح من صافي
+            }
+        }
+
+        if (lines.Count == 0) return;
+
+        // 2) إضافة 3210 (صافي الدخل)
+        if (netIncome > 0)
+        {
+            // ربح → CR 3210
+            lines.Add(("3210", 0m, netIncome, $"صافي دخل {year}"));
+        }
+        else if (netIncome < 0)
+        {
+            // خسارة → DR 3210
+            lines.Add(("3210", -netIncome, 0m, $"خسارة {year}"));
+        }
+
+        // 3) تحقق من التوازن
+        decimal totalDr = lines.Sum(l => l.Item2);
+        decimal totalCr = lines.Sum(l => l.Item3);
+        if (Math.Abs(totalDr - totalCr) > 0.01m)
+        {
+            _logger.LogWarning("[SPRINT-51] Year-end closing unbalanced: Dr={Dr} Cr={Cr}", totalDr, totalCr);
+            return;
+        }
+
+        var entryNo = $"CL-{year}-{_entryCounter++:D4}";
+        var entryDate = new DateTime(year, 12, 31);
+        await PostJournalEntryAsync(entryNo, entryDate, $"إقفال السنة المالية {year}", lines);
+        _logger.LogInformation("[SPRINT-51] {Company} Year-end closing for {Year}: NetIncome={NI}, lines={Lines}",
+            _companyId, year, netIncome, lines.Count);
     }
 
     // ============== Opening Balance (رأس المال + قرض + أصول) ==============
@@ -172,11 +264,20 @@ public sealed class JournalScenarioGenerator
             ("2100", 0m, amount + vat, $"فاتورة مورد {vendorKey}"),
         };
         await PostJournalEntryAsync(entryNo, date, $"فاتورة مشتريات {entryNo}", lines);
+        // Sprint 51: ~30% من الفواتير تبقى unpaid (للـ AP aging)
+        _billCounter++;
+        if (_rand.Next(100) < 30)
+        {
+            _unpaidBills.Add(_billCounter);
+        }
     }
 
     // 3) مدفوعات لمورد
     private async Task SeedVendorPaymentAsync(DateTime date)
     {
+        // Sprint 51: ~30% من المدفوعات تُؤجل (لا تُنفذ) — ينتج AP aging حقيقي
+        if (_rand.Next(100) < 30) return;
+
         var amount = 3000m + _rand.Next(0, 10000);
         if (!_accounts.ContainsKey("1100") || !_accounts.ContainsKey("2100")) return;
         var entryNo = $"PV-{_currentYear}-{_entryCounter++:D4}";
