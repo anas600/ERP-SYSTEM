@@ -178,6 +178,8 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<ICostCenterRepository, CostCenterRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
+builder.Services.AddScoped<IContractRepository, ContractRepository>(); // Sprint 58 / DEC-163
+builder.Services.AddScoped<IBillingRepository, BillingRepository>(); // Sprint 58 / DEC-164
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IProjectBudgetRepository, ProjectBudgetRepository>();
@@ -233,6 +235,8 @@ builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
+builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
+builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();

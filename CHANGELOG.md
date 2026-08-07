@@ -13,6 +13,84 @@
 
 ---
 
+## Sprint 58 — Contracts + Progress Billings + WIP (DEC-163..165) (2026-08-07) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** بناء دورة المقاولات الكاملة على رأس أساس Sprint 57.
+
+**Branched from:** `feature/sprint-57-projects-pnl` (يبي P&L foundation من Sprint 57).
+
+### Added (DEC-163) — Contracts
+- `data-types/contracts.json` (auto-applied by DataTypeMigrator)
+  - Fields: id, company_id, project_id, contract_number, contract_value, advance_percent, retention_percent, retention_start_billing, start_date, end_date, notes
+  - UNIQUE (company_id, project_id) — عقد واحد لكل مشروع
+- `Contract` entity + `IContractRepository` + `ContractService`
+- Endpoints:
+  - GET /api/projects/{id}/contract
+  - POST /api/projects/{id}/contract
+  - PUT /api/contracts/{id}
+  - DELETE /api/contracts/{id} (soft delete، فقط لو ما في billings)
+- Validations: contract_value > 0، advance/retention 0-100%
+
+### Added (DEC-164) — Progress Billings
+- `data-types/progress_billings.json` (auto-applied)
+  - Fields: id, company_id, project_id, contract_id, billing_number, billing_date, period_from/to, work_completed_percent, gross_amount, advance_deducted, retention_deducted, net_amount, status, invoice_id, journal_entry_id, notes
+  - UNIQUE (company_id, billing_number)
+- `ProgressBilling` entity + `BillingStatus` enum (Draft/Invoiced/Cancelled)
+- `BillingRepository` + `BillingService` (~19KB) — أكبر service في الـ module
+- Endpoints (7 جديد):
+  - GET /api/projects/{id}/billings
+  - POST /api/projects/{id}/billings
+  - GET /api/billings/{id}
+  - GET /api/contracts/{id}/billing-preview?percent= (live preview)
+  - POST /api/billings/{id}/approve (DRAFT → INVOICED، atomic)
+  - POST /api/billings/{id}/cancel (DRAFT → CANCELLED)
+- Billing Algorithm:
+  - gross = contract_value × (percent / 100)
+  - advance_deducted = MIN(gross, MAX(0, total_advance − previous_advance_sum))  // تُخصم مرة واحدة
+  - retention_deducted = (next_number >= retention_start_billing) ? gross × retention_percent : 0
+  - net = gross − advance − retention
+- **Atomic Approve** (الجزء الأهم):
+  - ينشئ sales_invoice (Posted) + journal_entry (Posted) + 2 journal_lines (DR 1103 AR / CR 4101 Revenue)
+  - يحدث الـ billing: status=Invoiced, invoice_id, journal_entry_id
+  - transaction واحد — لو فشل أي شيء، كله يتراجع
+
+### Added (DEC-165) — WIP + Retention
+- `WipResponse` DTO
+- `IBillingService.GetWipAsync(projectId, ct)` — wip = totalCosts − totalBilledNet
+- Status: BALANCED / COSTS_EXCEED_BILLED / BILLED_EXCEED_COSTS
+- Endpoint: GET /api/projects/{id}/wip
+- UI: WIP card في P&L tab (amber background، 4 stats + status)
+
+### Added (FE)
+- Tab "العقد" (Contract) في /projects/[id]: view/create/edit/delete + modal
+- Tab "المستخلصات" (Billings) في /projects/[id]: list + create modal مع **live preview** (debounced 300ms)
+- WIP card في P&L tab
+- ProjectsModule: 4 tabs (التفاصيل | P&L | العقد | المستخلصات)
+- API methods: getContract, createContract, updateContract, deleteContract, getBillings, createBilling, previewBilling, approveBilling, cancelBilling, getProjectWip
+- Types: Contract, CreateContractRequest, UpdateContractRequest, ProgressBilling, CreateBillingRequest, BillingPreview, ProjectWip
+
+### Changed
+- `ProjectsController`: 4 fields/services مضافة (P&L, Contract, Billing, ...)
+- `Projects/AGENTS.md`: محدّث مع Sprint 58 context (سيُحدّث بعد الـ push)
+
+### Lessons
+- L113: branching order matters (Sprint 58 branched from Sprint 57، مش develop)
+- L114: validate work_completed_percent >= previous MAX WHERE status != 'CANCELLED'
+- L115: AR (1103) + Revenue (4101) accounts لازم تكون موجودة في CoA — لو ناقصة، 400 مع رسالة واضحة
+- L116: Dapper transactions مع Npgsql تحتاج cast صريح لـ NpgsqlConnection
+- L117: branch naming `feature/sprint-NN-<topic-slug>` ثابت من Sprint 57
+- L118: live preview = debounce 300ms قبل API call
+
+### Build/Test
+- BE: 0 errors، 24/24 Project tests pass
+- FE: 0 type errors، build OK (/projects/[id] = 7.91 kB)
+- 3 جداول جديدة (contracts، progress_billings، + indexes)
+- 12 endpoint جديد
+- 2 service جديد (ContractService، BillingService)
+- 4 tab جديدة في الـ project page
+
+---
+
 ## Sprint 57 — Project P&L (DEC-160..162) (2026-08-07) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Foundation for Project module expansion. Add `project_id` to journal entries + Project P&L service + UI tab.

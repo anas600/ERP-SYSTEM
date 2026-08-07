@@ -1,0 +1,32 @@
+{
+  "name": "Contract",
+  "table": "contracts",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "project_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "projects", "column": "id", "on_delete": "restrict" } },
+    { "name": "contract_number", "type": "varchar(50)", "nullable": true },
+    { "name": "contract_value", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "advance_percent", "type": "numeric(5,2)", "nullable": false, "default": "0" },
+    { "name": "retention_percent", "type": "numeric(5,2)", "nullable": false, "default": "0" },
+    { "name": "retention_start_billing", "type": "integer", "nullable": false, "default": "1" },
+    { "name": "start_date", "type": "date", "nullable": true },
+    { "name": "end_date", "type": "date", "nullable": true },
+    { "name": "notes", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "created_by", "type": "uuid", "nullable": false },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "updated_by", "type": "uuid", "nullable": true },
+    { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "deleted_at", "type": "timestamptz", "nullable": true }
+  ],
+  "indexes": [
+    { "name": "ix_contracts_company_project", "columns": ["company_id", "project_id"], "unique": true },
+    { "name": "ix_contracts_project", "columns": ["project_id"] },
+    { "name": "ix_contracts_deleted_at", "columns": ["deleted_at"] }
+  ]
+}

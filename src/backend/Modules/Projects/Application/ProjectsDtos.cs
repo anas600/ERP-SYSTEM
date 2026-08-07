@@ -189,3 +189,131 @@ public sealed class ProjectPnLResponse
     /// <summary>عدد القيود المربوطة بالمشروع (Posted، لها خطوط على Expense).</summary>
     public int CostEntryCount { get; set; }
 }
+
+// ===== Sprint 58 / DEC-163: Project Contract =====
+
+public sealed class CreateContractRequest
+{
+    public string? ContractNumber { get; set; }
+    public decimal ContractValue { get; set; }
+    public decimal AdvancePercent { get; set; }
+    public decimal RetentionPercent { get; set; }
+    public int RetentionStartBilling { get; set; } = 1;
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class UpdateContractRequest
+{
+    public string? ContractNumber { get; set; }
+    public decimal ContractValue { get; set; }
+    public decimal AdvancePercent { get; set; }
+    public decimal RetentionPercent { get; set; }
+    public int RetentionStartBilling { get; set; } = 1;
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class ContractResponse
+{
+    public Guid Id { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid ProjectId { get; set; }
+    public string? ContractNumber { get; set; }
+    public decimal ContractValue { get; set; }
+    public decimal AdvancePercent { get; set; }
+    public decimal RetentionPercent { get; set; }
+    public int RetentionStartBilling { get; set; }
+    public DateTime? StartDate { get; set; }
+    public DateTime? EndDate { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+    public bool IsActive { get; set; }
+}
+
+// ===== Sprint 58 / DEC-164: Progress Billing =====
+
+public sealed class CreateBillingRequest
+{
+    public string BillingNumber { get; set; } = string.Empty;
+    public DateTime BillingDate { get; set; }
+    public DateTime? PeriodFrom { get; set; }
+    public DateTime? PeriodTo { get; set; }
+    public decimal WorkCompletedPercent { get; set; }
+    public string? Notes { get; set; }
+}
+
+public sealed class ProgressBillingResponse
+{
+    public Guid Id { get; set; }
+    public Guid CompanyId { get; set; }
+    public Guid ProjectId { get; set; }
+    public Guid ContractId { get; set; }
+    public string BillingNumber { get; set; } = string.Empty;
+    public DateTime BillingDate { get; set; }
+    public DateTime? PeriodFrom { get; set; }
+    public DateTime? PeriodTo { get; set; }
+    public decimal WorkCompletedPercent { get; set; }
+    public decimal GrossAmount { get; set; }
+    public decimal AdvanceDeducted { get; set; }
+    public decimal RetentionDeducted { get; set; }
+    public decimal NetAmount { get; set; }
+    /// <summary>1=Draft, 2=Invoiced, 3=Cancelled (BillingStatus enum int).</summary>
+    public int Status { get; set; }
+    public string StatusName => Status switch
+    {
+        1 => "مسودة",
+        2 => "مُرحّل",
+        3 => "ملغى",
+        _ => "غير معروف"
+    };
+    public Guid? InvoiceId { get; set; }
+    public Guid? JournalEntryId { get; set; }
+    public string? Notes { get; set; }
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
+/// <summary>Sprint 58 / DEC-164: Billing preview (يحسب الأرقام قبل الإنشاء).</summary>
+public sealed class BillingPreviewResponse
+{
+    public decimal GrossAmount { get; set; }
+    public decimal AdvanceDeducted { get; set; }
+    public decimal RetentionDeducted { get; set; }
+    public decimal NetAmount { get; set; }
+    public decimal PreviousMaxPercent { get; set; }
+    public int NextBillingNumber { get; set; }
+}
+
+/// <summary>Sprint 58 / DEC-165: WIP (Work in Progress) — معيار محاسبي للمشاريع.
+/// wip = totalCosts − totalBilledNet
+/// wip > 0 = العمل جاري والفوترة متأخرة (costs exceed billed)
+/// wip < 0 = فوترنا أكثر مما أنفقنا (billed exceeds costs)
+/// wip = 0 = balanced
+/// </summary>
+public sealed class WipResponse
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectCode { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    /// <summary>إجمالي التكاليف من journal_lines (posted JEs on Expense accounts).</summary>
+    public decimal TotalCosts { get; set; }
+    /// <summary>إجمالي المفوتر صافي (net_amount) من progress_billings INVOICED.</summary>
+    public decimal TotalBilledNet { get; set; }
+    /// <summary>إجمالي احتجاز الضمان المحتجز (retention_deducted من billings INVOICED).</summary>
+    public decimal TotalRetentionHeld { get; set; }
+    /// <summary>الفرق: totalCosts - totalBilledNet.</summary>
+    public decimal Wip { get; set; }
+    /// <summary>"COSTS_EXCEED_BILLED" | "BILLED_EXCEED_COSTS" | "BALANCED".</summary>
+    public string Status { get; set; } = "BALANCED";
+    public string StatusName => Status switch
+    {
+        "COSTS_EXCEED_BILLED" => "تكاليف جارية (الفوترة متأخرة)",
+        "BILLED_EXCEED_COSTS" => "فوترة زائدة (مدفوع مقدماً)",
+        "BALANCED" => "متوازن",
+        _ => "غير معروف"
+    };
+}

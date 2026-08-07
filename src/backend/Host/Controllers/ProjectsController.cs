@@ -15,17 +15,27 @@ public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projects;
     private readonly IProjectPnLService _pnl; // Sprint 57 / DEC-161
+    private readonly IContractService _contracts; // Sprint 58 / DEC-163
+    private readonly IBillingService _billings; // Sprint 58 / DEC-164
     private readonly ITaskService _tasks;
     private readonly IBudgetService _budgets;
     private readonly IResourceAssignmentService _assignments;
     private readonly IValidator<CreateProjectRequest> _createV;
     private readonly IValidator<UpdateProjectRequest> _updateV;
 
-    public ProjectsController(IProjectService projects, IProjectPnLService pnl, ITaskService tasks, IBudgetService budgets,
+    public ProjectsController(
+        IProjectService projects,
+        IProjectPnLService pnl,
+        IContractService contracts,
+        IBillingService billings,
+        ITaskService tasks,
+        IBudgetService budgets,
         IResourceAssignmentService assignments,
-        IValidator<CreateProjectRequest> createV, IValidator<UpdateProjectRequest> updateV)
+        IValidator<CreateProjectRequest> createV,
+        IValidator<UpdateProjectRequest> updateV)
     {
-        _projects = projects; _pnl = pnl; _tasks = tasks; _budgets = budgets; _assignments = assignments;
+        _projects = projects; _pnl = pnl; _contracts = contracts; _billings = billings;
+        _tasks = tasks; _budgets = budgets; _assignments = assignments;
         _createV = createV; _updateV = updateV;
     }
 
@@ -108,6 +118,96 @@ public class ProjectsController : ControllerBase
         CancellationToken ct = default)
     {
         var r = await _pnl.GetPnLAsync(id, from, to, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    // ===== Sprint 58 / DEC-163: Project Contract endpoints =====
+
+    /// <summary>جلب العقد المرتبط بالمشروع (عقد واحد فقط لكل مشروع).</summary>
+    [HttpGet("{id:guid}/contract")]
+    public async Task<IActionResult> GetContract(Guid id, CancellationToken ct)
+    {
+        var r = await _contracts.GetByProjectAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    [HttpPost("{id:guid}/contract")]
+    public async Task<IActionResult> CreateContract(Guid id, [FromBody] CreateContractRequest req, CancellationToken ct)
+    {
+        var r = await _contracts.CreateAsync(UserId, id, req, ct);
+        return r.Succeeded
+            ? CreatedAtAction(nameof(GetContract), new { id = id }, r.Value)
+            : BadRequest(Problem(r));
+    }
+
+    [HttpPut("/api/contracts/{contractId:guid}")]
+    public async Task<IActionResult> UpdateContract(Guid contractId, [FromBody] UpdateContractRequest req, CancellationToken ct)
+    {
+        var r = await _contracts.UpdateAsync(UserId, contractId, req, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    [HttpDelete("/api/contracts/{contractId:guid}")]
+    public async Task<IActionResult> DeleteContract(Guid contractId, CancellationToken ct)
+    {
+        var r = await _contracts.DeleteAsync(UserId, contractId, ct);
+        return r.Succeeded ? NoContent() : BadRequest(Problem(r));
+    }
+
+    // ===== Sprint 58 / DEC-164: Progress Billing endpoints =====
+
+    [HttpGet("{id:guid}/billings")]
+    public async Task<IActionResult> GetBillings(Guid id, CancellationToken ct)
+    {
+        var r = await _billings.ListByProjectAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    [HttpPost("{id:guid}/billings")]
+    public async Task<IActionResult> CreateBilling(Guid id, [FromBody] CreateBillingRequest req, CancellationToken ct)
+    {
+        var r = await _billings.CreateAsync(UserId, id, req, ct);
+        return r.Succeeded
+            ? CreatedAtAction(nameof(GetBillings), new { id = id }, r.Value)
+            : BadRequest(Problem(r));
+    }
+
+    [HttpGet("/api/billings/{billingId:guid}")]
+    public async Task<IActionResult> GetBilling(Guid billingId, CancellationToken ct)
+    {
+        var r = await _billings.GetByIdAsync(billingId, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    /// <summary>معاينة المستخلص قبل الإنشاء — يحسب الأرقام المتوقعة (live preview في الـ UI).</summary>
+    [HttpGet("/api/contracts/{contractId:guid}/billing-preview")]
+    public async Task<IActionResult> PreviewBilling(Guid contractId, [FromQuery] decimal percent, CancellationToken ct)
+    {
+        var r = await _billings.PreviewAsync(contractId, percent, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    /// <summary>ترحيل المستخلص (DRAFT → INVOICED). عملية ذرية: ينشئ sales_invoice + journal_entry ويحدّث الـ billing.</summary>
+    [HttpPost("/api/billings/{billingId:guid}/approve")]
+    public async Task<IActionResult> ApproveBilling(Guid billingId, CancellationToken ct)
+    {
+        var r = await _billings.ApproveAsync(UserId, billingId, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>إلغاء مسودة المستخلص (DRAFT → CANCELLED).</summary>
+    [HttpPost("/api/billings/{billingId:guid}/cancel")]
+    public async Task<IActionResult> CancelBilling(Guid billingId, CancellationToken ct)
+    {
+        var r = await _billings.CancelAsync(UserId, billingId, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    /// <summary>WIP (Work in Progress) — التكاليف الجارية غير المفوترة (Sprint 58 / DEC-165).</summary>
+    [HttpGet("{id:guid}/wip")]
+    public async Task<IActionResult> GetWip(Guid id, CancellationToken ct)
+    {
+        var r = await _billings.GetWipAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 

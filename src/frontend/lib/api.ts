@@ -212,6 +212,101 @@ export interface ProjectPnL {
   costEntryCount: number;
 }
 
+// ===== Sprint 58 / DEC-163: Contract =====
+export interface Contract {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractNumber?: string;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+
+export interface CreateContractRequest {
+  contractNumber?: string;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
+
+export interface UpdateContractRequest {
+  contractNumber?: string;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string;
+  endDate?: string;
+  notes?: string;
+}
+
+// ===== Sprint 58 / DEC-164: Progress Billing =====
+export interface ProgressBilling {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractId: string;
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string;
+  periodTo?: string;
+  workCompletedPercent: number;
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  status: number;  // 1=Draft, 2=Invoiced, 3=Cancelled
+  statusName: string;
+  invoiceId?: string;
+  journalEntryId?: string;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateBillingRequest {
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string;
+  periodTo?: string;
+  workCompletedPercent: number;
+  notes?: string;
+}
+
+export interface BillingPreview {
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  previousMaxPercent: number;
+  nextBillingNumber: number;
+}
+
+// ===== Sprint 58 / DEC-165: WIP =====
+export interface ProjectWip {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  totalCosts: number;
+  totalBilledNet: number;
+  totalRetentionHeld: number;
+  wip: number;
+  status: 'COSTS_EXCEED_BILLED' | 'BILLED_EXCEED_COSTS' | 'BALANCED';
+  statusName: string;
+}
+
 export const PROJECT_STATUSES: Record<number, string> = {
   1: 'تخطيط',
   2: 'نشط',
@@ -1070,6 +1165,50 @@ export const projectsApi = {
     if (from) params.from = from;
     if (to) params.to = to;
     const r = await api.get<ProjectPnL>(`/api/projects/${id}/pnl`, { params });
+    return r.data;
+  },
+  // Sprint 58 / DEC-163: Contract
+  getContract: async (id: string): Promise<Contract> => {
+    const r = await api.get<Contract>(`/api/projects/${id}/contract`);
+    return r.data;
+  },
+  createContract: async (id: string, data: CreateContractRequest): Promise<Contract> => {
+    const r = await api.post<Contract>(`/api/projects/${id}/contract`, data);
+    return r.data;
+  },
+  updateContract: async (contractId: string, data: UpdateContractRequest): Promise<Contract> => {
+    const r = await api.put<Contract>(`/api/contracts/${contractId}`, data);
+    return r.data;
+  },
+  deleteContract: async (contractId: string): Promise<void> => {
+    await api.delete(`/api/contracts/${contractId}`);
+  },
+  // Sprint 58 / DEC-164: Progress Billings
+  getBillings: async (id: string): Promise<ProgressBilling[]> => {
+    const r = await api.get<ProgressBilling[]>(`/api/projects/${id}/billings`);
+    return r.data;
+  },
+  createBilling: async (id: string, data: CreateBillingRequest): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(`/api/projects/${id}/billings`, data);
+    return r.data;
+  },
+  previewBilling: async (contractId: string, percent: number): Promise<BillingPreview> => {
+    const r = await api.get<BillingPreview>(`/api/contracts/${contractId}/billing-preview`, {
+      params: { percent },
+    });
+    return r.data;
+  },
+  approveBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(`/api/billings/${billingId}/approve`);
+    return r.data;
+  },
+  cancelBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(`/api/billings/${billingId}/cancel`);
+    return r.data;
+  },
+  // Sprint 58 / DEC-165: WIP
+  getProjectWip: async (id: string): Promise<ProjectWip> => {
+    const r = await api.get<ProjectWip>(`/api/projects/${id}/wip`);
     return r.data;
   },
 };
