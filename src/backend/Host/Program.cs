@@ -504,6 +504,25 @@ else
     Console.WriteLine("[SPRINT-50] SeedLibyanSme=false (default) — LibyanSmeScenarioDevSeeder SKIPPED.");
 }
 
+// ============ Sprint 55 (DEC-145..147) — Proper Transactional Seeder ============
+// ينشئ sales_invoices + vendor_bills + payments مع ربطها بقيود اليومية.
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedProperTransactional=true
+// (Idempotent — يفحص وجود الفواتير قبل الإدراج)
+var seedProperTransactional = builder.Configuration.GetValue<bool>("Bootstrap:SeedProperTransactional", false);
+if (seedProperTransactional && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ProperTransactionalSeederHostedService>();
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=true + env=Development — ProperTransactionalSeeder registered.");
+}
+else if (seedProperTransactional)
+{
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=false (default) — ProperTransactionalSeeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
