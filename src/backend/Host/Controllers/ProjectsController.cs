@@ -14,17 +14,18 @@ namespace ERPSystem.Host.Controllers;
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projects;
+    private readonly IProjectPnLService _pnl; // Sprint 57 / DEC-161
     private readonly ITaskService _tasks;
     private readonly IBudgetService _budgets;
     private readonly IResourceAssignmentService _assignments;
     private readonly IValidator<CreateProjectRequest> _createV;
     private readonly IValidator<UpdateProjectRequest> _updateV;
 
-    public ProjectsController(IProjectService projects, ITaskService tasks, IBudgetService budgets,
+    public ProjectsController(IProjectService projects, IProjectPnLService pnl, ITaskService tasks, IBudgetService budgets,
         IResourceAssignmentService assignments,
         IValidator<CreateProjectRequest> createV, IValidator<UpdateProjectRequest> updateV)
     {
-        _projects = projects; _tasks = tasks; _budgets = budgets; _assignments = assignments;
+        _projects = projects; _pnl = pnl; _tasks = tasks; _budgets = budgets; _assignments = assignments;
         _createV = createV; _updateV = updateV;
     }
 
@@ -95,6 +96,18 @@ public class ProjectsController : ControllerBase
     public async Task<IActionResult> GetBudget(Guid id, CancellationToken ct)
     {
         var r = await _budgets.GetByProjectAsync(id, ct);
+        return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
+    }
+
+    /// <summary>الأرباح والخسائر حسب المشروع (Sprint 57 / DEC-161). يقبل نطاق زمني اختياري.</summary>
+    [HttpGet("{id:guid}/pnl")]
+    public async Task<IActionResult> GetPnL(
+        Guid id,
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        CancellationToken ct = default)
+    {
+        var r = await _pnl.GetPnLAsync(id, from, to, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 

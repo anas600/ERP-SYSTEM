@@ -232,6 +232,7 @@ builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();

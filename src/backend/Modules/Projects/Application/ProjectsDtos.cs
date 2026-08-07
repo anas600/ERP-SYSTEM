@@ -154,3 +154,38 @@ public sealed class AssignmentResponse
     public decimal EstimatedCost { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+// ===== Sprint 57 / DEC-161: Project P&L =====
+
+public sealed class ProjectPnLLine
+{
+    /// <summary>Account code (مثال: "5401").</summary>
+    public string AccountCode { get; set; } = string.Empty;
+    /// <summary>Account name (مثال: "مواد خام").</summary>
+    public string AccountName { get; set; } = string.Empty;
+    /// <summary>المبلغ الموجب (للتكلفة: debit - credit على حسابات Expense).</summary>
+    public decimal Amount { get; set; }
+}
+
+public sealed class ProjectPnLResponse
+{
+    public Guid ProjectId { get; set; }
+    public string ProjectCode { get; set; } = string.Empty;
+    public string ProjectName { get; set; } = string.Empty;
+    public DateTime? From { get; set; }
+    public DateTime? To { get; set; }
+    /// <summary>إجمالي الإيرادات من sales_invoices (Posted فقط).</summary>
+    public decimal TotalRevenue { get; set; }
+    /// <summary>عدد فواتير البيع المربوطة بالمشروع (داخل النطاق الزمني).</summary>
+    public int InvoiceCount { get; set; }
+    /// <summary>تكاليف مفصّلة حسب الحساب (Expense accounts فقط، Posted JEs).</summary>
+    public List<ProjectPnLLine> CostsByAccount { get; set; } = new();
+    /// <summary>إجمالي التكاليف.</summary>
+    public decimal TotalCosts { get; set; }
+    /// <summary>إجمالي الربح = Revenue - Costs.</summary>
+    public decimal GrossProfit { get; set; }
+    /// <summary>هامش الربح % (0 إذا لا إيرادات).</summary>
+    public decimal ProfitMarginPercent { get; set; }
+    /// <summary>عدد القيود المربوطة بالمشروع (Posted، لها خطوط على Expense).</summary>
+    public int CostEntryCount { get; set; }
+}

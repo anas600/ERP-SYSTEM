@@ -13,6 +13,51 @@
 
 ---
 
+## Sprint 57 — Project P&L (DEC-160..162) (2026-08-07) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Foundation for Project module expansion. Add `project_id` to journal entries + Project P&L service + UI tab.
+
+### Added (DEC-160)
+- `journal_entries.project_id` (nullable FK → projects.id, ON DELETE SET NULL)
+- New index `ix_journal_entries_project`
+- `PostJournalEntryRequest.ProjectId` + `JournalEntryResponse.ProjectId`
+- Schema auto-applied via `DataTypeMigrator` (idempotent ADD COLUMN)
+
+### Added (DEC-161)
+- `IProjectPnLService` + `ProjectPnLService` (in `Modules/Projects/Application/Services/`)
+- `ProjectPnLResponse` + `ProjectPnLLine` DTOs
+- Endpoint: `GET /api/projects/{id}/pnl?from=&to=`
+- Registered as `AddScoped` in `Program.cs`
+
+### Added (DEC-162)
+- New tab "الأرباح والخسائر" on `/projects/[id]`
+- Date range filter (default previous year → today)
+- 4 summary cards: Revenue, Costs, Gross Profit, Margin %
+- Cost breakdown table (account code, name, amount, % of total)
+- `projectsApi.getProject(id)` + `projectsApi.getProjectPnL(id, from, to)`
+- `ProjectPnL` + `ProjectPnLLine` types
+
+### Changed
+- `/projects/[id]/page.tsx`: rewritten with tabbed interface (التفاصيل | الأرباح والخسائر)
+- `JournalEntryRepository`: all SQL includes `project_id` (GetById/GetWithLines/Insert/Update/List)
+- `JournalEntryService.CreateDraftAsync`: passes `request.ProjectId` to entity
+- `JournalEntryService.BuildResponseAsync`: includes `ProjectId` in response
+- `Modules/Projects/AGENTS.md`: updated with Sprint 57 context + new endpoint
+
+### Lessons
+- L109: `data-types/*.json` is source of truth for additive schema changes
+- L110: P&L costs come from journal_entries (not from invoices/bills) to avoid double-counting
+- L111: Header-level `project_id` on journal_entries (not per-line)
+- L112: FakeDb doesn't simulate GROUP BY — manual smoke test against real DB needed
+
+### Build/Test
+- BE: 0 errors, 24/24 Project tests pass, 25/25 Finance tests pass (4 pre-existing [Skip])
+- FE: 0 type errors, build OK (`/projects/[id]` = 4.16 kB)
+
+---
+
+## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
+
 ## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's Q1 from Sprint 31 (defer to Sprint 32) — fix the Projects module's 4 missing `data-types/*.json` files so the tables get created. Closed the loop on L44 ("Projects module is partially implemented").

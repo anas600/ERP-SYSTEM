@@ -1,10 +1,12 @@
 # 📊 src/backend/Modules/Projects/AGENTS.md
 
-> Projects Module — ✅ Phase 2.1 (مكتمل).
+> Projects Module — ✅ Phase 2.1 + Sprint 57 (Project P&L)
 >
-> محدّث: 2026-06-24 — إضافة Phase 3+ context
+> محدّث: 2026-08-07 — Sprint 57 / DEC-160..162 (Project P&L foundation)
 >
 > **Phase 6 (2026-07-27) — Multi-Company update:** Per Constitution Article 3, this module now uses `ICompanyContext` (instead of removed `ITenantContext`). All queries filter by `company_id` (instead of removed `tenant_id`). Users are global, companies are many. JWT carries `default_company_id` + `company_ids[]`. See root [AGENTS.md](../../../../AGENTS.md#-multi-company-convention-per-constitution-article-3) and [docs/PHASE6-RELEASE-NOTES.md](../../../../PHASE6-RELEASE-NOTES.md) for migration guide.
+>
+> **Sprint 57 (2026-08-07) — Project P&L:** أضفنا `project_id` على journal_entries (DEC-160) + ProjectPnLService (DEC-161) + UI tab "الأرباح والخسائر" (DEC-162). الـ P&L يقرأ من sales_invoices (revenue) + journal_lines على Expense accounts (costs).
 
 ## شو فيه
 
@@ -17,10 +19,11 @@ Projects/
 │   ├── ProjectBudget.cs    # SpentAmount/CommittedAmount/AvailableAmount
 │   └── ResourceAssignment.cs # HourlyRate snapshot + computed EstimatedCost
 ├── Application/
-│   ├── ProjectsDtos.cs     # كل الـ DTOs
+│   ├── ProjectsDtos.cs     # كل الـ DTOs (+ ProjectPnLResponse, ProjectPnLLine من Sprint 57)
 │   ├── Validators.cs       # FluentValidation
 │   └── Services/
 │       ├── ProjectService.cs           # CRUD + status workflow + auto-bootstrap
+│       ├── ProjectPnLService.cs        # Sprint 57 / DEC-161: P&L aggregation
 │       └── SupportingServices.cs        # Task, Resource, Budget, Assignment
 └── Infrastructure/
     ├── IRepositories.cs
@@ -54,7 +57,7 @@ Forward-only (لا يمكن الرجوع من Completed). Transition invalid →
 - `EstimatedHours` = (To - From).TotalHours
 - `EstimatedCost` = EstimatedHours × HourlyRate
 
-## Endpoints (16)
+## Endpoints (17)
 
 | Method | Path | الغرض |
 |--------|------|-------|
@@ -67,6 +70,7 @@ Forward-only (لا يمكن الرجوع من Completed). Transition invalid →
 | GET    | /api/projects/{id}/tasks | قائمة المهام |
 | GET    | /api/projects/{id}/budget | ميزانية |
 | POST   | /api/projects/{id}/budget/recalculate | إعادة حساب Spent |
+| **GET**| **/api/projects/{id}/pnl** | **Sprint 57: الأرباح والخسائر (Revenue − Costs)** |
 | GET    | /api/projects/{id}/assignments | تعيينات الموارد |
 | POST   | /api/projects/{id}/assignments | تعيين مورد |
 | DELETE | /api/projects/{id}/assignments/{aid} | إزالة |
@@ -77,6 +81,7 @@ Forward-only (لا يمكن الرجوع من Completed). Transition invalid →
 - إضافة status جديد: عدّل `ProjectStatus` + `ProjectService.ChangeStatusAsync` (الـ validTransitions dict)
 - إضافة field: migration جديدة + entity + DTO + service + repo
 - حساب Spent: يستدعى `IBudgetService.RecalculateSpentAsync` (الآن يدوي — في Phase 2.4 يُستدعى تلقائياً على PostAsync لـ journal entry)
+- **حساب P&L (Sprint 57)**: `IProjectPnLService.GetPnLAsync(projectId, from, to)` — يقرأ من sales_invoices (revenue) + journal_lines على Expense accounts. الـ Cost يحسب من الـ JE (مش من الفواتير مباشرة) لتجنّب double-counting لأن كل فاتورة مرحلة تولد JE تلقائياً.
 
 ## بعد التعديل
 

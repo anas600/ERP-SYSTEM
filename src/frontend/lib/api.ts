@@ -190,6 +190,28 @@ export interface Project {
   createdAt: string;
 }
 
+// Sprint 57 / DEC-161: Project P&L
+export interface ProjectPnLLine {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+}
+
+export interface ProjectPnL {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  from?: string;
+  to?: string;
+  totalRevenue: number;
+  invoiceCount: number;
+  costsByAccount: ProjectPnLLine[];
+  totalCosts: number;
+  grossProfit: number;
+  profitMarginPercent: number;
+  costEntryCount: number;
+}
+
 export const PROJECT_STATUSES: Record<number, string> = {
   1: 'تخطيط',
   2: 'نشط',
@@ -1036,6 +1058,18 @@ export const inventoryApi = {
 export const projectsApi = {
   listProjects: async (): Promise<Project[]> => {
     const r = await api.get<Project[]>('/api/projects');
+    return r.data;
+  },
+  getProject: async (id: string): Promise<Project> => {
+    const r = await api.get<Project>(`/api/projects/${id}`);
+    return r.data;
+  },
+  // Sprint 57 / DEC-161: Project P&L
+  getProjectPnL: async (id: string, from?: string, to?: string): Promise<ProjectPnL> => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    const r = await api.get<ProjectPnL>(`/api/projects/${id}/pnl`, { params });
     return r.data;
   },
 };

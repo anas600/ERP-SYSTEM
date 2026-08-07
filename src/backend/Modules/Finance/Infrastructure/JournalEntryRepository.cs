@@ -14,8 +14,8 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string sql = @"
-            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
-                   description, reference, status, created_by_user_id AS CreatedByUserId,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, project_id AS ProjectId,
+                   entry_date AS EntryDate, description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries WHERE id = @Id LIMIT 1";
         return await conn.QueryFirstOrDefaultAsync<JournalEntry>(new CommandDefinition(sql, new { Id = id }, cancellationToken: ct));
@@ -25,8 +25,8 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         const string headerSql = @"
-            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
-                   description, reference, status, created_by_user_id AS CreatedByUserId,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, project_id AS ProjectId,
+                   entry_date AS EntryDate, description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries WHERE id = @Id LIMIT 1";
         const string linesSql = @"
@@ -77,9 +77,9 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
         using var tx = await conn.BeginTransactionAsync(ct);
 
         const string headerSql = @"
-            INSERT INTO journal_entries (id, entry_number, company_id, entry_date, description, reference,
+            INSERT INTO journal_entries (id, entry_number, company_id, project_id, entry_date, description, reference,
                                          status, created_by_user_id, posted_at, created_at, updated_at)
-            VALUES (@Id, @EntryNumber, @CompanyId, @EntryDate, @Description, @Reference,
+            VALUES (@Id, @EntryNumber, @CompanyId, @ProjectId, @EntryDate, @Description, @Reference,
                     @Status, @CreatedByUserId, @PostedAt, @CreatedAt, @UpdatedAt)";
         await conn.ExecuteAsync(new CommandDefinition(headerSql, entry, transaction: tx, cancellationToken: ct));
 
@@ -101,7 +101,7 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
         const string sql = @"
             UPDATE journal_entries SET entry_date = @EntryDate, description = @Description,
                                        reference = @Reference, status = @Status, posted_at = @PostedAt,
-                                       updated_at = @UpdatedAt
+                                       project_id = @ProjectId, updated_at = @UpdatedAt
             WHERE id = @Id";
         await conn.ExecuteAsync(new CommandDefinition(sql, entry, cancellationToken: ct));
     }
@@ -110,8 +110,8 @@ public sealed class JournalEntryRepository : IJournalEntryRepository
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         var sql = @"
-            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, entry_date AS EntryDate,
-                   description, reference, status, created_by_user_id AS CreatedByUserId,
+            SELECT id, entry_number AS EntryNumber, company_id AS CompanyId, project_id AS ProjectId,
+                   entry_date AS EntryDate, description, reference, status, created_by_user_id AS CreatedByUserId,
                    posted_at AS PostedAt, created_at AS CreatedAt, updated_at AS UpdatedAt
             FROM journal_entries
             WHERE 1=1";
