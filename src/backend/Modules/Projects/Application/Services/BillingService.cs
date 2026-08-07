@@ -269,9 +269,9 @@ public sealed class BillingService : IBillingService
             // 4) Update billing status
             const string billingUpdateSql = @"
                 UPDATE progress_billings
-                SET status = 2, invoice_id = @InvoiceId, journal_entry_id = @JeId,
+                SET status = 'INVOICED', invoice_id = @InvoiceId, journal_entry_id = @JeId,
                     updated_at = NOW(), updated_by = @UpdatedBy
-                WHERE id = @Id AND status = 1";
+                WHERE id = @Id AND status = 'DRAFT'";
             await conn.ExecuteAsync(new CommandDefinition(billingUpdateSql, new
             {
                 Id = billing.Id, InvoiceId = invoiceId, JeId = jeId, UpdatedBy = userId
@@ -332,7 +332,7 @@ public sealed class BillingService : IBillingService
                    COALESCE(SUM(retention_deducted), 0) AS TotalRetentionHeld
             FROM progress_billings
             WHERE project_id = @ProjectId
-              AND status = 2;";
+              AND status = 'INVOICED';";  // status column is varchar
         var billed = await conn.QueryFirstOrDefaultAsync<(decimal TotalBilledNet, decimal TotalRetentionHeld)>(
             new CommandDefinition(billedSql, new { ProjectId = projectId }, cancellationToken: ct));
 

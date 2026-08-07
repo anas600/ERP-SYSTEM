@@ -92,7 +92,16 @@ public sealed class BillingRepository : IBillingRepository
                     @RetentionDeducted, @NetAmount, @Status,
                     @InvoiceId, @JournalEntryId, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)";
-        await conn.ExecuteAsync(new CommandDefinition(sql, billing, cancellationToken: ct));
+        // status column is varchar(20) — convert enum to string explicitly
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            billing.Id, billing.CompanyId, billing.ProjectId, billing.ContractId, billing.BillingNumber,
+            billing.BillingDate, billing.PeriodFrom, billing.PeriodTo,
+            billing.WorkCompletedPercent, billing.GrossAmount, billing.AdvanceDeducted,
+            billing.RetentionDeducted, billing.NetAmount, Status = StatusToString(billing.Status),
+            billing.InvoiceId, billing.JournalEntryId, billing.Notes,
+            billing.CreatedAt, billing.CreatedBy, billing.UpdatedAt, billing.UpdatedBy,
+        }, cancellationToken: ct));
     }
 
     public async Task UpdateStatusAsync(Guid id, BillingStatus status, Guid? invoiceId, Guid? journalEntryId, Guid updatedBy, CancellationToken ct)
@@ -103,6 +112,17 @@ public sealed class BillingRepository : IBillingRepository
             SET status = @Status, invoice_id = @InvoiceId, journal_entry_id = @JournalEntryId,
                 updated_at = NOW(), updated_by = @UpdatedBy
             WHERE id = @Id";
-        await conn.ExecuteAsync(new CommandDefinition(sql, new { Id = id, Status = (int)status, InvoiceId = invoiceId, JournalEntryId = journalEntryId, UpdatedBy = updatedBy }, cancellationToken: ct));
+        await conn.ExecuteAsync(new CommandDefinition(sql, new
+        {
+            Id = id, Status = StatusToString(status), InvoiceId = invoiceId, JournalEntryId = journalEntryId, UpdatedBy = updatedBy
+        }, cancellationToken: ct));
     }
+
+    private static string StatusToString(BillingStatus s) => s switch
+    {
+        BillingStatus.Draft => "DRAFT",
+        BillingStatus.Invoiced => "INVOICED",
+        BillingStatus.Cancelled => "CANCELLED",
+        _ => "DRAFT",
+    };
 }
