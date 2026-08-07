@@ -80,6 +80,8 @@ const NAV_GROUPS: NavGroup[] = [
   {
     items: [
       { label: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
+      // Sprint 57 (DEC-152): Executive Dashboard — Holding overview with charts
+      { label: 'اللوحة التنفيذية', href: '/dashboard/executive', icon: TrendingUp },
     ],
   },
   {

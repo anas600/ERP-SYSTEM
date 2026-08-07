@@ -14,17 +14,21 @@ public class LedgerController : ControllerBase
     private readonly IGeneralLedgerService _ledger;
     private readonly IGeneralLedgerReportService _report;
     private readonly IYearEndClosingService _yearEnd;
+    // Sprint 57 (DEC-152): Executive Dashboard service (KPIs + chart data)
+    private readonly IExecutiveDashboardService _dashboard;
     private readonly ICompanyContext _companyContext;
 
     public LedgerController(
         IGeneralLedgerService ledger,
         IGeneralLedgerReportService report,
         IYearEndClosingService yearEnd,
+        IExecutiveDashboardService dashboard,
         ICompanyContext companyContext)
     {
         _ledger = ledger;
         _report = report;
         _yearEnd = yearEnd;
+        _dashboard = dashboard;
         _companyContext = companyContext;
     }
 
@@ -127,6 +131,18 @@ public class LedgerController : ControllerBase
             ?? throw new InvalidOperationException("No active company in context");
         var status = await _yearEnd.GetStatusAsync(companyId, year, ct);
         return Ok(status);
+    }
+
+    // ============ Sprint 57 (DEC-152) — Executive Dashboard ============
+
+    /// <summary>لوحة Executive Dashboard — KPIs + chart data (revenue trend, top customers, expense breakdown, AR/AP aging).</summary>
+    [HttpGet("dashboard/executive")]
+    public async Task<IActionResult> GetExecutiveDashboard(CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var r = await _dashboard.GetAsync(companyId, ct);
+        return Ok(r);
     }
 
     private static ProblemDetails Problem<T>(FinanceResult<T> r) => new()
