@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const PROJECT_STATUSES = [
   { label: 'تخطيط (Planning)', value: 1 },
@@ -58,7 +58,7 @@ export default function NewProjectPage() {
     setSubmitting(true);
     try {
       // DEC-113: companyId is NOT sent — BE service uses ICompanyContext from JWT (L19/L30).
-      const res = await fetch('/api/projects', {
+      const res = await authedFetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

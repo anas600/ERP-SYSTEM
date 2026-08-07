@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Eye } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface StockReservation {
   id: string;
@@ -35,7 +35,7 @@ export default function ReservationsPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/inventory/reservations', { cache: 'no-store' });
+      const res = await authedFetch('/api/inventory/reservations', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
       const data = await res.json();
       setItems(data);

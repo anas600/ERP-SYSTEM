@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const ITEM_TYPES = [
   { label: 'منتج (Stock)', value: 'Stock' },
@@ -64,7 +64,7 @@ export default function NewItemPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/items', {
+      const res = await authedFetch('/api/inventory/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

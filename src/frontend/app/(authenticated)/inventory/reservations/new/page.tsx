@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const REF_TYPES = [
   { label: 'أمر بيع (SalesOrder)', value: 'SalesOrder' },
@@ -49,7 +49,7 @@ export default function NewReservationPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/reservations', {
+      const res = await authedFetch('/api/inventory/reservations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

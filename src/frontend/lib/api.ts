@@ -942,6 +942,37 @@ export function getErrorMessage(e: unknown, fallback = 'حدث خطأ غير م�
   );
 }
 
+// ============ authedFetch — helper for pages still using raw `fetch` ============
+//
+// Many list pages call `fetch('/api/...')` directly. That bypasses the axios
+// interceptor, so the JWT + X-Company-Id headers are never attached → BE returns
+// 401 → page shows "فشل التحميل". This helper reads the token from
+// localStorage and adds both headers, matching what `api` (axios) does.
+//
+// Use:
+//   const res = await authedFetch('/api/finance/journal-entries');
+//   const data = await res.json();
+//
+// Or use `api.get('/api/finance/journal-entries')` for typed responses.
+export async function authedFetch(
+  input: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('accessToken');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const companyId =
+      localStorage.getItem('currentCompanyId') ||
+      localStorage.getItem('defaultCompanyId');
+    if (companyId) headers.set('X-Company-Id', companyId);
+  }
+  if (!headers.has('Content-Type') && init.body && typeof init.body === 'string') {
+    headers.set('Content-Type', 'application/json');
+  }
+  return fetch(input, { ...init, headers });
+}
+
 // ============ API helpers ============
 
 export const authApi = {
