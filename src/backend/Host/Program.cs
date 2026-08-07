@@ -273,6 +273,8 @@ builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+// Sprint 56 (DEC-149 + DEC-150): Top Customers + Top Items reports
+builder.Services.AddScoped<ITopCustomersReportService, TopCustomersReportService>();
 // Sprint 36 (DEC-122): customer statement
 builder.Services.AddScoped<ICustomerStatementService, CustomerStatementService>();
 builder.Services.AddScoped<IEosService, EosService>();

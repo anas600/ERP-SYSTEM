@@ -39,6 +39,7 @@ import {
   Bell,
   Building2,
   Tag,
+  Trophy,
   Settings,
   Shield,
   Heart,
@@ -111,6 +112,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'التدفقات النقدية', href: '/finance/reports/cash-flow', icon: Droplet },
       { label: 'أعمار الذمم (AR + AP)', href: '/finance/reports/aging-summary', icon: Hourglass },
       { label: 'أعمار الذمم AR', href: '/finance/aging-ar', icon: Activity },
+      // Sprint 56 (DEC-149 + DEC-150): Top Customers + Top Items
+      { label: 'أكبر العملاء والأصناف', href: '/finance/reports/top-customers', icon: Trophy },
     ],
   },
   {

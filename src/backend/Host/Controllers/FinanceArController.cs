@@ -23,6 +23,8 @@ public class FinanceArController : ControllerBase
     private readonly IReceiptService _receipts;
     // Sprint 36 (DEC-122): customer statement (AR aging + invoice/receipt detail).
     private readonly ICustomerStatementService _customerStatements;
+    // Sprint 56 (DEC-149 + DEC-150): Top Customers + Top Items reports.
+    private readonly ITopCustomersReportService _topCustomers;
     private readonly ICompanyContext _companyContext;
 
     private readonly IValidator<CreateCustomerRequest> _createCustomerV;
@@ -36,6 +38,7 @@ public class FinanceArController : ControllerBase
         ISalesInvoiceService invoices,
         IReceiptService receipts,
         ICustomerStatementService customerStatements,
+        ITopCustomersReportService topCustomers,
         IValidator<CreateCustomerRequest> createCustomerV,
         IValidator<UpdateCustomerRequest> updateCustomerV,
         IValidator<CreateSalesInvoiceRequest> createInvoiceV,
@@ -45,6 +48,7 @@ public class FinanceArController : ControllerBase
     {
         _customers = customers; _invoices = invoices; _receipts = receipts;
         _customerStatements = customerStatements;
+        _topCustomers = topCustomers;
         _companyContext = companyContext;
         _createCustomerV = createCustomerV; _updateCustomerV = updateCustomerV;
         _createInvoiceV = createInvoiceV; _updateInvoiceV = updateInvoiceV; _createReceiptV = createReceiptV;
@@ -212,6 +216,30 @@ public class FinanceArController : ControllerBase
         var asOf = asOfDate ?? DateTime.UtcNow;
         var r = await _invoices.GetAgingReportAsync(asOf, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    // ============== Sprint 56 (DEC-149 + DEC-150) — Top Customers + Top Items ==============
+
+    [HttpGet("api/ar/reports/top-customers")]
+    public async Task<IActionResult> GetTopCustomers(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] int top = 10, CancellationToken ct = default)
+    {
+        var toDate = (to ?? DateTime.UtcNow).Date;
+        var fromDate = (from ?? toDate.AddYears(-1)).Date;
+        var r = await _topCustomers.GetTopCustomersAsync(CompanyId, fromDate, toDate, Math.Clamp(top, 1, 100), ct);
+        return Ok(r);
+    }
+
+    [HttpGet("api/ar/reports/top-items")]
+    public async Task<IActionResult> GetTopItems(
+        [FromQuery] DateTime? from, [FromQuery] DateTime? to,
+        [FromQuery] int top = 10, CancellationToken ct = default)
+    {
+        var toDate = (to ?? DateTime.UtcNow).Date;
+        var fromDate = (from ?? toDate.AddYears(-1)).Date;
+        var r = await _topCustomers.GetTopItemsAsync(CompanyId, fromDate, toDate, Math.Clamp(top, 1, 100), ct);
+        return Ok(r);
     }
 
     // ============== Reports (Phase 6.1 — 20 mandatory reports) ==============
