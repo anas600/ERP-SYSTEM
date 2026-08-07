@@ -3,6 +3,7 @@
 // صفحة تقرير أعمار الذمم المدينة (AR Aging) — جدول per-customer + 5 buckets
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Clock, Users } from 'lucide-react';
 import { Card, PageHeader, Input, Table, Badge } from '@/components/ui';
 import { arApi, ArAgingReport, getErrorMessage } from '@/lib/api';
@@ -10,6 +11,7 @@ import { formatDate } from '@/lib/utils';
 import { formatNumber } from '@/lib/format';
 
 export default function AgingArPage() {
+  const router = useRouter();
   const [asOfDate, setAsOfDate] = useState<string>(new Date().toISOString().slice(0, 10));
   const [report, setReport] = useState<ArAgingReport | null>(null);
   const [loading, setLoading] = useState(true);
@@ -97,6 +99,7 @@ export default function AgingArPage() {
       )}
 
       <Table
+        onRowClick={(r) => router.push(`/finance/customers/${r.customerId}`)}
         columns={[
           {
             key: 'customer',

@@ -46,6 +46,7 @@ public sealed class BalanceSheetSection
 
 public sealed class BalanceSheetRow
 {
+    public Guid AccountId { get; set; }
     public string AccountCode { get; set; } = string.Empty;
     public string AccountName { get; set; } = string.Empty;
     public decimal Balance { get; set; }
@@ -97,6 +98,7 @@ public sealed class CashFlowResponse
 
 public sealed class IncomeStatementRow
 {
+    public Guid AccountId { get; set; }
     public string AccountCode { get; set; } = string.Empty;
     public string AccountName { get; set; } = string.Empty;
     public decimal Amount { get; set; }
@@ -126,6 +128,7 @@ public sealed class IncomeStatementResponse
 
 public sealed class APAgingVendorBucket
 {
+    public Guid VendorId { get; set; }
     public string VendorCode { get; set; } = string.Empty;
     public string VendorName { get; set; } = string.Empty;
     public decimal Current { get; set; }     // 0-30 days

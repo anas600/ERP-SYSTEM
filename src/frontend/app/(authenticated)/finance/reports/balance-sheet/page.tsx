@@ -106,12 +106,12 @@ export default function BalanceSheetPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Assets */}
-            <SectionCard title="الأصول (Assets)" rows={report.assets.rows} subtotal={report.totalAssets} color="blue" />
+            <SectionCard title="الأصول (Assets)" rows={report.assets.rows} subtotal={report.totalAssets} color="blue" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
             {/* Liabilities */}
-            <SectionCard title="الالتزامات (Liabilities)" rows={report.liabilities.rows} subtotal={report.totalLiabilities} color="red" />
+            <SectionCard title="الالتزامات (Liabilities)" rows={report.liabilities.rows} subtotal={report.totalLiabilities} color="red" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
           </div>
           <div className="mt-4">
-            <SectionCard title="حقوق الملكية (Equity)" rows={report.equity.rows} subtotal={report.totalEquity} color="emerald" />
+            <SectionCard title="حقوق الملكية (Equity)" rows={report.equity.rows} subtotal={report.totalEquity} color="emerald" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
           </div>
 
           <p className="mt-3 text-xs text-gray-500">
@@ -123,7 +123,7 @@ export default function BalanceSheetPage() {
   );
 }
 
-function SectionCard({ title, rows, subtotal, color }: { title: string; rows: { accountCode: string; accountName: string; balance: number }[]; subtotal: number; color: 'blue' | 'red' | 'emerald' }) {
+function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; accountName: string; balance: number }[]; subtotal: number; color: 'blue' | 'red' | 'emerald'; onRowClick: (accountId: string) => void }) {
   const colorMap = { blue: 'bg-blue-50 border-blue-200', red: 'bg-red-50 border-red-200', emerald: 'bg-emerald-50 border-emerald-200' };
   const textMap = { blue: 'text-blue-800', red: 'text-red-800', emerald: 'text-emerald-800' };
   return (
@@ -145,7 +145,7 @@ function SectionCard({ title, rows, subtotal, color }: { title: string; rows: { 
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.accountCode} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
                 <td className="px-4 py-2 font-mono text-xs text-blue-600">{r.accountCode}</td>
                 <td className="px-4 py-2 text-gray-800">{r.accountName}</td>
                 <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.balance)}</td>

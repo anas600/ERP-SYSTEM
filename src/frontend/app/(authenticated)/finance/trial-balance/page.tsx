@@ -6,6 +6,7 @@
 
 import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Scale, RefreshCw, Calendar, AlertCircle, CheckCircle2, XCircle, Wallet } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import {
@@ -24,6 +25,7 @@ function todayIso(): string {
 }
 
 export default function TrialBalancePage() {
+  const router = useRouter();
   const [rows, setRows] = useState<TrialBalanceRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -224,7 +226,8 @@ export default function TrialBalancePage() {
                         {list.map((r) => (
                           <tr
                             key={r.accountId}
-                            className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                            className="border-b border-gray-100 hover:bg-blue-50/40 transition-colors cursor-pointer"
+                            onClick={() => router.push(`/finance/reports/general-ledger?accountId=${r.accountId}`)}
                           >
                             <td className="px-4 py-2 font-mono text-xs text-blue-600">{r.accountCode}</td>
                             <td className="px-4 py-2 text-gray-800">{r.accountName}</td>

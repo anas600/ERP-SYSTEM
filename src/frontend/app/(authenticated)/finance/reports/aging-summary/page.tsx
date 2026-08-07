@@ -4,6 +4,7 @@
 // AR Aging (موجود) + AP Aging (Sprint 48 DEC-133)
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Hourglass, Calendar, AlertCircle, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { arApi, financeApi, getErrorMessage } from '@/lib/api';
@@ -12,6 +13,7 @@ import { formatNumber } from '@/lib/format';
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
 
 export default function AgingSummaryPage() {
+  const router = useRouter();
   const [ar, setAr] = useState<any | null>(null);
   const [ap, setAp] = useState<any | null>(null);
   const [asOf, setAsOf] = useState<string>(todayIso());
@@ -120,7 +122,7 @@ export default function AgingSummaryPage() {
                 </thead>
                 <tbody>
                   {ap.vendors.slice(0, 10).map((v: any, i: number) => (
-                    <tr key={i} className="border-b border-gray-100">
+                    <tr key={v.vendorId || i} className="border-b border-gray-100 hover:bg-red-50/30 cursor-pointer transition-colors" onClick={() => router.push(`/procurement/vendors/${v.vendorId}`)}>
                       <td className="px-3 py-2 text-xs">
                         <div className="font-mono text-blue-600">{v.vendorCode}</div>
                         <div className="text-gray-700">{v.vendorName}</div>

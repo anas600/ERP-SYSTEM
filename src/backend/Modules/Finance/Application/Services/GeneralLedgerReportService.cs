@@ -194,6 +194,7 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
 
             var row = new BalanceSheetRow
             {
+                AccountId = r.AccountId,
                 AccountCode = r.AccountCode,
                 AccountName = r.AccountName,
                 Balance = balance
@@ -257,6 +258,7 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
 
             var row = new IncomeStatementRow
             {
+                AccountId = r.AccountId,
                 AccountCode = r.AccountCode,
                 AccountName = r.AccountName,
                 Amount = amount

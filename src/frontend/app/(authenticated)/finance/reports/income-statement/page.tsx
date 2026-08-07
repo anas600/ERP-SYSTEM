@@ -5,6 +5,7 @@
 // Revenue − Expenses = Net Income
 
 import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { TrendingUp, Calendar, RefreshCw, AlertCircle, TrendingDown, Printer } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { financeApi, IncomeStatementReport, getErrorMessage } from '@/lib/api';
@@ -17,6 +18,7 @@ function firstOfYearIso(): string {
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
 
 export default function IncomeStatementPage() {
+  const router = useRouter();
   const [report, setReport] = useState<IncomeStatementReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -100,8 +102,8 @@ export default function IncomeStatementPage() {
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <SectionCard title="الإيرادات (Revenue)" rows={report.revenue.rows} subtotal={report.totalRevenue} color="emerald" />
-            <SectionCard title="المصروفات (Expenses)" rows={report.expenses.rows} subtotal={report.totalExpenses} color="red" />
+            <SectionCard title="الإيرادات (Revenue)" rows={report.revenue.rows} subtotal={report.totalRevenue} color="emerald" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
+            <SectionCard title="المصروفات (Expenses)" rows={report.expenses.rows} subtotal={report.totalExpenses} color="red" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
           </div>
         </>
       )}
@@ -109,7 +111,7 @@ export default function IncomeStatementPage() {
   );
 }
 
-function SectionCard({ title, rows, subtotal, color }: { title: string; rows: { accountCode: string; accountName: string; amount: number }[]; subtotal: number; color: 'emerald' | 'red' }) {
+function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; accountName: string; amount: number }[]; subtotal: number; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
   const colorMap = { emerald: 'bg-emerald-50 border-emerald-200', red: 'bg-red-50 border-red-200' };
   const textMap = { emerald: 'text-emerald-800', red: 'text-red-800' };
   return (
@@ -131,7 +133,7 @@ function SectionCard({ title, rows, subtotal, color }: { title: string; rows: { 
           </thead>
           <tbody>
             {rows.map((r) => (
-              <tr key={r.accountCode} className="border-b border-gray-100 hover:bg-gray-50">
+              <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
                 <td className="px-4 py-2 font-mono text-xs text-blue-600">{r.accountCode}</td>
                 <td className="px-4 py-2 text-gray-800">{r.accountName}</td>
                 <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.amount)}</td>

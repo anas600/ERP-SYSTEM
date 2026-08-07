@@ -2,8 +2,10 @@
 
 // Sprint 49 — Sprint 38 (DEC-124): صفحة دفتر الأستاذ
 // General Ledger per Account — كل الحركات على حساب معين بترتيب زمني + رصيد جاري
+// Sprint 52: يقبل ?accountId=X من URL للدخول المباشر (drill-down من التقارير)
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { FileText, RefreshCw, AlertCircle } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { financeApi, Account, getErrorMessage } from '@/lib/api';
@@ -12,9 +14,11 @@ import { formatNumber } from '@/lib/format';
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
 function firstOfYearIso(): string { const d = new Date(); return `${d.getFullYear()}-01-01`; }
 
-export default function GeneralLedgerPage() {
+function GeneralLedgerContent() {
+  const searchParams = useSearchParams();
+  const initialAccountId = searchParams.get('accountId') || '';
   const [accounts, setAccounts] = useState<Account[]>([]);
-  const [accountId, setAccountId] = useState<string>('');
+  const [accountId, setAccountId] = useState<string>(initialAccountId);
   const [from, setFrom] = useState<string>(firstOfYearIso());
   const [to, setTo] = useState<string>(todayIso());
   const [report, setReport] = useState<any | null>(null);
@@ -25,12 +29,19 @@ export default function GeneralLedgerPage() {
     financeApi.listAccounts().then(setAccounts).catch(() => setAccounts([]));
   }, []);
 
+  // Sprint 52: Auto-load إذا تم تمرير accountId من URL
+  useEffect(() => {
+    if (initialAccountId && accounts.length > 0 && !report) {
+      load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialAccountId, accounts.length]);
+
   const load = async () => {
     if (!accountId) return;
     setLoading(true); setError(null);
     try {
-      const { financeApi: fa } = await import('@/lib/api');
-      const r = await fa.getAccountLedger?.(accountId, from, to);
+      const r = await financeApi.getAccountLedger(accountId, from, to);
       setReport(r);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل دفتر الأستاذ.'));
@@ -124,5 +135,18 @@ export default function GeneralLedgerPage() {
         </Card>
       )}
     </div>
+  );
+}
+
+export default function GeneralLedgerPage() {
+  return (
+    <Suspense fallback={
+      <div className="text-center py-12 text-gray-500">
+        <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-500 border-r-transparent" />
+        <p className="mt-3 text-sm">جاري التحميل...</p>
+      </div>
+    }>
+      <GeneralLedgerContent />
+    </Suspense>
   );
 }

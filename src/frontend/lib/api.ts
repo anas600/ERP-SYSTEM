@@ -263,6 +263,7 @@ export interface TrialBalanceReport {
 // ============== Sprint 48 — Financial Reports DTOs ==============
 
 export interface BalanceSheetRow {
+  accountId: string;
   accountCode: string;
   accountName: string;
   balance: number;
@@ -288,6 +289,7 @@ export interface BalanceSheetReport {
 }
 
 export interface IncomeStatementRow {
+  accountId: string;
   accountCode: string;
   accountName: string;
   amount: number;
@@ -334,6 +336,7 @@ export interface CashFlowReport {
 }
 
 export interface APAgingBucket {
+  vendorId: string;
   vendorCode: string;
   vendorName: string;
   current: number;
