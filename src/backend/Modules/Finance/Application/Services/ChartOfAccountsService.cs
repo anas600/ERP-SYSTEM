@@ -142,5 +142,6 @@ public sealed class ChartOfAccountsService : IChartOfAccountsService
         ParentAccountId = a.ParentAccountId,
         IsPostable = a.IsPostable,
         IsActive = a.IsActive,
+        Level = a.Level,
     };
 }

@@ -149,13 +149,25 @@ function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: stri
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
-                <td className="px-4 py-2 font-mono text-xs text-blue-600">{r.accountCode}</td>
-                <td className="px-4 py-2 text-gray-800">{r.accountName}</td>
-                <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.balance)}</td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              // Sprint 52a: synthetic NET row (AccountId=00000000-...) is not a real account,
+              // so it can't be drilled down to. Render it as a non-clickable summary row.
+              const isSynthetic = !r.accountId || r.accountId === '00000000-0000-0000-0000-000000000000';
+              return (
+                <tr
+                  key={r.accountId || r.accountCode}
+                  className={`border-b border-gray-100 ${isSynthetic ? 'bg-amber-50/50 font-semibold' : 'hover:bg-blue-50/40 cursor-pointer'} transition-colors`}
+                  onClick={isSynthetic ? undefined : () => onRowClick(r.accountId)}
+                >
+                  <td className={`px-4 py-2 font-mono text-xs ${isSynthetic ? 'text-amber-700' : 'text-blue-600'}`}>{r.accountCode}</td>
+                  <td className="px-4 py-2 text-gray-800">
+                    {r.accountName}
+                    {isSynthetic && <span className="text-[10px] text-amber-600 mr-2">(محسوب تلقائيًا — لم يُرحَّل)</span>}
+                  </td>
+                  <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.balance)}</td>
+                </tr>
+              );
+            })}
           </tbody>
           <tfoot>
             <tr className="bg-gray-50">

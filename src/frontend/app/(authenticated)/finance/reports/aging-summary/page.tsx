@@ -89,7 +89,7 @@ export default function AgingSummaryPage() {
               <div className="px-4 py-6 text-center text-gray-400 text-sm">لا توجد بيانات</div>
             ) : (
               <div className="p-4 text-sm text-gray-700">
-                <p>عدد العملاء: {ar.customers?.length || 0}</p>
+                <p>عدد العملاء: {ar.rows?.length || 0}</p>
                 <p className="text-xs text-gray-500 mt-2">للتفاصيل الكاملة، راجع <a className="text-blue-600 underline" href="/finance/aging-ar">صفحة أعمار الذمم AR</a></p>
               </div>
             )}

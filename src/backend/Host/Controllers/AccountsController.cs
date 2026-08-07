@@ -57,6 +57,45 @@ public class AccountsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : NotFound();
     }
 
+    // Sprint 52a (Phase 4): tree view of the CoA. Returns L1 roots with nested children.
+    [HttpGet("api/finance/accounts/tree")]
+    [ProducesResponseType(typeof(IReadOnlyList<AccountTreeNode>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTree([FromQuery] bool includeInactive = false, CancellationToken ct = default)
+    {
+        var r = await _legacy.ListAsync(includeInactive, ct);
+        if (!r.Succeeded) return BadRequest(ProblemLegacy(r));
+
+        // Build a lookup by Id and a children list per parent.
+        // Then walk roots (no parent) and assemble the tree in-memory.
+        var nodes = r.Value!.Select(a => new AccountTreeNode
+        {
+            Id = a.Id,
+            Code = a.Code,
+            Name = a.Name,
+            Type = a.Type,
+            NormalBalance = a.NormalBalance,
+            Level = a.Level ?? (short)99,
+            IsPostable = a.IsPostable,
+        }).ToList();
+
+        var byId = nodes.ToDictionary(n => n.Id);
+        var roots = new List<AccountTreeNode>();
+        foreach (var n in nodes.OrderBy(x => x.Code, StringComparer.Ordinal))
+        {
+            // We need parent info — use the source account list.
+            var src = r.Value!.First(a => a.Id == n.Id);
+            if (src.ParentAccountId.HasValue && byId.TryGetValue(src.ParentAccountId.Value, out var parent))
+            {
+                parent.Children.Add(n);
+            }
+            else
+            {
+                roots.Add(n);
+            }
+        }
+        return Ok(roots);
+    }
+
     [HttpGet("api/finance/accounts/by-code/{code}")]
     public async Task<IActionResult> GetByCodeLegacy(string code, CancellationToken ct)
     {

@@ -208,6 +208,27 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
             }
         }
 
+        // Sprint 52a: نضيف NetIncome (من أول السنة لتاريخ asOfDate) كصف افتراضي في قسم Equity.
+        // السبب: المعادلة المحاسبية Σ Assets = Σ Liab + Σ Equity + NetIncome.
+        // بدون إضافة NetIncome للقسم، الـ BS دايماً "غير متوازن" طالما ما تم إغلاق السنة.
+        // الحساب: NetIncome = Σ Revenue (Cr) − Σ Expenses (Dr) لنفس الفترة.
+        var yearStart = new DateTime(asOfDate.Year, 1, 1);
+        var plResult = await GetIncomeStatementAsync(companyId, yearStart, asOfDate, ct);
+        if (plResult.Succeeded)
+        {
+            var netIncome = plResult.Value!.NetIncome;
+            if (Math.Abs(netIncome) >= 0.005m)
+            {
+                resp.Equity.Rows.Add(new BalanceSheetRow
+                {
+                    AccountId = Guid.Empty, // synthetic row, not a real account
+                    AccountCode = "NET",
+                    AccountName = $"صافي دخل السنة ({asOfDate.Year}) — لم يُرحَّل بعد",
+                    Balance = netIncome,
+                });
+            }
+        }
+
         resp.TotalAssets = resp.Assets.Subtotal;
         resp.TotalLiabilities = resp.Liabilities.Subtotal;
         resp.TotalEquity = resp.Equity.Subtotal;

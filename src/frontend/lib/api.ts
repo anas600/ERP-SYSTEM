@@ -126,8 +126,23 @@ export interface Account {
   isPostable: boolean;
   isActive: boolean;
   isIntercompany: boolean;
+  // Sprint 52a: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail. Null = not yet backfilled.
+  level?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// Sprint 52a: tree view of the CoA. L1 roots contain nested L2 → L3 → L4 children.
+// `type` and `normalBalance` are strings (BE EnumStringTypeHandler) for readability.
+export interface AccountTreeNode {
+  id: string;
+  code: string;
+  name: string;
+  type: string;  // 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense'
+  normalBalance: string;  // 'Debit' | 'Credit'
+  level: number;  // 1..4 (or 99 = orphan)
+  isPostable: boolean;
+  children: AccountTreeNode[];
 }
 
 export const ACCOUNT_TYPES: Record<number, string> = {
@@ -1132,6 +1147,11 @@ export interface CreateJournalEntryRequest {
 export const financeApi = {
   listAccounts: async (): Promise<Account[]> => {
     const r = await api.get<Account[]>('/api/finance/accounts');
+    return r.data;
+  },
+  // Sprint 52a: tree view of the CoA. Used by /finance/accounts-tree.
+  getAccountsTree: async (): Promise<AccountTreeNode[]> => {
+    const r = await api.get<AccountTreeNode[]>('/api/finance/accounts/tree');
     return r.data;
   },
   createAccount: async (data: Partial<Account>): Promise<Account> => {
