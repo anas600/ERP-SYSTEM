@@ -113,6 +113,20 @@ export interface AuthResponse {
   holdingCompanyId: string;
 }
 
+// Sprint 52b (DEC-137): General Ledger line item returned by /api/finance/ledger/accounts/{accountId}
+export interface LedgerLine {
+  entryDate: string;
+  entryNumber: string;
+  journalEntryId: string;
+  reference?: string | null;
+  description: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
 // ============ Finance ============
 export interface Account {
   id: string;
@@ -1168,8 +1182,8 @@ export const financeApi = {
   },
   // ----- General Ledger per account (Sprint 38, DEC-124) -----
   // دفتر الأستاذ: كل الحركات على حساب معين بترتيب زمني
-  getAccountLedger: async (accountId: string, from?: string, to?: string): Promise<unknown> => {
-    const r = await api.get<unknown>(`/api/finance/ledger/accounts/${accountId}`, {
+  getAccountLedger: async (accountId: string, from?: string, to?: string): Promise<LedgerLine[]> => {
+    const r = await api.get<LedgerLine[]>(`/api/finance/ledger/accounts/${accountId}`, {
       params: { from, to },
     });
     return r.data;

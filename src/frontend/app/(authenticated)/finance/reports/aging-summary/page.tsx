@@ -80,18 +80,53 @@ export default function AgingSummaryPage() {
                 </h3>
                 {ar && (
                   <p className="text-sm font-mono font-bold text-emerald-800">
-                    {formatNumber(ar.grandTotal ?? ar.totalOutstanding ?? 0)} LYD
+                    {formatNumber(ar.grandTotal?.total ?? ar.totalOutstanding ?? 0)} LYD
                   </p>
                 )}
               </div>
             </div>
             {!ar ? (
               <div className="px-4 py-6 text-center text-gray-400 text-sm">لا توجد بيانات</div>
+            ) : ar.rows?.length === 0 ? (
+              <div className="px-4 py-6 text-center text-gray-400 text-sm">لا يوجد عملاء مستحقون</div>
             ) : (
-              <div className="p-4 text-sm text-gray-700">
-                <p>عدد العملاء: {ar.rows?.length || 0}</p>
-                <p className="text-xs text-gray-500 mt-2">للتفاصيل الكاملة، راجع <a className="text-blue-600 underline" href="/finance/aging-ar">صفحة أعمار الذمم AR</a></p>
-              </div>
+              <table className="w-full text-sm" dir="rtl">
+                <thead className="bg-white border-b border-gray-100">
+                  <tr>
+                    <th className="text-start px-3 py-2 text-xs font-semibold text-gray-600">العميل</th>
+                    <th className="text-end px-3 py-2 text-xs font-semibold text-gray-600">0-30</th>
+                    <th className="text-end px-3 py-2 text-xs font-semibold text-gray-600">31-60</th>
+                    <th className="text-end px-3 py-2 text-xs font-semibold text-gray-600">61-90</th>
+                    <th className="text-end px-3 py-2 text-xs font-semibold text-gray-600">91+</th>
+                    <th className="text-end px-3 py-2 text-xs font-semibold text-gray-600">الإجمالي</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ar.rows.slice(0, 10).map((r: any, i: number) => (
+                    <tr key={r.customerId || i} className="border-b border-gray-100 hover:bg-emerald-50/30 cursor-pointer transition-colors" onClick={() => router.push(`/finance/customers/${r.customerId}/statement`)}>
+                      <td className="px-3 py-2 text-xs">
+                        <div className="font-mono text-blue-600">{r.customerCode}</div>
+                        <div className="text-gray-700">{r.customerName}</div>
+                      </td>
+                      <td className="px-3 py-2 text-end font-mono text-xs">{formatNumber(r.buckets?.bucket0To30 ?? 0)}</td>
+                      <td className="px-3 py-2 text-end font-mono text-xs">{formatNumber(r.buckets?.bucket31To60 ?? 0)}</td>
+                      <td className="px-3 py-2 text-end font-mono text-xs">{formatNumber(r.buckets?.bucket61To90 ?? 0)}</td>
+                      <td className="px-3 py-2 text-end font-mono text-xs">{formatNumber(r.buckets?.bucket120Plus ?? 0)}</td>
+                      <td className="px-3 py-2 text-end font-mono font-bold text-emerald-700">{formatNumber(r.buckets?.total ?? 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot className="bg-gray-50">
+                  <tr>
+                    <td className="px-3 py-2 text-start text-xs font-bold">الإجمالي ({ar.rows.length} عميل)</td>
+                    <td className="px-3 py-2 text-end font-mono font-bold text-xs">{formatNumber(ar.grandTotal?.bucket0To30 ?? 0)}</td>
+                    <td className="px-3 py-2 text-end font-mono font-bold text-xs">{formatNumber(ar.grandTotal?.bucket31To60 ?? 0)}</td>
+                    <td className="px-3 py-2 text-end font-mono font-bold text-xs">{formatNumber(ar.grandTotal?.bucket61To90 ?? 0)}</td>
+                    <td className="px-3 py-2 text-end font-mono font-bold text-xs">{formatNumber(ar.grandTotal?.bucket120Plus ?? 0)}</td>
+                    <td className="px-3 py-2 text-end font-mono font-bold text-emerald-700">{formatNumber(ar.grandTotal?.total ?? 0)}</td>
+                  </tr>
+                </tfoot>
+              </table>
             )}
           </Card>
 
@@ -127,7 +162,7 @@ export default function AgingSummaryPage() {
                 </thead>
                 <tbody>
                   {ap.vendors.slice(0, 10).map((v: any, i: number) => (
-                    <tr key={v.vendorId || i} className="border-b border-gray-100 hover:bg-red-50/30 cursor-pointer transition-colors" onClick={() => router.push(`/procurement/vendors/${v.vendorId}`)}>
+                    <tr key={v.vendorId || i} className="border-b border-gray-100 hover:bg-red-50/30 cursor-pointer transition-colors" onClick={() => router.push(`/procurement/vendors/${v.vendorId}/statement`)}>
                       <td className="px-3 py-2 text-xs">
                         <div className="font-mono text-blue-600">{v.vendorCode}</div>
                         <div className="text-gray-700">{v.vendorName}</div>

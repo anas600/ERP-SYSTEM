@@ -99,7 +99,7 @@ export default function AgingArPage() {
       )}
 
       <Table
-        onRowClick={(r) => router.push(`/finance/customers/${r.customerId}`)}
+        onRowClick={(r) => router.push(`/finance/customers/${r.customerId}/statement`)}
         columns={[
           {
             key: 'customer',
