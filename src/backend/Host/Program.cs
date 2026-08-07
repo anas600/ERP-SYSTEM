@@ -231,6 +231,8 @@ builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
+// Sprint 53 (DEC-140): Year-End Closing + Retained Earnings Roll
+builder.Services.AddScoped<IYearEndClosingService, YearEndClosingService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
@@ -391,6 +393,7 @@ builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
 builder.Services.AddHostedService<AccountLevelBackfillHostedService>();  // Sprint 52a (Phase 4): بعد الـ CoA يُبذَر، يحسب عمود level من parent chain (1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail). Idempotent.
+builder.Services.AddHostedService<YearEndClosingHostedService>();  // Sprint 53 (DEC-140): يتفقّد السنوات السابقة ويقفلها تلقائيًا لو لم تكن مقفلة
 builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow-up #2: تسخين الـ pool بعد bootstrap عشان أول user request ما يعلّقش 30+ ثانية
 // Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
 // Sprint 24: outbox_events table dropped (DEC-082) — no more processor needed.

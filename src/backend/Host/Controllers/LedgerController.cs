@@ -13,12 +13,18 @@ public class LedgerController : ControllerBase
 {
     private readonly IGeneralLedgerService _ledger;
     private readonly IGeneralLedgerReportService _report;
+    private readonly IYearEndClosingService _yearEnd;
     private readonly ICompanyContext _companyContext;
 
-    public LedgerController(IGeneralLedgerService ledger, IGeneralLedgerReportService report, ICompanyContext companyContext)
+    public LedgerController(
+        IGeneralLedgerService ledger,
+        IGeneralLedgerReportService report,
+        IYearEndClosingService yearEnd,
+        ICompanyContext companyContext)
     {
         _ledger = ledger;
         _report = report;
+        _yearEnd = yearEnd;
         _companyContext = companyContext;
     }
 
@@ -80,6 +86,34 @@ public class LedgerController : ControllerBase
         var fromDate = (from ?? new DateTime(toDate.Year, 1, 1)).Date;
         var r = await _report.GetCashFlowAsync(companyId, fromDate, toDate, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
+    // ============ Sprint 53 (DEC-140 + DEC-141) — Year-End Closing ============
+
+    /// <summary>إقفال السنة المالية — يحول أرصدة الإيرادات/المصروفات إلى 3210 ثم 3200.</summary>
+    [HttpPost("year-end-closing")]
+    [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
+    public async Task<IActionResult> CloseYear([FromQuery] int year, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        if (year < 2000 || year > 2100)
+            return BadRequest(new ProblemDetails { Title = "سنة غير صالحة", Status = 400, Detail = "السنة يجب أن تكون بين 2000 و 2100." });
+
+        var r = await _yearEnd.CloseYearAsync(companyId, year, ct);
+        if (r.Success)
+            return Ok(r);
+        return BadRequest(new ProblemDetails { Title = "Year-End Closing Failed", Status = 400, Detail = r.Message });
+    }
+
+    /// <summary>حالة إقفال السنة — هل تم إقفالها؟</summary>
+    [HttpGet("year-end-closing/status")]
+    public async Task<IActionResult> GetCloseStatus([FromQuery] int year, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var status = await _yearEnd.GetStatusAsync(companyId, year, ct);
+        return Ok(status);
     }
 
     private static ProblemDetails Problem<T>(FinanceResult<T> r) => new()

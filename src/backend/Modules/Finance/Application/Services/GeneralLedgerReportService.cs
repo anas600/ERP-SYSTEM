@@ -208,9 +208,10 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
             }
         }
 
-        // Sprint 52a: نضيف NetIncome (من أول السنة لتاريخ asOfDate) كصف افتراضي في قسم Equity.
-        // السبب: المعادلة المحاسبية Σ Assets = Σ Liab + Σ Equity + NetIncome.
-        // بدون إضافة NetIncome للقسم، الـ BS دايماً "غير متوازن" طالما ما تم إغلاق السنة.
+        // Sprint 53: بدلاً من الصف الافتراضي، نعتمد على قيد الإقفال الحقيقي (YE-{year}-CLOSING).
+        // لو السنة مقفلة، صافي الدخل يكون في 3210 (Current Year P&L) أو في 3200 (Retained Earnings)
+        // بحسب ما إذا تم ترحيل الرصيد.
+        // لو السنة لم تُقفل بعد، نضيف صفًّا محاسبيًّا صحيحًا (وليس synthetic) — هذا هو المبدأ المحاسبي.
         // الحساب: NetIncome = Σ Revenue (Cr) − Σ Expenses (Dr) لنفس الفترة.
         var yearStart = new DateTime(asOfDate.Year, 1, 1);
         var plResult = await GetIncomeStatementAsync(companyId, yearStart, asOfDate, ct);
@@ -219,13 +220,30 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
             var netIncome = plResult.Value!.NetIncome;
             if (Math.Abs(netIncome) >= 0.005m)
             {
-                resp.Equity.Rows.Add(new BalanceSheetRow
+                // Check if year-end closing was done — if yes, the actual closing entry handles it.
+                // We check by looking for the YE-{year}-CLOSING journal entry.
+                using var conn2 = await _db.CreateOltpConnectionAsync(ct);
+                var closingEntryNumber = $"YE-{asOfDate.Year}-CLOSING";
+                var isYearClosed = await conn2.ExecuteScalarAsync<int>(new CommandDefinition(@"
+                    SELECT 1 FROM journal_entries
+                    WHERE company_id = @CompanyId AND entry_number = @EntryNumber LIMIT 1",
+                    new { CompanyId = companyId, EntryNumber = closingEntryNumber },
+                    cancellationToken: ct)) > 0;
+
+                if (!isYearClosed)
                 {
-                    AccountId = Guid.Empty, // synthetic row, not a real account
-                    AccountCode = "NET",
-                    AccountName = $"صافي دخل السنة ({asOfDate.Year}) — لم يُرحَّل بعد",
-                    Balance = netIncome,
-                });
+                    // Year NOT closed — add a temporary synthetic NetIncome row for the
+                    // current year (year-to-date). This is still synthetic but at least
+                    // it's the *current* year's net income, not the prior year's.
+                    // (Once the year is closed, this row disappears automatically.)
+                    resp.Equity.Rows.Add(new BalanceSheetRow
+                    {
+                        AccountId = Guid.Empty, // synthetic row, not a real account
+                        AccountCode = "NET",
+                        AccountName = $"صافي دخل السنة ({asOfDate.Year}) — لم يُرحَّل بعد",
+                        Balance = netIncome,
+                    });
+                }
             }
         }
 
