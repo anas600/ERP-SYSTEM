@@ -103,6 +103,8 @@ const NAV_GROUPS: NavGroup[] = [
     label: 'التقارير المالية',
     items: [
       { label: 'ميزان المراجعة', href: '/finance/reports/trial-balance', icon: Scale },
+      // Sprint 54 (DEC-142): ميزان المراجعة الهرمي — L3 sections + L4 details
+      { label: 'ميزان المراجعة الهرمي', href: '/finance/trial-balance-v2', icon: Layers },
       { label: 'دفتر الأستاذ', href: '/finance/reports/general-ledger', icon: FileText },
       { label: 'الميزانية العمومية', href: '/finance/reports/balance-sheet', icon: FileBarChart },
       { label: 'قائمة الدخل', href: '/finance/reports/income-statement', icon: TrendingUp },

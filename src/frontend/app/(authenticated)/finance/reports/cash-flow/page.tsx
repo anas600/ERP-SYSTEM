@@ -115,7 +115,7 @@ export default function CashFlowPage() {
   );
 }
 
-function CFSection({ title, lines, subtotal, color }: { title: string; lines: { description: string; amount: number }[]; subtotal: number; color: 'blue' | 'amber' | 'purple' }) {
+function CFSection({ title, lines, subtotal, color }: { title: string; lines: { description: string; amount: number; accountCode?: string; accountName?: string }[]; subtotal: number; color: 'blue' | 'amber' | 'purple' }) {
   const colorMap = { blue: 'bg-blue-50 border-blue-200', amber: 'bg-amber-50 border-amber-200', purple: 'bg-purple-50 border-purple-200' };
   const textMap = { blue: 'text-blue-800', amber: 'text-amber-800', purple: 'text-purple-800' };
   return (
@@ -131,6 +131,7 @@ function CFSection({ title, lines, subtotal, color }: { title: string; lines: { 
           <thead className="bg-white border-b border-gray-100">
             <tr>
               <th className="text-start px-4 py-2 font-semibold text-gray-600 text-xs">البيان</th>
+              <th className="text-start px-4 py-2 font-semibold text-gray-600 text-xs">Sprint 54: حساب L3</th>
               <th className="text-end px-4 py-2 font-semibold text-gray-600 text-xs">المبلغ</th>
             </tr>
           </thead>
@@ -138,13 +139,24 @@ function CFSection({ title, lines, subtotal, color }: { title: string; lines: { 
             {lines.map((l, i) => (
               <tr key={i} className="border-b border-gray-100 hover:bg-gray-50">
                 <td className="px-4 py-2 text-gray-800">{l.description}</td>
+                <td className="px-4 py-2 text-xs">
+                  {l.accountCode ? (
+                    <span className="inline-flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-amber-100 text-amber-800">L3</span>
+                      <span className="font-mono text-gray-600">{l.accountCode}</span>
+                      <span className="text-gray-500">{l.accountName}</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400 text-xs">—</span>
+                  )}
+                </td>
                 <td className={`px-4 py-2 text-end font-mono font-bold ${l.amount >= 0 ? 'text-emerald-700' : 'text-red-700'}`}>{formatNumber(l.amount)}</td>
               </tr>
             ))}
           </tbody>
           <tfoot>
             <tr className="bg-gray-50">
-              <td className="px-4 py-2 text-start text-xs font-bold text-gray-700">صافي {title}</td>
+              <td colSpan={2} className="px-4 py-2 text-start text-xs font-bold text-gray-700">صافي {title}</td>
               <td className={`px-4 py-2 text-end font-mono font-bold ${textMap[color]}`}>{formatNumber(subtotal)}</td>
             </tr>
           </tfoot>

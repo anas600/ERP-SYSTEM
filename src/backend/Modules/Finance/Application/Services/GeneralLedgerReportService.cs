@@ -22,6 +22,10 @@ public interface IGeneralLedgerReportService
     // Sprint 48 (DEC-132): Cash Flow (Indirect) — Operating + Investing + Financing = Net Change
     Task<FinanceResult<CashFlowResponse>> GetCashFlowAsync(
         Guid companyId, DateTime from, DateTime to, CancellationToken ct);
+
+    // Sprint 54 (DEC-142): Trial Balance — كل الحسابات الـ postable مع Dr/Cr
+    Task<FinanceResult<TrialBalanceResponse>> GetTrialBalanceAsync(
+        Guid companyId, DateTime asOfDate, CancellationToken ct);
 }
 
 /// <summary>
@@ -266,9 +270,11 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
+        // Sprint 54 (DEC-143): نجلب كل الحسابات الـ postable + الآباء (L1..L3) لتكوين L2 sections.
         const string sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName,
                    a.type AS AccountType, a.normal_balance AS NormalBalance,
+                   a.parent_account_id AS ParentAccountId, a.level,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
             FROM accounts a
@@ -281,14 +287,39 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
               AND a.is_postable = true
               AND a.is_active = true
               AND a.type IN (4, 5)
-            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance
+            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance, a.parent_account_id, a.level
             ORDER BY a.code";
 
-        var rows = (await conn.QueryAsync<BSRow>(new CommandDefinition(sql,
+        var rows = (await conn.QueryAsync<ISRow>(new CommandDefinition(sql,
             new { CompanyId = companyId, From = from.Date, To = to.Date },
             cancellationToken: ct))).ToList();
 
+        // نجلب كل الحسابات لبناء قاموس الآباء
+        const string allSql = @"
+            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId
+            FROM accounts WHERE company_id = @CompanyId";
+        var allAccounts = (await conn.QueryAsync<AccountLookup>(new CommandDefinition(allSql,
+            new { CompanyId = companyId }, cancellationToken: ct))).ToList();
+        var accountById = allAccounts.ToDictionary(a => a.Id, a => a);
+
+        // دالة لايجاد الـ L2 ancestor (المستوى 2) — تمشي للأعلى حتى تجد level=2
+        AccountLookup? FindL2Ancestor(Guid? accountId)
+        {
+            var current = accountId.HasValue && accountById.TryGetValue(accountId.Value, out var a) ? a : null;
+            while (current != null)
+            {
+                if (current.Level == 2) return current;
+                if (!current.ParentAccountId.HasValue) break;
+                accountById.TryGetValue(current.ParentAccountId.Value, out current);
+            }
+            // fallback: لو الحساب نفسه L2 أو L1، نرجعه (لكن للـ IS نريد L2 فقط)
+            return current?.Level == 2 ? current : null;
+        }
+
         var resp = new IncomeStatementResponse { From = from.Date, To = to.Date };
+        // قواميس L2 sections لتجميع الصفوف
+        var revenueSectionsMap = new Dictionary<string, IncomeStatementL2Section>();
+        var expenseSectionsMap = new Dictionary<string, IncomeStatementL2Section>();
 
         foreach (var r in rows)
         {
@@ -305,7 +336,28 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
 
             if (r.AccountType == 4) resp.Revenue.Rows.Add(row);
             else resp.Expenses.Rows.Add(row);
+
+            // Sprint 54 (DEC-143): ضع الصف في L2 section المناسب
+            var l2 = FindL2Ancestor(r.AccountId);
+            if (l2 != null)
+            {
+                var map = r.AccountType == 4 ? revenueSectionsMap : expenseSectionsMap;
+                if (!map.TryGetValue(l2.Code, out var section))
+                {
+                    section = new IncomeStatementL2Section
+                    {
+                        L2AccountId = l2.Id,
+                        L2Code = l2.Code,
+                        L2Name = l2.Name,
+                    };
+                    map[l2.Code] = section;
+                }
+                section.Rows.Add(row);
+            }
         }
+
+        resp.RevenueSections = revenueSectionsMap.Values.OrderBy(s => s.L2Code).ToList();
+        resp.ExpenseSections = expenseSectionsMap.Values.OrderBy(s => s.L2Code).ToList();
 
         return FinanceResult<IncomeStatementResponse>.Ok(resp);
     }
@@ -324,6 +376,21 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         Guid companyId, DateTime from, DateTime to, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+
+        // Sprint 54 (DEC-144): نحضر قاموس L3 control accounts بحسب الكود المحدد.
+        // الـ unified CoA لا يتبع prefix-based mapping (1100 = Non-current assets, 1200 = Current assets).
+        // لذلك نستخدم الـ exact code لكل فئة.
+        var l3Map = await GetL3ControlAccountsAsync((Npgsql.NpgsqlConnection)conn, companyId, new[]
+        {
+            "1230", // AR (ذمم مدينة)
+            "1240", // Inventory (مخزون)
+            "1101", // Fixed Assets — عقارات
+            "1102", // Fixed Assets — مركبات
+            "1103", // Fixed Assets — أخرى
+            "1300", // Accumulated Depreciation (مجمع إهلاك)
+            "2210", // AP (دائنون لموردين خارجيين)
+            "3100", // Capital (رأس المال)
+        });
 
         // 1) Net income من قائمة الدخل
         var pl = await GetIncomeStatementAsync(companyId, from, to, ct);
@@ -490,25 +557,105 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         var operating = new CashFlowSection { Title = "الأنشطة التشغيلية" };
         operating.Lines.Add(new CashFlowLine { Description = "صافي الدخل", Amount = netIncome });
         if (Math.Abs(depreciationPeriod) >= 0.005m)
-            operating.Lines.Add(new CashFlowLine { Description = "إهلاك الفترة", Amount = depreciationPeriod });
+        {
+            l3Map.TryGetValue("53", out var depL3);
+            operating.Lines.Add(new CashFlowLine
+            {
+                Description = $"إهلاك الفترة{(depL3 != null ? $" — {depL3.Code} {depL3.Name}" : "")}",
+                Amount = depreciationPeriod,
+                AccountId = depL3?.Id,
+                AccountCode = depL3?.Code,
+                AccountName = depL3?.Name,
+            });
+        }
         if (Math.Abs(deltaAR) >= 0.005m)
-            operating.Lines.Add(new CashFlowLine { Description = "التغير في المدينين", Amount = -deltaAR });
+        {
+            l3Map.TryGetValue("12", out var arL3);
+            operating.Lines.Add(new CashFlowLine
+            {
+                Description = $"التغير في المدينين{(arL3 != null ? $" — {arL3.Code} {arL3.Name}" : "")}",
+                Amount = -deltaAR,
+                AccountId = arL3?.Id,
+                AccountCode = arL3?.Code,
+                AccountName = arL3?.Name,
+            });
+        }
         if (Math.Abs(deltaInv) >= 0.005m)
-            operating.Lines.Add(new CashFlowLine { Description = "التغير في المخزون", Amount = -deltaInv });
+        {
+            l3Map.TryGetValue("13", out var invL3);
+            operating.Lines.Add(new CashFlowLine
+            {
+                Description = $"التغير في المخزون{(invL3 != null ? $" — {invL3.Code} {invL3.Name}" : "")}",
+                Amount = -deltaInv,
+                AccountId = invL3?.Id,
+                AccountCode = invL3?.Code,
+                AccountName = invL3?.Name,
+            });
+        }
         if (Math.Abs(deltaAP) >= 0.005m)
-            operating.Lines.Add(new CashFlowLine { Description = "التغير في الدائنين", Amount = deltaAP });
+        {
+            l3Map.TryGetValue("21", out var apL3);
+            operating.Lines.Add(new CashFlowLine
+            {
+                Description = $"التغير في الدائنين{(apL3 != null ? $" — {apL3.Code} {apL3.Name}" : "")}",
+                Amount = deltaAP,
+                AccountId = apL3?.Id,
+                AccountCode = apL3?.Code,
+                AccountName = apL3?.Name,
+            });
+        }
 
         var investing = new CashFlowSection { Title = "الأنشطة الاستثمارية" };
         if (Math.Abs(deltaFA) >= 0.005m)
-            investing.Lines.Add(new CashFlowLine { Description = "شراء/بيع أصول ثابتة", Amount = -deltaFA });
+        {
+            l3Map.TryGetValue("15", out var faL3);
+            investing.Lines.Add(new CashFlowLine
+            {
+                Description = $"شراء/بيع أصول ثابتة{(faL3 != null ? $" — {faL3.Code} {faL3.Name}" : "")}",
+                Amount = -deltaFA,
+                AccountId = faL3?.Id,
+                AccountCode = faL3?.Code,
+                AccountName = faL3?.Name,
+            });
+        }
 
         var financing = new CashFlowSection { Title = "أنشطة التمويل" };
         if (Math.Abs(deltaLoans) >= 0.005m)
-            financing.Lines.Add(new CashFlowLine { Description = "صافي القروض", Amount = deltaLoans });
+        {
+            l3Map.TryGetValue("23", out var loanL3);
+            financing.Lines.Add(new CashFlowLine
+            {
+                Description = $"صافي القروض{(loanL3 != null ? $" — {loanL3.Code} {loanL3.Name}" : "")}",
+                Amount = deltaLoans,
+                AccountId = loanL3?.Id,
+                AccountCode = loanL3?.Code,
+                AccountName = loanL3?.Name,
+            });
+        }
         if (Math.Abs(deltaCapital) >= 0.005m)
-            financing.Lines.Add(new CashFlowLine { Description = "صافي رأس المال", Amount = deltaCapital });
+        {
+            l3Map.TryGetValue("31", out var capL3);
+            financing.Lines.Add(new CashFlowLine
+            {
+                Description = $"صافي رأس المال{(capL3 != null ? $" — {capL3.Code} {capL3.Name}" : "")}",
+                Amount = deltaCapital,
+                AccountId = capL3?.Id,
+                AccountCode = capL3?.Code,
+                AccountName = capL3?.Name,
+            });
+        }
         if (Math.Abs(deltaDrawings) >= 0.005m)
-            financing.Lines.Add(new CashFlowLine { Description = "مسحوبات المالك", Amount = -deltaDrawings });
+        {
+            l3Map.TryGetValue("33", out var drwL3);
+            financing.Lines.Add(new CashFlowLine
+            {
+                Description = $"مسحوبات المالك{(drwL3 != null ? $" — {drwL3.Code} {drwL3.Name}" : "")}",
+                Amount = -deltaDrawings,
+                AccountId = drwL3?.Id,
+                AccountCode = drwL3?.Code,
+                AccountName = drwL3?.Name,
+            });
+        }
 
         var resp = new CashFlowResponse
         {
@@ -523,7 +670,7 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     }
 
     /// <summary>صف مساعد لـ BS / IS / CashFlow — يحتوي على الحقول المشتركة</summary>
-    private sealed class BSRow
+    private class BSRow
     {
         public Guid AccountId { get; set; }
         public string AccountCode { get; set; } = string.Empty;
@@ -532,5 +679,173 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         public int NormalBalance { get; set; }
         public decimal TotalDebit { get; set; }
         public decimal TotalCredit { get; set; }
+    }
+
+    /// <summary>Sprint 54 (DEC-143): صف IS موسّع — يحتوي على ParentAccountId + level
+    /// لتحديد الـ L2 section.</summary>
+    private sealed class ISRow : BSRow
+    {
+        public Guid? ParentAccountId { get; set; }
+        public int? Level { get; set; }
+    }
+
+    /// <summary>Sprint 54 (DEC-143): سجل lookup بسيط للحسابات — لبناء قاموس الآباء.</summary>
+    private sealed class AccountLookup
+    {
+        public Guid Id { get; set; }
+        public string Code { get; set; } = string.Empty;
+        public string Name { get; set; } = string.Empty;
+        public int Type { get; set; }
+        public int Level { get; set; }
+        public Guid? ParentAccountId { get; set; }
+    }
+
+    /// <summary>Sprint 54 (DEC-144): يجلب L3 control accounts (level=3) بحسب prefix.
+    /// يُستخدم في CF لإثراء كل سطر بـ L3 metadata.</summary>
+    private static async Task<Dictionary<string, AccountLookup>> GetL3ControlAccountsAsync(
+        Npgsql.NpgsqlConnection conn, Guid companyId, string[] prefixes)
+    {
+        var map = new Dictionary<string, AccountLookup>();
+        // نجلب كل L3 control accounts مرة واحدة (لتجنب N+1)
+        const string q = @"
+            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId
+            FROM accounts
+            WHERE company_id = @CompanyId AND level = 3 AND is_postable = false";
+        var allL3 = (await conn.QueryAsync<AccountLookup>(new CommandDefinition(q,
+            new { CompanyId = companyId }))).ToList();
+        // لكل prefix نختار أول L3 يطابق الـ prefix
+        foreach (var prefix in prefixes)
+        {
+            var match = allL3.FirstOrDefault(a => a.Code.StartsWith(prefix));
+            if (match != null) map[prefix] = match;
+        }
+        return map;
+    }
+
+    // ============== Sprint 54 (DEC-142) Trial Balance ==============
+    /// <summary>
+    /// ميزان المراجعة — كل الحسابات الـ postable (L4) مع رصيد Dr/Cr في تاريخ asOfDate.
+    /// الحسابات مرتّبة بحسب الكود، مع معلومات الـ L3 parent للتجميع البصري.
+    /// </summary>
+    public async Task<FinanceResult<TrialBalanceResponse>> GetTrialBalanceAsync(
+        Guid companyId, DateTime asOfDate, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+
+        // نجلب كل الحسابات (postable + غير postable) — لبناء قاموس الآباء بالكامل
+        const string allSql = @"
+            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId
+            FROM accounts WHERE company_id = @CompanyId";
+        var allAccounts = (await conn.QueryAsync<AccountLookup>(new CommandDefinition(allSql,
+            new { CompanyId = companyId }, cancellationToken: ct))).ToList();
+        var accountById = allAccounts.ToDictionary(a => a.Id, a => a);
+
+        // نجلب أرصدة كل الحسابات الـ postable
+        const string sql = @"
+            SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName,
+                   a.type AS AccountType, a.normal_balance AS NormalBalance,
+                   a.parent_account_id AS ParentAccountId, a.level,
+                   COALESCE(SUM(jl.debit), 0) AS TotalDebit,
+                   COALESCE(SUM(jl.credit), 0) AS TotalCredit
+            FROM accounts a
+            LEFT JOIN journal_lines jl ON jl.account_id = a.id AND jl.company_id = a.company_id
+            LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
+                AND je.company_id = a.company_id
+                AND je.status = 2 AND je.entry_date <= @AsOfDate
+            WHERE a.company_id = @CompanyId
+              AND a.is_postable = true AND a.is_active = true
+            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance, a.parent_account_id, a.level
+            ORDER BY a.code";
+
+        var rows = (await conn.QueryAsync<BSRow>(new CommandDefinition(sql,
+            new { CompanyId = companyId, AsOfDate = asOfDate.Date },
+            cancellationToken: ct))).ToList();
+
+        // دالة لايجاد الـ L3 parent (immediate parent + الـ L3 ancestor)
+        AccountLookup? FindL3Parent(Guid? accountId)
+        {
+            var current = accountId.HasValue && accountById.TryGetValue(accountId.Value, out var a) ? a : null;
+            while (current != null)
+            {
+                if (current.Level == 3) return current;
+                if (!current.ParentAccountId.HasValue) break;
+                accountById.TryGetValue(current.ParentAccountId.Value, out current);
+            }
+            return current?.Level == 3 ? current : null;
+        }
+        AccountLookup? FindL2Ancestor(Guid? accountId)
+        {
+            var current = accountId.HasValue && accountById.TryGetValue(accountId.Value, out var a) ? a : null;
+            while (current != null)
+            {
+                if (current.Level == 2) return current;
+                if (!current.ParentAccountId.HasValue) break;
+                accountById.TryGetValue(current.ParentAccountId.Value, out current);
+            }
+            return current?.Level == 2 ? current : null;
+        }
+
+        var resp = new TrialBalanceResponse { AsOfDate = asOfDate.Date };
+        foreach (var r in rows)
+        {
+            var balance = r.NormalBalance == 1 ? (r.TotalDebit - r.TotalCredit) : (r.TotalCredit - r.TotalDebit);
+            if (Math.Abs(balance) < 0.005m) continue; // skip صفر
+
+            // الـ L3 parent (المباشر أو الـ ancestor)
+            var l3 = FindL3Parent(r.AccountId);
+            // الـ L2 ancestor (للتجميع)
+            var l2 = FindL2Ancestor(r.AccountId);
+
+            // الحساب نفسه — لو L4 (level=4) استخدم الـ L3 parent كـ "parent"
+            // لو L3 نفسه postable، فالـ L3 = self
+            // لو L1/L2 (لا ينبغي أن تصل هنا لأن الفلتر postable=true)
+            string? parentCode = null, parentName = null;
+            Guid? parentId = null;
+            if (l3 != null && l3.Id != r.AccountId)
+            {
+                parentCode = l3.Code;
+                parentName = l3.Name;
+                parentId = l3.Id;
+            }
+            else if (r.AccountId != Guid.Empty && accountById.TryGetValue(r.AccountId, out var self) && self.ParentAccountId.HasValue
+                     && accountById.TryGetValue(self.ParentAccountId.Value, out var directParent))
+            {
+                parentCode = directParent.Code;
+                parentName = directParent.Name;
+                parentId = directParent.Id;
+            }
+
+            var row = new TrialBalanceRow
+            {
+                AccountId = r.AccountId,
+                AccountCode = r.AccountCode,
+                AccountName = r.AccountName,
+                // Sprint 54: اقرأ الـ level الفعلي من قاموس الحسابات (لا من AccountType).
+                Level = accountById.TryGetValue(r.AccountId, out var aa) ? aa.Level : 4,
+                AccountType = r.AccountType,
+                ParentCode = parentCode,
+                ParentName = parentName,
+                ParentAccountId = parentId,
+                L2Code = l2?.Code,
+                L2Name = l2?.Name,
+            };
+            // الرصيد Dr أو Cr بحسب NormalBalance والقيمة الموجبة
+            if (balance >= 0)
+            {
+                // Dr-normal: الرصيد الموجب يظهر في Dr
+                // Cr-normal: الرصيد الموجب يظهر في Cr
+                if (r.NormalBalance == 1) row.Debit = balance;
+                else row.Credit = balance;
+            }
+            else
+            {
+                // الرصيد السالب يظهر في الجهة المعاكسة
+                if (r.NormalBalance == 1) row.Credit = -balance;
+                else row.Debit = -balance;
+            }
+            resp.Rows.Add(row);
+        }
+
+        return FinanceResult<TrialBalanceResponse>.Ok(resp);
     }
 }

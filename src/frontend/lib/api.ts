@@ -289,6 +289,32 @@ export interface TrialBalanceReport {
   rows: TrialBalanceRow[];
 }
 
+// Sprint 54 (DEC-142): ميزان المراجعة الهرمي — يحتوي L3 parent info
+export interface TrialBalanceV2Row {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  level: number; // 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail
+  accountType: number;
+  parentCode?: string;
+  parentName?: string;
+  parentAccountId?: string;
+  l2Code?: string;
+  l2Name?: string;
+  debit: number;
+  credit: number;
+  net: number;
+}
+
+export interface TrialBalanceV2Report {
+  asOfDate: string;
+  rows: TrialBalanceV2Row[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
+  variance: number;
+}
+
 // ============== Sprint 48 — Financial Reports DTOs ==============
 
 export interface BalanceSheetRow {
@@ -330,11 +356,24 @@ export interface IncomeStatementSection {
   subtotal: number;
 }
 
+// Sprint 54 (DEC-143): L2 section — مجموعة L2 (Sub-class) في قائمة الدخل.
+// يحتوي L4 (Detail accounts) تحت الحساب الأب L2.
+export interface IncomeStatementL2Section {
+  l2AccountId: string;
+  l2Code: string;
+  l2Name: string;
+  rows: IncomeStatementRow[];
+  subtotal: number;
+}
+
 export interface IncomeStatementReport {
   from: string;
   to: string;
   revenue: IncomeStatementSection;
   expenses: IncomeStatementSection;
+  /// <summary>Sprint 54 (DEC-143): قائمة الدخل مقسّمة إلى L2 sections.</summary>
+  revenueSections: IncomeStatementL2Section[];
+  expenseSections: IncomeStatementL2Section[];
   totalRevenue: number;
   totalExpenses: number;
   netIncome: number;
@@ -344,6 +383,10 @@ export interface IncomeStatementReport {
 export interface CashFlowLine {
   description: string;
   amount: number;
+  /// <summary>Sprint 54 (DEC-144): ربط السطر بحساب L3 control account.</summary>
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
 }
 
 export interface CashFlowSection {
@@ -1176,6 +1219,14 @@ export const financeApi = {
   // ميزان المراجعة: كل الحسابات وأرصدتها في تاريخ معين
   getTrialBalance: async (asOf?: string): Promise<TrialBalanceRow[]> => {
     const r = await api.get<TrialBalanceRow[]>('/api/finance/ledger/trial-balance', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  // ----- Trial Balance v2 (Sprint 54, DEC-142) -----
+  // ميزان المراجعة الهرمي: L4 details + L3 parent info للتجميع البصري
+  getTrialBalanceV2: async (asOf?: string): Promise<TrialBalanceV2Report> => {
+    const r = await api.get<TrialBalanceV2Report>('/api/finance/ledger/trial-balance-v2', {
       params: asOf ? { asOf } : undefined,
     });
     return r.data;

@@ -110,8 +110,77 @@ export default function IncomeStatementPage() {
             <SectionCard title="الإيرادات (Revenue)" rows={report.revenue.rows} subtotal={report.totalRevenue} color="emerald" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
             <SectionCard title="المصروفات (Expenses)" rows={report.expenses.rows} subtotal={report.totalExpenses} color="red" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
           </div>
+
+          {/* Sprint 54 (DEC-143): L2 sections view — تجميع حسب Sub-class (L2) مع L4 details تحتها */}
+          {(report.revenueSections.length > 0 || report.expenseSections.length > 0) && (
+            <Card className="mt-4 p-0 overflow-hidden">
+              <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-l from-blue-50 to-white flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-blue-900">قائمة الدخل حسب التسلسل الهرمي (L2 Sub-class)</h3>
+                  <p className="text-xs text-gray-500 mt-0.5">تجميع الحسابات الـ L4 (Detail) تحت آبائها L2 (Sub-class) — يوضح أي قسم من النشاط يولّد الإيرادات/أين تذهب المصروفات</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+                {report.revenueSections.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-emerald-700 mb-2 flex items-center gap-1">
+                      <TrendingUp className="h-3.5 w-3.5" /> الإيرادات ({report.revenueSections.length} قسم L2)
+                    </h4>
+                    {report.revenueSections.map((sec) => (
+                      <L2SectionCard key={sec.l2AccountId} section={sec} color="emerald" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
+                    ))}
+                  </div>
+                )}
+                {report.expenseSections.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-bold text-red-700 mb-2 flex items-center gap-1">
+                      <TrendingDown className="h-3.5 w-3.5" /> المصروفات ({report.expenseSections.length} قسم L2)
+                    </h4>
+                    {report.expenseSections.map((sec) => (
+                      <L2SectionCard key={sec.l2AccountId} section={sec} color="red" onRowClick={(id) => router.push(`/finance/reports/general-ledger?accountId=${id}`)} />
+                    ))}
+                  </div>
+                )}
+              </div>
+            </Card>
+          )}
         </>
       )}
+    </div>
+  );
+}
+
+function L2SectionCard({ section, color, onRowClick }: { section: { l2Code: string; l2Name: string; rows: { accountId: string; accountCode: string; accountName: string; amount: number }[]; subtotal: number }; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
+  const headerMap = { emerald: 'bg-emerald-50/60 border-emerald-200 text-emerald-900', red: 'bg-red-50/60 border-red-200 text-red-900' };
+  const badgeMap = { emerald: 'bg-emerald-600 text-white', red: 'bg-red-600 text-white' };
+  return (
+    <div className="mb-2 border border-gray-200 rounded-lg overflow-hidden">
+      <div className={`px-3 py-2 border-b ${headerMap[color]} flex items-center justify-between`}>
+        <div className="flex items-center gap-2">
+          <span className={`inline-block px-2 py-0.5 text-[10px] font-mono font-bold rounded ${badgeMap[color]}`}>L2</span>
+          <span className="font-mono text-xs text-gray-500">{section.l2Code}</span>
+          <span className="text-sm font-bold">{section.l2Name}</span>
+          <span className="text-xs text-gray-500">({section.rows.length} حساب)</span>
+        </div>
+        <span className="font-mono text-sm font-bold">{formatNumber(section.subtotal)} LYD</span>
+      </div>
+      <table className="w-full text-sm" dir="rtl">
+        <tbody>
+          {section.rows.map((r) => (
+            <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
+              <td className="px-3 py-1.5 w-20">
+                <div className="flex items-center gap-1.5">
+                  <span className="inline-block w-3 h-px bg-gray-300"></span>
+                  <span className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-gray-200 text-gray-600">L4</span>
+                  <span className="font-mono text-xs text-blue-600">{r.accountCode}</span>
+                </div>
+              </td>
+              <td className="px-3 py-1.5 text-gray-800">{r.accountName}</td>
+              <td className="px-3 py-1.5 text-end font-mono">{formatNumber(r.amount)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }

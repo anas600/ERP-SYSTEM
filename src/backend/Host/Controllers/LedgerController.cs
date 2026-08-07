@@ -39,6 +39,19 @@ public class LedgerController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
+    /// <summary>Sprint 54 (DEC-142): ميزان المراجعة الهرمي — يعرض L4 (Detail) مع L3 (Control) parent.
+    /// يدعم الـ drill-down من الحسابات L3 إلى L4.</summary>
+    [HttpGet("trial-balance-v2")]
+    [ProducesResponseType(typeof(TrialBalanceResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> TrialBalanceV2([FromQuery] DateTime? asOf, CancellationToken ct)
+    {
+        var companyId = _companyContext.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var asOfDate = (asOf ?? DateTime.UtcNow).Date;
+        var r = await _report.GetTrialBalanceAsync(companyId, asOfDate, ct);
+        return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
+    }
+
     /// <summary>دفتر أستاذ حساب معين (Sprint 38: L19 filtered by current tenant)</summary>
     [HttpGet("accounts/{accountId:guid}")]
     [ProducesResponseType(typeof(IReadOnlyList<LedgerLineResponse>), StatusCodes.Status200OK)]
