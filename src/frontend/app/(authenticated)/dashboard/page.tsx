@@ -13,6 +13,7 @@
 // signal.
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Building2,
   Users,
@@ -20,6 +21,16 @@ import {
   ArrowLeftRight,
   AlertCircle,
   RefreshCw,
+  FileBarChart,
+  TrendingUp,
+  Droplet,
+  Hourglass,
+  Scale,
+  FileText,
+  Truck,
+  Wallet,
+  Receipt,
+  UserCog,
 } from 'lucide-react';
 import { Card, PageHeader, Button, SkeletonCard } from '@/components/ui';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
@@ -287,6 +298,38 @@ export default function DashboardPage() {
         <TopCustomersChart data={topCustomers} loading={topCustomersLoading} />
       </div>
 
+      {/* Sprint 52: Quick Access — روابط سريعة للتقارير المالية + الوحدات الأساسية */}
+      <div className="mb-6">
+        <h2 className="text-sm font-bold text-ink-700 mb-3 flex items-center gap-2">
+          <ArrowLeftRight className="h-4 w-4 text-brand-600" />
+          وصول سريع (Quick Access) — التقارير المالية
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <QuickLink href="/finance/reports/balance-sheet" icon={FileBarChart} label="الميزانية العمومية" color="blue" />
+          <QuickLink href="/finance/reports/income-statement" icon={TrendingUp} label="قائمة الدخل" color="emerald" />
+          <QuickLink href="/finance/reports/cash-flow" icon={Droplet} label="التدفقات النقدية" color="cyan" />
+          <QuickLink href="/finance/reports/aging-summary" icon={Hourglass} label="أعمار الذمم" color="amber" />
+          <QuickLink href="/finance/trial-balance" icon={Scale} label="ميزان المراجعة" color="indigo" />
+          <QuickLink href="/finance/reports/general-ledger" icon={FileText} label="دفتر الأستاذ" color="slate" />
+        </div>
+      </div>
+
+      {/* Sprint 52: Quick Access 2 — الوحدات الأساسية */}
+      <div className="mb-6">
+        <h2 className="text-sm font-bold text-ink-700 mb-3 flex items-center gap-2">
+          <ArrowLeftRight className="h-4 w-4 text-brand-600" />
+          الوحدات الأساسية (Core Modules)
+        </h2>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+          <QuickLink href="/finance/customers" icon={Users} label="العملاء" color="blue" />
+          <QuickLink href="/procurement/vendors" icon={Truck} label="الموردين" color="amber" />
+          <QuickLink href="/finance/accounts" icon={Wallet} label="دليل الحسابات" color="emerald" />
+          <QuickLink href="/finance/sales-invoices" icon={Receipt} label="فواتير المبيعات" color="blue" />
+          <QuickLink href="/procurement/purchase-orders" icon={FileText} label="أوامر الشراء" color="cyan" />
+          <QuickLink href="/hr/employees" icon={UserCog} label="الموظفين" color="indigo" />
+        </div>
+      </div>
+
       {/* Sprint 1: "as of" timestamp when present */}
       {summary?.asOf && !error && (
         <div className="text-xs text-ink-400 text-center mt-2">
@@ -294,5 +337,31 @@ export default function DashboardPage() {
         </div>
       )}
     </div>
+  );
+}
+
+// ===== Sprint 52: Quick Link card =====
+function QuickLink({ href, icon: Icon, label, color }: {
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  color: 'blue' | 'emerald' | 'cyan' | 'amber' | 'indigo' | 'slate';
+}) {
+  const colorMap = {
+    blue: 'bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-200',
+    emerald: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200',
+    cyan: 'bg-cyan-50 hover:bg-cyan-100 text-cyan-700 border-cyan-200',
+    amber: 'bg-amber-50 hover:bg-amber-100 text-amber-700 border-amber-200',
+    indigo: 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200',
+    slate: 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200',
+  };
+  return (
+    <Link
+      href={href}
+      className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border ${colorMap[color]} transition-all duration-150 hover:scale-105 hover:shadow-soft-sm`}
+    >
+      <Icon className="h-6 w-6" />
+      <span className="text-xs font-semibold text-center">{label}</span>
+    </Link>
   );
 }

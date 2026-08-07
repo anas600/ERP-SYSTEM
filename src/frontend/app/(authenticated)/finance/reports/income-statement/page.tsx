@@ -5,8 +5,9 @@
 // Revenue − Expenses = Net Income
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { TrendingUp, Calendar, RefreshCw, AlertCircle, TrendingDown, Printer } from 'lucide-react';
+import { TrendingUp, Calendar, RefreshCw, AlertCircle, TrendingDown, Printer, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { financeApi, IncomeStatementReport, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -39,6 +40,10 @@ export default function IncomeStatementPage() {
 
   return (
     <div>
+      <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-brand-600 mb-3 transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        العودة للوحة التحكم
+      </Link>
       <PageHeader
         title="قائمة الدخل"
         description="قائمة الأرباح والخسائر لفترة محددة — الإيرادات − المصروفات = صافي الربح"

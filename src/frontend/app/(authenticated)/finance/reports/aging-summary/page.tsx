@@ -4,8 +4,9 @@
 // AR Aging (موجود) + AP Aging (Sprint 48 DEC-133)
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Hourglass, Calendar, AlertCircle, RefreshCw, TrendingUp, TrendingDown } from 'lucide-react';
+import { Hourglass, Calendar, AlertCircle, RefreshCw, TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { arApi, financeApi, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -38,6 +39,10 @@ export default function AgingSummaryPage() {
 
   return (
     <div>
+      <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-brand-600 mb-3 transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        العودة للوحة التحكم
+      </Link>
       <PageHeader
         title="أعمار الذمم (AR + AP)"
         description="ملخص موحد لأعمار الذمم المدينة (AR) والمستحقة للموردين (AP) — Current / 31-60 / 61-90 / 91+ يوم"

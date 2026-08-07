@@ -5,7 +5,8 @@
 // Operating + Investing + Financing = Net Change in Cash
 
 import { useEffect, useState } from 'react';
-import { Droplet, Calendar, RefreshCw, AlertCircle, Printer, ArrowUp, ArrowDown } from 'lucide-react';
+import Link from 'next/link';
+import { Droplet, Calendar, RefreshCw, AlertCircle, Printer, ArrowUp, ArrowDown, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { financeApi, CashFlowReport, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -37,6 +38,10 @@ export default function CashFlowPage() {
 
   return (
     <div>
+      <Link href="/dashboard" className="inline-flex items-center gap-1 text-sm text-ink-500 hover:text-brand-600 mb-3 transition-colors">
+        <ArrowLeft className="h-4 w-4" />
+        العودة للوحة التحكم
+      </Link>
       <PageHeader
         title="التدفقات النقدية"
         description="قائمة التدفقات النقدية (الطريقة غير المباشرة) لفترة محددة — تشغيلي + استثماري + تمويلي = صافي التغير في النقد"
