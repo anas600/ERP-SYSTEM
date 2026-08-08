@@ -35,6 +35,9 @@ public class JournalEntry
     /// <summary>الشركة المالكة للقيد (Constitution Article 3: company_id only).</summary>
     public Guid CompanyId { get; set; }
 
+    /// <summary>المشروع المرتبط بالقيد (Sprint 57 / DEC-160). اختياري — null يعني قيد عام.</summary>
+    public Guid? ProjectId { get; set; }
+
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Reference { get; set; } // مرجع خارجي (رقم فاتورة، إلخ)

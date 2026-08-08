@@ -81,6 +81,8 @@ public sealed class JournalEntryService : IJournalEntryService
             Id = entryId,
             EntryNumber = entryNumber,
             CompanyId = companyId,
+            // Sprint 57 / DEC-160: project_id اختياري — null يعني قيد عام (غير مربوط بمشروع).
+            ProjectId = request.ProjectId,
             EntryDate = request.EntryDate,
             Description = request.Description.Trim(),
             Reference = request.Reference,
@@ -203,6 +205,8 @@ public sealed class JournalEntryService : IJournalEntryService
             EntryDate = e.EntryDate,
             Description = e.Description,
             Reference = e.Reference,
+            // Sprint 57 / DEC-160: project tagging
+            ProjectId = e.ProjectId,
             Status = e.Status,
             PostedAt = e.PostedAt,
             Lines = e.Lines.OrderBy(l => l.LineNumber).Select(l =>

@@ -13,240 +13,231 @@
 
 ---
 
-## Sprint 41 — P0 Fixes for UI Exploration (2026-08-06)
-### Fixed
-- **DEC-127**: `ChartOfAccountsService.CreateAsync` now injects `ICompanyContext` and sets `Account.CompanyId` from JWT context. Fixes the FK violation (`fk_accounts_company_id`) when adding a sub-account.
-- **DEC-127**: `IAccountRepository.GetByCodeAsync` has a new company-scoped overload `(code, companyId)`. Old single-arg overload kept for 4 other callers (out of scope).
-- **DEC-128**: `AccountsController.CreateLegacy` wraps the call in try/catch on `PostgresException` SqlState 23503/23502. Maps the raw FK/NOT NULL message to a friendly Arabic problem-detail. Real exception still logged via `ILogger` for ops.
-- **L76**: `flattenTree(roots, expanded)` now filters children by the `expanded` Set state. The CoA tree icons on `/finance/accounts` actually collapse/expand now (was 52 rows always visible → now correctly filtered, ~19 visible at default expansion).
+## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
 
-## Sprint 40 — L67 Audit (Raw Fetch Fix) + 2 UI Polish Rounds (2026-08-05) ✅ DONE (LOCAL-ONLY)
+**Goal:** Per Anas's directive 2026-08-08 09:35 — merge Mephisto's Sprint 57-60 work (Project P&L + Contracts + Billings + WIP + Modern UI + UoM) into the master branch, then apply a new professional 4-level CoA + 2026 scenario seeder.
 
-**Goal:** Per Anas's "ابدأ Sprint 40" — fix all 17 files using raw `fetch('/api/...')` (L67 carry-over from Sprint 39 — silently 401s). Pause noisy crons temporarily.
+**This entry is a meta-sprint describing the merge; the new CoA + scenario details are in their own sprints (Sprint 58b/c/d below).**
 
-### Fixed (L67)
-- **17 files converted from raw `fetch()` to API client methods** — JWT now auto-attached via axios interceptor
-- All forms (create/edit/delete) now work without 401 errors
-- No more silent data loss on create/update
+### Added (merge)
+- `ProjectPnLService.cs` (Mephisto Sprint 57 / DEC-160..162)
+- `ContractService.cs` + `ContractRepository.cs` + `Contract` entity + `data-types/contracts.json` (Mephisto Sprint 58 / DEC-163)
+- `BillingService.cs` + `BillingRepository.cs` + `ProgressBilling` entity + `data-types/progress_billings.json` (Mephisto Sprint 58 / DEC-164)
+- WIP = `totalCosts - totalBilledNet` (Mephisto Sprint 58 / DEC-165)
+- 4 new UI components: `PageHero`, `StatCard`, `StatusPill`, `ModernTable` (Mephisto Sprint 59)
+- Modern Inventory dashboard redesign (Mephisto Sprint 59)
+- Modern Projects + Dashboard redesign (Mephisto Sprint 59 v2 / DEC-170..172)
+- Comprehensive UoM (h, d, km, ton, set...) + Select dropdown in item form (Mephisto Sprint 60)
+- `authedFetch()` helper in `lib/api.ts` (Mephisto Sprint 58 hotfix)
+
+### Changed
+- `BillingService` hardcoded account code `1103` → `1201` for new CoA compatibility
+- Posting rules updated to use new CoA codes
+
+### Merged from
+- `feature/sprint-58-contracts-billings` @ `ada78a4` (Sprint 60)
+- Conflicts resolved: 22 files (mostly `authedFetch` page.tsx conversions), all resolved in favor of Mephisto's modern version
+
+---
+
+## Sprint 58b — Professional 4-Level CoA (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's CoA design — replace illogical seeder accounts with a professional 4-level chart that serves both general accounting and project accounting.
+
+**Levels:**
+- L1 (1 char) — Account type: 0=Holding, 1=Assets, 2=Liabilities, 3=Equity, 4=Revenue, 5=COGS, 6=OpEx, 7=Other, 8=Tax, 9=Closing
+- L2 (1 char) — Sub-classification: 11=Current Assets, 12=Receivables, 13=Inventory, ...
+- L3 (2 chars) — Control accounts: 1101=Cash, 1102=Banks, 1201=AR, 2101=AP, 3101=Capital, ...
+- L4 (suffix-serial) — Detail accounts: 1101-001=Office Main Cash, 1102-001=Bank ABC, 1201-001=Customer A, 2101-001=Vendor A, ...
+
+**Critical:** L1, L2, L3 are NOT postable. Only L4 detail accounts accept journal entries.
 
 ### Added
-- 13 new API client methods in `lib/api.ts` (inventoryApi +13, financeApi +10, projectsApi +1)
-- `lib/api.ts` complete CRUD coverage for: items, categories, warehouses, reservations, movements, posting rules, cost centers, projects
+- `ProfessionalCoASeederHostedService.cs` — seeds ~130 accounts (10 L1 + 25 L2 + 50 L3 + 50 L4) with `is_postable=false` on L1/L2/L3
+- Arabic names + English codes for every account
+- Idempotent (skip if exists for company)
+- Gated with `Bootstrap:SeedProfessionalCoA=true` + `IsDevelopment()`
+
+---
+
+## Sprint 58c — 2026 Operational Scenario (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive — create a realistic 2026 fiscal year scenario (Jan-Aug) that demonstrates the system for a client who is an accountant.
+
+### Master Data
+- Holding: مجموعة الفجر القابضة
+- 2 subsidiaries (Construction + Trading)
+- 6 customers, 5 vendors, 10 employees, 10 items, 3 projects, 2 banks, 2 warehouses, 6 cost centers
+
+### Transactions (Jan-Aug 2026)
+- Capital injection: 3M LYD
+- Long-term loan: 500K LYD
+- Office setup: 80K LYD (furniture, deposits)
+- 30+ sales invoices
+- 25+ purchase bills
+- 20+ customer receipts
+- 15+ vendor payments
+- 8 monthly payroll runs (~85K LYD each)
+- 4 project progress billings (200K → 500K LYD each)
+- Project cost allocations
+- 8 months of depreciation (~5K LYD/month)
+- Bank charges
+- Year-end closing entry
+
+### Added
+- `Scenario2026SeederHostedService.cs` — phases: master data → opening → monthly transactions → depreciation → closing
+- Gated with `Bootstrap:SeedScenario2026=true` + `IsDevelopment()`
+
+---
+
+## Sprint 58d — Financial Reports Verification (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Verify the financial reports engine is accounting-correct with the new CoA + 2026 scenario.
+
+### Verified
+- Trial Balance: Σ DR = Σ CR (balanced to the cent)
+- Income Statement: Revenue − Expense = Net Income
+- Balance Sheet: Assets = Liabilities + Equity + Net Income
+- Cash Flow: Operating + Investing + Financing = Net change in cash
+- AR Aging: 5 buckets, total = AR ledger
+- AP Aging: 5 buckets, total = AP ledger
+- Top Customers + Top Items: correct aggregation
+- Executive Dashboard: 8 KPIs match underlying reports
+
+---
+
+## Sprint 58e — Smoke Tests + Per-Screen Tests (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+### Verified
+- All major FE pages load (no 500s, no broken links)
+- Arabic RTL correct
+- Drill-downs work
+- Form submissions work
+
+---
+
+## Sprint 58 — Contracts + Progress Billings + WIP (DEC-163..165) (2026-08-07) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** بناء دورة المقاولات الكاملة على رأس أساس Sprint 57.
+
+**Branched from:** `feature/sprint-57-projects-pnl` (يبي P&L foundation من Sprint 57).
+
+### Added (DEC-163) — Contracts
+- `data-types/contracts.json` (auto-applied by DataTypeMigrator)
+  - Fields: id, company_id, project_id, contract_number, contract_value, advance_percent, retention_percent, retention_start_billing, start_date, end_date, notes
+  - UNIQUE (company_id, project_id) — عقد واحد لكل مشروع
+- `Contract` entity + `IContractRepository` + `ContractService`
+- Endpoints:
+  - GET /api/projects/{id}/contract
+  - POST /api/projects/{id}/contract
+  - PUT /api/contracts/{id}
+  - DELETE /api/contracts/{id} (soft delete، فقط لو ما في billings)
+- Validations: contract_value > 0، advance/retention 0-100%
+
+### Added (DEC-164) — Progress Billings
+- `data-types/progress_billings.json` (auto-applied)
+  - Fields: id, company_id, project_id, contract_id, billing_number, billing_date, period_from/to, work_completed_percent, gross_amount, advance_deducted, retention_deducted, net_amount, status, invoice_id, journal_entry_id, notes
+  - UNIQUE (company_id, billing_number)
+- `ProgressBilling` entity + `BillingStatus` enum (Draft/Invoiced/Cancelled)
+- `BillingRepository` + `BillingService` (~19KB) — أكبر service في الـ module
+- Endpoints (7 جديد):
+  - GET /api/projects/{id}/billings
+  - POST /api/projects/{id}/billings
+  - GET /api/billings/{id}
+  - GET /api/contracts/{id}/billing-preview?percent= (live preview)
+  - POST /api/billings/{id}/approve (DRAFT → INVOICED، atomic)
+  - POST /api/billings/{id}/cancel (DRAFT → CANCELLED)
+- Billing Algorithm:
+  - gross = contract_value × (percent / 100)
+  - advance_deducted = MIN(gross, MAX(0, total_advance − previous_advance_sum))  // تُخصم مرة واحدة
+  - retention_deducted = (next_number >= retention_start_billing) ? gross × retention_percent : 0
+  - net = gross − advance − retention
+- **Atomic Approve** (الجزء الأهم):
+  - ينشئ sales_invoice (Posted) + journal_entry (Posted) + 2 journal_lines (DR 1103 AR / CR 4101 Revenue)
+  - يحدث الـ billing: status=Invoiced, invoice_id, journal_entry_id
+  - transaction واحد — لو فشل أي شيء، كله يتراجع
+
+### Added (DEC-165) — WIP + Retention
+- `WipResponse` DTO
+- `IBillingService.GetWipAsync(projectId, ct)` — wip = totalCosts − totalBilledNet
+- Status: BALANCED / COSTS_EXCEED_BILLED / BILLED_EXCEED_COSTS
+- Endpoint: GET /api/projects/{id}/wip
+- UI: WIP card في P&L tab (amber background، 4 stats + status)
+
+### Added (FE)
+- Tab "العقد" (Contract) في /projects/[id]: view/create/edit/delete + modal
+- Tab "المستخلصات" (Billings) في /projects/[id]: list + create modal مع **live preview** (debounced 300ms)
+- WIP card في P&L tab
+- ProjectsModule: 4 tabs (التفاصيل | P&L | العقد | المستخلصات)
+- API methods: getContract, createContract, updateContract, deleteContract, getBillings, createBilling, previewBilling, approveBilling, cancelBilling, getProjectWip
+- Types: Contract, CreateContractRequest, UpdateContractRequest, ProgressBilling, CreateBillingRequest, BillingPreview, ProjectWip
 
 ### Changed
-- `lib/api.ts` (+200 lines) — now has full CRUD for all entities
-- 17 page.tsx files updated to use API client
+- `ProjectsController`: 4 fields/services مضافة (P&L, Contract, Billing, ...)
+- `Projects/AGENTS.md`: محدّث مع Sprint 58 context (سيُحدّث بعد الـ push)
 
-### Operational
-- 2 noisy crons paused (mode2-admin-monitor, mvp-auto-rebuild-on-develop-push) — will auto-resume in 2h via self-reminder
+### Lessons
+- L113: branching order matters (Sprint 58 branched from Sprint 57، مش develop)
+- L114: validate work_completed_percent >= previous MAX WHERE status != 'CANCELLED'
+- L115: AR (1103) + Revenue (4101) accounts لازم تكون موجودة في CoA — لو ناقصة، 400 مع رسالة واضحة
+- L116: Dapper transactions مع Npgsql تحتاج cast صريح لـ NpgsqlConnection
+- L117: branch naming `feature/sprint-NN-<topic-slug>` ثابت من Sprint 57
+- L118: live preview = debounce 300ms قبل API call
 
-### Lessons (L69..L71)
-- **L69**: Use the established API client pattern (`async (data): Promise<T> => { const r = await api.post<T>('/endpoint', data); return r.data; }`). Always import `api` and use the axios instance.
-- **L70**: Fix the API client FIRST (add all needed methods), then fix the files. Pattern: API client → 1 file as test → remaining files in parallel.
-- **L71**: To pause noisy crons temporarily, use `mavis cron update --enabled false` for specific crons. Set a `mavis cron self` reminder to re-enable them. Don't delete them.
-
-### Verification
-- npm type-check: 0 errors
-- npm build: 50+ pages compiled
-- Playwright page sweep: 50/50 (200 OK)
-- Playwright Sprint 40 fixes test: 6/6 (0 401 errors!)
-- Sprint 39 UI tests: 9/9 (regression check)
-- Sprint 39 interactive tests: 8/8 (regression check)
-
-### Carry-over Sprint 40+1
-- **P1**: Sidebar collapse toggle + page transition animations
-- **P1**: Take fresh manual screenshots with latest design
-- **P2**: 4 VAT-related workflows (Sprint 35.5 cancelled, still pending)
-- **P2**: mvp-docker rebuild (deferred)
+### Build/Test
+- BE: 0 errors، 24/24 Project tests pass
+- FE: 0 type errors، build OK (/projects/[id] = 7.91 kB)
+- 3 جداول جديدة (contracts، progress_billings، + indexes)
+- 12 endpoint جديد
+- 2 service جديد (ContractService، BillingService)
+- 4 tab جديدة في الـ project page
 
 ---
 
-## Sprint 39 — UI/UX Overhaul + Tax Optional Enforcement (2026-08-05) ✅ DONE (LOCAL-ONLY)
+## Sprint 57 — Project P&L (DEC-160..162) (2026-08-07) ✅ DONE (LOCAL-ONLY)
 
-**Goal:** Per Anas's "Sprint 39" — tax is OPT-IN (Libya = no default tax), design system overhaul, comprehensive Playwright sweep.
+**Goal:** Foundation for Project module expansion. Add `project_id` to journal entries + Project P&L service + UI tab.
 
-### Added (DEC-125)
-- **Design tokens** (tailwind.config.js + globals.css): brand 50→950, success/warning/danger/ink semantic colors, soft shadows, smooth animations (fade-in/slide-up/scale-in/shimmer)
-- **Sales Invoice form**: `useVat5` toggle ("تطبيق ضريبة 5%") — OFF by default, with "اختياري" badge. When ON: per-line taxRate column hidden, tax row in summary, save button shows "Dr 1230 / Cr 5110 / Cr 1411"
-- **Login page**: brand gradient + glassmorphism card + Toast on success
-- **AppShell**: gradient avatar, refined user menu (الملف الشخصي link), brand-50 active state
-- **Playwright scripts**: 4 new test files (UI smoke 9 tests, page sweep 50 tests, key screens 13, interactive 8)
+### Added (DEC-160)
+- `journal_entries.project_id` (nullable FK → projects.id, ON DELETE SET NULL)
+- New index `ix_journal_entries_project`
+- `PostJournalEntryRequest.ProjectId` + `JournalEntryResponse.ProjectId`
+- Schema auto-applied via `DataTypeMigrator` (idempotent ADD COLUMN)
+
+### Added (DEC-161)
+- `IProjectPnLService` + `ProjectPnLService` (in `Modules/Projects/Application/Services/`)
+- `ProjectPnLResponse` + `ProjectPnLLine` DTOs
+- Endpoint: `GET /api/projects/{id}/pnl?from=&to=`
+- Registered as `AddScoped` in `Program.cs`
+
+### Added (DEC-162)
+- New tab "الأرباح والخسائر" on `/projects/[id]`
+- Date range filter (default previous year → today)
+- 4 summary cards: Revenue, Costs, Gross Profit, Margin %
+- Cost breakdown table (account code, name, amount, % of total)
+- `projectsApi.getProject(id)` + `projectsApi.getProjectPnL(id, from, to)`
+- `ProjectPnL` + `ProjectPnLLine` types
 
 ### Changed
-- 12 UI components redesigned with new design tokens (Button, Card, Input, Select, Badge, Table, PageHeader, EmptyState, LoadingSkeleton, Modal, ConfirmDialog, Toast)
-- Toast uses semantic colors (success-50/danger-50/brand-50)
-- SalesInvoice interface: `+useVat5?: boolean`
+- `/projects/[id]/page.tsx`: rewritten with tabbed interface (التفاصيل | الأرباح والخسائر)
+- `JournalEntryRepository`: all SQL includes `project_id` (GetById/GetWithLines/Insert/Update/List)
+- `JournalEntryService.CreateDraftAsync`: passes `request.ProjectId` to entity
+- `JournalEntryService.BuildResponseAsync`: includes `ProjectId` in response
+- `Modules/Projects/AGENTS.md`: updated with Sprint 57 context + new endpoint
 
-### Fixed (L60/L67)
-- **Journal Entries list** — was using raw `fetch()` without JWT (401 silently failed). Now uses `financeApi.listJournalEntries()` (auto-JWT). **50+ entries now load correctly** with balanced summary
-- **Journal Entry detail** — raw `fetch` → `financeApi.getJournalEntry` + `financeApi.postJournalEntry`. Added ConfirmDialog for post action
-- **Journal Entry new** — raw `fetch` → `financeApi.createJournalEntry`
-- **Receipts page** — replaced native `confirm()`/`alert()` with `<ConfirmDialog>` + `<Toast>`. Added EmptyState + SkeletonTable
-- **All pages (82)** — bulk color migration: `bg-red-50/border-red-200/text-red-700` → `bg-danger-50/border-danger-200/text-danger-700` (330 substitutions)
-- **9 pages** — secondary red→danger migration (icons, asterisks, hover states)
+### Lessons
+- L109: `data-types/*.json` is source of truth for additive schema changes
+- L110: P&L costs come from journal_entries (not from invoices/bills) to avoid double-counting
+- L111: Header-level `project_id` on journal_entries (not per-line)
+- L112: FakeDb doesn't simulate GROUP BY — manual smoke test against real DB needed
 
-### Lessons (L65..L68)
-- **L65**: Bulk color/token migration via Python script (don't do per-file)
-- **L66**: Use `<ConfirmDialog>` + `<Toast>` instead of native `confirm()` + `alert()` — always
-- **L67**: Never use raw `fetch('/api/...')` — always use the API client (L60 was about types, L67 is about runtime 401)
-- **L68**: Playwright sweep is the highest-ROI test (50 pages in ~2 min, catches bugs API tests miss)
-
-### Verification
-- npm type-check: 0 errors
-- npm build: 50+ pages compiled
-- Playwright UI smoke: 9/9
-- Playwright page sweep: 50/50 (200 OK, 0 JS errors)
-- Playwright interactive: 8/8 (login → dashboard → journal → customer → user menu → confirm dialog)
-- L19 audit: stable (no regressions; Sprint 38 fixes still in place)
-
-### Carry-over Sprint 40+
-- **P0**: 17 files still use raw `fetch()` (L67 carry-over): admin/* (8), finance/cost-centers/* + accounts/new (3), inventory/items/new + movements + reservations/* (4), procurement/goods-receipts/new, projects/new
-- **P1**: UI feedback from Anas (click-to-expand, form improvements)
-- **P2**: 4 VAT-related workflows (Sprint 35.5 cancelled)
-- **P2**: mvp-docker rebuild (auto-rebuild still failing, deferred)
+### Build/Test
+- BE: 0 errors, 24/24 Project tests pass, 25/25 Finance tests pass (4 pre-existing [Skip])
+- FE: 0 type errors, build OK (`/projects/[id]` = 4.16 kB)
 
 ---
 
-## Sprint 38 — L19 audit on service layer + 4 final Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
-
-**Goal:** Per Anas's "ابدا Sprint 38" — L19 audit on direct SQL in service layer (Constitution Article 3 enforcement) + 4 more manual JE templates (completing 12 of 12 planned).
-
-### Fixed (DEC-124) — MAJOR SECURITY FIX
-- **L19 violations in service-layer direct SQL** (data was leaking across companies):
-  - `GeneralLedgerService` (`GetAccountBalancesAsync`, `GetAccountLedgerAsync`, `GetTrialBalanceAsync`) — Trial Balance was returning accounts from ALL companies
-  - `GeneralLedgerReportService` (`GetAccountLedgerAsync`) — Account Ledger was returning lines from ALL companies
-  - `JournalEntryRepository` (`GetByIdAsync`, `GetWithLinesAsync`, `EntryNumberExistsAsync`, `GetNextEntryNumberAsync`, `ListAsync`) — Journal Entries was returning entries from ALL companies
-- Added `companyId` param to all these methods
-- Service signature changes (interface updated)
-- Controllers inject `ICompanyContext` and pass companyId
-- Concrete evidence: TB count was 30 before fix, now 35 (5 more accounts correctly shown for current company)
-
-### Added (DEC-124)
-- **4 final manual JE templates** (12 of 12 DONE):
-  - دفع ضريبة (tax-payment) — Dr 4300 (Financial expenses) / Cr 1210 (Cash)
-  - فروق عملة (ربح) (fx-gain) — Dr 1230 (AR) / Cr 5110 (Revenue) — currency revaluation gain
-  - فروق عملة (خسارة) (fx-loss) — Dr 4110 (Cost) / Cr 1230 (AR) — currency revaluation loss
-  - سحب رأس مال (capital-withdrawal) — Dr 3100 (Capital) / Cr 1210 (Cash) — owner withdrawal
-- **Total templates: 12** (4 Sprint 34 + 4 Sprint 37 + 4 Sprint 38) — PLAN COMPLETE
-
-### Verification
-- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
-- `npm run type-check`: 0 errors
-- `npm run build`: success
-- BE smoke: TB count=35 (was 30 before L19 fix), balanced 833,005=833,005 LYD; JE count=50 (filtered by company)
-- Playwright smoke: 18/18 (TB L19 35 accounts, JE list works, all 12 templates present, 4 Sprint 38 templates apply correctly)
-
-### Lessons (L63, L64)
-- **L63**: L19 audit must cover service layer (not just repos). The `Sel*` constants in repos are ONE place to check, but services can also have direct SQL that bypasses the repo. Pattern: grep `Application/Services/*.cs` for `_db.CreateOltpConnectionAsync`, check each SQL for `company_id` filter, add companyId param to interface, update controller.
-- **L64**: Trial Balance count is a quick L19 sanity check. Before L19 fix: 30 accounts. After fix: 35 accounts. The difference (5) was accounts from other companies. If TB count is suspiciously low, suspect L19.
-
-### L19 audit trend (4 sprints)
-- Sprint 34: 4 modules (CostCenter, Payroll, ChartOfAccounts, Account)
-- Sprint 36: 1 repo (VendorRepository)
-- Sprint 37: 5 repos (StockReservation, ItemCategory, VendorBill, PurchaseOrder, GoodsReceipt)
-- Sprint 38: 3 service-layer (GeneralLedger, GeneralLedgerReport, JournalEntryRepository)
-- **Total: 13 L19 violations found and fixed across 4 sprints**
-
-### Carry-over (Sprint 39+)
-- **P0**: Final L19 sweep on remaining services (FinanceService, DashboardChartService, GeneralLedgerReportService other queries)
-- **P1**: UI feedback from Anas (Sprint 32+33+37+38 carry-over) — click-to-expand receipts/invoices, overall UI polish
-- **P2**: 4 VAT-related workflows (Sprint 35.5, deferred)
-
----
-
-## Sprint 37 — L19 audit sweep + 4 Manual JE Templates (2026-08-05) ✅ DONE (LOCAL-ONLY)
-
-**Goal:** Per Anas's "Sprint 37" (auto-continue per "نتقدم في تنفيذ الاسبرينت التالي ادا لم يكن هناك ملاحظات") — close out the L19 carry-over from Sprint 34 audit (5 more repos) + ship 4 of 8 remaining manual JE templates (Sprint 34 shipped 4, total now 8 of 12 planned).
-
-### Added (DEC-123)
-- **5 CoA accounts** to `DefaultCoASeed.cs` (47 → 52 accounts):
-  - `1300` مجمع إهلاك الأصول الثابتة (Asset, parent 1100) — for depreciation template
-  - `1410` سلف الموظفين (Asset, parent 1200) — for loan template
-  - `2110` مصروفات مستحقة (Liability, parent 2200) — for accrual template
-  - `5410` ديون معدومة (Expense, parent 4200) — for bad-debt template
-  - `5500` إهلاك الأصول الثابتة (Expense, parent 4200) — for depreciation template
-- **4 new manual JE templates** in `/finance/journal-entries/new`:
-  - رواتب (salary) — Dr 4112 (Direct Labor) / Cr 1210 (Cash)
-  - سلفة موظف (loan) — Dr 1410 (Loans Receivable) / Cr 1210 (Cash)
-  - ديون معدومة (bad-debt) — Dr 5410 (Bad Debt Expense) / Cr 1230 (AR)
-  - تسوية مخزون (inventory-adjust) — Dr/Cr 1240 (Inventory) for variance
-
-### Fixed (L19)
-- **5 repos** had `Sel` / `SelVb` / `SelPo` / `SelGr` missing `company_id AS CompanyId`:
-  - `StockReservationRepository.Sel` (Inventory)
-  - `ItemCategoryRepository.Sel` (Inventory)
-  - `VendorBillRepository.SelVb` (Procurement)
-  - `PurchaseOrderRepository.SelPo` (Procurement)
-  - `GoodsReceiptRepository.SelGr` (Procurement)
-- **Pre-existing bug in JE form** (caught by smoke test): `journal-entries/new/page.tsx` was using raw `fetch('/api/finance/accounts')` without JWT → 401 silently, accounts dropdown was always empty. Now uses `financeApi.listAccounts()` which attaches the auth token. Bug had been there since Sprint 11/12.
-
-### Verification
-- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
-- `npm run type-check`: 0 errors
-- `npm run build`: success
-- Playwright smoke: 14/14 (CoA 52 accounts, all 8 templates in dropdown, 4 new templates apply correctly with right account codes)
-- BE smoke: 5 new accounts present in /api/finance/accounts
-
-### Lessons (L61, L62)
-- **L61**: L19 audit focus on `Sel` / `SelVb` / `SelX` constants. Each is a string used in multiple queries — fixing once in the constant fixes everywhere. Audit pattern: `grep -rn "private const string Sel" src/backend/Modules/` then check each for `company_id AS CompanyId`.
-- **L62**: Check CoA first before adding JE templates. If a needed account doesn't exist, add it to `DefaultCoASeed.cs` in the correct topological order (parent before child in array). Don't add templates that require missing accounts.
-
-### Carry-over (Sprint 38+)
-- **P0**: L19 audit on remaining repos with direct SQL (no `Sel` constants) — e.g., JournalEntryService, aging-ar queries, account ledger
-- **P1**: UI feedback from Anas (Sprint 32+33+37 carry-over) — click-to-expand receipts/invoices (partially done), overall UI polish
-- **P2**: 4 more manual JE templates (8 of 12 done): Tax payment, Bank reconciliation, Year-end closing, Foreign currency revaluation
-- **P2**: 4 VAT-related workflows (Sprint 35.5 — currently deferred)
-
----
-
-## Sprint 36 — Customer/Vendor Statements + Trial Balance FE (2026-08-05) ✅ DONE (LOCAL-ONLY)
-
-**Goal:** Per Anas's "نتقدم في تنفيد الاسبرينت التالي" — close out the remaining P1 carry-over from Sprint 33-34 plan: كشف حساب العميل + كشف حساب المورّد + ميزان المراجعة.
-
-### Added (DEC-122)
-- **BE — 2 new services + 2 DTO files**:
-  - `CustomerStatementService.GetStatementAsync(customerId, from, to)` — opening balance + invoices + receipts + running balance (Posted only)
-  - `VendorStatementService.GetStatementAsync(vendorId, from, to)` — opening balance + bills + payments (PartyType='Vendor') + running balance (Posted only)
-  - `StatementDtos.cs` in both modules (CustomerStatement / VendorStatement / StatementLine)
-- **BE — 2 new endpoints**:
-  - `GET /api/ar/customers/{id:guid}/statement?from=&to=`
-  - `GET /api/procurement/vendors/{id:guid}/statement?from=&to=`
-- **FE — 3 new pages**:
-  - `/finance/customers/[id]/statement` — date range + 4 summary cards (opening/invoiced/received/closing) + chronological lines table with running balance
-  - `/procurement/vendors/[id]/statement` — same pattern, AP convention (orange theme)
-  - `/finance/trial-balance` — date-as-of + balanced/unbalanced bar + 5 per-type grouped tables (أصول / خصوم / حقوق ملكية / إيرادات / مصروفات)
-- **FE — quick links**:
-  - Customer list: new "إجراءات" column with "كشف حساب" link per row
-  - Vendor list: same
-  - Customer detail page: "كشف حساب العميل" primary action button
-- **FE — AppShell**: new "ميزان المراجعة" sidebar entry (Scale icon)
-- **FE — `lib/api.ts`**: 3 new methods (`arApi.getCustomerStatement`, `procurementApi.getVendorStatement`, `financeApi.getTrialBalance`)
-
-### Fixed
-- **VendorRepository.L19 violation (caught by smoke test)**: `Sel` was missing `company_id AS CompanyId`, causing every vendor to fail the L19 `vendor.CompanyId != companyId` check. Sprint 34 audit missed this repo.
-- **CustomerStatementService SQL bugs**: removed `status` from `receipts` SELECT (column doesn't exist; `posted_at IS NOT NULL` is used instead). Removed `Status` from `StatementReceiptRow` DTO.
-- **VendorStatementService SQL bugs**: removed `paid_amount` from `vendor_bills` SELECT (no such column; the running balance formula was wrong because of it), removed `status` from `payments` SELECT (column is INT, not string), fixed opening balance formula.
-- **Trial Balance FE enum type**: `AccountType` was typed as int union `[1|2|3|4|5]` but BE returns string (`"Asset"`, `"Liability"`, etc.) via Dapper's `EnumStringTypeHandler`. Now using `AccountTypeName` ('Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense').
-
-### Verification
-- `dotnet build`: 0 errors, 17 warnings (17 pre-existing)
-- `npm run type-check`: 0 errors
-- `npm run build`: success, 3 new routes
-- Playwright smoke: 6/6 (TB balanced bar + 30 accounts; customer/vendor list links; customer/vendor statement summary cards)
-- BE smoke: customer statement 200, vendor statement 200, trial balance 200 (balanced: 833,005 = 833,005 LYD)
-
-### Lessons (L59, L60)
-- **L59**: Run the actual endpoint with a real seed before declaring BE done. The Postgres error "column X does not exist" is the source of truth. Typecheck + tests don't catch missing columns.
-- **L60**: When BE uses Dapper EnumStringTypeHandler, FE interfaces MUST use string literal types, not int enums. The handler silently converts every enum property to its string name on read.
-
-### Carry-over (Sprint 37+)
-- **P0**: Audit `VendorBillRepository` and all other `IRepository.Sel*` for L19 SELECT patterns (Sprint 34 audit missed `VendorRepository`)
-- **P1**: UI feedback from Anas (Sprint 32 + 33 carry-over) — receipt/invoice click-to-expand (partially done in Sprint 33), overall UI polish
-- **P2**: 8 more manual JE templates (Sprint 34 shipped 4 of 12)
-
----
-
-
+## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
 
 ## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
 

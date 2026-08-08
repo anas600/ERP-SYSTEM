@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, inventoryApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface ItemCategory {
   id: string;
@@ -45,8 +45,9 @@ export default function ItemCategoriesPage() {
     setLoading(true);
     setError(null);
     try {
-      // Sprint 40 (L67): use inventoryApi.listCategories (auto-JWT) instead of raw fetch
-      const data = await inventoryApi.listCategories() as unknown as ItemCategory[];
+      const res = await authedFetch('/api/inventory/categories', { cache: 'no-store' });
+      if (!res.ok) throw new Error('فشل التحميل');
+      const data = (await res.json()) as ItemCategory[];
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -63,8 +64,16 @@ export default function ItemCategoriesPage() {
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      // Sprint 40 (L67): use inventoryApi.deleteCategory (auto-JWT) instead of raw fetch
-      await inventoryApi.deleteCategory(deleteTarget.id);
+      const res = await authedFetch(`/api/inventory/categories/${deleteTarget.id}`, {
+        method: 'DELETE',
+      });
+      if (res.status === 404 || res.status === 405) {
+        throw new Error('حذف الفئات غير مدعوم في الـ backend حالياً.');
+      }
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل الحذف');
+      }
       toast.success(`تم حذف الفئة "${deleteTarget.name}".`);
       setDeleteTarget(null);
       await load();
@@ -95,7 +104,7 @@ export default function ItemCategoriesPage() {
       />
 
       {error && (
-        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
@@ -148,7 +157,7 @@ export default function ItemCategoriesPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => setDeleteTarget(root)}
-                        iconLeft={<Trash2 className="h-3 w-3 text-danger-500" />}
+                        iconLeft={<Trash2 className="h-3 w-3 text-red-500" />}
                       >
                         حذف
                       </Button>
@@ -184,7 +193,7 @@ export default function ItemCategoriesPage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => setDeleteTarget(c)}
-                            iconLeft={<Trash2 className="h-3 w-3 text-danger-500" />}
+                            iconLeft={<Trash2 className="h-3 w-3 text-red-500" />}
                           >
                             حذف
                           </Button>

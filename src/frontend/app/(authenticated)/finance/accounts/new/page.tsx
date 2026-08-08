@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, financeApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const ACCOUNT_TYPES = [
   { label: 'أصول (Asset)', value: 1 },
@@ -60,11 +60,18 @@ export default function NewAccountPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // Sprint 40 (L67): use financeApi.createAccount (auto-JWT) instead of raw fetch
-      await financeApi.createAccount({
-        ...form,
-        parentAccountId: form.parentAccountId || undefined,
+      const res = await authedFetch('/api/finance/accounts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          parentAccountId: form.parentAccountId || null,
+        }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل إنشاء الحساب');
+      }
       router.push('/finance/accounts');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الحساب.'));
@@ -91,7 +98,7 @@ export default function NewAccountPage() {
 
       <Card className="max-w-2xl">
         {error && (
-          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
         )}
 
         <form onSubmit={onSubmit} className="space-y-4">

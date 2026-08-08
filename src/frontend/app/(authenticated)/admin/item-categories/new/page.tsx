@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, inventoryApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface CategoryOption {
   id: string;
@@ -34,8 +34,9 @@ export default function NewCategoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        // Sprint 40 (L67): use inventoryApi.listCategories (auto-JWT) instead of raw fetch
-        const data = (await inventoryApi.listCategories()) as unknown as CategoryOption[];
+        const res = await authedFetch('/api/inventory/categories');
+        if (!res.ok) return;
+        const data = await res.json();
         setParents(data.map((c: CategoryOption) => ({ id: c.id, code: c.code, name: c.name })));
       } catch {
         // ignore
@@ -53,12 +54,19 @@ export default function NewCategoryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // Sprint 40 (L67): use inventoryApi.createCategory (auto-JWT) instead of raw fetch
-      await inventoryApi.createCategory({
-        ...form,
-        parentId: form.parentId || undefined,
-        isActive: true,
+      const res = await authedFetch('/api/inventory/categories', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          parentId: form.parentId || null,
+          isActive: true,
+        }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل إنشاء الفئة');
+      }
       router.push('/admin/item-categories');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الفئة.'));
@@ -84,7 +92,7 @@ export default function NewCategoryPage() {
       />
 
       <Card className="max-w-2xl">
-        {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

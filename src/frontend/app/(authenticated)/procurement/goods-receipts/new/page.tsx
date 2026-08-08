@@ -8,14 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Select, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import {
-  procurementApi,
-  inventoryApi,
-  PurchaseOrder,
-  GoodsReceiptLine,
-  PO_STATUSES,
-  getErrorMessage,
-} from '@/lib/api';
+import { authedFetch, procurementApi, inventoryApi, PurchaseOrder, GoodsReceiptLine, PO_STATUSES, getErrorMessage,  } from '@/lib/api';
 
 interface LineDraft {
   itemId: string;
@@ -45,9 +38,13 @@ export default function NewGoodsReceiptPage() {
     try {
       // نحاول جلب الـ warehouses (إن وُجدت)
       try {
-        // Sprint 40 (L67): use inventoryApi.listWarehouses (auto-JWT) instead of raw fetch
-        const data = await inventoryApi.listWarehouses();
-        if (Array.isArray(data)) setWarehouses(data);
+        const wRes = await authedFetch('/api/inventory/warehouses', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
+        });
+        if (wRes.ok) {
+          const data = await wRes.json();
+          if (Array.isArray(data)) setWarehouses(data);
+        }
       } catch {
         // ignore
       }
@@ -154,7 +151,7 @@ export default function NewGoodsReceiptPage() {
 
       <form onSubmit={onSubmit} className="space-y-4 max-w-4xl">
         {error && (
-          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error}</div>
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error}</div>
         )}
 
         <Card title="معلومات الاستلام">

@@ -14,10 +14,21 @@ public static class DefaultInventorySeed
     {
         ("pcs", "قطعة", "pcs"),
         ("kg", "كيلوغرام", "kg"),
+        ("g", "غرام", "g"),
+        ("ton", "طن", "ton"),
         ("m", "متر", "m"),
+        ("cm", "سنتيمتر", "cm"),
+        ("mm", "ميليمتر", "mm"),
+        ("km", "كيلومتر", "km"),
         ("m2", "متر مربع", "m²"),
         ("m3", "متر مكعب", "m³"),
         ("l", "لتر", "l"),
+        ("ml", "ميليلتر", "ml"),
+        ("h", "ساعة", "h"),
+        ("d", "يوم", "d"),
+        ("set", "طقم", "set"),
+        ("box", "صندوق", "box"),
+        ("pkg", "عبوة", "pkg"),
     };
 
     public static readonly (string Code, string Name, string? Description, string? ParentCode)[] DefaultCategories =

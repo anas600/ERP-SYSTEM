@@ -46,3 +46,28 @@ public interface IResourceAssignmentRepository
     Task InsertAsync(ResourceAssignment assignment, CancellationToken ct);
     Task DeleteAsync(Guid id, CancellationToken ct);
 }
+
+/// <summary>Sprint 58 / DEC-163: Project Contract (one per project).</summary>
+public interface IContractRepository
+{
+    Task<Contract?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<Contract?> GetByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<int> CountBillingsAsync(Guid contractId, CancellationToken ct);
+    Task InsertAsync(Contract contract, CancellationToken ct);
+    Task UpdateAsync(Contract contract, CancellationToken ct);
+    /// <summary>Soft delete — يرجع true لو فعلاً اتحذف، false لو عنده billings.</summary>
+    Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
+}
+
+/// <summary>Sprint 58 / DEC-164: Progress Billing.</summary>
+public interface IBillingRepository
+{
+    Task<ProgressBilling?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<ProgressBilling>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<bool> BillingNumberExistsAsync(string billingNumber, Guid companyId, CancellationToken ct);
+    Task<decimal> SumAdvanceDeductedAsync(Guid contractId, CancellationToken ct);
+    Task<int> CountNonCancelledAsync(Guid contractId, CancellationToken ct);
+    Task<decimal> MaxPercentAsync(Guid contractId, CancellationToken ct);
+    Task InsertAsync(ProgressBilling billing, CancellationToken ct);
+    Task UpdateStatusAsync(Guid id, BillingStatus status, Guid? invoiceId, Guid? journalEntryId, Guid updatedBy, CancellationToken ct);
+}

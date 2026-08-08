@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, financeApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const EVENT_TYPES = [
   { label: 'استلام مخزون (StockReceived)', value: 1 },
@@ -64,14 +64,21 @@ export default function NewPostingRulePage() {
     }
     setSubmitting(true);
     try {
-      // Sprint 40 (L67): use financeApi.createPostingRule (auto-JWT) instead of raw fetch
-      await financeApi.createPostingRule({
-        name: form.name,
-        description: form.description || undefined,
-        eventType: form.eventType,
-        isActive: true,
-        templateJson: form.templateJson,
+      const res = await authedFetch('/api/finance/posting-rules', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          description: form.description || null,
+          eventType: form.eventType,
+          isActive: true,
+          templateJson: form.templateJson,
+        }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل إنشاء القاعدة');
+      }
       router.push('/admin/posting-rules');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء القاعدة.'));
@@ -97,7 +104,7 @@ export default function NewPostingRulePage() {
       />
 
       <Card className="max-w-3xl">
-        {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

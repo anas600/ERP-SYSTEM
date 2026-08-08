@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, financeApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const CC_TYPES = [
   { label: 'إنتاج (Production)', value: 1 },
@@ -50,11 +50,18 @@ export default function NewCostCenterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // Sprint 40 (L67): use financeApi.createCostCenter (auto-JWT) instead of raw fetch
-      await financeApi.createCostCenter({
-        ...form,
-        parentId: form.parentId || undefined,
+      const res = await authedFetch('/api/cost-centers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...form,
+          parentId: form.parentId || null,
+        }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل إنشاء مركز التكلفة');
+      }
       router.push('/finance/cost-centers');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء مركز التكلفة.'));
@@ -81,7 +88,7 @@ export default function NewCostCenterPage() {
 
       <Card className="max-w-2xl">
         {error && (
-          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
             {error}
           </div>
         )}

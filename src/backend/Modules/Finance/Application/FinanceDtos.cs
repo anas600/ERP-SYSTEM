@@ -51,6 +51,8 @@ public sealed class PostJournalEntryRequest
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Reference { get; set; }
+    /// <summary>المشروع المرتبط بالقيد (Sprint 57 / DEC-160). اختياري.</summary>
+    public Guid? ProjectId { get; set; }
     public List<PostJournalLineRequest> Lines { get; set; } = new();
 }
 
@@ -69,6 +71,8 @@ public sealed class JournalEntryResponse
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Reference { get; set; }
+    /// <summary>المشروع المرتبط (Sprint 57 / DEC-160).</summary>
+    public Guid? ProjectId { get; set; }
     public JournalEntryStatus Status { get; set; }
     public DateTime? PostedAt { get; set; }
     public List<JournalLineResponse> Lines { get; set; } = new();

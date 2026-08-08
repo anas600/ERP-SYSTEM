@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { ArrowRight, Save, UserPlus, Eye, EyeOff } from 'lucide-react';
 import { Button, Card, PageHeader } from '@/components/ui';
 import { useToast } from '@/lib/useToast';
-import { identityApi, getErrorMessage, companiesApi } from '@/lib/api';
+import { authedFetch, identityApi, getErrorMessage } from '@/lib/api';
 
 interface RoleItem { id: string; name: string; description?: string; }
 interface CompanyItem { id: string; name: string; code: string; isHolding?: boolean; }
@@ -27,8 +27,7 @@ export default function NewUserPage() {
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    // Sprint 40 (L67): use companiesApi.list (auto-JWT) instead of raw fetch
-    Promise.all([identityApi.listRoles(), companiesApi.list({ pageSize: 100 }).then(p => p.items).catch(() => [])])
+    Promise.all([identityApi.listRoles(), authedFetch('/api/companies').then(r => r.json()).catch(() => [])])
       .then(([r, c]) => {
         setRoles(r);
         setCompanies(Array.isArray(c) ? c : []);
@@ -93,7 +92,7 @@ export default function NewUserPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  الاسم الكامل <span className="text-danger-500">*</span>
+                  الاسم الكامل <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -102,11 +101,11 @@ export default function NewUserPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   placeholder="مثال: أحمد محمد"
                 />
-                {errors.fullName && <p className="text-xs text-danger-600 mt-1">{errors.fullName}</p>}
+                {errors.fullName && <p className="text-xs text-red-600 mt-1">{errors.fullName}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  الإيميل <span className="text-danger-500">*</span>
+                  الإيميل <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="email"
@@ -116,14 +115,14 @@ export default function NewUserPage() {
                   placeholder="user@example.com"
                   dir="ltr"
                 />
-                {errors.email && <p className="text-xs text-danger-600 mt-1">{errors.email}</p>}
+                {errors.email && <p className="text-xs text-red-600 mt-1">{errors.email}</p>}
               </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  كلمة المرور <span className="text-danger-500">*</span>
+                  كلمة المرور <span className="text-red-500">*</span>
                 </label>
                 <div className="relative">
                   <input
@@ -143,11 +142,11 @@ export default function NewUserPage() {
                     {showPwd ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                {errors.password && <p className="text-xs text-danger-600 mt-1">{errors.password}</p>}
+                {errors.password && <p className="text-xs text-red-600 mt-1">{errors.password}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  تأكيد كلمة المرور <span className="text-danger-500">*</span>
+                  تأكيد كلمة المرور <span className="text-red-500">*</span>
                 </label>
                 <input
                   type={showPwd ? 'text' : 'password'}
@@ -156,7 +155,7 @@ export default function NewUserPage() {
                   className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   dir="ltr"
                 />
-                {errors.confirm && <p className="text-xs text-danger-600 mt-1">{errors.confirm}</p>}
+                {errors.confirm && <p className="text-xs text-red-600 mt-1">{errors.confirm}</p>}
               </div>
             </div>
 

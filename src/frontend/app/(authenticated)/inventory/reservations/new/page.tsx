@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, inventoryApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const REF_TYPES = [
   { label: 'أمر بيع (SalesOrder)', value: 'SalesOrder' },
@@ -49,15 +49,22 @@ export default function NewReservationPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // Sprint 40 (L67): use inventoryApi.createReservation (auto-JWT) instead of raw fetch
-      await inventoryApi.createReservation({
-        itemId: form.itemId,
-        warehouseId: form.warehouseId,
-        quantity: Number(form.quantity),
-        referenceType: form.referenceType,
-        referenceId: form.referenceId,
-        expiresAt: form.expiresAt,
+      const res = await authedFetch('/api/inventory/reservations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          itemId: form.itemId,
+          warehouseId: form.warehouseId,
+          quantity: Number(form.quantity),
+          referenceType: form.referenceType,
+          referenceId: form.referenceId,
+          expiresAt: form.expiresAt,
+        }),
       });
+      if (!res.ok) {
+        const t = await res.text();
+        throw new Error(t || 'فشل إنشاء الحجز');
+      }
       router.push('/inventory/reservations');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل إنشاء الحجز.'));
@@ -83,7 +90,7 @@ export default function NewReservationPage() {
       />
 
       <Card className="max-w-2xl">
-        {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

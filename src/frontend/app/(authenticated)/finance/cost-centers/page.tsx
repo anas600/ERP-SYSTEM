@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Pencil } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage, financeApi } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface CostCenter {
   id: string;
@@ -15,17 +15,19 @@ interface CostCenter {
   code: string;
   name: string;
   description?: string;
-  type: number; // 1=Production, 2=Service, 3=Administrative, 4=Sales
+  type: string; // CostCenterType: Project, Department, Branch, ProductLine, Activity, Other
   parentId?: string;
   isActive: boolean;
   createdAt: string;
 }
 
-const CC_TYPES: Record<number, string> = {
-  1: 'إنتاج',
-  2: 'خدمات',
-  3: 'إداري',
-  4: 'مبيعات',
+const CC_TYPES: Record<string, string> = {
+  Project: 'مشروع',
+  Department: 'قسم',
+  Branch: 'فرع',
+  ProductLine: 'خط إنتاج',
+  Activity: 'نشاط',
+  Other: 'أخرى',
 };
 
 export default function CostCentersPage() {
@@ -43,8 +45,9 @@ export default function CostCentersPage() {
     setLoading(true);
     setError(null);
     try {
-      // Sprint 40 (L67): use financeApi.listCostCenters (auto-JWT) instead of raw fetch
-      const data = (await financeApi.listCostCenters()) as unknown as CostCenter[];
+      const res = await authedFetch('/api/cost-centers', { cache: 'no-store' });
+      if (!res.ok) throw new Error('فشل التحميل');
+      const data = await res.json();
       setItems(data);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحميل'));
@@ -68,7 +71,7 @@ export default function CostCentersPage() {
       />
 
       {error && (
-        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4">
+        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
           {error}
         </div>
       )}
