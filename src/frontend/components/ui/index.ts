@@ -72,3 +72,10 @@ export type {
   ProgressBarProps,
   SectionCardProps,
 } from './StatusPill';
+
+export { ModernTable, FilterChips, HeroSearch } from './ModernTable';
+export type {
+  ModernTableProps,
+  ModernTableColumn,
+  FilterChip,
+} from './ModernTable';

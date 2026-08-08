@@ -175,6 +175,10 @@ export interface Item {
 }
 
 // ============ Projects ============
+// L120: BE serializes enums as STRINGS via JsonStringEnumConverter.
+// ProjectStatus = Planning | Active | OnHold | Completed | Cancelled.
+export type ProjectStatusName =
+  | 'Planning' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
 export interface Project {
   id: string;
     companyId: string;
@@ -182,12 +186,14 @@ export interface Project {
   code: string;
   name: string;
   description?: string;
-  status: number;  // 1=Planning, 2=Active, 3=OnHold, 4=Completed, 5=Cancelled
+  status: ProjectStatusName;  // BE returns string (was: number, changed Sprint 59)
   budget: number;
   startDate: string;
   endDate?: string;
   isActive: boolean;
+  customerId?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 // Sprint 57 / DEC-161: Project P&L
@@ -1188,6 +1194,11 @@ export const projectsApi = {
   },
   getProject: async (id: string): Promise<Project> => {
     const r = await api.get<Project>(`/api/projects/${id}`);
+    return r.data;
+  },
+  // Sprint 59 / DEC-172: project update (for /projects/[id]/edit)
+  updateProject: async (id: string, data: Partial<Omit<Project, 'id' | 'createdAt'>>): Promise<Project> => {
+    const r = await api.put<Project>(`/api/projects/${id}`, data);
     return r.data;
   },
   // Sprint 57 / DEC-161: Project P&L
