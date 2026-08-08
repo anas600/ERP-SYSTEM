@@ -532,6 +532,43 @@ else
     Console.WriteLine("[SPRINT-55] SeedProperTransactional=false (default) — ProperTransactionalSeeder SKIPPED.");
 }
 
+// ============ Sprint 58b — Professional 4-Level CoA Seeder ============
+// يدلّل الحسابات الموحدة الاحترافية ذات 4 مستويات (L1-L4) لكل شركة.
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedProfessionalCoA=true
+// Idempotent — يفحص وجود L1 roots قبل الإدراج.
+var seedProfessionalCoA = builder.Configuration.GetValue<bool>("Bootstrap:SeedProfessionalCoA", false);
+if (seedProfessionalCoA && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ProfessionalCoASeederHostedService>();
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=true + env=Development — ProfessionalCoASeeder registered.");
+}
+else if (seedProfessionalCoA)
+{
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=false (default) — ProfessionalCoASeeder SKIPPED.");
+}
+
+// ============ Sprint 58c — 2026 Operational Scenario Seeder ============
+// سيناريو تشغيلي واقعي من يناير إلى أغسطس 2026 (فواتير، سندات، رواتب، مستخلصات).
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedScenario2026=true
+var seedScenario2026 = builder.Configuration.GetValue<bool>("Bootstrap:SeedScenario2026", false);
+if (seedScenario2026 && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<Scenario2026SeederHostedService>();
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=true + env=Development — Scenario2026Seeder registered.");
+}
+else if (seedScenario2026)
+{
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=false (default) — Scenario2026Seeder SKIPPED.");
+}
+
 // ============ Auth ============
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>

@@ -51,8 +51,13 @@ public sealed class BillingService : IBillingService
     private readonly ILogger<BillingService> _logger;
 
     // COA codes المستخدمة في الـ approve
-    private const string ArAccountCode = "1103";       // المدينون
-    private const string RevenueAccountCode = "4101";  // إيرادات المبيعات
+    // Sprint 58b: updated to professional 4-level CoA. 1201 = AR (control), 4301 = Project Revenue (control).
+    // The billing service resolves to a specific L4 detail account (e.g. 1201-001) at runtime via
+    // the project's customer → detail-account mapping in the seeder.
+    private const string ArControlCode = "1201";       // AR control account
+    private const string RevenueControlCode = "4301";  // Project Revenue control account
+    private const string ArAccountCode = ArControlCode;       // legacy alias kept for callers
+    private const string RevenueAccountCode = RevenueControlCode; // legacy alias kept for callers
 
     public BillingService(
         IBillingRepository billings,
