@@ -57,3 +57,18 @@ export type {
 
 export { ConfirmDialog } from './ConfirmDialog';
 export type { ConfirmDialogProps, ConfirmDialogVariant } from './ConfirmDialog';
+
+// Sprint 59 — Modern design system for /inventory/* pages.
+export { StatCard } from './StatCard';
+export type { StatCardProps, StatCardTone } from './StatCard';
+
+export { PageHero } from './PageHero';
+export type { PageHeroProps } from './PageHero';
+
+export { StatusPill, ProgressBar, SectionCard } from './StatusPill';
+export type {
+  StatusPillProps,
+  StatusPillTone,
+  ProgressBarProps,
+  SectionCardProps,
+} from './StatusPill';
