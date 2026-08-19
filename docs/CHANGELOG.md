@@ -4,6 +4,58 @@
 
 ---
 
+## [Unreleased] - 2026-08-19 (Mavis / Anas)
+### Sprint 58 follow-up (DEC-173..176) — System 100% clean for client demo
+
+**Goal:** Final cleanup of Sprint 58 carry-over issues before client delivery.
+
+#### DEC-173 — WIP `GetWipAsync` verification (no-op)
+- **Status:** ✅ Verified working as-is (no code change needed)
+- **Investigation:** Original concern was line 340 `AND status = 'INVOICED'` might throw 42883 varchar/integer. Confirmed:
+  - `progress_billings.status` is `varchar(20)` (per `data-types/progress_billings.json` line 23)
+  - Literal `'INVOICED'` is string — comparison against varchar works
+  - Sprint 58 hotfix1 fixed the same issue in `ApproveAsync` — that fix is correct
+  - WIP endpoint `/api/projects/{id}/wip` returns 200 with `status: "BALANCED"`
+- **Lesson L140 (NEW):** When status column is varchar + default `'DRAFT'`, string literal `'INVOICED'` is correct. Don't assume integer because the API response stringifies enums — the API serialization layer is separate from the DB column type. Always check `data-types/*.json` schema definition before changing SQL.
+
+#### DEC-174 — Sidebar version label (cosmetic)
+- **File:** `src/frontend/components/layout/AppShell.tsx` line 210
+- **Change:** `v1.0.12 · Sprint 39` → `v1.0.13 · Sprint 58`
+- **Why:** Version label was stale from Sprint 39. Bumped minor version (1.0.12 → 1.0.13) for the 7 new sprint commits.
+
+#### DEC-175 — Disable legacy seeders (DEC-110 final fix)
+- **File:** `src/backend/Host/appsettings.Development.json` (gitignored, local only)
+- **Change:** Set 6 legacy scenario seeders to `false`:
+  - `SeedArabicScenario` (Sprint 26)
+  - `SeedHrScenario` (Sprint 27)
+  - `SeedProcurementScenario` (Sprint 28)
+  - `SeedYearScenario` (Sprint 29)
+  - `SeedLibyanSme` (Sprint 50)
+  - `SeedProperTransactional` (Sprint 55)
+- **Kept enabled:** `SeedDemoData` + `SeedProfessionalCoA` (Sprint 58b) + `SeedScenario2026` (Sprint 58c)
+- **Destructive step:** Dropped `erp_system` DB + re-ran BE → clean 2026 data only
+- **Result:** BS variance **720K → 0**. Dr 14,565,614 = Cr 14,565,614 (perfectly balanced).
+- **Verified:**
+  - Trial Balance: 35 L4 accounts with balances from 2026 scenario
+  - Dashboard 8 KPIs: Revenue 2.885M / Net 2.260M / Cash 3.454M
+  - 3 projects, 6 customers (5 with activity), 5 vendors (all 5 with activity)
+  - 56 journal entries, 133 journal lines, all balanced
+- **Lesson L141 (NEW):** `DefaultCoASeed.cs` (the static class with 4-digit codes like 1000, 2000, ...) is NOT gated by a seeder toggle — it always runs via `DefaultHoldingBootstrapHostedService`. This is by design (always-on baseline CoA for any new company). The "variance" wasn't actually from these accounts (they have no journal lines) — it was from the legacy *scenario* seeders posting to mixed code sets. Disabling the 6 scenario seeders is what made variance = 0.
+- **Note:** mvp-docker (Layer 2) has its own config — this change is local dev only.
+
+#### DEC-176 — Push 7 commits via "ادفع" (deferred)
+- **Status:** ⏳ Waiting for Anas's "ادفع" command
+- **Will be tagged:** `v1.0.13-sprint58` after merge
+- **Workflow:** push → PR → CI 6/6 → relax → merge → tag → restore → mvp-docker rebuild → Telegram ping
+
+#### Project state
+- Branch: `feature/sprint-52-v0-polish`
+- HEAD: `9cc66d5` (Sprint 58 follow-up)
+- Working tree: clean
+- New docs: `docs/plans/sprint-58-followup.md` (plan) + `docs/plans/project-state-2026-08-19.md` (restore memory report)
+
+---
+
 ## [Phase 6 Release] - 2026-07-27 (Mavis / Anas)
 
 ### 🎉 Phase 6: Multi-Company Architecture — RELEASED
