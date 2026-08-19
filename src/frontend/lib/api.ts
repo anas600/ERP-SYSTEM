@@ -352,6 +352,63 @@ export interface ProjectWip {
   statusName: string;  // BE-computed Arabic label
 }
 
+// ============ Sprint 59 (DEC-181..182): BOQ + Variation Orders ============
+export interface BoqSectionDto {
+  id: string;
+  projectId: string;
+  code: string;
+  name: string;
+  sortOrder: number;
+  linesCount: number;
+}
+export interface BoqLineDto {
+  id: string;
+  sectionId: string;
+  priceListItemId: string | null;
+  code: string;
+  description: string;
+  unitId: string;
+  unitCode: string | null;
+  contractQty: number;
+  executedQty: number;
+  unitPrice: number;
+  regionalPremiumPct: number;
+  finalUnitPrice: number;
+  totalAmount: number;
+  isMeasurable: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+export interface BoqSubitemDto {
+  id: string;
+  boqLineId: string;
+  description: string;
+  count: number;
+  lengthM: number;
+  widthM: number;
+  heightM: number;
+  initialQty: number;
+  deductions: number;
+  finalQty: number;
+  sortOrder: number;
+}
+export interface VariationOrderDto {
+  id: string;
+  projectId: string;
+  contractId: string | null;
+  orderNumber: string;
+  issuedAt: string;
+  reason: string | null;
+  status: string;  // Draft | Approved | Rejected
+  originalContractValue: number;
+  variationAmount: number;
+  newContractValue: number;
+  approvedAt: string | null;
+  approvedBy: string | null;
+  notes: string | null;
+  linesCount: number;
+}
+
 // ============ Resources (Sprint 32 / DEC-112) ============
 export interface Resource {
   id: string;
@@ -1749,6 +1806,130 @@ export const projectsApi = {
   // GET /api/projects/{id}/wip
   getProjectWip: async (id: string): Promise<ProjectWip> => {
     const r = await api.get<ProjectWip>(`/api/projects/${id}/wip`);
+    return r.data;
+  },
+
+  // ===== Sprint 59 (DEC-181..182): BOQ + Variation Orders =====
+  // GET /api/projects/{id}/boq/sections
+  listBoqSections: async (id: string): Promise<BoqSectionDto[]> => {
+    const r = await api.get<BoqSectionDto[]>(`/api/projects/${id}/boq/sections`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/boq/sections
+  createBoqSection: async (
+    id: string,
+    data: { code: string; name: string; sortOrder?: number }
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${id}/boq/sections`,
+      data
+    );
+    return r.data;
+  },
+  // GET /api/projects/{id}/boq/lines
+  listBoqLines: async (id: string): Promise<BoqLineDto[]> => {
+    const r = await api.get<BoqLineDto[]>(`/api/projects/${id}/boq/lines`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/boq/lines
+  createBoqLine: async (
+    id: string,
+    data: {
+      sectionId: string;
+      priceListItemId?: string | null;
+      code: string;
+      description: string;
+      unitId: string;
+      contractQty: number;
+      unitPrice: number;
+      regionalPremiumPct?: number;
+      isMeasurable: boolean;
+      sortOrder?: number;
+    }
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${id}/boq/lines`,
+      data
+    );
+    return r.data;
+  },
+  // GET /api/projects/{id}/boq/lines/{lineId}/subitems
+  listBoqSubitems: async (id: string, lineId: string): Promise<BoqSubitemDto[]> => {
+    const r = await api.get<BoqSubitemDto[]>(
+      `/api/projects/${id}/boq/lines/${lineId}/subitems`
+    );
+    return r.data;
+  },
+  // POST /api/projects/{id}/boq/lines/subitems
+  createBoqSubitem: async (
+    id: string,
+    data: {
+      boqLineId: string;
+      description: string;
+      count: number;
+      lengthM: number;
+      widthM: number;
+      heightM: number;
+      deductions: number;
+      sortOrder?: number;
+    }
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${id}/boq/lines/subitems`,
+      data
+    );
+    return r.data;
+  },
+
+  // GET /api/projects/{id}/variations
+  listVariations: async (id: string): Promise<VariationOrderDto[]> => {
+    const r = await api.get<VariationOrderDto[]>(`/api/projects/${id}/variations`);
+    return r.data;
+  },
+  // GET /api/projects/{id}/variations/{voId}
+  getVariation: async (id: string, voId: string): Promise<VariationOrderDto> => {
+    const r = await api.get<VariationOrderDto>(`/api/projects/${id}/variations/${voId}`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/variations
+  createVariation: async (
+    id: string,
+    data: {
+      projectId: string;
+      orderNumber: string;
+      issuedAt: string;
+      reason?: string;
+      originalContractValue: number;
+      notes?: string;
+    }
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${id}/variations`,
+      data
+    );
+    return r.data;
+  },
+  // POST /api/projects/{id}/variations/{voId}/approve
+  approveVariation: async (id: string, voId: string): Promise<void> => {
+    await api.post(`/api/projects/${id}/variations/${voId}/approve`);
+  },
+  // POST /api/projects/{id}/variations/lines
+  addVariationLine: async (
+    id: string,
+    data: {
+      variationOrderId: string;
+      boqLineId?: string | null;
+      lineType: 'Addition' | 'Omission' | 'Modification';
+      description: string;
+      qtyChange: number;
+      priceChange: number;
+      sortOrder?: number;
+    }
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${id}/variations/lines`,
+      data
+    );
     return r.data;
   },
 };

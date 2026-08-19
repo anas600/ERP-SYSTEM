@@ -1,0 +1,21 @@
+{
+  "name": "BoqSection",
+  "table": "boq_sections",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "project_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "projects", "column": "id", "on_delete": "cascade" } },
+    { "name": "code", "type": "varchar(50)", "nullable": false, "description": "1, 2, 3 (top-level chapter)" },
+    { "name": "name", "type": "varchar(200)", "nullable": false },
+    { "name": "sort_order", "type": "int", "nullable": false, "default": "0" },
+    { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_boq_sections_project", "columns": ["project_id", "code"], "unique": true }
+  ]
+}

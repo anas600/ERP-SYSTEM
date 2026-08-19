@@ -1,0 +1,25 @@
+{
+  "name": "VariationOrderLine",
+  "table": "variation_order_lines",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "variation_order_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "variation_orders", "column": "id", "on_delete": "cascade" } },
+    { "name": "boq_line_id", "type": "uuid", "nullable": true,
+      "foreign_key": { "table": "boq_lines", "column": "id", "on_delete": "set_null" } },
+    { "name": "line_type", "type": "varchar(20)", "nullable": false, "description": "ADD | MODIFY | DELETE" },
+    { "name": "description", "type": "text", "nullable": false },
+    { "name": "qty_change", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "price_change", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "net_change", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "sort_order", "type": "int", "nullable": false, "default": "0" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_vo_lines_vo", "columns": ["variation_order_id", "sort_order"] }
+  ]
+}

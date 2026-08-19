@@ -11,13 +11,13 @@
 // Sprint 57 (DEC-160..162): P&L data
 // Sprint 58 (DEC-163..165): Contract + Billings + WIP
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowRight, FileText, RefreshCw, TrendingUp, TrendingDown,
   Calendar, BarChart3, FileSignature, Receipt, Plus, Trash2, CheckCircle, XCircle,
-  AlertTriangle, Package, Pencil, Wallet, Coins, Calculator,
+  AlertTriangle, Package, Pencil, Wallet, Coins, Calculator, ClipboardList, Ruler, Hammer, ListChecks,
 } from 'lucide-react';
 import {
   PageHero, StatCard, StatusPill, SectionCard, ProgressBar,
@@ -28,6 +28,7 @@ import {
   api, getErrorMessage, projectsApi, type Project, type ProjectStatusName, type ProjectPnL, type Contract,
   type CreateContractRequest, type UpdateContractRequest, type ProgressBilling,
   type CreateBillingRequest, type BillingPreview, type ProjectWip,
+  type BoqSectionDto, type BoqLineDto, type BoqSubitemDto, type VariationOrderDto,
 } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
@@ -40,13 +41,15 @@ const STATUS_META: Record<ProjectStatusName, { label: string; tone: 'green' | 'a
   Cancelled: { label: 'ملغي', tone: 'red' },
 };
 
-type Tab = 'details' | 'pnl' | 'contract' | 'billings';
+type Tab = 'details' | 'pnl' | 'contract' | 'billings' | 'boq' | 'variations';
 
 const TAB_CHIPS = [
   { key: 'details', label: 'التفاصيل', icon: <FileText className="h-3.5 w-3.5" /> },
   { key: 'pnl', label: 'P&L', icon: <BarChart3 className="h-3.5 w-3.5" /> },
   { key: 'contract', label: 'العقد', icon: <FileSignature className="h-3.5 w-3.5" /> },
   { key: 'billings', label: 'المستخلصات', icon: <Receipt className="h-3.5 w-3.5" /> },
+  { key: 'boq', label: 'كراسة الحصر', icon: <ClipboardList className="h-3.5 w-3.5" /> },
+  { key: 'variations', label: 'الأوامر التعديلية', icon: <AlertTriangle className="h-3.5 w-3.5" /> },
 ];
 
 export default function ProjectsIdPage() {
@@ -212,6 +215,8 @@ export default function ProjectsIdPage() {
           {tab === 'pnl' && <PnLTab projectId={id} onLoaded={(p, w) => { setPnl(p); setWip(w); }} />}
           {tab === 'contract' && <ContractTab projectId={id} onWipRefresh={() => undefined} />}
           {tab === 'billings' && <BillingsTab projectId={id} onChange={() => undefined} />}
+          {tab === 'boq' && <BoqTab projectId={id} />}
+          {tab === 'variations' && <VariationsTab projectId={id} />}
         </>
       )}
     </div>
@@ -1061,5 +1066,552 @@ function BillingModal({ projectId, contract, onClose, onSaved }: {
         </div>
       </form>
     </Modal>
+  );
+}
+
+// =================== Sprint 59 (DEC-181): Tab: BOQ (كراسة الحصر) ===================
+function BoqTab({ projectId }: { projectId: string }) {
+  const [sections, setSections] = useState<BoqSectionDto[]>([]);
+  const [lines, setLines] = useState<BoqLineDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showSectionForm, setShowSectionForm] = useState(false);
+  const [showLineForm, setShowLineForm] = useState<string | null>(null); // sectionId for new line
+  const [sectionCode, setSectionCode] = useState('');
+  const [sectionName, setSectionName] = useState('');
+  const [units, setUnits] = useState<Array<{ id: string; code: string; name: string }>>([]);
+  const [lineForm, setLineForm] = useState({
+    code: '',
+    description: '',
+    unitId: '',
+    contractQty: 0,
+    unitPrice: 0,
+    regionalPremiumPct: 0,
+    isMeasurable: true,
+  });
+  const [subitemsByLine, setSubitemsByLine] = useState<Record<string, BoqSubitemDto[]>>({});
+  const [expandedLines, setExpandedLines] = useState<Set<string>>(new Set());
+  const [showSubitemForm, setShowSubitemForm] = useState<string | null>(null);
+  const [subitemForm, setSubitemForm] = useState({
+    description: '',
+    count: 1,
+    lengthM: 0,
+    widthM: 0,
+    heightM: 0,
+    deductions: 0,
+  });
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try {
+      const [secs, lns, uoms] = await Promise.all([
+        projectsApi.listBoqSections(projectId).catch(() => []),
+        projectsApi.listBoqLines(projectId).catch(() => []),
+        api.get<Array<{ id: string; code: string; name: string }>>('/api/inventory/uom').then(r => r.data).catch(() => []),
+      ]);
+      setSections(secs);
+      setLines(lns);
+      setUnits(uoms);
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'فشل تحميل كراسة الحصر.'));
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [projectId]);
+
+  const createSection = async () => {
+    if (!sectionCode.trim() || !sectionName.trim()) return;
+    try {
+      await projectsApi.createBoqSection(projectId, { code: sectionCode, name: sectionName });
+      setSectionCode(''); setSectionName('');
+      setShowSectionForm(false);
+      await load();
+    } catch (e: unknown) { setError(getErrorMessage(e, 'فشل إنشاء القسم.')); }
+  };
+
+  const createLine = async () => {
+    if (!showLineForm || !lineForm.code.trim() || !lineForm.description.trim() || !lineForm.unitId) return;
+    try {
+      await projectsApi.createBoqLine(projectId, {
+        sectionId: showLineForm,
+        code: lineForm.code,
+        description: lineForm.description,
+        unitId: lineForm.unitId,
+        contractQty: Number(lineForm.contractQty),
+        unitPrice: Number(lineForm.unitPrice),
+        regionalPremiumPct: Number(lineForm.regionalPremiumPct),
+        isMeasurable: lineForm.isMeasurable,
+      });
+      setLineForm({ code: '', description: '', unitId: '', contractQty: 0, unitPrice: 0, regionalPremiumPct: 0, isMeasurable: true });
+      setShowLineForm(null);
+      await load();
+    } catch (e: unknown) { setError(getErrorMessage(e, 'فشل إنشاء البند.')); }
+  };
+
+  const toggleSubitems = async (lineId: string) => {
+    const next = new Set(expandedLines);
+    if (next.has(lineId)) {
+      next.delete(lineId);
+    } else {
+      next.add(lineId);
+      if (!subitemsByLine[lineId]) {
+        try {
+          const subs = await projectsApi.listBoqSubitems(projectId, lineId);
+          setSubitemsByLine(s => ({ ...s, [lineId]: subs }));
+        } catch { /* ignore */ }
+      }
+    }
+    setExpandedLines(next);
+  };
+
+  const createSubitem = async (lineId: string) => {
+    try {
+      await projectsApi.createBoqSubitem(projectId, {
+        boqLineId: lineId,
+        description: subitemForm.description,
+        count: Number(subitemForm.count),
+        lengthM: Number(subitemForm.lengthM),
+        widthM: Number(subitemForm.widthM),
+        heightM: Number(subitemForm.heightM),
+        deductions: Number(subitemForm.deductions),
+      });
+      setSubitemForm({ description: '', count: 1, lengthM: 0, widthM: 0, heightM: 0, deductions: 0 });
+      setShowSubitemForm(null);
+      // Refresh this line's subitems
+      const subs = await projectsApi.listBoqSubitems(projectId, lineId);
+      setSubitemsByLine(s => ({ ...s, [lineId]: subs }));
+    } catch (e: unknown) { setError(getErrorMessage(e, 'فشل إضافة المقاس.')); }
+  };
+
+  if (loading) return <SkeletonTable rows={4} cols={4} />;
+
+  const linesFor = (sectionId: string) => lines.filter(l => l.sectionId === sectionId);
+
+  return (
+    <div className="space-y-4">
+      <SectionCard
+        title="كراسة الحصر (BOQ)"
+        description="الأقسام ← البنود ← المقاسات الفرعية (L×W×H). الكمية الإجمالية تُحسب من المقاسات تلقائياً."
+        actions={
+          <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />} onClick={() => setShowSectionForm(true)}>
+            قسم جديد
+          </Button>
+        }
+      >
+        {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+        {sections.length === 0 ? (
+          <EmptyState
+            icon={<ClipboardList className="h-12 w-12" />}
+            title="لا توجد أقسام بعد"
+            description="ابدأ بإنشاء قسم (مثال: أعمال الحفر، أعمال الخرسانة، أعمال التشطيبات) ثم أضف البنود داخله."
+            action={
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />} onClick={() => setShowSectionForm(true)}>
+                إنشاء أول قسم
+              </Button>
+            }
+          />
+        ) : (
+          <div className="space-y-4">
+            {sections.map(sec => {
+              const secLines = linesFor(sec.id);
+              const secTotal = secLines.reduce((s, l) => s + Number(l.totalAmount || 0), 0);
+              return (
+                <div key={sec.id} className="rounded-xl border border-gray-200 bg-white">
+                  <div className="flex items-center justify-between border-b border-gray-100 bg-slate-50 px-4 py-3">
+                    <div className="flex items-center gap-3">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-violet-100 text-sm font-bold text-violet-700">{sec.code}</span>
+                      <p className="font-bold text-gray-900">{sec.name}</p>
+                      <span className="text-xs text-gray-500">{secLines.length} بند</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="font-mono text-sm font-semibold text-gray-900">
+                        {secTotal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} <span className="text-[10px] text-gray-500">ل.د</span>
+                      </span>
+                      <Button variant="secondary" size="sm" iconLeft={<Plus className="h-3.5 w-3.5" />} onClick={() => setShowLineForm(sec.id)}>
+                        بند جديد
+                      </Button>
+                    </div>
+                  </div>
+                  {secLines.length === 0 ? (
+                    <p className="px-4 py-6 text-center text-sm text-gray-500">لا توجد بنود في هذا القسم بعد.</p>
+                  ) : (
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+                        <tr>
+                          <th className="px-3 py-2 text-start">الكود</th>
+                          <th className="px-3 py-2 text-start">الوصف</th>
+                          <th className="px-3 py-2 text-end">الكمية</th>
+                          <th className="px-3 py-2 text-start">الوحدة</th>
+                          <th className="px-3 py-2 text-end">السعر</th>
+                          <th className="px-3 py-2 text-end">السعر النهائي</th>
+                          <th className="px-3 py-2 text-end">الإجمالي</th>
+                          <th className="px-3 py-2 text-end"></th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {secLines.map(l => {
+                          const isOpen = expandedLines.has(l.id);
+                          const subs = subitemsByLine[l.id] || [];
+                          return (
+                            <Fragment key={l.id}>
+                              <tr className="border-t border-gray-100 hover:bg-gray-50">
+                                <td className="px-3 py-2 font-mono text-xs font-bold text-slate-700">{l.code}</td>
+                                <td className="px-3 py-2 text-gray-900">{l.description}</td>
+                                <td className="px-3 py-2 text-end font-mono tabular-nums">{Number(l.contractQty).toLocaleString('en-US')}</td>
+                                <td className="px-3 py-2 text-xs text-gray-600">{l.unitCode || '—'}</td>
+                                <td className="px-3 py-2 text-end font-mono tabular-nums">{Number(l.unitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td className="px-3 py-2 text-end font-mono tabular-nums">{Number(l.finalUnitPrice).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td className="px-3 py-2 text-end font-mono font-semibold tabular-nums">{Number(l.totalAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                                <td className="px-3 py-2 text-end">
+                                  <Button variant="ghost" size="sm" iconLeft={isOpen ? <XCircle className="h-3.5 w-3.5" /> : <ListChecks className="h-3.5 w-3.5" />} onClick={() => toggleSubitems(l.id)}>
+                                    {isOpen ? 'إخفاء' : 'مقاسات'}
+                                  </Button>
+                                </td>
+                              </tr>
+                              {isOpen && (
+                                <tr>
+                                  <td colSpan={8} className="bg-amber-50/40 px-3 py-3">
+                                    <div className="mb-2 flex items-center justify-between">
+                                      <p className="text-xs font-bold text-gray-700">المقاسات الفرعية (L × W × H)</p>
+                                      <Button variant="secondary" size="sm" iconLeft={<Plus className="h-3.5 w-3.5" />} onClick={() => setShowSubitemForm(l.id)}>
+                                        إضافة مقاس
+                                      </Button>
+                                    </div>
+                                    {subs.length === 0 ? (
+                                      <p className="text-xs text-gray-500">لا توجد مقاسات فرعية — الكمية الحالية نهائية.</p>
+                                    ) : (
+                                      <table className="w-full text-xs">
+                                        <thead className="text-gray-500">
+                                          <tr>
+                                            <th className="px-2 py-1 text-start">الوصف</th>
+                                            <th className="px-2 py-1 text-end">العدد</th>
+                                            <th className="px-2 py-1 text-end">الطول (م)</th>
+                                            <th className="px-2 py-1 text-end">العرض (م)</th>
+                                            <th className="px-2 py-1 text-end">الارتفاع (م)</th>
+                                            <th className="px-2 py-1 text-end">الكمية الأولية</th>
+                                            <th className="px-2 py-1 text-end">الخصومات</th>
+                                            <th className="px-2 py-1 text-end">الكمية النهائية</th>
+                                          </tr>
+                                        </thead>
+                                        <tbody>
+                                          {subs.map(s => (
+                                            <tr key={s.id} className="border-t border-amber-200/40">
+                                              <td className="px-2 py-1 text-gray-800">{s.description}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{s.count}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{s.lengthM}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{s.widthM}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{s.heightM}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{Number(s.initialQty).toLocaleString('en-US', { maximumFractionDigits: 3 })}</td>
+                                              <td className="px-2 py-1 text-end font-mono">{Number(s.deductions).toLocaleString('en-US', { maximumFractionDigits: 3 })}</td>
+                                              <td className="px-2 py-1 text-end font-mono font-bold">{Number(s.finalQty).toLocaleString('en-US', { maximumFractionDigits: 3 })}</td>
+                                            </tr>
+                                          ))}
+                                        </tbody>
+                                      </table>
+                                    )}
+                                  </td>
+                                </tr>
+                              )}
+                            </Fragment>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </SectionCard>
+
+      {/* Section create modal */}
+      {showSectionForm && (
+        <Modal open onClose={() => setShowSectionForm(false)} title="قسم جديد">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-gray-600">الكود</label>
+              <Input value={sectionCode} onChange={e => setSectionCode(e.target.value)} placeholder="A, B, C..." />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">الاسم</label>
+              <Input value={sectionName} onChange={e => setSectionName(e.target.value)} placeholder="أعمال الحفر والردم" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setShowSectionForm(false)}>إلغاء</Button>
+              <Button variant="primary" onClick={createSection} disabled={!sectionCode || !sectionName}>إنشاء</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Line create modal */}
+      {showLineForm && (
+        <Modal open onClose={() => setShowLineForm(null)} title="بند جديد">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-bold text-gray-600">الكود</label>
+                <Input value={lineForm.code} onChange={e => setLineForm({ ...lineForm, code: e.target.value })} placeholder="1.1.1" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">الوحدة</label>
+                <select className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm" value={lineForm.unitId} onChange={e => setLineForm({ ...lineForm, unitId: e.target.value })}>
+                  <option value="">— اختر وحدة —</option>
+                  {units.map(u => <option key={u.id} value={u.id}>{u.code} — {u.name}</option>)}
+                </select>
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">الوصف</label>
+              <Input value={lineForm.description} onChange={e => setLineForm({ ...lineForm, description: e.target.value })} placeholder="حفر في تربة عادية" />
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <label className="text-xs font-bold text-gray-600">الكمية</label>
+                <Input type="number" value={lineForm.contractQty} onChange={e => setLineForm({ ...lineForm, contractQty: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">السعر</label>
+                <Input type="number" step="0.01" value={lineForm.unitPrice} onChange={e => setLineForm({ ...lineForm, unitPrice: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">% علاوة</label>
+                <Input type="number" step="0.1" value={lineForm.regionalPremiumPct} onChange={e => setLineForm({ ...lineForm, regionalPremiumPct: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setShowLineForm(null)}>إلغاء</Button>
+              <Button variant="primary" onClick={createLine} disabled={!lineForm.code || !lineForm.description || !lineForm.unitId}>إنشاء</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+
+      {/* Subitem create modal */}
+      {showSubitemForm && (
+        <Modal open onClose={() => setShowSubitemForm(null)} title="مقاس فرعي (L×W×H)">
+          <div className="space-y-3">
+            <div>
+              <label className="text-xs font-bold text-gray-600">الوصف</label>
+              <Input value={subitemForm.description} onChange={e => setSubitemForm({ ...subitemForm, description: e.target.value })} placeholder="خندق الأساسات الرئيسي" />
+            </div>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <label className="text-xs font-bold text-gray-600">العدد</label>
+                <Input type="number" value={subitemForm.count} onChange={e => setSubitemForm({ ...subitemForm, count: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">الطول (م)</label>
+                <Input type="number" step="0.01" value={subitemForm.lengthM} onChange={e => setSubitemForm({ ...subitemForm, lengthM: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">العرض (م)</label>
+                <Input type="number" step="0.01" value={subitemForm.widthM} onChange={e => setSubitemForm({ ...subitemForm, widthM: Number(e.target.value) })} />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">الارتفاع (م)</label>
+                <Input type="number" step="0.01" value={subitemForm.heightM} onChange={e => setSubitemForm({ ...subitemForm, heightM: Number(e.target.value) })} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">الخصومات</label>
+              <Input type="number" step="0.01" value={subitemForm.deductions} onChange={e => setSubitemForm({ ...subitemForm, deductions: Number(e.target.value) })} />
+            </div>
+            <div className="rounded-md bg-slate-50 p-2 text-xs text-gray-600">
+              الكمية النهائية = العدد × الطول × العرض × الارتفاع − الخصومات ={' '}
+              <span className="font-mono font-bold">{(subitemForm.count * subitemForm.lengthM * subitemForm.widthM * subitemForm.heightM - subitemForm.deductions).toLocaleString('en-US', { maximumFractionDigits: 3 })}</span>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setShowSubitemForm(null)}>إلغاء</Button>
+              <Button variant="primary" onClick={() => createSubitem(showSubitemForm)} disabled={!subitemForm.description}>إنشاء</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
+  );
+}
+
+// =================== Sprint 59 (DEC-182): Tab: Variation Orders ===================
+function VariationsTab({ projectId }: { projectId: string }) {
+  const [items, setItems] = useState<VariationOrderDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    orderNumber: '',
+    issuedAt: new Date().toISOString().slice(0, 10),
+    reason: '',
+    originalContractValue: 0,
+    notes: '',
+  });
+
+  const load = async () => {
+    setLoading(true); setError(null);
+    try {
+      const data = await projectsApi.listVariations(projectId);
+      setItems(Array.isArray(data) ? data : []);
+    } catch (e: unknown) {
+      setError(getErrorMessage(e, 'فشل تحميل الأوامر التعديلية.'));
+    } finally { setLoading(false); }
+  };
+
+  useEffect(() => { load(); }, [projectId]);
+
+  const create = async () => {
+    if (!form.orderNumber.trim()) return;
+    try {
+      await projectsApi.createVariation(projectId, {
+        projectId,
+        orderNumber: form.orderNumber,
+        issuedAt: new Date(form.issuedAt).toISOString(),
+        reason: form.reason || undefined,
+        originalContractValue: Number(form.originalContractValue),
+        notes: form.notes || undefined,
+      });
+      setForm({ orderNumber: '', issuedAt: new Date().toISOString().slice(0, 10), reason: '', originalContractValue: 0, notes: '' });
+      setShowForm(false);
+      await load();
+    } catch (e: unknown) { setError(getErrorMessage(e, 'فشل إنشاء الأمر التعديلي.')); }
+  };
+
+  const approve = async (voId: string) => {
+    if (!confirm('اعتماد هذا الأمر التعديلي؟ سيتم تحديث قيمة العقد الجديدة.')) return;
+    try {
+      await projectsApi.approveVariation(projectId, voId);
+      await load();
+    } catch (e: unknown) { setError(getErrorMessage(e, 'فشل الاعتماد.')); }
+  };
+
+  if (loading) return <SkeletonTable rows={3} cols={4} />;
+
+  const totalVariation = items.reduce((s, v) => s + Number(v.variationAmount || 0), 0);
+  const newContractTotal = items.length > 0 ? items[items.length - 1].newContractValue : 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <StatCard
+          label="قيمة العقد الأصلية"
+          value={items.length > 0 ? `${Number(items[0].originalContractValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ل.د` : '—'}
+          icon={Wallet}
+          tone="blue"
+        />
+        <StatCard
+          label="إجمالي التعديلات"
+          value={`${totalVariation.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ل.د`}
+          icon={Calculator}
+          tone={totalVariation >= 0 ? 'amber' : 'green'}
+          hint={`${items.length} أمر تعديلي`}
+        />
+        <StatCard
+          label="قيمة العقد الجديدة"
+          value={newContractTotal > 0 ? `${Number(newContractTotal).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ل.د` : '—'}
+          icon={TrendingUp}
+          tone="violet"
+          hint={items.length > 0 ? `+${((totalVariation / Number(items[0].originalContractValue || 1)) * 100).toFixed(1)}%` : ''}
+        />
+      </div>
+
+      <SectionCard
+        title="الأوامر التعديلية (Variation Orders)"
+        description="أي تعديل على بنود العقد بعد التوقيع — يجب اعتماده قبل تنفيذه"
+        actions={
+          <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />} onClick={() => setShowForm(true)}>
+            أمر تعديلي جديد
+          </Button>
+        }
+      >
+        {error && <div className="mb-3 rounded-lg border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">{error}</div>}
+        {items.length === 0 ? (
+          <EmptyState
+            icon={<AlertTriangle className="h-12 w-12" />}
+            title="لا توجد أوامر تعديلية"
+            description="في الممارسة الليبية، الأوامر التعديلية شائعة جداً (نموذجياً 20-80% من قيمة العقد). أنشئ واحداً لتعديل نطاق المشروع."
+            action={
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />} onClick={() => setShowForm(true)}>
+                إنشاء أول أمر
+              </Button>
+            }
+          />
+        ) : (
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 text-xs uppercase text-gray-500">
+              <tr>
+                <th className="px-3 py-2 text-start">رقم الأمر</th>
+                <th className="px-3 py-2 text-start">التاريخ</th>
+                <th className="px-3 py-2 text-start">السبب</th>
+                <th className="px-3 py-2 text-end">قيمة العقد</th>
+                <th className="px-3 py-2 text-end">التعديل</th>
+                <th className="px-3 py-2 text-end">القيمة الجديدة</th>
+                <th className="px-3 py-2 text-start">الحالة</th>
+                <th className="px-3 py-2 text-end"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map(v => {
+                const isApproved = v.status === 'APPROVED' || v.status === 'Approved';
+                return (
+                  <tr key={v.id} className="border-t border-gray-100 hover:bg-gray-50">
+                    <td className="px-3 py-2 font-mono text-xs font-bold text-slate-700">{v.orderNumber}</td>
+                    <td className="px-3 py-2 text-xs text-gray-600">{formatDate(v.issuedAt)}</td>
+                    <td className="px-3 py-2 text-gray-800">{v.reason || '—'}</td>
+                    <td className="px-3 py-2 text-end font-mono tabular-nums">{Number(v.originalContractValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className={'px-3 py-2 text-end font-mono font-semibold tabular-nums ' + (Number(v.variationAmount) >= 0 ? 'text-amber-700' : 'text-green-700')}>
+                      {Number(v.variationAmount) >= 0 ? '+' : ''}{Number(v.variationAmount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </td>
+                    <td className="px-3 py-2 text-end font-mono font-bold tabular-nums">{Number(v.newContractValue).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</td>
+                    <td className="px-3 py-2">
+                      <StatusPill tone={isApproved ? 'green' : 'slate'} label={v.status} showDot />
+                    </td>
+                    <td className="px-3 py-2 text-end">
+                      {!isApproved && (
+                        <Button variant="primary" size="sm" iconLeft={<CheckCircle className="h-3.5 w-3.5" />} onClick={() => approve(v.id)}>
+                          اعتماد
+                        </Button>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </SectionCard>
+
+      {showForm && (
+        <Modal open onClose={() => setShowForm(false)} title="أمر تعديلي جديد">
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="text-xs font-bold text-gray-600">رقم الأمر</label>
+                <Input value={form.orderNumber} onChange={e => setForm({ ...form, orderNumber: e.target.value })} placeholder="VO-2026-001" />
+              </div>
+              <div>
+                <label className="text-xs font-bold text-gray-600">تاريخ الإصدار</label>
+                <Input type="date" value={form.issuedAt} onChange={e => setForm({ ...form, issuedAt: e.target.value })} />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">قيمة العقد الأصلية</label>
+              <Input type="number" step="0.01" value={form.originalContractValue} onChange={e => setForm({ ...form, originalContractValue: Number(e.target.value) })} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">السبب</label>
+              <Input value={form.reason} onChange={e => setForm({ ...form, reason: e.target.value })} placeholder="طلب من الجهة المنفذة" />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-gray-600">ملاحظات</label>
+              <Input value={form.notes} onChange={e => setForm({ ...form, notes: e.target.value })} />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="secondary" onClick={() => setShowForm(false)}>إلغاء</Button>
+              <Button variant="primary" onClick={create} disabled={!form.orderNumber}>إنشاء</Button>
+            </div>
+          </div>
+        </Modal>
+      )}
+    </div>
   );
 }

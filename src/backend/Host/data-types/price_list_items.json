@@ -1,0 +1,30 @@
+{
+  "name": "PriceListItem",
+  "table": "price_list_items",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "price_list_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "price_lists", "column": "id", "on_delete": "cascade" } },
+    { "name": "code", "type": "varchar(50)", "nullable": false, "description": "1.1.1.1 (hierarchical)" },
+    { "name": "parent_code", "type": "varchar(50)", "nullable": true },
+    { "name": "description", "type": "text", "nullable": false },
+    { "name": "unit_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "units_of_measure", "column": "id", "on_delete": "restrict" } },
+    { "name": "unit_price", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "section", "type": "varchar(50)", "nullable": true, "description": "Buildings | Roads | Water | Tanks | Gardens | Electrical" },
+    { "name": "category", "type": "varchar(50)", "nullable": true, "description": "Material | Labor | Equipment | Subcontract | Other" },
+    { "name": "level", "type": "int", "nullable": false, "default": "4", "description": "1=Chapter, 2=Section, 3=Sub, 4=Line" },
+    { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_price_list_items_list_code", "columns": ["price_list_id", "code"], "unique": true },
+    { "name": "ix_price_list_items_list_parent", "columns": ["price_list_id", "parent_code"] },
+    { "name": "ix_price_list_items_section", "columns": ["section"] },
+    { "name": "ix_price_list_items_list_section", "columns": ["price_list_id", "section"] }
+  ]
+}

@@ -324,6 +324,9 @@ public sealed class ProfessionalCoASeederHostedService : IHostedService
         new() { Code = "2103", NameAr = "مصروفات مستحقة",            DescEn = "Accrued Expenses",       Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "21", IsPostable = false },
         new() { Code = "2104", NameAr = "ضريبة مخرجات (VAT Output)", DescEn = "VAT Output (Payable)",   Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "21", IsPostable = false },
         new() { Code = "2105", NameAr = "رواتب مستحقة",              DescEn = "Accrued Salaries",       Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "21", IsPostable = false },
+        // 2106 / 2107: Sprint 59 (DEC-183) — construction cycle (NDB/ليبي)
+        new() { Code = "2106", NameAr = "دفعة مقدمة مستلمة",          DescEn = "Advance Received from Customer", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "21", IsPostable = false },
+        new() { Code = "2107", NameAr = "احتجاز ضمان مستحق",          DescEn = "Retention Payable",      Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "21", IsPostable = false },
         // 22 (Long-term Liabilities)
         new() { Code = "2201", NameAr = "قروض طويلة الأجل",          DescEn = "Long-term Loans",        Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "22", IsPostable = false },
         // 31 (Capital)
@@ -421,6 +424,11 @@ public sealed class ProfessionalCoASeederHostedService : IHostedService
         new() { Code = "2104-001", NameAr = "ضريبة القيمة المضافة على المبيعات", DescEn = "VAT on Sales (5%)", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2104", IsPostable = true },
         // 2105 Accrued Salaries
         new() { Code = "2105-001", NameAr = "رواتب مستحقة الدفع",            DescEn = "Accrued Salaries Payable", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2105", IsPostable = true },
+        // Sprint 59 (DEC-183): 2106 / 2107 detail accounts (construction cycle)
+        new() { Code = "2106-001", NameAr = "دفعة مقدمة - مشروع بناء المدرسة", DescEn = "Advance - School Project",  Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2106", IsPostable = true },
+        new() { Code = "2106-002", NameAr = "دفعة مقدمة - مشروع توريد المواد", DescEn = "Advance - Materials Project", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2106", IsPostable = true },
+        new() { Code = "2107-001", NameAr = "احتجاز ضمان - مشروع بناء المدرسة", DescEn = "Retention - School Project",  Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2107", IsPostable = true },
+        new() { Code = "2107-002", NameAr = "احتجاز ضمان - مشروع توريد المواد", DescEn = "Retention - Materials Project", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2107", IsPostable = true },
         // 2201 Long-term Loans
         new() { Code = "2201-001", NameAr = "قرض مصرف الجمهورية - طويل الأجل", DescEn = "CDBL Long-term Loan", Type = AccountType.Liability, NormalBalance = NormalBalance.Credit, ParentCode = "2201", IsPostable = true },
         // 3101 Capital
