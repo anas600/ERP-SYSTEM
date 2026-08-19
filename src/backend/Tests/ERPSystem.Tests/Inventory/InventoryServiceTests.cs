@@ -204,7 +204,7 @@ public class ItemCategoryServiceTests
 public class InventoryBootstrapperTests
 {
     [Fact]
-    public async Task EnsureDefaultUoMsAndCategoriesAsync_Seeds17UoMs_5Categories()
+    public async Task EnsureDefaultUoMsAndCategoriesAsync_Seeds20UoMs_5Categories()
     {
         var uomRepo = new FakeUnitOfMeasureRepository();
         var catRepo = new FakeItemCategoryRepository();
@@ -213,8 +213,8 @@ public class InventoryBootstrapperTests
         await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
         var uoms = await uomRepo.ListAsync(true, CancellationToken.None);
         var cats = await catRepo.ListAsync(true, CancellationToken.None);
-        // Sprint 60 (DEC-179 prep): extended to 17 UoMs (was 6) — see DefaultInventorySeed.DefaultUoMs
-        uoms.Count.Should().Be(17, "pcs, g, kg, ton, m, cm, mm, km, m², m³, l, ml, h, d, set, box, pkg");
+        // Sprint 59 (DEC-179): 20 UoMs (was 17, +3 construction: mlt, lump, ea) — see DefaultInventorySeed.DefaultUoMs
+        uoms.Count.Should().Be(20, "pcs, g, kg, ton, m, cm, mm, km, m², m³, l, ml, h, d, set, box, pkg, mlt, lump, ea");
         cats.Count.Should().Be(5, "RM, FG, CON, SVC, OFF");
         uoms.Should().Contain(u => u.Code == "m2" && u.Symbol == "m²");
         cats.Should().Contain(c => c.Code == "RM" && c.Name == "المواد الخام");
@@ -229,8 +229,8 @@ public class InventoryBootstrapperTests
         await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
         await boot.EnsureDefaultUoMsAndCategoriesAsync(CancellationToken.None);
         var uoms = await uomRepo.ListAsync(true, CancellationToken.None);
-        // Sprint 60: 17 UoMs (was 6) — see DefaultInventorySeed.DefaultUoMs
-        uoms.Count.Should().Be(17, "لا يجب أن يضيف مكررات");
+        // Sprint 59 (DEC-179): 20 UoMs — see DefaultInventorySeed.DefaultUoMs
+        uoms.Count.Should().Be(20, "لا يجب أن يضيف مكررات");
     }
 }
 
