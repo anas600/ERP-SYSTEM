@@ -239,6 +239,10 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
 builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
+// Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
+builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
+builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181
+builder.Services.AddScoped<IVariationOrderService, VariationOrderService>(); // DEC-182
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
@@ -567,6 +571,22 @@ else if (seedScenario2026)
 else
 {
     Console.WriteLine("[SPRINT-58c] SeedScenario2026=false (default) — Scenario2026Seeder SKIPPED.");
+}
+
+// ============ Sprint 59 (DEC-183) — Construction Posting Rules Seeder ============
+// 5 قواعد محاسبية لدورة المقاولات الليبية (NDB/لائحة 355):
+//   7=AdvanceReceived / 8=ProgressBillingPosted / 9=RetentionReleased /
+//   10=VariationOrderApproved (off-balance) / 11=ContractCompleted (WIP→P&L)
+// كل القواعد INACTIVE افتراضياً — الأدمن يفعّلها من /admin/posting-rules.
+// الـ gating: requires IsDevelopment() فقط (لا يحتاج flag — دائماً مطلوب لتوفير القواعد).
+if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ConstructionPostingRulesSeederHostedService>();
+    Console.WriteLine("[SPRINT-59] env=Development — ConstructionPostingRulesSeeder registered (5 rules, all INACTIVE by default).");
+}
+else
+{
+    Console.WriteLine("[SPRINT-59] env!=Development — ConstructionPostingRulesSeeder SKIPPED.");
 }
 
 // ============ Auth ============

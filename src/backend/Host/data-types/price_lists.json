@@ -1,0 +1,26 @@
+{
+  "name": "PriceList",
+  "table": "price_lists",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "code", "type": "varchar(50)", "nullable": false, "description": "e.g. 355-2026" },
+    { "name": "name", "type": "varchar(200)", "nullable": false },
+    { "name": "description", "type": "text", "nullable": true },
+    { "name": "issued_by", "type": "varchar(200)", "nullable": true },
+    { "name": "issued_at", "type": "date", "nullable": true },
+    { "name": "effective_from", "type": "date", "nullable": true },
+    { "name": "effective_to", "type": "date", "nullable": true },
+    { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "created_by", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "users", "column": "id", "on_delete": "restrict" } },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_price_lists_company_code", "columns": ["company_id", "code"], "unique": true }
+  ]
+}

@@ -33,6 +33,14 @@ public enum TriggeringEvent
     // === Legacy aliases (kept for backward compat with Sprint 11-12 rules) ===
     InvoiceCreated = 3,       // alias for SalesInvoicePosted
     PaymentReceived = 4,      // alias for ReceiptPosted
+
+    // === Construction cycle (Sprint 59 / DEC-183) ===
+    // Libyan NDB contract flow. See docs/architecture/construction-cycle.md.
+    AdvanceReceived = 7,         // Dr Cash / Cr 2106 (Advance Received) — capped 15% of contract
+    ProgressBillingPosted = 8,   // 4 lines: Dr AR / Cr Revenue + Dr COGS / Cr WIP + Dr Advance / Cr AR + Dr Retention / Cr AR
+    RetentionReleased = 9,       // Dr 2107 (Retention) / Cr AR — at final delivery (50% immediate + 50% warranty)
+    VariationOrderApproved = 10, // Off-balance WIP add (tracking only, no journal)
+    ContractCompleted = 11,      // WIP → P&L transition: Dr 9201 / Cr Revenue (final) + Dr 9201 / Cr 5100 (COGS)
 }
 
 /// <summary>

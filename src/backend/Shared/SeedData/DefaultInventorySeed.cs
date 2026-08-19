@@ -29,6 +29,10 @@ public static class DefaultInventorySeed
         ("set", "طقم", "set"),
         ("box", "صندوق", "box"),
         ("pkg", "عبوة", "pkg"),
+        // Sprint 59 (DEC-179): construction-specific units (لائحة 355 لسنة 2026)
+        ("mlt", "متر طولي", "م.ط"),
+        ("lump", "مقطوعية", "مقطوعية"),
+        ("ea", "عدد", "عدد"),
     };
 
     public static readonly (string Code, string Name, string? Description, string? ParentCode)[] DefaultCategories =

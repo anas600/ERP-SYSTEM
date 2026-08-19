@@ -1,0 +1,26 @@
+{
+  "name": "BoqSubitem",
+  "table": "boq_subitems",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "boq_line_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "boq_lines", "column": "id", "on_delete": "cascade" } },
+    { "name": "description", "type": "varchar(200)", "nullable": false },
+    { "name": "count", "type": "int", "nullable": false, "default": "1" },
+    { "name": "length_m", "type": "numeric(10,3)", "nullable": false, "default": "0" },
+    { "name": "width_m", "type": "numeric(10,3)", "nullable": false, "default": "0" },
+    { "name": "height_m", "type": "numeric(10,3)", "nullable": false, "default": "0" },
+    { "name": "initial_qty", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "deductions", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "final_qty", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "sort_order", "type": "int", "nullable": false, "default": "0" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_boq_subitems_line", "columns": ["boq_line_id", "sort_order"] }
+  ]
+}
