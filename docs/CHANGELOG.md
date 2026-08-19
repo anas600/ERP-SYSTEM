@@ -5,6 +5,81 @@
 ---
 
 ## [Unreleased] - 2026-08-19 (Mavis / Anas)
+### Sprint 59 (DEC-179..183) — Construction Core (NDB / لائحة 355)
+
+**Goal:** Implement the construction cycle foundation for Libyan NDB projects per لائحة 355 لسنة 2026.
+
+#### DEC-179 — 3 new UoM
+- **Files:** `src/backend/Shared/SeedData/DefaultInventorySeed.cs`
+- **Added:** mlt=متر طولي (linear meter), lump=مقطوعية (lump sum), ea=عدد (count)
+- **Total UoMs:** 17 → 20
+- **Test fix:** `InventoryBootstrapperTests` updated from 17 to 20
+
+#### DEC-180 — Price Lists (2 tables + service + controller + seeder)
+- **Files:**
+  - `data-types/price_lists.json`, `data-types/price_list_items.json`
+  - `Modules/Projects/Entities/PriceList.cs`
+  - `Modules/Projects/Application/Dtos/PriceListDtos.cs`
+  - `Modules/Projects/Application/Services/PriceListService.cs`
+  - `Host/Controllers/PriceListsController.cs`
+  - `Shared/SeedData/LibyanPriceListSeederHostedService.cs` (90 sample items from لائحة 355)
+- **API:** `GET/POST /api/price-lists`, `GET/POST /api/price-lists/{id}/items`
+- **Gated by:** `Bootstrap:SeedLibyanPriceList=true`
+
+#### DEC-181 — BOQ (3 tables + service + controller + FE)
+- **Files:**
+  - `data-types/boq_sections.json`, `data-types/boq_lines.json`, `data-types/boq_subitems.json`
+  - `Modules/Projects/Entities/Boq.cs`
+  - `Modules/Projects/Application/Dtos/BoqDtos.cs`
+  - `Modules/Projects/Application/Services/BoqService.cs` (RecalculateLineAsync server-side trigger)
+  - `Host/Controllers/BoqController.cs`
+- **FE tab:** `/projects/[id]` → "كراسة الحصر (BOQ)" — sections/lines/subitems with L×W×H computation
+- **API:** `GET/POST /api/projects/{id}/boq/{sections|lines|subitems}`
+
+#### DEC-182 — Variation Orders (2 tables + service + controller + FE)
+- **Files:**
+  - `data-types/variation_orders.json`, `data-types/variation_order_lines.json`
+  - `Modules/Projects/Entities/VariationOrder.cs`
+  - `Modules/Projects/Application/Dtos/VariationOrderDtos.cs`
+  - `Modules/Projects/Application/Services/VariationOrderService.cs`
+  - `Host/Controllers/VariationOrdersController.cs`
+- **FE tab:** `/projects/[id]` → "الأوامر التعديلية" — 3 KPI cards (Contract / Variation / New Value) + create/approve flow
+- **API:** `GET/POST /api/projects/{id}/variations`, `POST /api/projects/{id}/variations/{id}/approve`
+
+#### DEC-183 — 6 new CoA accounts + 5 posting rules + 5 TriggeringEvent enum values
+- **CoA:** 2106 (Advance Received), 2107 (Retention Payable) + 4 detail accounts
+- **Total CoA:** 202 → 208 accounts
+- **TriggeringEvent enum:** Added 7=AdvanceReceived, 8=ProgressBillingPosted, 9=RetentionReleased, 10=VariationOrderApproved, 11=ContractCompleted
+- **Posting rules seeder:** `ConstructionPostingRulesSeederHostedService` — seeds 5 rules, all INACTIVE by default (admin enables from /admin/posting-rules)
+
+#### Tests
+- Build: 0 errors, 0 warnings
+- tsc: 0 errors
+- Backend Tests: 2 failures → fixed (UoM count 17→20)
+- Frontend Build: pass
+- Architecture Guard (no tenant_id): pass
+
+#### Tags & Merges
+- **Commit:** `d68d206` (fix) and `256c8b7` (original) on `feature/sprint-59-construction-core`
+- **PR:** #202 merged to develop as `ced7364` (squash)
+- **Tag:** `v1.0.14-sprint59` pushed to origin
+
+#### Lessons (L142..L148)
+- **L142:** When a Sprint UI redesign references API methods/types, ALWAYS verify they exist in `api.ts` before declaring the redesign done.
+- **L143:** Error surfaces as `projectsApi.getProject is not a function` in rendered page text — clear API-missing signal during smoke tests.
+- **L144:** Always check `AppShell.tsx` and `route files` for the EXACT route name before assuming 404.
+- **L145:** For construction ERP: (1) لائحة أسعار مرجعية, (2) BOQ مع sub-measurements (L×W×H), (3) Variation Orders منفصلة, (4) WIP accounting مع 4 أنواع قيود لكل حدث, (5) UoM مفقود (م.ط, مقطوعية).
+- **L146:** الدفعة المقدمة في ليبيا محصورة بـ 15% من قيمة العقد (Article 103 ACR الجديدة 2025). الاحتجاز 5-10%. الـ 50% من الاحتجاز يُطلق عند الاستلام، الـ 50% الآخر بعد فترة الضمان (12 شهر).
+- **L147:** DataTypeMigrator (DEC-079 PoC) auto-creates tables from JSON files in `data-types/`. Adding new module = 1 JSON file. Idempotent.
+- **L148:** For construction, the `RecalculateLineAsync` pattern (server-side trigger via service) is preferred over DB triggers — easier to test, no migration needed.
+
+#### References
+- **Plan:** `docs/plans/sprint-59-construction-core.md` (17KB)
+- **Strategy:** `docs/plans/libyan-construction-analysis.html` (57KB, 12 chapters, 4 expert perspectives)
+
+---
+
+## [Unreleased] - 2026-08-19 (Mavis / Anas)
 ### Sprint 58 follow-up (DEC-173..176) — System 100% clean for client demo
 
 **Goal:** Final cleanup of Sprint 58 carry-over issues before client delivery.
