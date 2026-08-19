@@ -204,6 +204,12 @@ export interface Item {
 }
 
 // ============ Projects ============
+// DEC-177 (L120): BE returns status as STRING (Planning|Active|OnHold|Completed|Cancelled).
+// Sprint 59 v2 redesign (DEC-170..172) assumes the string form everywhere.
+// We keep PROJECT_STATUSES keyed by string for the new UI but also export the
+// numeric map for any legacy call site that still passes 1..5.
+export type ProjectStatusName = 'Planning' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
+export type ProjectStatus = ProjectStatusName | number;
 export interface Project {
   id: string;
     companyId: string;
@@ -211,21 +217,140 @@ export interface Project {
   code: string;
   name: string;
   description?: string;
-  status: number;  // 1=Planning, 2=Active, 3=OnHold, 4=Completed, 5=Cancelled
+  status: ProjectStatusName;
   budget: number;
   startDate: string;
   endDate?: string;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
-export const PROJECT_STATUSES: Record<number, string> = {
+export const PROJECT_STATUSES: Record<string, string> = {
+  Planning: 'تخطيط',
+  Active: 'نشط',
+  OnHold: 'معلق',
+  Completed: 'مكتمل',
+  Cancelled: 'ملغي',
+};
+
+// Legacy numeric map (L120: kept for any older page that still sends 1..5)
+export const PROJECT_STATUSES_NUM: Record<number, string> = {
   1: 'تخطيط',
   2: 'نشط',
   3: 'معلق',
   4: 'مكتمل',
   5: 'ملغي',
 };
+
+// ===== Sprint 57 (DEC-160..162): Project P&L =====
+export interface ProjectPnLLine {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+}
+export interface ProjectPnL {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  from?: string | null;
+  to?: string | null;
+  totalRevenue: number;
+  invoiceCount: number;
+  costsByAccount: ProjectPnLLine[];
+  totalCosts: number;
+  grossProfit: number;
+  profitMarginPercent: number;
+  costEntryCount: number;
+}
+
+// ===== Sprint 58 (DEC-163..165): Project Contracts + Billings + WIP =====
+export interface Contract {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+export interface CreateContractRequest {
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+}
+export interface UpdateContractRequest {
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+}
+export type BillingStatus = 1 | 2 | 3;  // 1=Draft, 2=Invoiced, 3=Cancelled
+export interface ProgressBilling {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractId: string;
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  workCompletedPercent: number;
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  status: BillingStatus;
+  statusName: string;  // BE-computed: "مسودة" | "مُرحّل" | "ملغى"
+  invoiceId?: string | null;
+  journalEntryId?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CreateBillingRequest {
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  workCompletedPercent: number;
+  notes?: string | null;
+}
+export interface BillingPreview {
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  previousMaxPercent: number;
+  nextBillingNumber: number;
+}
+export interface ProjectWip {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  totalCosts: number;
+  totalBilledNet: number;
+  totalRetentionHeld: number;
+  wip: number;
+  status: 'COSTS_EXCEED_BILLED' | 'BILLED_EXCEED_COSTS' | 'BALANCED';
+  statusName: string;  // BE-computed Arabic label
+}
 
 // ============ Resources (Sprint 32 / DEC-112) ============
 export interface Resource {
@@ -1517,6 +1642,113 @@ export const projectsApi = {
   // Sprint 40 (L67): Project CRUD
   createProject: async (data: Partial<Project>): Promise<Project> => {
     const r = await api.post<Project>('/api/projects', data);
+    return r.data;
+  },
+  // DEC-177: Missing CRUD methods — Sprint 59 v2 page redesign used
+  // projectsApi.getProject but only listProjects + createProject existed.
+  // The BE has had GET/PUT/DELETE /api/projects/{id} since Sprint 12.
+  getProject: async (id: string): Promise<Project> => {
+    const r = await api.get<Project>(`/api/projects/${id}`);
+    return r.data;
+  },
+  updateProject: async (
+    id: string,
+    data: Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<Project> => {
+    const r = await api.put<Project>(`/api/projects/${id}`, data);
+    return r.data;
+  },
+  deleteProject: async (id: string): Promise<void> => {
+    await api.delete(`/api/projects/${id}`);
+  },
+
+  // ===== Sprint 57 (DEC-160..162): P&L =====
+  // GET /api/projects/{id}/pnl?from=YYYY-MM-DD&to=YYYY-MM-DD
+  getProjectPnL: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<ProjectPnL> => {
+    const r = await api.get<ProjectPnL>(`/api/projects/${id}/pnl`, {
+      params: { from, to },
+    });
+    return r.data;
+  },
+
+  // ===== Sprint 58 (DEC-163..165): Contract =====
+  // GET /api/projects/{id}/contract
+  getContract: async (id: string): Promise<Contract | null> => {
+    const r = await api.get<Contract | null>(`/api/projects/${id}/contract`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/contract
+  createContract: async (
+    id: string,
+    data: CreateContractRequest
+  ): Promise<Contract> => {
+    const r = await api.post<Contract>(`/api/projects/${id}/contract`, data);
+    return r.data;
+  },
+  // PUT /api/contracts/{contractId}
+  updateContract: async (
+    contractId: string,
+    data: UpdateContractRequest
+  ): Promise<Contract> => {
+    const r = await api.put<Contract>(`/api/contracts/${contractId}`, data);
+    return r.data;
+  },
+  // DELETE /api/contracts/{contractId}
+  deleteContract: async (contractId: string): Promise<void> => {
+    await api.delete(`/api/contracts/${contractId}`);
+  },
+
+  // ===== Sprint 58 (DEC-164): Progress Billings =====
+  // GET /api/projects/{id}/billings
+  getBillings: async (id: string): Promise<ProgressBilling[]> => {
+    const r = await api.get<ProgressBilling[]>(`/api/projects/${id}/billings`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/billings
+  createBilling: async (
+    id: string,
+    data: CreateBillingRequest
+  ): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/projects/${id}/billings`,
+      data
+    );
+    return r.data;
+  },
+  // POST /api/billings/{billingId}/approve
+  approveBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/billings/${billingId}/approve`
+    );
+    return r.data;
+  },
+  // POST /api/billings/{billingId}/cancel
+  cancelBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/billings/${billingId}/cancel`
+    );
+    return r.data;
+  },
+  // GET /api/contracts/{contractId}/billing-preview?workCompletedPercent=N
+  previewBilling: async (
+    contractId: string,
+    workCompletedPercent: number
+  ): Promise<BillingPreview> => {
+    const r = await api.get<BillingPreview>(
+      `/api/contracts/${contractId}/billing-preview`,
+      { params: { workCompletedPercent } }
+    );
+    return r.data;
+  },
+
+  // ===== Sprint 58 (DEC-165): WIP =====
+  // GET /api/projects/{id}/wip
+  getProjectWip: async (id: string): Promise<ProjectWip> => {
+    const r = await api.get<ProjectWip>(`/api/projects/${id}/wip`);
     return r.data;
   },
 };

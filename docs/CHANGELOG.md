@@ -43,6 +43,30 @@
 - **Lesson L141 (NEW):** `DefaultCoASeed.cs` (the static class with 4-digit codes like 1000, 2000, ...) is NOT gated by a seeder toggle — it always runs via `DefaultHoldingBootstrapHostedService`. This is by design (always-on baseline CoA for any new company). The "variance" wasn't actually from these accounts (they have no journal lines) — it was from the legacy *scenario* seeders posting to mixed code sets. Disabling the 6 scenario seeders is what made variance = 0.
 - **Note:** mvp-docker (Layer 2) has its own config — this change is local dev only.
 
+#### DEC-177 — Fix Project Detail page (Sprint 59 v2 missing API)
+- **Date:** 2026-08-19
+- **File:** `src/frontend/lib/api.ts`
+- **Problem:** Sprint 59 v2 (DEC-170..172) redesigned `/projects/[id]` + `/projects/[id]/edit` pages to use modern UI with 4 tabs (Details / P&L / Contract / Billings), but the page referenced many methods and types that didn't exist in `api.ts`:
+  - **Missing methods:** `getProject`, `updateProject`, `deleteProject`, `getProjectPnL`, `getProjectWip`, `getContract`, `createContract`, `updateContract`, `deleteContract`, `getBillings`, `createBilling`, `approveBilling`, `cancelBilling`, `previewBilling` (14 missing)
+  - **Missing types:** `ProjectStatusName`, `ProjectPnL`, `ProjectPnLLine`, `Contract`, `CreateContractRequest`, `UpdateContractRequest`, `ProgressBilling`, `CreateBillingRequest`, `BillingPreview`, `ProjectWip`, `BillingStatus` (11 missing)
+- **Fix:** Added all 14 methods + 11 types to `api.ts`. Also updated `Project.status` from `number` (1..5) to `ProjectStatusName` (Planning|Active|OnHold|Completed|Cancelled) per L120 — the BE has been returning strings since Sprint 58 hotfix. Kept `PROJECT_STATUSES_NUM` for any legacy call site.
+- **Verification:**
+  - `npx tsc --noEmit` → 0 errors
+  - `npm run build` → success
+  - `/projects/cc3e716f-...` → renders full Sprint 59 v2 UI with 4 tabs + WIP badge "متوازن"
+  - `/projects/.../edit` → form pre-populates correctly
+  - API endpoints (with Bearer token): `/api/projects/{id}` 200, `/pnl` 200, `/wip` 200 (BALANCED), `/contract` 200, `/billings` 200 []
+- **Lesson L142 (NEW):** When a Sprint UI redesign references API methods/types, ALWAYS verify they exist in `api.ts` before declaring the redesign done. The previous Sprint 59 v2 was merged with broken pages — only `listProjects` + `createProject` existed. The `edit` page also called `updateProject` which was missing.
+- **Lesson L143 (NEW):** The error surfaces as `projectsApi.getProject is not a function` in the rendered page text. This is a much more obvious failure mode than a silent 404 in API. Use this signal during smoke tests.
+
+#### DEC-178 — Verify /admin/audit + /admin/health + /hr/departments (false alarms)
+- **Investigation:** Browser verification session 2 flagged 3 missing routes. All were testing wrong URLs:
+  - `/admin/audit-log` (404) → actually exists at `/admin/audit` ✓
+  - `/admin/system-health` (404) → actually exists at `/admin/health` ✓
+  - `/hr/departments` (redirects to /dashboard) → page works; DB has 0 departments (Sprint 58 Scenario2026 seeder doesn't create them — only DemoData created departments historically)
+- **Lesson L144 (NEW):** Always check `AppShell.tsx` and `route files` for the EXACT route name before assuming a 404 is a missing route. The sidebar in this app uses short names (`audit`, `health`) not the longer versions I'd guessed. When testing empty pages with "لا توجد أقسام", verify the API endpoint actually returns data — empty DB ≠ broken page.
+- **Files verified working:** `src/frontend/app/(authenticated)/admin/audit/page.tsx` + `health/page.tsx` + `hr/departments/page.tsx` all exist and render correctly.
+
 #### DEC-176 — Push 7 commits via "ادفع" (deferred)
 - **Status:** ⏳ Waiting for Anas's "ادفع" command
 - **Will be tagged:** `v1.0.13-sprint58` after merge
