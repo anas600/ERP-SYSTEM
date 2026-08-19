@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface CategoryOption {
   id: string;
@@ -34,7 +34,7 @@ export default function NewCategoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/inventory/categories');
+        const res = await authedFetch('/api/inventory/categories');
         if (!res.ok) return;
         const data = await res.json();
         setParents(data.map((c: CategoryOption) => ({ id: c.id, code: c.code, name: c.name })));
@@ -54,7 +54,7 @@ export default function NewCategoryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/inventory/categories', {
+      const res = await authedFetch('/api/inventory/categories', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -27,6 +27,21 @@ public sealed class AccountResponse
     public Guid? ParentAccountId { get; set; }
     public bool IsPostable { get; set; }
     public bool IsActive { get; set; }
+    /// <summary>Sprint 52a: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail. Null for legacy not yet backfilled.</summary>
+    public short? Level { get; set; }
+}
+
+/// <summary>Sprint 52a: Tree view of the CoA. L1 roots contain L2 sub-classes, L3 control, L4 detail as nested children.</summary>
+public sealed class AccountTreeNode
+{
+    public Guid Id { get; set; }
+    public string Code { get; set; } = string.Empty;
+    public string Name { get; set; } = string.Empty;
+    public AccountType Type { get; set; }
+    public NormalBalance NormalBalance { get; set; }
+    public short Level { get; set; }
+    public bool IsPostable { get; set; }
+    public List<AccountTreeNode> Children { get; set; } = new();
 }
 
 // ============== Journal Entries ==============
@@ -36,6 +51,8 @@ public sealed class PostJournalEntryRequest
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Reference { get; set; }
+    /// <summary>المشروع المرتبط بالقيد (Sprint 57 / DEC-160). اختياري.</summary>
+    public Guid? ProjectId { get; set; }
     public List<PostJournalLineRequest> Lines { get; set; } = new();
 }
 
@@ -54,6 +71,8 @@ public sealed class JournalEntryResponse
     public DateTime EntryDate { get; set; }
     public string Description { get; set; } = string.Empty;
     public string? Reference { get; set; }
+    /// <summary>المشروع المرتبط (Sprint 57 / DEC-160).</summary>
+    public Guid? ProjectId { get; set; }
     public JournalEntryStatus Status { get; set; }
     public DateTime? PostedAt { get; set; }
     public List<JournalLineResponse> Lines { get; set; } = new();

@@ -1,7 +1,7 @@
 'use client';
 
 // مكوّن EmptyState — يُعرض عندما لا توجد بيانات (قائمة فارغة)
-// يحتوي: أيقونة + عنوان + وصف اختياري + زر إجراء اختياري
+// Sprint 39 (DEC-125): uses ink-* tokens, soft gradient backdrop, brand icon circle
 // الاستخدام:
 //   <EmptyState
 //     icon={<Users className="h-12 w-12" />}
@@ -32,18 +32,18 @@ export function EmptyState({ icon, title, description, action, className }: Empt
       dir="rtl"
       className={cn(
         'flex flex-col items-center justify-center text-center',
-        'bg-gray-50 border border-gray-100 rounded-xl',
+        'bg-gradient-to-b from-white to-ink-50 border border-ink-200 rounded-xl shadow-soft',
         'py-12 px-6',
         className
       )}
     >
       {icon && (
-        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-white border border-gray-200 text-gray-400 shadow-sm">
+        <div className="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-brand-50 to-brand-100 border border-brand-200 text-brand-600 shadow-soft">
           {icon}
         </div>
       )}
-      <h3 className="text-base font-semibold text-gray-800">{title}</h3>
-      {description && <p className="mt-1 text-sm text-gray-500 max-w-md">{description}</p>}
+      <h3 className="text-base font-semibold text-ink-800">{title}</h3>
+      {description && <p className="mt-1 text-sm text-ink-500 max-w-md">{description}</p>}
       {action && <div className="mt-5">{action}</div>}
     </div>
   );

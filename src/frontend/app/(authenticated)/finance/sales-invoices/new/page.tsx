@@ -1,11 +1,14 @@
 'use client';
 
-// صفحة إنشاء فاتورة مبيعات جديدة — pick customer + add lines + totals auto-calc + Save Draft/Post
+// صفحة إنشاء فاتورة مبيعات جديدة — Sprint 39 (DEC-125) tax opt-in overhaul
+// Per Anas: "في ليبيا لا نطبق الضريبة بشكل افتراضي" — useVat5 is OFF by default.
+// When ON, the entire invoice gets 5% VAT (per Libyan rule). Per-line taxRate
+// is hidden when useVat5 is checked (cleaner UX, less confusion).
 
 import { useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Save, Send, Plus, Trash2 } from 'lucide-react';
+import { ArrowRight, Save, Send, Plus, Trash2, Receipt } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { arApi, Customer, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
@@ -26,6 +29,8 @@ const emptyLine = (): LineDraft => ({
   taxRate: '0',
 });
 
+const VAT_RATE = 0.05; // 5% (Libyan default rate, opt-in only)
+
 export default function NewSalesInvoicePage() {
   const router = useRouter();
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -36,6 +41,8 @@ export default function NewSalesInvoicePage() {
   const [exchangeRate, setExchangeRate] = useState('1');
   const [notes, setNotes] = useState('');
   const [lines, setLines] = useState<LineDraft[]>([emptyLine()]);
+  // Sprint 39 (DEC-125): tax is OPT-IN per Anas's directive
+  const [useVat5, setUseVat5] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,14 +68,15 @@ export default function NewSalesInvoicePage() {
     for (const l of lines) {
       const qty = Number(l.quantity) || 0;
       const price = Number(l.unitPrice) || 0;
-      const tax = Number(l.taxRate) || 0;
+      // Sprint 39 (DEC-125): if useVat5 is ON, ignore per-line taxRate and use 5%
+      const tax = useVat5 ? VAT_RATE : (Number(l.taxRate) || 0);
       const lineSub = qty * price;
       const lineTax = lineSub * tax;
       subtotal += lineSub;
       taxAmount += lineTax;
     }
     return { subtotal, taxAmount, total: subtotal + taxAmount };
-  }, [lines]);
+  }, [lines, useVat5]);
 
   const submit = async (postImmediately: boolean) => {
     setError(null);
@@ -89,13 +97,16 @@ export default function NewSalesInvoicePage() {
         currencyCode,
         exchangeRate: Number(exchangeRate) || 1,
         notes: notes || undefined,
+        // Sprint 39 (DEC-125): useVat5 flag — opt-in, OFF by default
+        useVat5,
         lines: lines
           .filter((l) => l.description.trim() && Number(l.quantity) > 0)
           .map((l) => ({
             description: l.description.trim(),
             quantity: Number(l.quantity),
             unitPrice: Number(l.unitPrice),
-            taxRate: Number(l.taxRate) || 0,
+            // If useVat5, send 5% explicitly (defense in depth — engine picks the rule)
+            taxRate: useVat5 ? VAT_RATE : (Number(l.taxRate) || 0),
           })),
         postImmediately,
       };
@@ -126,7 +137,7 @@ export default function NewSalesInvoicePage() {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -147,6 +158,32 @@ export default function NewSalesInvoicePage() {
             </div>
           </div>
 
+          {/* Sprint 39 (DEC-125): Tax opt-in toggle — off by default (Libya = no default tax) */}
+          <div className="pt-2">
+            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${useVat5 ? 'bg-brand-50 border-brand-300' : 'bg-ink-50 border-ink-200 hover:bg-ink-100'}`}>
+              <input
+                type="checkbox"
+                checked={useVat5}
+                onChange={(e) => setUseVat5(e.target.checked)}
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-brand-500 focus:ring-2 focus:ring-brand-500/30 cursor-pointer"
+              />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Receipt className={`h-4 w-4 ${useVat5 ? 'text-brand-600' : 'text-ink-500'}`} />
+                  <span className={`text-sm font-semibold ${useVat5 ? 'text-brand-800' : 'text-ink-800'}`}>
+                    تطبيق ضريبة القيمة المضافة 5% (VAT)
+                  </span>
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-ink-200 text-ink-600 font-mono">
+                    اختياري
+                  </span>
+                </div>
+                <p className="text-xs text-ink-500 mt-1">
+                  عند التفعيل، تُضاف ضريبة 5% على كل البنود. (افتراضياً: معطّل — ليبيا لا تطبق الضريبة افتراضياً)
+                </p>
+              </div>
+            </label>
+          </div>
+
           <h3 className="font-bold text-gray-800 pt-2">البنود</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -156,7 +193,8 @@ export default function NewSalesInvoicePage() {
                   <th className="py-2 pr-2">الوصف</th>
                   <th className="py-2 pr-2">الكمية</th>
                   <th className="py-2 pr-2">السعر</th>
-                  <th className="py-2 pr-2">الضريبة</th>
+                  {/* Sprint 39 (DEC-125): per-line tax column hidden when useVat5 is ON (engine applies 5% to all lines) */}
+                  {!useVat5 && <th className="py-2 pr-2">الضريبة</th>}
                   <th className="py-2 pr-2 text-left">المجموع</th>
                   <th className="py-2"></th>
                 </tr>
@@ -165,8 +203,9 @@ export default function NewSalesInvoicePage() {
                 {lines.map((l, i) => {
                   const qty = Number(l.quantity) || 0;
                   const price = Number(l.unitPrice) || 0;
-                  const tax = Number(l.taxRate) || 0;
-                  const lineTotal = qty * price;
+                  const tax = useVat5 ? VAT_RATE : (Number(l.taxRate) || 0);
+                  const lineSub = qty * price;
+                  const lineTotal = lineSub * (1 + tax);
                   return (
                     <tr key={l.id} className="border-b">
                       <td className="py-2 pr-2 text-gray-500">{i + 1}</td>
@@ -179,12 +218,14 @@ export default function NewSalesInvoicePage() {
                       <td className="py-2 pr-2">
                         <Input type="number" value={l.unitPrice} onChange={(e) => updateLine(l.id, { unitPrice: e.target.value })} min={0} step="0.0001" />
                       </td>
-                      <td className="py-2 pr-2">
-                        <Input type="number" value={l.taxRate} onChange={(e) => updateLine(l.id, { taxRate: e.target.value })} min={0} max={1} step="0.0001" />
-                      </td>
+                      {!useVat5 && (
+                        <td className="py-2 pr-2">
+                          <Input type="number" value={l.taxRate} onChange={(e) => updateLine(l.id, { taxRate: e.target.value })} min={0} max={1} step="0.0001" />
+                        </td>
+                      )}
                       <td className="py-2 pr-2 text-left font-mono font-semibold">{formatNumber(lineTotal)}</td>
                       <td className="py-2 text-center">
-                        <button type="button" onClick={() => removeLine(l.id)} className="text-red-500 hover:text-red-700 p-1" disabled={lines.length === 1}>
+                        <button type="button" onClick={() => removeLine(l.id)} className="text-danger-500 hover:text-danger-700 p-1" disabled={lines.length === 1}>
                           <Trash2 className="h-4 w-4" />
                         </button>
                       </td>
@@ -213,12 +254,18 @@ export default function NewSalesInvoicePage() {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">الإجمالي قبل الضريبة:</span>
-              <span className="font-mono font-semibold">{formatNumber(totals.subtotal)}</span>
+              <span className="font-mono font-semibold">{formatNumber(totals.subtotal)} {currencyCode}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">الضريبة:</span>
-              <span className="font-mono font-semibold">{formatNumber(totals.taxAmount)}</span>
-            </div>
+            {/* Sprint 39 (DEC-125): only show tax row when useVat5 is ON (opt-in) */}
+            {useVat5 && (
+              <div className="flex justify-between text-brand-700">
+                <span className="flex items-center gap-1">
+                  <Receipt className="h-3 w-3" />
+                  ضريبة 5% (VAT):
+                </span>
+                <span className="font-mono font-semibold">{formatNumber(totals.taxAmount)} {currencyCode}</span>
+              </div>
+            )}
             <div className="flex justify-between border-t pt-2">
               <span className="font-bold text-gray-800">الإجمالي:</span>
               <span className="font-mono font-bold text-blue-600 text-lg">{formatNumber(totals.total)} {currencyCode}</span>
@@ -244,7 +291,7 @@ export default function NewSalesInvoicePage() {
               iconLeft={<Send className="h-4 w-4" />}
               className="w-full"
             >
-              حفظ وترحيل (Dr 1230 / Cr 5110)
+              {useVat5 ? 'حفظ وترحيل (Dr 1230 / Cr 5110 / Cr 1411)' : 'حفظ وترحيل (Dr 1230 / Cr 5110)'}
             </Button>
           </div>
         </Card>

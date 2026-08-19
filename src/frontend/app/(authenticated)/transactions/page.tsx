@@ -182,7 +182,7 @@ export default function TransactionsHubPage() {
       header: 'دائن',
       render: (t) =>
         Number(t.credit) > 0 ? (
-          <span className="text-red-700 font-mono text-sm font-semibold">
+          <span className="text-danger-700 font-mono text-sm font-semibold">
             −{Number(t.credit).toLocaleString('en', { minimumFractionDigits: 2 })}
           </span>
         ) : (
@@ -251,10 +251,10 @@ export default function TransactionsHubPage() {
           </Card>
           <Card>
             <div className="flex items-center gap-2">
-              <TrendingDown className="h-4 w-4 text-red-500" />
+              <TrendingDown className="h-4 w-4 text-danger-500" />
               <p className="text-xs text-gray-500">إجمالي الدائن</p>
             </div>
-            <p className="text-lg font-bold text-red-700 mt-1 tabular-nums">
+            <p className="text-lg font-bold text-danger-700 mt-1 tabular-nums">
               {formatCurrency(stats.totalCredit)}
             </p>
             <p className="text-xs text-gray-400 mt-0.5">{stats.creditCount} عملية</p>

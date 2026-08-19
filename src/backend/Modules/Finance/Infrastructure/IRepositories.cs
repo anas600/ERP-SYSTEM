@@ -6,6 +6,8 @@ namespace ERPSystem.Modules.Finance.Infrastructure;
 public interface IAccountRepository
 {
     Task<Account?> GetByIdAsync(Guid id, CancellationToken ct);
+    // Sprint 41 (DEC-127): company-scoped overload — uniqueness is per company, not global.
+    Task<Account?> GetByCodeAsync(string code, Guid companyId, CancellationToken ct);
     Task<Account?> GetByCodeAsync(string code, CancellationToken ct);
     Task<IReadOnlyList<Account>> ListAsync(bool includeInactive, CancellationToken ct);
     Task<IReadOnlyList<Account>> ListChildrenAsync(Guid parentId, CancellationToken ct);
@@ -21,13 +23,14 @@ public interface IAccountRepository
 
 public interface IJournalEntryRepository
 {
-    Task<JournalEntry?> GetByIdAsync(Guid id, CancellationToken ct);
-    Task<JournalEntry?> GetWithLinesAsync(Guid id, CancellationToken ct);
-    Task<bool> EntryNumberExistsAsync(string entryNumber, CancellationToken ct);
-    Task<string> GetNextEntryNumberAsync(CancellationToken ct);
+    // Sprint 38 (DEC-124): L19 — all read methods accept companyId for tenant isolation
+    Task<JournalEntry?> GetByIdAsync(Guid companyId, Guid id, CancellationToken ct);
+    Task<JournalEntry?> GetWithLinesAsync(Guid companyId, Guid id, CancellationToken ct);
+    Task<bool> EntryNumberExistsAsync(Guid companyId, string entryNumber, CancellationToken ct);
+    Task<string> GetNextEntryNumberAsync(Guid companyId, CancellationToken ct);
     Task InsertAsync(JournalEntry entry, CancellationToken ct);
     Task UpdateAsync(JournalEntry entry, CancellationToken ct);
-    Task<IReadOnlyList<JournalEntry>> ListAsync(DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct);
+    Task<IReadOnlyList<JournalEntry>> ListAsync(Guid companyId, DateTime? from, DateTime? to, JournalEntryStatus? status, int skip, int take, CancellationToken ct);
 }
 
 public interface IPostingRuleRepository

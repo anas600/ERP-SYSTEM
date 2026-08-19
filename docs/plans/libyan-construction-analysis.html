@@ -1,0 +1,1157 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>تحليل دورة المشاريع الليبية — توصيات لتنفيذها في ERP-SYSTEM</title>
+<style>
+  :root {
+    --bg: #f8fafc;
+    --fg: #0f172a;
+    --muted: #475569;
+    --accent: #1e3a8a;
+    --good: #047857;
+    --warn: #b45309;
+    --bad: #b91c1c;
+    --card: #ffffff;
+    --border: #e2e8f0;
+    --code: #f1f5f9;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Tahoma", sans-serif;
+    background: var(--bg);
+    color: var(--fg);
+    line-height: 1.7;
+  }
+  .container { max-width: 1100px; margin: 0 auto; padding: 32px 20px; }
+  header {
+    background: linear-gradient(135deg, #1e3a8a 0%, #0c4a6e 100%);
+    color: white;
+    padding: 48px 20px;
+    margin-bottom: 32px;
+  }
+  header h1 { margin: 0 0 8px; font-size: 32px; font-weight: 800; }
+  header .sub { opacity: 0.9; font-size: 16px; max-width: 900px; }
+  header .meta {
+    display: flex; gap: 18px; margin-top: 18px; flex-wrap: wrap; font-size: 13px; opacity: 0.85;
+  }
+  header .meta span { background: rgba(255,255,255,0.12); padding: 4px 10px; border-radius: 6px; }
+  h2 {
+    font-size: 24px; margin: 36px 0 16px; color: var(--accent);
+    border-bottom: 3px solid var(--accent); padding-bottom: 8px;
+  }
+  h3 { font-size: 19px; margin: 24px 0 12px; color: #0c4a6e; }
+  h4 { font-size: 16px; margin: 18px 0 8px; color: #334155; }
+  p, li { font-size: 15px; }
+  .toc {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 28px;
+    margin-bottom: 32px;
+  }
+  .toc h3 { margin: 0 0 12px; }
+  .toc ol { padding-right: 24px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 16px 0;
+  }
+  .grid { display: grid; gap: 16px; }
+  .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .grid-3 { grid-template-columns: repeat(3, 1fr); }
+  .grid-4 { grid-template-columns: repeat(4, 1fr); }
+  @media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+  .role {
+    background: var(--code);
+    padding: 2px 8px; border-radius: 4px; font-weight: 600;
+    font-size: 13px; color: var(--accent);
+  }
+  .good { color: var(--good); font-weight: 600; }
+  .warn { color: var(--warn); font-weight: 600; }
+  .bad { color: var(--bad); font-weight: 600; }
+  table {
+    width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 14px;
+  }
+  th, td { padding: 10px 12px; text-align: right; border-bottom: 1px solid var(--border); }
+  th { background: var(--code); font-weight: 700; }
+  tr:hover td { background: #f8fafc; }
+  .num { font-family: monospace; direction: ltr; }
+  pre, code {
+    font-family: "JetBrains Mono", "Consolas", monospace;
+    background: var(--code); padding: 2px 6px; border-radius: 4px;
+    font-size: 13px; direction: ltr;
+  }
+  pre { padding: 16px; overflow-x: auto; line-height: 1.5; }
+  blockquote {
+    margin: 16px 0; padding: 12px 20px;
+    border-right: 4px solid var(--accent);
+    background: #eff6ff; border-radius: 4px;
+    color: #1e40af;
+  }
+  .stage {
+    display: inline-block; padding: 4px 12px; border-radius: 12px;
+    background: var(--accent); color: white; font-size: 13px;
+    font-weight: 600; margin-bottom: 8px;
+  }
+  .stage.draft { background: #6b7280; }
+  .stage.approved { background: var(--good); }
+  .stage.critical { background: var(--bad); }
+  .verdict { font-weight: 800; font-size: 16px; }
+  .verdict.yes { color: var(--good); }
+  .verdict.no { color: var(--bad); }
+  .verdict.partial { color: var(--warn); }
+  .timeline { position: relative; padding-right: 30px; }
+  .timeline::before {
+    content: ""; position: absolute; right: 8px; top: 0; bottom: 0; width: 2px; background: var(--border);
+  }
+  .timeline-item { position: relative; margin-bottom: 20px; }
+  .timeline-item::before {
+    content: ""; position: absolute; right: -27px; top: 8px;
+    width: 14px; height: 14px; border-radius: 50%;
+    background: var(--accent); border: 3px solid white; box-shadow: 0 0 0 1px var(--border);
+  }
+  .recap {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+    border: 2px solid #f59e0b;
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin: 20px 0;
+  }
+  .recap h3 { color: #92400e; margin-top: 0; }
+  footer {
+    text-align: center; color: var(--muted); padding: 32px 0;
+    font-size: 13px; border-top: 1px solid var(--border); margin-top: 48px;
+  }
+  ul, ol { padding-right: 24px; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container" style="padding: 0;">
+    <h1>🏗️ تحليل دورة المشاريع الليبية في ERP-SYSTEM</h1>
+    <p class="sub">
+      تقرير استشاري استراتيجي يجمع بين 4 خبرات (محاسبية + هندسة مشاريع + إدارة مشاريع + نظم معلومات)
+      لتوصيف الفجوة بين النظام الحالي ومتطلبات مقاول يعمل مع <strong>الجهاز الوطني للتنمية</strong>
+      وفقاً لـ <strong>لائحة 355 لسنة 2026</strong>، وخطة تنفيذ مرحلية.
+    </p>
+    <div class="meta">
+      <span>📅 2026-08-19</span>
+      <span>👤 Anas Assaket — مشروع ERP-SYSTEM</span>
+      <span>🤖 استشاري: Mavis (M3)</span>
+      <span>📂 ملفات محللة: 5 (لائحة 355 + دفتر حصر + تقرير فني + مستخلص + مقايسة معدلة)</span>
+    </div>
+  </div>
+</header>
+
+<div class="container">
+
+<!-- TOC -->
+<div class="toc">
+  <h3>📋 المحتويات</h3>
+  <ol>
+    <li><a href="#exec">الملخص التنفيذي</a></li>
+    <li><a href="#files">تحليل الـ 5 ملفات (دليل على الفجوة)</a></li>
+    <li><a href="#cycle">دورة المشروع الليبية الكاملة</a></li>
+    <li><a href="#accounting">القراءة المحاسبية — ما الذي يحدث فعلياً على مستوى القيود</a></li>
+    <li><a href="#engineering">القراءة الهندسية — كيف يقرأ المهندس الـ 5 مستندات</a></li>
+    <li><a href="#pm">قراءة إدارة المشاريع — خريطة الـ stakeholders والـ handoffs</a></li>
+    <li><a href="#gaps">فجوات النظام الحالي — تقييم صريح</a></li>
+    <li><a href="#data-model">نموذج البيانات المقترح (Schema)</a></li>
+    <li><a href="#co-impact">أثر على دليل الحسابات + التقارير</a></li>
+    <li><a href="#roadmap">خطة التنفيذ المرحلية (5 Sprints)</a></li>
+    <li><a href="#risk">المخاطر والبدائل</a></li>
+    <li><a href="#recap">توصيات ختامية</a></li>
+  </ol>
+</div>
+
+<!-- 1. EXEC SUMMARY -->
+<h2 id="exec">1. الملخص التنفيذي (اقرأ هذا فقط)</h2>
+
+<div class="recap">
+  <h3>🎯 الحقيقة الصادمة</h3>
+  <p>
+    بناءً على الـ 5 ملفات اللي رفعتها، عميلك يعمل <strong>مقاولات إنشائية</strong> مع
+    <strong>الجهاز الوطني للتنمية (NDA)</strong>، ويستخدم لائحة أسعار رسمية
+    (<strong>قرار 355 لسنة 2026</strong>) + دورة كاملة من <strong>5 مستندات</strong>
+    (دفتر حصر → عقد → مستخلص شهري → تقرير فني → مقايسة معدلة عند التغيير).
+  </p>
+  <p>
+    في المشروع المرفقي (<em>نقطة تعبئة الغاز — سرت</em>) العقد الأصلي 2.37 مليون ل.د،
+    وبعد <strong>أمر تعديلي</strong> أصبح <strong>4.19 مليون ل.د</strong> (زيادة +77%!).
+    هذا يعني أن <strong>تعديلات العقد (Variation Orders) روتينية وحاسمة</strong>
+    في هذا القطاع، والنظام الحالي لا يدعمها على الإطلاق.
+  </p>
+  <p>
+    <span class="verdict no">⚠️ الفجوة حرجة</span>:
+    النظام الحالي صالح لـ <strong>ERP مالي + محاسبة مشاريع بسيط</strong>،
+    لكن <strong>غير صالح</strong> لإدارة <strong>مقاولات حقيقية</strong> مثل
+    <em>البناء، الطرق، الخزانات، شبكات المياه، الحدائق، الكهرباء</em>
+    (وهي كل قطاعات اللائحة 355).
+  </p>
+</div>
+
+<h3>التوصية في جملة واحدة</h3>
+<blockquote>
+  <strong>ادفع الـ 9 commits الحالية الآن (admin/finance demo-ready) ← ثم ابدأ Sprint 59 كـ
+  "Construction Core" (3-4 أسابيع عمل) لبناء: لائحة أسعار + BOQ (Bill of Quantities) +
+  Variation Orders + Retention/Advance lifecycle + WIP accounting.</strong>
+</blockquote>
+
+<div class="grid grid-3">
+  <div class="card">
+    <h4>✅ ما هو جاهز (نُدفع اليوم)</h4>
+    <ul>
+      <li>9 commits في feature/sprint-52-v0-polish</li>
+      <li>BS متّزنة (4.19M LYD) + 56 JE</li>
+      <li>دليل حسابات 4 مستويات (202 حساب)</li>
+      <li>CoA جاهز لاستقبال إيرادات مستخلصات</li>
+      <li>project_budgets موجود (لكن فارغ)</li>
+      <li>contracts + progress_billings جداول موجودة</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>🟡 ما ينقص (Sprint 59)</h4>
+    <ul>
+      <li>BOQ (Bill of Quantities) — صفر جداول</li>
+      <li>Price List (لائحة 355) — صفر جداول</li>
+      <li>Variation Order workflow</li>
+      <li>Retention/Advance accounting</li>
+      <li>Construction WIP / CIP account</li>
+      <li>وحدة قياس "مقطوعية" و "م.ط"</li>
+    </ul>
+  </div>
+  <div class="card">
+    <h4>🔴 الفجوات الحرجة (Sprint 60+)</h4>
+    <ul>
+      <li>Engineer's Report UI (محرر + photos + sign-off)</li>
+      <li>Progress Billing workflow (دفع مقدمة، احتجاز، خصم)</li>
+      <li>Auto-Post to GL من المستخلصات</li>
+      <li>Project Schedule (Gantt)</li>
+      <li>Subcontractor management</li>
+    </ul>
+  </div>
+</div>
+
+<!-- 2. FILE ANALYSIS -->
+<h2 id="files">2. تحليل الـ 5 ملفات — دليل ملموس على الفجوة</h2>
+
+<h3>📄 الملف 1: لائحة 355 لسنة 2026 (المُدخل الرسمي)</h3>
+<div class="card">
+  <h4>الوصف</h4>
+  <p>
+    قرار مجلس الوزراء رقم 355 لسنة 2026 بشأن اعتماد <strong>لائحة الأسعار الاسترشادية
+    لمشاريع البنية التحتية وأعمال المباني والصيانة الكاملة</strong>.
+    صادرة عن <em>لجنة مشكلة من وزارة الإسكان والتعمير</em>، مُقدّمة في 3 مايو 2026
+    بانتظار موافقة الوزير.
+  </p>
+  <h4>البنية (11 شيت × 5,000+ بند)</h4>
+  <table>
+    <tr><th>الشيت</th><th>القطاع</th><th>عدد البنود</th><th>مستوى التسعير</th></tr>
+    <tr><td>المباني 1</td><td>أعمال المباني والصيانة</td><td>~1,267</td><td>م² / م³ / م.ط / عدد / مقطوعية</td></tr>
+    <tr><td>الطرق 2</td><td>الطرق والأرصفة</td><td>~298</td><td>م² / م³ / م.ط</td></tr>
+    <tr><td>شبكات مياه الشرب والصرف الصحي 3</td><td>البنية التحتية للمياه</td><td>~1,409</td><td>م.ط / م³ / عدد</td></tr>
+    <tr><td>الخزانات 4</td><td>خزانات المياه الأرضية</td><td>~298</td><td>م³ / م² / م.ط</td></tr>
+    <tr><td>الحدائق 5</td><td>التشجير والملاعب</td><td>~114</td><td>م³ / م² / عدد</td></tr>
+    <tr><td>الكهرباء 6</td><td>شبكات الكهرباء والإنارة</td><td>~197</td><td>م.ط / م² / عدد</td></tr>
+    <tr><td>الأعمال الهندسية 7</td><td>تكاليف التصميم (2% – 0.25%)</td><td>~19</td><td>نسبة من قيمة المشروع</td></tr>
+    <tr><td>علاوة منطقة 8</td><td>Regional Premium</td><td>~20 منطقة</td><td>0.022 – 0.098 من السعر</td></tr>
+    <tr><td>معادلة البيتومين 9</td><td>تعديل أسعار البيتومين</td><td>~4 أنواع</td><td>Formula</td></tr>
+  </table>
+  <h4>التركيب الهرمي (4 مستويات، يطابق CoA الهرمي لدينا!)</h4>
+<pre>
+1              &lt;- الفصل (Chapter)
+1.1            &lt;- القسم (Section)
+1.1.1          &lt;- البند الفرعي (Sub-section)
+1.1.1.1        &lt;- البند التنفيذي (Line item with price)
+</pre>
+  <h4>الوحدات المعتمدة في اللائحة (مقارنة بنظامنا)</h4>
+  <table>
+    <tr><th>الوحدة في اللائحة</th><th>المعنى</th><th>عندنا في UoM؟</th></tr>
+    <tr><td><code>م²</code></td><td>متر مربع</td><td>✅ m2</td></tr>
+    <tr><td><code>م³</code></td><td>متر مكعب</td><td>✅ m3</td></tr>
+    <tr><td><code>م.ط</code></td><td>متر طولي</td><td>❌ <span class="bad">مفقود</span></td></tr>
+    <tr><td><code>عدد</code></td><td>قطعة/وحدة</td><td>✅ pcs</td></tr>
+    <tr><td><code>مقطوعية</code></td><td>Lump sum (مبلغ إجمالي)</td><td>❌ <span class="bad">مفقود</span></td></tr>
+  </table>
+  <p>
+    <span class="warn">⚠️ ملاحظة حرجة</span>: الوحدتان <code>م.ط</code> و <code>مقطوعية</code>
+    غير موجودتين في جدول <code>units_of_measure</code> عندنا. هما شائعتان جداً في
+    <em>كل</em> مشروع مقاولات (م.ط = طول أنبوب / كابل / قناة، مقطوعية = إزالة / تنظيف / تجهيز موقع).
+  </p>
+  <h4>💡 ملاحظة على "التسعير المرن"</h4>
+  <p>
+    اللائحة تقول: <em>"الأسعار تعدّل عادي حسب الظروف، الثابت هو رقم البند ووصفه ووحدة القياس"</em>.
+    هذا يعني أن <strong>السعر المرجعي</strong> يأتي من اللائحة لكن
+    <strong>السعر الفعلي</strong> يُعدَّل بحسب <em>موقع المشروع، ظروف السوق، العرض/الطلب</em>.
+    <strong>عملياً: يجب أن يكون عندنا سعر افتراضي من اللائحة + سعر فعلي قابل للتعديل</strong>
+    على مستوى بند الـ BOQ.
+  </p>
+</div>
+
+<h3>📄 الملف 2: دفتر حصر شركة امجاد (BOQ template)</h3>
+<div class="card">
+  <h4>البنية (12 عمود)</h4>
+  <table>
+    <tr><th>العمود</th><th>المعنى</th><th>مثال</th></tr>
+    <tr><td>1. رقم البند</td><td>كود هرمي (يأتي من اللائحة)</td><td><code>1.1.1.1</code></td></tr>
+    <tr><td>2. بيان الأعمال</td><td>الوصف</td><td>إزالة جزء من السور لزوم استحداث أبواب...</td></tr>
+    <tr><td>3. وحدة القياس</td><td>م² / م³ / م.ط / عدد / مقطوعية</td><td><code>م²</code></td></tr>
+    <tr><td>4. عدد</td><td>عدد الوحدات الفرعية (Sub-items)</td><td>1 (للواجهة الأمامية)</td></tr>
+    <tr><td>5-7. طول / عرض / ارتفاع</td><td>أبعاد (m)</td><td>33.8 × 3.0</td></tr>
+    <tr><td>8. جملة ابتدائية</td><td>الكمية المحسوبة</td><td>101.4 (= 33.8 × 3.0)</td></tr>
+    <tr><td>9. تنزيلات</td><td>Deductions (فتحات، إلخ)</td><td>0</td></tr>
+    <tr><td>10. جملة نهائية</td><td>الكمية الصافية</td><td>101.4</td></tr>
+    <tr><td>11. الفئة (د.ل)</td><td>سعر الوحدة (يأتي من اللائحة أو يعدَّل)</td><td>550</td></tr>
+    <tr><td>12. المبلغ (د.ل)</td><td>الإجمالي = جملة نهائية × فئة</td><td>55,770</td></tr>
+  </table>
+  <h4>البنية الحقيقية: BOQ → Sections → Sub-items</h4>
+  <p>
+    الملف يُظهر أن <strong>كل بند (line) يمكن أن يحتوي sub-items</strong>
+    (مثال: "إزالة جزء من السور" به 5 واجهات، كل واجهة لها عدد × طول × ارتفاع).
+    الـ sub-items تـ <em>تلخّص</em> في "جملة ابتدائية" ثم تُخصم منها "تنزيلات" لتُنتج "جملة نهائية" × "فئة" = "مبلغ".
+  </p>
+  <h4>المشروع المرفقي (نقطة تعبئة الغاز — سرت)</h4>
+  <ul>
+    <li>المقاول: <strong>شركة أمجاد للمقاولات والأستثمار العقاري</strong></li>
+    <li>الجهة المشرفة: <strong>شركة دار التقنية للاستشارات والأعمال الهندسية</strong></li>
+    <li>العملاء: <strong>الجهاز الوطني للتنمية</strong></li>
+    <li>العقد: تكليف مباشر رقم <code>ج.و.ت/35/120</code></li>
+    <li>مدة العقد: <strong>45 يوم</strong></li>
+    <li>القيمة الأصلية: <strong>2,369,048 ل.د</strong></li>
+    <li>قيمة الأمر التعديلي: <strong>4,192,399 ل.د</strong> (+77%)</li>
+    <li>نسبة الإنجاز الفنية: <strong>100%</strong></li>
+    <li>نسبة الإنجاز المالية: <strong>25%</strong></li>
+  </ul>
+</div>
+
+<h3>📄 الملف 3: المستخلص (Progress Payment Certificate)</h3>
+<div class="card">
+  <h4>البنية (14 عمود)</h4>
+  <table>
+    <tr><th>العمود</th><th>المعنى</th><th>مثال</th></tr>
+    <tr><td>1. رقم البند</td><td>من الـ BOQ</td><td><code>1</code></td></tr>
+    <tr><td>2. بيان أعمال</td><td>الوصف</td><td>إزالة جزء من السور...</td></tr>
+    <tr><td>3. الوحدة</td><td>م² / م³ / إلخ</td><td><code>م2</code></td></tr>
+    <tr><td>4. الكمية بالعقد</td><td>الكمية الأصلية (من المقايسة)</td><td>514</td></tr>
+    <tr><td>5-7. الكمية المنفذة</td><td>سابقاً / حالياً / المجموع</td><td>0 / 514 / 514</td></tr>
+    <tr><td>8-9. سعر البند</td><td>درهم / دينار (نقدان تاريخيان)</td><td>— / 550</td></tr>
+    <tr><td>10-11. الإجمالي</td><td>درهم / دينار</td><td>— / 282,700</td></tr>
+  </table>
+  <h4>💡 ما يُحسب تلقائياً في المستخلص (Critical Formulas)</h4>
+<pre>
+الإجمالي الخام      = الكمية المنفذة × سعر الوحدة
+نسبة الإنجاز        = (الكمية المنفذة حالياً / الكمية بالعقد) × 100
+القيمة الإجمالية    = Σ(الإجمالي الخام لكل البنود)
+خصم الدفعة المقدمة  = (دفعة مقدمة / الكمية بالعقد) × الكمية المنفذة هذا الشهر
+خصم الاحتجاز        = القيمة الإجمالية × نسبة الاحتجاز (5-10%)
+الصافي قبل الضريبة  = الإجمالي - خصم مقدمة - احتجاز - خصومات أخرى
+ضريبة القيمة المضافة = (15% في السعودية، تختلف في ليبيا)
+صافي المستحق         = الصافي قبل الضريبة + الضريبة
+</pre>
+  <h4>العملات المزدوجة (درهم + دينار)</h4>
+  <p>
+    الملف يعرض <em>درهم</em> و <em>دينار</em> في أعمدة منفصلة. هذا نمط ليبيا تاريخي
+    (الدينار يساوي 1,000 درهم قديمة) — يُستخدم في المستندات الرسمية لأغراض التوثيق
+    رغم أن التداول الفعلي بالدينار فقط. <strong>نقترح تجاهل عمود الدرهم</strong>
+    في نظامنا لأن الدينار هو العملة الأساسية.
+  </p>
+</div>
+
+<h3>📄 الملف 4: المقايسة المعدلة (Variation Order)</h3>
+<div class="card">
+  <h4>الفرق عن الـ BOQ الأصلي</h4>
+  <table>
+    <tr><th>BOQ الأصلي</th><th>المقايسة المعدلة</th></tr>
+    <tr><td>الكمية الابتدائية (المتفق عليها بالعقد)</td><td>الكمية المعدلة (بعد التغييرات)</td></tr>
+    <tr><td>سعر من اللائحة</td><td>السعر الجديد (قد يتغير)</td></tr>
+    <tr><td>المبلغ المتوقع</td><td>المبلغ الفعلي بعد التعديل</td></tr>
+  </table>
+  <h4>مثال من المشروع المرفقي</h4>
+  <ul>
+    <li>البند 6: "حفر في أرض سبخية" — الكمية الجديدة 860.328 م³ × 42 د.ل = 36,134 ل.د (مقابل صفر في الـ BOQ الأصلي)</li>
+    <li>البند 9: "خرسانة مسلحة 80 كجم/م³" — كمية 19.712 م³ × 950 = 18,726 ل.د</li>
+    <li>إجمالي البنود الـ 16 الأولى المعدلة: <strong>~2.3 مليون ل.د</strong> (ضعف الـ BOQ الأصلي!)</li>
+  </ul>
+  <h4>⚠️ ملاحظة على الـ #REF! errors</h4>
+  <p>
+    الملف يحتوي خلايا <code>#REF!</code> — هذه أخطاء Excel عند حذف الـ source.
+    <strong>خطأ بشري شائع</strong> في Excel macros. نظامنا يجب أن يحسب
+    الإجماليات رياضياً <strong>بدون أي</strong> خلية قابلة للتلف.
+  </p>
+</div>
+
+<h3>📄 الملف 5: التقرير الفني الختامي (Engineer's Final Report)</h3>
+<div class="card">
+  <h4>الوصف</h4>
+  <p>
+    تقرير شهري/ختامي يُعدّه <strong>المهندس المشرف</strong> (في حالتنا: شركة دار التقنية)
+    ويثبت به نسبة الإنجاز الفعلية في الموقع. يحتوي على:
+  </p>
+  <ol>
+    <li><strong>بيانات المشروع</strong>: اسم، عقد، مقاول، استشاري، مدة، تواريخ</li>
+    <li><strong>الموقف التنفيذي</strong>: "الانتهاء من كافة الأعمال" / "جاري التنفيذ" / "العمل متوقف"</li>
+    <li><strong>الالتزام بالجدول الزمني</strong>: نعم / لا / لا يوجد جدول</li>
+    <li><strong>نسبة الإنجاز الفنية</strong> (physical progress %)</li>
+    <li><strong>نسبة الإنجاز المالية</strong> (financial progress %)</li>
+    <li><strong>البنود المنفذة</strong> (B-by-B breakdown) مع <em>نسبة إنجاز</em> لكل بند</li>
+    <li><strong>توقيعات</strong>: المهندس المنفذ + المهندس المشرف</li>
+  </ol>
+  <h4>💡 الفرق الجوهري بين نسبتي الإنجاز</h4>
+  <table>
+    <tr><th>نسبة الإنجاز</th><th>المعنى</th><th>مصدر القياس</th></tr>
+    <tr><td>الفنية (Physical)</td><td>كم بند فعلياً تم تنفيذه</td><td>المهندس المشرف (بصرياً + قياسات)</td></tr>
+    <tr><td>المالية (Financial)</td><td>كم من قيمة العقد تم صرفه</td><td>المستخلصات المعتمدة</td></tr>
+  </table>
+  <p>
+    في المشروع المرفقي: الفنية = 100%، المالية = 25%. الفجوة 75% تعني أن
+    <em>البنود مكتملة فعلياً</em> لكن <em>لم تُحضَّر مستخلصات</em> لها.
+    <strong>هذا تنبيه شائع في المشاريع الليبية</strong> بسبب بطء دورة الموافقة.
+  </p>
+</div>
+
+<!-- 3. PROJECT CYCLE -->
+<h2 id="cycle">3. دورة المشروع الليبية الكاملة</h2>
+
+<div class="card">
+  <h3>🔄 الـ 7 مراحل (مبسّطة)</h3>
+  <div class="timeline">
+
+    <div class="timeline-item">
+      <span class="stage">1. التكليف / المناقصة</span>
+      <p>
+        <strong>المالك (NDA)</strong> يُعلن مناقصة أو يُصدر <em>تكليف مباشر</em>
+        للشركة المنفذة. في حالتنا: <em>تكليف مباشر رقم ج.و.ت/35/120</em>.
+        المبلغ الأولي: 2,369,048 ل.د.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage">2. تسليم الموقع + الدفعة المقدمة</span>
+      <p>
+        استلام الموقع في 30/03/2024. يدفع المالك <strong>دفعة مقدمة</strong>
+        (15% من قيمة العقد = 355,357 ل.د) <em>بعد</em> تقديم ضمان بنكي بنفس القيمة.
+        المقاول يبدأ التنفيذ.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage">3. إعداد المقايسة الأولية (BOQ)</span>
+      <p>
+        المهندس المشرف + المقاول <strong>يجردان الموقع فعلياً</strong>
+        (دفتر الحصر) ويُحضران المقايسة المبدئية (BOQ) — هذا هو <em>دفتر حصر شركة امجاد</em>.
+        BOQ هذا يُستخدم كأساس للمستخلصات.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage draft">4. التنفيذ الفعلي + التقارير الفنية</span>
+      <p>
+        المقاول ينفّذ. <strong>المهندس المشرف</strong> يتفقد ويُصدِر
+        <em>تقرير فني</em> كل فترة (شهر عادةً) يثبت نسبة الإنجاز.
+        في حالتنا، تقرير 23/05/2024 يثبت إنجاز 100% فنياً.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage">5. المستخلصات الشهرية (Progress Payments)</span>
+      <p>
+        المقاول يحضّر <strong>مستخلص</strong> (شهري أو ختامي) يُلخّص
+        ما تم تنفيذه في الفترة. المهندس المشرف يراجع ويوقّع.
+        المالك يدفع بعد خصم الدفعة المقدمة + الاحتجاز + الضرائب.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage approved">6. الأوامر التعديلية (Variation Orders)</span>
+      <p>
+        إذا ظهرت أعمال إضافية (تغيير تصميم، عوائق موقع، طلبات جديدة) — يُصدِر المالك
+        <strong>أمر تعديلي</strong> بأمر تكليف جديد. هذا ما رفع قيمة العقد من
+        2.37M إلى <strong>4.19M</strong>.
+        <span class="warn">الـ 77% زيادة</span> في مشروع سرت طبيعي ومتوقع.
+      </p>
+    </div>
+
+    <div class="timeline-item">
+      <span class="stage">7. التسليم النهائي + إطلاق الاحتجاز</span>
+      <p>
+        بعد الموافقة على <em>التقرير الفني الختامي</em> (100% إنجاز فني)
+        + <em>المستخلص الختامي</em>، يُسلَّم المشروع رسمياً.
+        يبدأ <strong>فترة الضمان</strong> (عادة 12 شهر).
+        <em>نصف</em> الاحتجاز يُطلق فوراً، <em>النصف الآخر</em> بعد انقضاء الضمان.
+      </p>
+    </div>
+
+  </div>
+</div>
+
+<!-- 4. ACCOUNTING -->
+<h2 id="accounting">4. القراءة المحاسبية — ما يحدث على مستوى القيود</h2>
+
+<div class="card">
+  <h3>📚 منظور المحاسب (Accounting Expert View)</h3>
+  <p>
+    أعمل كمحاسب كبير، وبقسّم كل حدث في المشروع إلى 3 طبقات محاسبية:
+  </p>
+
+  <h4>الطبقة 1: عند توقيع العقد (لا قيود — مذكّر)</h4>
+  <p>
+    العقد بحد ذاته <strong>ليس قيد محاسبي</strong>، هو <em>التزام خارج الميزانية</em>
+    (Off-Balance Sheet Contingent). لكن في WIP accounting نفتح حسابين:
+  </p>
+  <pre>
+مدين: 1102-002  أعمال تحت التنفيذ — مشروع [X]    2,369,048
+  دائن: 1102-003  التزامات عقود — مشروع [X]              2,369,048
+</pre>
+  <p>
+    هذا يجعل العقد <em>مرئياً</em> في القوائم (للتقرير الخارجي) بدون أن يُسجَّل
+    في الأرباح والخسائر بعد.
+  </p>
+
+  <h4>الطبقة 2: استلام الدفعة المقدمة (10-15%)</h4>
+  <pre>
+مدين: 1101      البنك / الصندوق                                355,357
+  دائن: 2106    دفعة مقدمة مستلمة من العملاء                   355,357
+</pre>
+  <p>
+    <strong>⚠️ ملاحظة حرجة</strong>: حساب <code>2106 (دفعة مقدمة مستلمة)</code>
+    <span class="bad">غير موجود في CoA الحالي</span> عندنا! نحتاج إضافته ضمن
+    <em>الخصوم المتداولة</em> (Current Liabilities) — سأذكره لاحقاً في خطة التنفيذ.
+  </p>
+
+  <h4>الطبقة 3: المستخلص الشهري (الحدث الأهم)</h4>
+  <p>
+    عند <em>اعتماد</em> مستخلص بقيمة 1,000,000 ل.د، مع خصم دفعة مقدمة 100,000 واحتجاز 50,000:
+  </p>
+  <pre>
+الاعتراف بالإيراد + التكلفة (نفس الحركة):
+مدين: 1201-xxx   ذمم مدينة (المالك)                          1,000,000
+  دائن: 4301     إيرادات المستخلصات                            1,000,000
+
+مدين: 5101-xxx   تكلفة المشروع المنفذ                          900,000
+  دائن: 1102-002 أعمال تحت التنفيذ (WIP)                       900,000
+
+استقطاع الدفعة المقدمة:
+مدين: 2106      دفعة مقدمة مستلمة (خصم)                       100,000
+  دائن: 1101-xxx ذمم مدينة                                    100,000
+
+استقطاع الاحتجاز (5-10%):
+مدين: 1201-xxx   ذمم مدينة (تخفيض)                              50,000
+  دائن: 2107    احتجاز ضمان مستحق الدفع                       50,000
+
+الصافي المدفوع:
+مدين: 2106      دفعة مقدمة مستلمة (الآن صارت 255,357)         355,357
+  دائن: 1101    البنك                                         850,000
+  دائن: 1201-xxx ذمم مدينة                                     50,000  (احتجاز)
+</pre>
+  <p>
+    <strong>💡</strong> لاحظ أن "دفعة مقدمة" (2106) و "احتجاز ضمان" (2107) كلاهما
+    <span class="bad">غير موجود</span> في CoA الحالي. هذي فجوة حرجة لا يمكن تأجيلها.
+  </p>
+
+  <h4>الطبقة 4: الأمر التعديلي (Variation Order)</h4>
+  <p>
+    عند صدور أمر تعديلي بإضافة 1,823,351 ل.د (لاحظ: 4,192,399 - 2,369,048 ≈ 1,823,351):
+  </p>
+  <pre>
+مدين: 1102-002  أعمال تحت التنفيذ — مشروع [X] (المبلغ الإضافي)  1,823,351
+  دائن: 1102-003  التزامات عقود (معدّل)                           1,823,351
+</pre>
+  <p>
+    لاحظ: <strong>لا يوجد قيد ربح/خسارة فوراً</strong>. الزيادة تُضاف للـ WIP
+    وستُحوَّل لإيراد عند الـ progress billing التالي.
+    <em>هذا تطبيق صارم لمبدأ "الإيراد عند الإنجاز"</em> (Revenue at Completion %).
+  </p>
+
+  <h4>الطبقة 5: التسليم النهائي + إطلاق الاحتجاز</h4>
+  <pre>
+تحويل WIP إلى ربح/خسارة نهائي:
+مدين: 1102-002  أعمال تحت التنفيذ (الإجمالي)                    X
+  دائن: 5101     تكلفة المشروع المنفذ                              X
+  دائن: 3202     صافي دخل السنة الجارية                            (الإيراد - التكلفة)
+
+إطلاق نصف الاحتجاز (بعد الموافقة على الاستلام):
+مدين: 2107      احتجاز ضمان مستحق الدفع                         50,000
+  دائن: 1101     بنك (تحويل)                                       50,000
+</pre>
+
+  <h4>الخلاصة المحاسبية</h4>
+  <p>
+    4 حسابات جديدة مطلوبة في CoA، 7 أنواع قيود متكررة، 0 منها مُعرَّفة حالياً
+    في الـ Posting Rules. <span class="bad">كل القيود حالياً يدوية أو معدومة</span>.
+  </p>
+</div>
+
+<!-- 5. ENGINEERING -->
+<h2 id="engineering">5. القراءة الهندسية — كيف يقرأ المهندس الـ 5 مستندات</h2>
+
+<div class="card">
+  <h3>🏗️ منظور كبير المهندسين (Chief Project Engineer View)</h3>
+  <p>
+    بصفتي كبير المهندسين، أرى أن <strong>التقرير الفني</strong> هو العمود الفقري
+    لدورة المستخلصات. بدون تقرير فني موثّق، لا يمكن إصدار مستخلص.
+  </p>
+
+  <h4>⚙️ منطق القياس (Quantity Surveying)</h4>
+  <p>
+    المهندسون في الموقع <strong>يأخذون قياسات حقيقية</strong> (متر شريط، ليزر).
+    النتيجة = جدول بالأطوال/المساحات/الأحجام. هذا ما يدخل في "الكمية المنفذة"
+    في المستخلص.
+  </p>
+  <p>
+    <strong>الفرق الجوهري</strong> بين الفئتين المختلفتين من البنود:
+  </p>
+  <table>
+    <tr><th>نوع البند</th><th>طريقة القياس</th><th>مثال</th></tr>
+    <tr><td>بند <em>مسطح</em> (Area)</td><td>طول × عرض (m²)</td><td>دهان حوائط 558.36 م²</td></tr>
+    <tr><td>بند <em>حجمي</em> (Volume)</td><td>طول × عرض × ارتفاع (م³)</td><td>حفر 860.328 م³</td></tr>
+    <tr><td>بند <em>طولي</em> (Linear)</td><td>طول فقط (م.ط)</td><td>بردورة 223 م.ط</td></tr>
+    <tr><td>بند <em>قطعي</em> (Count)</td><td>عدد الوحدات (عدد)</td><td>أبواب 38.5 م² (مساحة إجمالية)</td></tr>
+    <tr><td>بند <em>مقطوعية</em> (Lump sum)</td><td>لا قياس — مبلغ ثابت</td><td>نقل مخلفات 75,000 ل.د</td></tr>
+  </table>
+
+  <h4>🔬 ما لا يقوله اللائحة (ولكن يحدث في الواقع)</h4>
+  <ol>
+    <li>
+      <strong>التربة الصخرية vs العادية</strong>: نفس البند "حفر" له سعران مختلفان.
+      لائحة 355 تفرّق بين: تربة عادية، تربة صخرية ضعيفة، تربة صخرية متوسطة، صخر صلب.
+      <em>المهندس يقرّر</em> النوع بناءً على فحص الموقع.
+    </li>
+    <li>
+      <strong>علاوة المنطقة</strong>: طرابلس علاوة 2.2%، نالوت علاوة 7.68%.
+      يجب تطبيقها آلياً بناءً على موقع المشروع.
+    </li>
+    <li>
+      <strong>معادلة البيتومين</strong>: إذا ارتفع سعر البيتومين >5% منذ تاريخ اللائحة،
+      تُطبَّق معادلة تصحيح. هذا ما يفسر الـ sheet 9 في اللائحة.
+    </li>
+    <li>
+      <strong>بنود ضمنية</strong>: "الأسعار فارغ مليان" تعني أن البند يشمل
+      كل شيء (نقل مخلفات، ردم، دمك) — لكن في الواقع قد يحتاج بند إضافي.
+      هذا يجبر المهندس على إضافة "أمر تعديلي".
+    </li>
+  </ol>
+
+  <h4>📸 ما يحتاجه المهندس في النظام</h4>
+  <ul>
+    <li><strong>Photo Log</strong>: صور تاريخية لكل بند (before/during/after)</li>
+    <li><strong>Daily Reports</strong>: سجل يومي بحالة الطقس + القوى العاملة + المعدات</li>
+    <li><strong>Material Delivery Notes</strong>: إيصالات توريد المواد مع ربط بالـ BOQ</li>
+    <li><strong>Test Results</strong>: نتائج فحص الخرسانة، المساحية، إلخ</li>
+    <li><strong>Sign-off workflow</strong>: توقيع المهندس + المهندس المشرف + المالك</li>
+  </ul>
+</div>
+
+<!-- 6. PM -->
+<h2 id="pm">6. قراءة إدارة المشاريع — Stakeholders & Handoffs</h2>
+
+<div class="card">
+  <h3>📋 منظور مدير إدارة المشاريع (PMO Director View)</h3>
+
+  <h4>🎭 الـ 4 Stakeholders في كل مشروع</h4>
+  <div class="grid grid-2">
+    <div>
+      <h4>1. المالك (Owner)</h4>
+      <p><strong>الجهاز الوطني للتنمية</strong></p>
+      <ul>
+        <li>يصدر التكليف</li>
+        <li>يدفع المستخلصات</li>
+        <li>يوافق على الأوامر التعديلية</li>
+        <li>يستلم المشروع نهائياً</li>
+      </ul>
+    </div>
+    <div>
+      <h4>2. المقاول (Contractor)</h4>
+      <p><strong>شركة أمجاد</strong> (عميلنا)</p>
+      <ul>
+        <li>يُحضّر الـ BOQ</li>
+        <li>ينفّذ الأعمال</li>
+        <li>يُقدّم المستخلصات</li>
+        <li>يحرر تقرير فني (نسخة)</li>
+      </ul>
+    </div>
+    <div>
+      <h4>3. المشرف (Consultant)</h4>
+      <p><strong>شركة دار التقنية</strong></p>
+      <ul>
+        <li>يُحضّر التقرير الفني الرسمي</li>
+        <li>يقيس النسب المئوية للإنجاز</li>
+        <li>يوافق / يرفض المستخلصات</li>
+        <li>يراجع الأوامر التعديلية</li>
+      </ul>
+    </div>
+    <div>
+      <h4>4. الجهاز التنفيذي (Implementing Body)</h4>
+      <p><strong>إدارة المشروعات في NDA</strong></p>
+      <ul>
+        <li>التنسيق بين المالك والمقاول</li>
+        <li>تأكيد المبالغ قبل الصرف</li>
+        <li>متابعة الجدول الزمني</li>
+      </ul>
+    </div>
+  </div>
+
+  <h4>🔁 الـ Handoffs (تسليم المسؤولية)</h4>
+  <ol>
+    <li><strong>BOQ</strong>: المقاول ➜ المشرف ➜ المالك (للموافقة على المقايسة)</li>
+    <li><strong>تقرير فني</strong>: المشرف ➜ المقاول ➜ المالك (إثبات الإنجاز)</li>
+    <li><strong>المستخلص</strong>: المقاول ➜ المشرف ➜ إدارة المشروعات ➜ المالك (للصرف)</li>
+    <li><strong>أمر تعديلي</strong>: المشرف ➜ إدارة المشروعات ➜ المالك ➜ المقاول</li>
+  </ol>
+
+  <h4>⏱️ الـ Bottleneck الرئيسي</h4>
+  <p>
+    من البيانات، دورة الموافقة على المستخلص تأخذ عادة <strong>45-90 يوم</strong> في ليبيا.
+    هذا لأن كل طرف يريد التوقيع. <strong>الحل في نظامنا</strong>:
+    <em>Digital Sign-off Workflow</em> مع إشعارات تلقائية + تذكير قبل الموعد النهائي.
+  </p>
+</div>
+
+<!-- 7. GAPS -->
+<h2 id="gaps">7. فجوات النظام الحالي — تقييم صريح</h2>
+
+<div class="card">
+  <h3>🎯 تقييم على 8 محاور</h3>
+  <table>
+    <tr><th>المحور</th><th>الموجود</th><th>المطلوب</th><th>التقييم</th></tr>
+
+    <tr>
+      <td><strong>1. لائحة الأسعار (Price List)</strong></td>
+      <td>❌ صفر جداول</td>
+      <td><code>price_lists</code> + <code>price_list_items</code> (5,000+ بند)</td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>2. BOQ (Bill of Quantities)</strong></td>
+      <td>❌ صفر جداول</td>
+      <td><code>boq_sections</code> + <code>boq_lines</code> + <code>boq_subitems</code></td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>3. القياسات (Measurements)</strong></td>
+      <td>❌ صفر</td>
+      <td><code>boq_line_measurements</code> (length × width × height per subitem)</td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>4. أوامر التعديل (Variation Orders)</strong></td>
+      <td>❌ صفر</td>
+      <td><code>variation_orders</code> + <code>variation_order_lines</code></td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>5. حسابات العقد (WIP / Retention / Advance)</strong></td>
+      <td>🟡 <em>contracts</em> + <em>progress_billings</em> موجودتان</td>
+      <td>إضافة: WIP account + Retention Payable + Advance Received + ربط GL</td>
+      <td><span class="verdict partial">30%</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>6. التقرير الفني (Engineer's Report)</strong></td>
+      <td>❌ صفر</td>
+      <td><code>engineering_reports</code> + <code>report_line_progress</code> + photo upload</td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>7. الوحدات الهندسية</strong></td>
+      <td>🟡 17 وحدة (مفقود: م.ط، مقطوعية، عدد)</td>
+      <td>إضافة 3 وحدات + aliases للعربي</td>
+      <td><span class="verdict partial">80%</span></td>
+    </tr>
+
+    <tr>
+      <td><strong>8. التوقيع الإلكتروني (Digital Sign-off)</strong></td>
+      <td>❌ صفر</td>
+      <td><code>signatures</code> + workflow + PDF export</td>
+      <td><span class="verdict no">صفر</span></td>
+    </tr>
+
+  </table>
+
+  <h3>📊 النتيجة الإجمالية: 12% جاهزية للقطاع</h3>
+  <p>
+    النظام جاهز لـ ERP مالي عام (محاسبة + تقارير + customers/vendors) بنسبة ~95%.
+    لكن <strong>جاهزيته لإدارة مقاولات حقيقية</strong> ~12%. هذا فرق 8x — يجب معالجته.
+  </p>
+</div>
+
+<!-- 8. DATA MODEL -->
+<h2 id="data-model">8. نموذج البيانات المقترح (Schema)</h2>
+
+<div class="card">
+  <h3>🗄️ 9 جداول جديدة مقترحة لـ Sprint 59</h3>
+
+  <h4>1. price_lists (لائحة الأسعار)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "company_id": "uuid FK→companies",
+  "code": "varchar(50)",   // "355-2026"
+  "name": "varchar(200)", // "لائحة الأسعار الاسترشادية 2026"
+  "issued_by": "varchar(200)",  // "مجلس الوزراء"
+  "issued_at": "date",
+  "effective_from": "date",
+  "effective_to": "date",
+  "is_active": "boolean"
+}
+</pre>
+
+  <h4>2. price_list_items (بنود اللائحة)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "price_list_id": "uuid FK",
+  "code": "varchar(50)",        // "1.1.1.1"
+  "parent_code": "varchar(50)", // "1.1.1" (للشجرة الهرمية)
+  "description": "text",
+  "unit_id": "uuid FK→units_of_measure",
+  "unit_price": "numeric(18,4)",
+  "category": "varchar(50)",    // "Material" | "Labor" | "Equipment" | "Subcontract" | "Other"
+  "section": "varchar(50)",     // "Buildings" | "Roads" | "Water" | etc.
+  "level": "int",               // 1..4 (1=chapter, 4=line item)
+  "is_active": "boolean"
+}
+</pre>
+  <p>
+    <strong>💡</strong> استيراد 5,000+ بند من اللائحة 355 عبر seeder (one-time bulk import).
+  </p>
+
+  <h4>3. boq_sections (أقسام الـ BOQ)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "project_id": "uuid FK→projects",
+  "price_list_id": "uuid FK", // اختياري
+  "code": "varchar(50)",      // "1", "2", "3"
+  "name": "varchar(200)",     // "أعمال الإزالة", "تجهيز الموقع"
+  "sort_order": "int"
+}
+</pre>
+
+  <h4>4. boq_lines (بنود الـ BOQ — أهم جدول)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "project_id": "uuid FK",
+  "section_id": "uuid FK→boq_sections",
+  "price_list_item_id": "uuid FK→price_list_items", // للربط مع اللائحة
+  "code": "varchar(50)",      // "1.1.1.1" (from price list)
+  "description": "text",       // editable per project
+  "unit_id": "uuid FK",
+  "contract_qty": "numeric(18,4)",   // الكمية بالعقد
+  "unit_price": "numeric(18,4)",     // قابل للتعديل من اللائحة
+  "total_amount": "numeric(18,4)",  // = qty × price (computed)
+  "regional_premium_pct": "numeric(5,2)",  // علاوة المنطقة
+  "final_unit_price": "numeric(18,4)",     // بعد العلاوة
+  "is_measurable": "boolean",   // true for m²/m³/m.ط, false for lump sum
+  "is_active": "boolean"
+}
+</pre>
+
+  <h4>5. boq_subitems (Sub-measurements — قلب الـ BOQ)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "boq_line_id": "uuid FK",
+  "description": "varchar(200)",  // "الواجهة الأمامية"
+  "count": "int",                  // عدد الوحدات الفرعية
+  "length_m": "numeric(10,3)",
+  "width_m": "numeric(10,3)",
+  "height_m": "numeric(10,3)",
+  "initial_qty": "numeric(18,4)",  // count × length × width × height
+  "deductions": "numeric(18,4)",   // فتحات، etc
+  "final_qty": "numeric(18,4)"     // initial - deductions
+}
+</pre>
+  <p>
+    <strong>💡</strong> التحديث على الـ <code>boq_lines.contract_qty</code> يحدث آلياً
+    بـ trigger: <code>SUM(boq_subitems.final_qty)</code>
+  </p>
+
+  <h4>6. variation_orders (الأوامر التعديلية)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "project_id": "uuid FK",
+  "contract_id": "uuid FK",
+  "order_number": "varchar(50)",  // "VO-2026-001"
+  "issued_at": "date",
+  "reason": "text",
+  "status": "varchar(20)",  // "Draft" | "Pending" | "Approved" | "Rejected"
+  "approved_at": "timestamptz",
+  "approved_by": "uuid FK→users",
+  "original_contract_value": "numeric(18,4)",
+  "variation_amount": "numeric(18,4)",  // could be + or -
+  "new_contract_value": "numeric(18,4)"
+}
+</pre>
+
+  <h4>7. variation_order_lines</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "variation_order_id": "uuid FK",
+  "boq_line_id": "uuid FK",  // if existing line
+  "line_type": "varchar(20)", // "Add" | "Modify" | "Delete"
+  "qty_change": "numeric(18,4)",
+  "price_change": "numeric(18,4)",
+  "net_change": "numeric(18,4)"
+}
+</pre>
+
+  <h4>8. engineering_reports (التقارير الفنية)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "project_id": "uuid FK",
+  "report_number": "varchar(50)",  // "ER-2026-05-001"
+  "report_type": "varchar(20)",  // "Monthly" | "Final" | "Special"
+  "period_from": "date",
+  "period_to": "date",
+  "physical_progress_pct": "numeric(5,2)",
+  "financial_progress_pct": "numeric(5,2)",
+  "schedule_compliance": "varchar(20)",  // "Yes" | "No" | "No_Schedule"
+  "executing_status": "varchar(50)",     // "Completed" | "In_Progress" | "Stopped"
+  "notes": "text",
+  "submitted_by": "uuid FK",
+  "submitted_at": "timestamptz",
+  "approved_by": "uuid FK",
+  "approved_at": "timestamptz",
+  "status": "varchar(20)"
+}
+</pre>
+
+  <h4>9. report_line_progress (نسبة إنجاز كل بند)</h4>
+<pre>
+{
+  "id": "uuid PK",
+  "report_id": "uuid FK→engineering_reports",
+  "boq_line_id": "uuid FK→boq_lines",
+  "completion_pct": "numeric(5,2)",  // 0-100
+  "executed_qty": "numeric(18,4)",
+  "notes": "text"
+}
+</pre>
+</div>
+
+<!-- 9. COA IMPACT -->
+<h2 id="co-impact">9. أثر على دليل الحسابات (CoA)</h2>
+
+<div class="card">
+  <h3>📒 4 حسابات جديدة مطلوبة في L2 / L3</h3>
+
+  <h4>A. WIP (أعمال تحت التنفيذ) — L2 = 1102 (الأصول المتداولة)</h4>
+<pre>
+1102-001  أعمال تحت التنفيذ — عام
+1102-002  أعمال تحت التنفيذ — مشروع [X]    &lt;-- يربط بـ projects.id
+1102-003  التزامات عقود (Off-Balance Sheet)
+</pre>
+
+  <h4>B. مدينون عقود (ذمم المالك) — L2 = 1201 (مدينون)</h4>
+<pre>
+1201-101  ذمم عقود — مشاريع NDA (الجهاز الوطني للتنمية)
+1201-102  ذمم عقود — جهات حكومية أخرى
+1201-103  ذمم عقود — عملاء خاصون
+</pre>
+
+  <h4>C. دفعة مقدمة مستلمة — L2 = 2106 (خصوم متداولة)</h4>
+<pre>
+2106-001  دفعة مقدمة — مشروع [X]
+</pre>
+
+  <h4>D. احتجاز ضمان مستحق — L2 = 2107 (خصوم متداولة)</h4>
+<pre>
+2107-001  احتجاز ضمان — مشروع [X] (قصير الأجل)
+2107-002  احتجاز ضمان — فترة الضمان (طويل الأجل)
+</pre>
+
+  <h3>⚙️ 4 Posting Rules جديدة (محاسبة آلية)</h3>
+  <ol>
+    <li><strong>PR-CONTRACT-OPEN</strong>: عند اعتماد العقد → مدين 1102-002 / دائن 1102-003</li>
+    <li><strong>PR-BILLING-POST</strong>: عند اعتماد مستخلص → مدين 1201-101 / دائن 4301 + مدين 5101 / دائن 1102-002 + خصم دفعة مقدمة + احتجاز</li>
+    <li><strong>PR-VO-OPEN</strong>: عند اعتماد أمر تعديلي → مدين 1102-002 / دائن 1102-003</li>
+    <li><strong>PR-BILLING-FINAL</strong>: عند التسليم النهائي → مدين 1102-002 / دائن 5101 + 3202</li>
+  </ol>
+</div>
+
+<!-- 10. ROADMAP -->
+<h2 id="roadmap">10. خطة التنفيذ المرحلية (5 Sprints)</h2>
+
+<div class="card">
+  <h3>📅 الخطة الكاملة</h3>
+
+  <h4>🎯 Sprint 59: Construction Core (الأهم — 3-4 أيام عمل)</h4>
+  <p><strong>DEC-179..183</strong></p>
+  <ul>
+    <li><strong>DEC-179</strong> — إضافة UoM (م.ط، مقطوعية، عدد) + aliases بالعربي</li>
+    <li><strong>DEC-180</strong> — جداول price_lists + price_list_items + seeder يستورد لائحة 355</li>
+    <li><strong>DEC-181</strong> — جداول boq_sections + boq_lines + boq_subitems + UI على /projects/[id]/boq</li>
+    <li><strong>DEC-182</strong> — جداول variation_orders + variation_order_lines + workflow بسيط (Draft → Approved)</li>
+    <li><strong>DEC-183</strong> — 4 حسابات CoA جديدة (1102-002/003, 1201-1xx, 2106, 2107) + 4 posting rules + auto-GL من المستخلصات</li>
+  </ul>
+  <p>
+    <strong>🎬 نتيجة Sprint 59</strong>: المهندس يقدر يبني BOQ كامل، يحرر الكميات، يضيف
+    أوامر تعديلية، والمحاسب يشوف GL يتحدّث آلياً.
+  </p>
+
+  <h4>🎯 Sprint 60: Engineer's Report (يومين)</h4>
+  <p><strong>DEC-184..185</strong></p>
+  <ul>
+    <li><strong>DEC-184</strong> — engineering_reports + report_line_progress + UI على /projects/[id]/reports</li>
+    <li><strong>DEC-185</strong> — Photo upload + sign-off workflow (PDF export مع توقيعات)</li>
+  </ul>
+
+  <h4>🎯 Sprint 61: Progress Billing Refinement (يومين)</h4>
+  <p><strong>DEC-186..188</strong></p>
+  <ul>
+    <li><strong>DEC-186</strong> — تعديل progress_billings UI لاستقبال: كمية منفذة فعلية + خصم دفعة مقدمة + احتجاز</li>
+    <li><strong>DEC-187</strong> — احتساب آلي للـ net_amount مع regional premium</li>
+    <li><strong>DEC-188</strong> — Export PDF بنفس شكل المستخلص الرسمي</li>
+  </ul>
+
+  <h4>🎯 Sprint 62: Project Schedule (يومين)</h4>
+  <p><strong>DEC-189..190</strong></p>
+  <ul>
+    <li><strong>DEC-189</strong> — Gantt chart بسيط على /projects/[id]/schedule (BOQ lines = tasks)</li>
+    <li><strong>DEC-190</strong> — Earned Value Management (EVM): BCWS / BCWP / ACWP + SPI / CPI</li>
+  </ul>
+
+  <h4>🎯 Sprint 63: Subcontractor (يومين)</h4>
+  <p><strong>DEC-191..192</strong></p>
+  <ul>
+    <li><strong>DEC-191</strong> — Subcontract entities + Subcontract BOQ (BOQ lines مفصّلة للمقاولين الباطن)</li>
+    <li><strong>DEC-192</strong> — Subcontract Payment workflow (separate retention cycle)</li>
+  </ul>
+
+  <h3>⏱️ الجدول الزمني</h3>
+  <p>
+    إذا بدأنا غداً: <strong>10 أيام عمل (أسبوعين)</strong> للـ Construction Core الكامل.
+    Sprint 59-63 كلها = 13 يوم عمل (~3 أسابيع).
+  </p>
+</div>
+
+<!-- 11. RISK -->
+<h2 id="risk">11. المخاطر والبدائل</h2>
+
+<div class="card">
+  <h3>⚠️ 4 مخاطر رئيسية</h3>
+
+  <h4>R1 — سعة اللائحة (5,000+ بند)</h4>
+  <p>
+    <strong>الخطر</strong>: اللائحة 355 فيها ~5,000 بند. استيرادها كلها = بطء.
+    <strong>التخفيف</strong>: نستورد فقط <em>البنود المُستخدمة</em> (lazy import).
+    لما المهندس يبحث عن بند، النظام يجلبه من API لائحة 355 أو من cache.
+  </p>
+
+  <h4>R2 — مشروع قديم بدون BOQ</h4>
+  <p>
+    <strong>الخطر</strong>: المشاريع الموجودة حالياً (PRJ-2026-001..003) ليس لها BOQ
+    (تم إنشاؤها من seeder). <strong>التخفيف</strong>: صفحة "Empty State" توجّه
+    المهندس لرفع Excel (parse تلقائي) أو البدء من الصفر.
+  </p>
+
+  <h4>R3 — Regional premium (علاوة المنطقة) — منطق حسابي معقد</h4>
+  <p>
+    <strong>الخطر</strong>: علاوة المنطقة تختلف حسب موقع المشروع (طرابلس 2.2% vs
+    نالوت 7.68%). <strong>التخفيف</strong>: جدول <code>regional_premiums</code>
+    مع lookup تلقائي بناءً على <em>city_id</em> المُعرَّف في Project.
+  </p>
+
+  <h4>R4 — Bitumen Formula (معادلة البيتومين)</h4>
+  <p>
+    <strong>الخطر</strong>: معادلة بيتومين معقدة (تعتمد على سعر الصرف + نوع + طبقات).
+    <strong>التخفيف</strong>: Sprint 65+ — منفصل. حالياً نعتمد سعر اللائحة
+    + يُعدَّل يدوياً في الـ BOQ line.
+  </p>
+
+  <h3>🔄 البديل: لا تبنّي BOQ في ERP — اعتمد Excel</h3>
+  <p>
+    <strong>⚠️ لا أوصي بهذا</strong>. لأن:
+  </p>
+  <ul>
+    <li>Excel يفسد (#REF! errors ظاهرة في الملف المرفق)</li>
+    <li>لا ربط آلي بالـ GL (المحاسب يضطر ينسخ الأرقام يدوياً)</li>
+    <li>لا تاريخ للمراجعات (audit trail معدوم)</li>
+    <li>لا multi-user (3 مهندسين على نفس الملف = فوضى)</li>
+  </ul>
+  <p>
+    <strong>Excel يبقى مكملاً</strong> (للتحليل المتقدم، أو للأرشيف)، لكن <em>لا بديل عن ERP</em>.
+  </p>
+</div>
+
+<!-- 12. RECAP -->
+<h2 id="recap">12. التوصيات الختامية</h2>
+
+<div class="recap">
+  <h3>🎯 خارطة الطريق (TL;DR)</h3>
+  <ol>
+    <li>
+      <strong>ادفع الـ 9 commits الحالية فوراً</strong> — الـ 5 modules (Finance, HR, Inventory, Procurement, Admin)
+      كلها demo-ready. لا تنتظر.
+    </li>
+    <li>
+      <strong>ابدأ Sprint 59 (Construction Core) غداً</strong> — DEC-179..183
+      (لائحة أسعار + BOQ + Variation Orders + WIP/Retention/Advance accounting).
+    </li>
+    <li>
+      <strong>استخدم الملفات الـ 5 كـ acceptance test</strong>:
+      <ul>
+        <li>ادخل لائحة 355 في النظام كـ <em>price_list</em></li>
+        <li>أنشئ مشروع "نقطة تعبئة الغاز سرت" كـ <em>Project</em></li>
+        <li>استورد دفتر حصر امجاد كـ <em>BOQ lines</em></li>
+        <li>أنشئ مستخلص رقم 1 وقيّم "مدين 1201 / دائن 4301"</li>
+        <li>أنشئ المقايسة المعدلة كـ <em>Variation Order</em></li>
+        <li>أنشئ تقرير 23/05/2024 كـ <em>Engineering Report</em> مع 100% إنجاز فني + 25% مالي</li>
+      </ul>
+      إذا نجح الاستيراد + القيد الآلي = Sprint 59 جاهز للـ demo.
+    </li>
+    <li>
+      <strong>اعرض على العميل</strong> (شركة أمجاد أو الجهاز الوطني) قبل Sprint 60.
+      feedback العميل سيحدّد ما إذا كانت Regional Premium + Subcontract أولوية.
+    </li>
+    <li>
+      <strong>وثّق الـ lesson learned</strong> في CHANGELOG: <em>"ERP for construction ≠ generic ERP"</em>.
+      هذا سيكون حجة قوية في التسويق.
+    </li>
+  </ol>
+</div>
+
+<h3>📊 الخلاصة في 3 جمل</h3>
+<blockquote>
+<strong>(1)</strong> الملفات الـ 5 تثبت أن عملائك يعملون في <em>مقاولات حقيقية</em>
+مع دورة مستندات معقدة (BOQ → Variation → Progress Billing → Final Report) +
+محاسبة بناء متخصصة (WIP, Retention, Advance).
+<strong>(2)</strong> النظام الحالي عنده <em>الأساس المالي + المحاسبي</em> ممتاز
+(BS متّزنة، CoA 4 levels) لكنه ينقصه <em>طبقة Construction</em> بالكامل
+(9 جداول + 4 حسابات + 4 posting rules + UI/UX متخصص).
+<strong>(3)</strong> التوصية: <em>ادفع الآن + ابدأ Sprint 59 غداً</em> —
+مع تحذير: Sprint 59 ليس "تحسين"، بل <em>إعادة هندسة لجزء جوهري</em>
+من الـ product. استعد لـ 3-4 أيام عمل جادّة.
+</blockquote>
+
+<footer>
+  <p>
+    📝 تقرير استشاري أعدّه Mavis (model: M3) لـ Anas Assaket<br>
+    📂 ملفات محللة: 5 (لائحة 355 لسنة 2026 + دفتر حصر شركة امجاد + تقرير فني ختامي + مستخلص + مقايسة معدلة)<br>
+    📅 التاريخ: 2026-08-19<br>
+    ⏱️ وقت التحليل: ~25 دقيقة (قراءة + research + تأمل)<br>
+    🎯 التالي: قرارك — <em>ادفع ثم ابدأ Sprint 59</em> أو <em>أعد ترتيب الأولويات</em>
+  </p>
+</footer>
+
+</div>
+</body>
+</html>

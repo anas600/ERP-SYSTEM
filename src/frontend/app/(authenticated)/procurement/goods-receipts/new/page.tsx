@@ -8,14 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Select, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import {
-  procurementApi,
-  inventoryApi,
-  PurchaseOrder,
-  GoodsReceiptLine,
-  PO_STATUSES,
-  getErrorMessage,
-} from '@/lib/api';
+import { authedFetch, procurementApi, inventoryApi, PurchaseOrder, GoodsReceiptLine, PO_STATUSES, getErrorMessage,  } from '@/lib/api';
 
 interface LineDraft {
   itemId: string;
@@ -45,7 +38,7 @@ export default function NewGoodsReceiptPage() {
     try {
       // نحاول جلب الـ warehouses (إن وُجدت)
       try {
-        const wRes = await fetch('/api/inventory/warehouses', {
+        const wRes = await authedFetch('/api/inventory/warehouses', {
           headers: { Authorization: `Bearer ${localStorage.getItem('accessToken')}` },
         });
         if (wRes.ok) {

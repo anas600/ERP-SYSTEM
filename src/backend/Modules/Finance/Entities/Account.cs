@@ -19,6 +19,12 @@ public class Account
     public bool IsPostable { get; set; } = true;
     public bool IsActive { get; set; } = true;
     public bool IsIntercompany { get; set; } = false;
+    /// <summary>
+    /// Sprint 52a: CoA hierarchy level (1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail).
+    /// Computed from parent chain by AccountLevelBackfillHostedService.
+    /// Null for legacy accounts not yet backfilled (set automatically on first run).
+    /// </summary>
+    public short? Level { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
 }

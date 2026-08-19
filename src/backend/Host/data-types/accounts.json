@@ -16,6 +16,7 @@
       "foreign_key": { "table": "accounts", "column": "id", "on_delete": "set_null" } },
     { "name": "is_intercompany", "type": "boolean", "nullable": false, "default": "false" },
     { "name": "is_postable", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "level", "type": "smallint", "nullable": true, "default": null, "_comment": "Sprint 52a: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail. Computed from parent chain by AccountLevelBackfillHostedService. Null = legacy not yet backfilled." },
     { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
     { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
     { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }

@@ -16,9 +16,9 @@ public sealed class GeneralLedgerService : IGeneralLedgerService
         _accounts = accounts;
     }
 
-    public async Task<FinanceResult<IReadOnlyList<AccountBalanceResponse>>> GetAccountBalancesAsync(DateTime? asOf, CancellationToken ct)
+    public async Task<FinanceResult<IReadOnlyList<AccountBalanceResponse>>> GetAccountBalancesAsync(Guid companyId, DateTime? asOf, CancellationToken ct)
     {
-        // استعلام واحد: نجمع المدين/الدائن لكل حساب من القيود المُرحّلة
+        // Sprint 38 (DEC-124): added companyId param + L19 filter on accounts + journal_lines
         var asOfDate = asOf ?? DateTime.UtcNow;
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
@@ -29,15 +29,18 @@ public sealed class GeneralLedgerService : IGeneralLedgerService
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
             FROM accounts a
             LEFT JOIN journal_lines jl ON jl.account_id = a.id
+                AND jl.company_id = @CompanyId
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
                 AND je.status = 2  -- Posted
                 AND je.entry_date <= @AsOf
-            WHERE a.is_postable = true
+                AND je.company_id = @CompanyId
+            WHERE a.company_id = @CompanyId
+              AND a.is_postable = true
             GROUP BY a.id, a.code, a.name, a.type, a.normal_balance
             ORDER BY a.code";
 
         var rows = await conn.QueryAsync<AccountBalanceRow>(new CommandDefinition(sql,
-            new { AsOf = asOfDate }, cancellationToken: ct));
+            new { CompanyId = companyId, AsOf = asOfDate }, cancellationToken: ct));
 
         var result = rows.Select(r => new AccountBalanceResponse
         {
@@ -54,10 +57,11 @@ public sealed class GeneralLedgerService : IGeneralLedgerService
         return FinanceResult<IReadOnlyList<AccountBalanceResponse>>.Ok(result);
     }
 
-    public async Task<FinanceResult<IReadOnlyList<LedgerLineResponse>>> GetAccountLedgerAsync(Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
+    public async Task<FinanceResult<IReadOnlyList<LedgerLineResponse>>> GetAccountLedgerAsync(Guid companyId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct)
     {
         var account = await _accounts.GetByIdAsync(accountId, ct);
-        if (account == null)
+        // Sprint 38 (DEC-124): L19 check on account lookup
+        if (account == null || account.CompanyId != companyId)
         {
             return FinanceResult<IReadOnlyList<LedgerLineResponse>>.Fail("الحساب غير موجود.", FinanceErrorCode.NotFound);
         }
@@ -70,10 +74,14 @@ public sealed class GeneralLedgerService : IGeneralLedgerService
                    jl.debit AS Debit, jl.credit AS Credit
             FROM journal_lines jl
             INNER JOIN journal_entries je ON je.id = jl.journal_entry_id
+                AND je.company_id = @CompanyId
             INNER JOIN accounts a ON a.id = jl.account_id
+                AND a.company_id = @CompanyId
             WHERE jl.account_id = @AccountId
+              AND jl.company_id = @CompanyId
               AND je.status = 2";
         var p = new DynamicParameters();
+        p.Add("CompanyId", companyId);
         p.Add("AccountId", accountId);
         if (from.HasValue) { sql += " AND je.entry_date >= @From"; p.Add("From", from.Value); }
         if (to.HasValue) { sql += " AND je.entry_date <= @To"; p.Add("To", to.Value); }
@@ -108,10 +116,10 @@ public sealed class GeneralLedgerService : IGeneralLedgerService
         return FinanceResult<IReadOnlyList<LedgerLineResponse>>.Ok(lines);
     }
 
-    public Task<FinanceResult<IReadOnlyList<AccountBalanceResponse>>> GetTrialBalanceAsync(DateTime? asOf, CancellationToken ct)
+    public Task<FinanceResult<IReadOnlyList<AccountBalanceResponse>>> GetTrialBalanceAsync(Guid companyId, DateTime? asOf, CancellationToken ct)
     {
         // Trial Balance = نفس الأرصدة، مقتصرة على postable accounts
-        return GetAccountBalancesAsync(asOf, ct);
+        return GetAccountBalancesAsync(companyId, asOf, ct);
     }
 
     private static decimal ComputeBalance(AccountType type, NormalBalance normal, decimal debit, decimal credit)

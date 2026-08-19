@@ -1,6 +1,7 @@
 'use client';
 
 // مكوّنات Skeleton — حالات تحميل موحدة (placeholder رمادي ينبض)
+// Sprint 39 (DEC-125): uses ink-200 + the shimmer class for the modern effect
 // Variants:
 //   - Skeleton:       شريط/سطر واحد قابل للتخصيص
 //   - SkeletonCard:   هيكل بطاقة كامل
@@ -33,7 +34,8 @@ export function Skeleton({
       role="status"
       aria-label="جاري التحميل"
       className={cn(
-        'animate-pulse bg-gray-200',
+        // Sprint 39 (DEC-125): use shimmer class for the modern sweeping effect
+        'shimmer',
         rounded ? 'rounded-full' : 'rounded',
         width,
         height,
@@ -59,7 +61,7 @@ export function SkeletonCard({ hasHeader = true, lines = 3, className }: Skeleto
     <div
       role="status"
       aria-label="جاري تحميل البطاقة"
-      className={cn('bg-white rounded-xl shadow-sm border border-gray-100 p-5', className)}
+      className={cn('bg-white rounded-xl shadow-soft border border-ink-200 p-5', className)}
     >
       {hasHeader && (
         <div className="mb-4 space-y-2">
@@ -94,10 +96,10 @@ export function SkeletonTable({ rows = 5, cols = 4, className }: SkeletonTablePr
       role="status"
       aria-label="جاري تحميل الجدول"
       dir="rtl"
-      className={cn('bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden', className)}
+      className={cn('bg-white rounded-xl shadow-soft border border-ink-200 overflow-hidden', className)}
     >
       {/* Header row */}
-      <div className="bg-gray-50 border-b border-gray-200 px-4 py-3">
+      <div className="bg-ink-50 border-b border-ink-200 px-4 py-3">
         <div
           className="grid gap-4"
           style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
@@ -108,7 +110,7 @@ export function SkeletonTable({ rows = 5, cols = 4, className }: SkeletonTablePr
         </div>
       </div>
       {/* Body rows */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-ink-100">
         {Array.from({ length: rows }).map((_, r) => (
           <div key={`r-${r}`} className="px-4 py-4">
             <div
@@ -144,7 +146,7 @@ export function SkeletonPage({ hasHeader = true, rows = 6, className }: Skeleton
   return (
     <div dir="rtl" className={cn('space-y-4', className)}>
       {hasHeader && (
-        <div className="bg-white rounded-xl shadow-sm p-6">
+        <div className="bg-white rounded-xl shadow-soft border border-ink-200 p-6">
           <Skeleton width="w-48" height="h-7" className="mb-2" />
           <Skeleton width="w-64" height="h-4" />
         </div>

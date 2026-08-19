@@ -178,6 +178,8 @@ builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
 builder.Services.AddScoped<ICostCenterRepository, CostCenterRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
+builder.Services.AddScoped<IContractRepository, ContractRepository>(); // Sprint 58 / DEC-163
+builder.Services.AddScoped<IBillingRepository, BillingRepository>(); // Sprint 58 / DEC-164
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IProjectBudgetRepository, ProjectBudgetRepository>();
@@ -231,7 +233,12 @@ builder.Services.AddScoped<IFinanceService, FinanceService>();
 builder.Services.AddScoped<IJournalEntryService, JournalEntryService>();
 builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
+// Sprint 53 (DEC-140): Year-End Closing + Retained Earnings Roll
+builder.Services.AddScoped<IYearEndClosingService, YearEndClosingService>();
 builder.Services.AddScoped<IProjectService, ProjectService>();
+builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
+builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
+builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
 builder.Services.AddScoped<ITaskService, TaskService>();
 builder.Services.AddScoped<IResourceService, ResourceService>();
 builder.Services.AddScoped<IBudgetService, BudgetService>();
@@ -253,6 +260,8 @@ builder.Services.AddScoped<IDashboardChartService, DashboardChartService>();
 builder.Services.AddScoped<IVendorService, VendorService>();
 builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
 builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+// Sprint 36 (DEC-122): vendor statement
+builder.Services.AddScoped<IVendorStatementService, VendorStatementService>();
 
 // DEC-100 / DL 69: Register Payments services (was missing → 500 on /api/payments)
 builder.Services.AddScoped<ERPSystem.Modules.Payments.Application.Services.IPaymentService, ERPSystem.Modules.Payments.Application.Services.PaymentService>();
@@ -269,6 +278,10 @@ builder.Services.AddScoped<IPayrollService, PayrollService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<ISalesInvoiceService, SalesInvoiceService>();
 builder.Services.AddScoped<IReceiptService, ReceiptService>();
+// Sprint 56 (DEC-149 + DEC-150): Top Customers + Top Items reports
+builder.Services.AddScoped<ITopCustomersReportService, TopCustomersReportService>();
+// Sprint 36 (DEC-122): customer statement
+builder.Services.AddScoped<ICustomerStatementService, CustomerStatementService>();
 builder.Services.AddScoped<IEosService, EosService>();
 builder.Services.AddScoped<ILibyaTaxCalculator, LibyaTaxCalculator>();
 builder.Services.AddScoped<IEosCalculator, EosCalculator>();
@@ -386,6 +399,10 @@ builder.Services.AddFluentMigratorCore()
 builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0 (P6-0): Phase6_InitialSchema_20260725_120000 drops every old business table (Clean Slate) so the JSON migrator can rebuild without tenant_id
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
+builder.Services.AddHostedService<AccountLevelBackfillHostedService>();  // Sprint 52a (Phase 4): بعد الـ CoA يُبذَر، يحسب عمود level من parent chain (1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail). Idempotent.
+builder.Services.AddHostedService<YearEndClosingHostedService>();  // Sprint 53 (DEC-140): يتفقّد السنوات السابقة ويقفلها تلقائيًا لو لم تكن مقفلة
+// Sprint 57 (DEC-152): Executive Dashboard service (KPIs + chart data)
+builder.Services.AddScoped<IExecutiveDashboardService, ExecutiveDashboardService>();
 builder.Services.AddHostedService<PoolWarmupHostedService>();  // PR #149 follow-up #2: تسخين الـ pool بعد bootstrap عشان أول user request ما يعلّقش 30+ ثانية
 // Sprint 22: OutboxProcessorHostedService removed (event bus deleted).
 // Sprint 24: outbox_events table dropped (DEC-082) — no more processor needed.
@@ -476,6 +493,80 @@ else if (seedYear)
 else
 {
     Console.WriteLine("[SPRINT-29] SeedYearScenario=false (default) — ArabicYearScenarioDevSeeder SKIPPED.");
+}
+
+// ============ Sprint 50: Libyan SME Scenario Dev Seeder ============
+// Unified CoA (70+ accounts) + 18 months of journal entries
+// (Holding ≤500, each subsidiary ≤200) for realistic report testing.
+var seedLibyanSme = builder.Configuration.GetValue<bool>("Bootstrap:SeedLibyanSme", false);
+if (seedLibyanSme && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<LibyanSmeScenarioDevSeederHostedService>();
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=true + env=Development — LibyanSmeScenarioDevSeeder registered.");
+}
+else if (seedLibyanSme)
+{
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-50] SeedLibyanSme=false (default) — LibyanSmeScenarioDevSeeder SKIPPED.");
+}
+
+// ============ Sprint 55 (DEC-145..147) — Proper Transactional Seeder ============
+// ينشئ sales_invoices + vendor_bills + payments مع ربطها بقيود اليومية.
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedProperTransactional=true
+// (Idempotent — يفحص وجود الفواتير قبل الإدراج)
+var seedProperTransactional = builder.Configuration.GetValue<bool>("Bootstrap:SeedProperTransactional", false);
+if (seedProperTransactional && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ProperTransactionalSeederHostedService>();
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=true + env=Development — ProperTransactionalSeeder registered.");
+}
+else if (seedProperTransactional)
+{
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-55] SeedProperTransactional=false (default) — ProperTransactionalSeeder SKIPPED.");
+}
+
+// ============ Sprint 58b — Professional 4-Level CoA Seeder ============
+// يدلّل الحسابات الموحدة الاحترافية ذات 4 مستويات (L1-L4) لكل شركة.
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedProfessionalCoA=true
+// Idempotent — يفحص وجود L1 roots قبل الإدراج.
+var seedProfessionalCoA = builder.Configuration.GetValue<bool>("Bootstrap:SeedProfessionalCoA", false);
+if (seedProfessionalCoA && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<ProfessionalCoASeederHostedService>();
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=true + env=Development — ProfessionalCoASeeder registered.");
+}
+else if (seedProfessionalCoA)
+{
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-58b] SeedProfessionalCoA=false (default) — ProfessionalCoASeeder SKIPPED.");
+}
+
+// ============ Sprint 58c — 2026 Operational Scenario Seeder ============
+// سيناريو تشغيلي واقعي من يناير إلى أغسطس 2026 (فواتير، سندات، رواتب، مستخلصات).
+// الـ gating: requires IsDevelopment() + Bootstrap:SeedScenario2026=true
+var seedScenario2026 = builder.Configuration.GetValue<bool>("Bootstrap:SeedScenario2026", false);
+if (seedScenario2026 && builder.Environment.IsDevelopment())
+{
+    builder.Services.AddHostedService<Scenario2026SeederHostedService>();
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=true + env=Development — Scenario2026Seeder registered.");
+}
+else if (seedScenario2026)
+{
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=true but env={Env} — SKIPPED (dev-only seeder).", builder.Environment.EnvironmentName);
+}
+else
+{
+    Console.WriteLine("[SPRINT-58c] SeedScenario2026=false (default) — Scenario2026Seeder SKIPPED.");
 }
 
 // ============ Auth ============

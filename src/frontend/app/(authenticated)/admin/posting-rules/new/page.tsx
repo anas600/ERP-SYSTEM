@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const EVENT_TYPES = [
   { label: 'استلام مخزون (StockReceived)', value: 1 },
@@ -64,7 +64,7 @@ export default function NewPostingRulePage() {
     }
     setSubmitting(true);
     try {
-      const res = await fetch('/api/finance/posting-rules', {
+      const res = await authedFetch('/api/finance/posting-rules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

@@ -136,7 +136,7 @@ export default function NewReceiptPage() {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -188,7 +188,7 @@ export default function NewReceiptPage() {
                         step="0.0001"
                       />
                     </div>
-                    <button type="button" onClick={() => removeAlloc(a.id)} className="text-red-500 hover:text-red-700 p-2 mb-1" disabled={allocations.length === 1}>
+                    <button type="button" onClick={() => removeAlloc(a.id)} className="text-danger-500 hover:text-danger-700 p-2 mb-1" disabled={allocations.length === 1}>
                       <Trash2 className="h-4 w-4" />
                     </button>
                   </div>

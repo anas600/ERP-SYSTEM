@@ -57,7 +57,7 @@ const LS_EXPANDED_KEY = 'erp.coa.expanded';
 /** AccountType → display label + Tailwind accent for the badge + tree line. */
 const TYPE_ACCENT: Record<number, { label: string; color: string; chip: string }> = {
   1: { label: 'أصول', color: 'text-blue-700', chip: 'bg-blue-50 text-blue-700' },
-  2: { label: 'خصوم', color: 'text-red-700', chip: 'bg-red-50 text-red-700' },
+  2: { label: 'خصوم', color: 'text-red-700', chip: 'bg-danger-50 text-red-700' },
   3: { label: 'حقوق ملكية', color: 'text-purple-700', chip: 'bg-purple-50 text-purple-700' },
   4: { label: 'إيرادات', color: 'text-green-700', chip: 'bg-green-50 text-green-700' },
   5: { label: 'مصروفات', color: 'text-orange-700', chip: 'bg-orange-50 text-orange-700' },
@@ -117,11 +117,19 @@ function buildTree(flat: Account[]): AccountNode[] {
   return roots;
 }
 
-/** Convert a tree to a flat list in DFS (pre-order) order — what the UI walks. */
-function flattenTree(roots: AccountNode[]): AccountNode[] {
+/**
+ * Convert a tree to a flat list in DFS (pre-order) order — what the UI walks.
+ * Sprint 41 (L76): only walks children whose parent is in `expanded` (root
+ * nodes are always included). Without the expanded filter the tree is
+ * effectively always fully expanded regardless of UI state.
+ */
+function flattenTree(roots: AccountNode[], expanded: Set<string>): AccountNode[] {
   const out: AccountNode[] = [];
   const walk = (n: AccountNode) => {
     out.push(n);
+    // Non-leaf parents only walk their children when explicitly expanded.
+    if (n.children.length === 0) return;
+    if (!expanded.has(n.id)) return;
     for (const c of n.children) walk(c);
   };
   for (const r of roots) walk(r);
@@ -219,7 +227,7 @@ export default function AccountsPage() {
     return buildTree(flat);
   }, [accounts, typeFilter, showInactive, search]);
 
-  const flatRows = useMemo(() => flattenTree(tree), [tree]);
+  const flatRows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
 
   // Auto-expand all roots when the filter changes so the user always sees
   // the top of the result set. We avoid auto-expanding deeply because that
@@ -331,7 +339,7 @@ export default function AccountsPage() {
       </Card>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
@@ -628,7 +636,7 @@ function AddChildAccountModal({ parent, onClose, onCreated }: AddChildModalProps
     >
       <form id="add-child-form" onSubmit={onSubmit} className="space-y-4">
         {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
+          <div className="bg-danger-50 border border-danger-200 text-danger-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
             <XIcon className="h-4 w-4 flex-shrink-0 mt-0.5" />
             <span>{error}</span>
           </div>

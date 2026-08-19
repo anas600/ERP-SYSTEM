@@ -82,7 +82,7 @@ export default function PayslipPage({ params }: PageProps) {
             </Link>
           }
         />
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">
           {error || 'لم يتم العثور على القسيمة.'}
         </div>
       </div>
@@ -124,7 +124,7 @@ export default function PayslipPage({ params }: PageProps) {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">
           {error}
         </div>
       )}
@@ -184,7 +184,7 @@ export default function PayslipPage({ params }: PageProps) {
         </Card>
 
         {/* Deductions */}
-        <Card title={<span className="flex items-center gap-2"><TrendingDown className="h-4 w-4 text-red-600" /> المستقطعات (Deductions)</span>} accent="red">
+        <Card title={<span className="flex items-center gap-2"><TrendingDown className="h-4 w-4 text-danger-600" /> المستقطعات (Deductions)</span>} accent="red">
           {deductions.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-4">لا توجد مستقطعات مفصّلة</p>
           ) : (
@@ -193,14 +193,14 @@ export default function PayslipPage({ params }: PageProps) {
                 {deductions.map((c) => (
                   <tr key={c.id} className="border-b border-gray-100 last:border-0">
                     <td className="py-2 text-sm text-gray-700">{c.name}</td>
-                    <td className="py-2 text-end font-mono text-sm text-red-600">
+                    <td className="py-2 text-end font-mono text-sm text-danger-600">
                       −{formatMoney(c.amount)}
                     </td>
                   </tr>
                 ))}
-                <tr className="bg-red-50">
+                <tr className="bg-danger-50">
                   <td className="py-2 px-2 text-sm font-bold text-gray-800 rounded">إجمالي المستقطعات</td>
-                  <td className="py-2 px-2 text-end font-mono font-bold text-red-700 rounded">
+                  <td className="py-2 px-2 text-end font-mono font-bold text-danger-700 rounded">
                     −{formatMoney(totalDeductions)}
                   </td>
                 </tr>
@@ -219,15 +219,15 @@ export default function PayslipPage({ params }: PageProps) {
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">ضريبة الدخل (GDT)</span>
-            <span className="font-mono text-red-600">−{formatMoney(payslip.taxAmount)} LYD</span>
+            <span className="font-mono text-danger-600">−{formatMoney(payslip.taxAmount)} LYD</span>
           </div>
           <div className="flex items-center justify-between text-sm">
             <span className="text-gray-600">التأمينات الاجتماعية (حصة الموظف)</span>
-            <span className="font-mono text-red-600">−{formatMoney(payslip.socialInsuranceEmployee)} LYD</span>
+            <span className="font-mono text-danger-600">−{formatMoney(payslip.socialInsuranceEmployee)} LYD</span>
           </div>
           <div className="flex items-center justify-between text-sm border-t border-gray-100 pt-3">
             <span className="text-gray-600">إجمالي الخصومات</span>
-            <span className="font-mono text-red-600">−{formatMoney(payslip.taxAmount + payslip.socialInsuranceEmployee)} LYD</span>
+            <span className="font-mono text-danger-600">−{formatMoney(payslip.taxAmount + payslip.socialInsuranceEmployee)} LYD</span>
           </div>
           <div className="flex items-center justify-between bg-green-50 -mx-5 -mb-5 px-5 py-3 rounded-b-xl border-t-2 border-green-200 mt-3">
             <span className="font-bold text-green-800">صافي الراتب (Net Salary)</span>

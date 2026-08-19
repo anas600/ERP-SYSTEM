@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const ACCOUNT_TYPES = [
   { label: 'أصول (Asset)', value: 1 },
@@ -60,7 +60,7 @@ export default function NewAccountPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/finance/accounts', {
+      const res = await authedFetch('/api/finance/accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

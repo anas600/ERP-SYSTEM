@@ -73,6 +73,7 @@ public sealed class APAgingService : IAPAgingService
             {
                 bucket = new APAgingVendorBucket
                 {
+                    VendorId = r.VendorId,
                     VendorCode = r.VendorCode,
                     VendorName = r.VendorName
                 };

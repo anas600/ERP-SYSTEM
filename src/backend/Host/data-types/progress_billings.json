@@ -1,0 +1,41 @@
+{
+  "name": "ProgressBilling",
+  "table": "progress_billings",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "project_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "projects", "column": "id", "on_delete": "restrict" } },
+    { "name": "contract_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "contracts", "column": "id", "on_delete": "restrict" } },
+    { "name": "billing_number", "type": "varchar(50)", "nullable": false },
+    { "name": "billing_date", "type": "date", "nullable": false },
+    { "name": "period_from", "type": "date", "nullable": true },
+    { "name": "period_to", "type": "date", "nullable": true },
+    { "name": "work_completed_percent", "type": "numeric(5,2)", "nullable": false },
+    { "name": "gross_amount", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "advance_deducted", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "retention_deducted", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "net_amount", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "status", "type": "varchar(20)", "nullable": false, "default": "'DRAFT'" },
+    { "name": "invoice_id", "type": "uuid", "nullable": true,
+      "foreign_key": { "table": "sales_invoices", "column": "id", "on_delete": "set_null" } },
+    { "name": "journal_entry_id", "type": "uuid", "nullable": true,
+      "foreign_key": { "table": "journal_entries", "column": "id", "on_delete": "set_null" } },
+    { "name": "notes", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "created_by", "type": "uuid", "nullable": false },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "updated_by", "type": "uuid", "nullable": true }
+  ],
+  "indexes": [
+    { "name": "ix_billings_company_number", "columns": ["company_id", "billing_number"], "unique": true },
+    { "name": "ix_billings_project", "columns": ["project_id"] },
+    { "name": "ix_billings_contract", "columns": ["contract_id"] },
+    { "name": "ix_billings_status", "columns": ["status"] },
+    { "name": "ix_billings_contract_status", "columns": ["contract_id", "status"] }
+  ]
+}

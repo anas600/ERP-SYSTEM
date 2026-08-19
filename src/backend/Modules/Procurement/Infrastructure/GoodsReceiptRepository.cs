@@ -10,7 +10,7 @@ public sealed class GoodsReceiptRepository : IGoodsReceiptRepository
     private readonly IDbConnectionFactory _db;
     public GoodsReceiptRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelGr = @"id, gr_number AS GrNumber, purchase_order_id AS PurchaseOrderId,
+    private const string SelGr = @"id, company_id AS CompanyId, gr_number AS GrNumber, purchase_order_id AS PurchaseOrderId,
         status, received_date AS ReceivedDate, warehouse_id AS WarehouseId, notes,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";
 

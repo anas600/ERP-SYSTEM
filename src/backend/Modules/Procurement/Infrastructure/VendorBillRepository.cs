@@ -10,7 +10,7 @@ public sealed class VendorBillRepository : IVendorBillRepository
     private readonly IDbConnectionFactory _db;
     public VendorBillRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string SelVb = @"id, bill_number AS BillNumber, goods_receipt_id AS GoodsReceiptId,
+    private const string SelVb = @"id, company_id AS CompanyId, bill_number AS BillNumber, goods_receipt_id AS GoodsReceiptId,
         vendor_id AS VendorId, status, bill_date AS BillDate, due_date AS DueDate, currency,
         sub_total AS SubTotal, tax_amount AS TaxAmount, total_amount AS TotalAmount, notes,
         journal_entry_id AS JournalEntryId, posted_at AS PostedAt,

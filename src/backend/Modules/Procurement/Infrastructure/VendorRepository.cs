@@ -10,7 +10,7 @@ public sealed class VendorRepository : IVendorRepository
     private readonly IDbConnectionFactory _db;
     public VendorRepository(IDbConnectionFactory db) => _db = db;
 
-    private const string Sel = @"id, code, name, email, phone, address, tax_number AS TaxNumber,
+    private const string Sel = @"id, company_id AS CompanyId, code, name, email, phone, address, tax_number AS TaxNumber,
         website,  -- DEC-081b (added via JSON migration DEC-081a)
         currency, payment_terms AS PaymentTerms, is_active AS IsActive,
         created_at AS CreatedAt, created_by AS CreatedBy, updated_at AS UpdatedAt, updated_by AS UpdatedBy";

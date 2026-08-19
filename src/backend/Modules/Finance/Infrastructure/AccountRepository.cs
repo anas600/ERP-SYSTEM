@@ -15,12 +15,21 @@ public sealed class AccountRepository : IAccountRepository
         id, company_id AS CompanyId, code, name, description, type,
         normal_balance AS NormalBalance, parent_account_id AS ParentAccountId,
         is_postable AS IsPostable, is_active AS IsActive, is_intercompany AS IsIntercompany,
+        level AS Level,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
 
     public async Task<Account?> GetByIdAsync(Guid id, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
         return await QueryFirstAsync(conn, "WHERE id = @Id", new { Id = id }, ct);
+    }
+
+    // Sprint 41 (DEC-127): company-scoped variant — uniqueness is per company.
+    public async Task<Account?> GetByCodeAsync(string code, Guid companyId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await QueryFirstAsync(conn, "WHERE LOWER(code) = LOWER(@Code) AND company_id = @CompanyId",
+            new { Code = code, CompanyId = companyId }, ct);
     }
 
     public async Task<Account?> GetByCodeAsync(string code, CancellationToken ct)
@@ -68,9 +77,9 @@ public sealed class AccountRepository : IAccountRepository
     {
         await conn.ExecuteAsync(new CommandDefinition(@"
             INSERT INTO accounts (id, company_id, code, name, description, type, normal_balance,
-                                  parent_account_id, is_postable, is_active, is_intercompany, created_at, updated_at)
+                                  parent_account_id, is_postable, is_active, is_intercompany, level, created_at, updated_at)
             VALUES (@Id, @CompanyId, @Code, @Name, @Description, @Type, @NormalBalance,
-                    @ParentAccountId, @IsPostable, @IsActive, @IsIntercompany, @CreatedAt, @UpdatedAt)",
+                    @ParentAccountId, @IsPostable, @IsActive, @IsIntercompany, @Level, @CreatedAt, @UpdatedAt)",
             account, transaction: tx, cancellationToken: ct));
     }
 
@@ -81,7 +90,8 @@ public sealed class AccountRepository : IAccountRepository
             UPDATE accounts SET name = @Name, description = @Description, type = @Type,
                                 normal_balance = @NormalBalance, parent_account_id = @ParentAccountId,
                                 is_postable = @IsPostable, is_active = @IsActive,
-                                is_intercompany = @IsIntercompany, updated_at = @UpdatedAt
+                                is_intercompany = @IsIntercompany, level = @Level,
+                                updated_at = @UpdatedAt
             WHERE id = @Id", account, cancellationToken: ct));
     }
 

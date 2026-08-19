@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, financeApi } from '@/lib/api';
 
 interface PostingRule {
   id: string;
@@ -37,10 +37,10 @@ export default function PostingRuleDetailPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch('/api/finance/posting-rules', { cache: 'no-store' });
-        if (!res.ok) throw new Error('فشل التحميل');
-        const list = await res.json();
-        const found = list.find((x: PostingRule) => x.id === params.id);
+        if (!params.id) return;
+        // Sprint 40 (L67): use financeApi.listPostingRules (auto-JWT) instead of raw fetch
+        const list = (await financeApi.listPostingRules()) as unknown as PostingRule[];
+        const found = list.find((x) => x.id === params.id);
         if (!found) throw new Error('القاعدة غير موجودة');
         setItem(found);
       } catch (e: unknown) {
@@ -53,7 +53,7 @@ export default function PostingRuleDetailPage() {
   }, [params.id]);
 
   if (loading) return <div><PageHeader title="قاعدة" /><Card><div className="text-center py-12 text-gray-500">جاري التحميل...</div></Card></div>;
-  if (!item) return <div><PageHeader title="قاعدة" /><Card><div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/posting-rules"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
+  if (!item) return <div><PageHeader title="قاعدة" /><Card><div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/posting-rules"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
 
   let parsedTemplate: { description?: string; reference?: string; lines?: { accountCode: string; side: string; amountFormula: string }[] } = {};
   try {
@@ -79,7 +79,7 @@ export default function PostingRuleDetailPage() {
         }
       />
 
-      {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+      {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
       <Card className="max-w-3xl">
         <div className="grid grid-cols-2 gap-4 text-sm">

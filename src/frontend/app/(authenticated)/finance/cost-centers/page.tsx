@@ -7,7 +7,7 @@ import Link from 'next/link';
 import { Plus, Pencil } from 'lucide-react';
 import { Card, Badge, PageHeader, Button } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface CostCenter {
   id: string;
@@ -15,17 +15,19 @@ interface CostCenter {
   code: string;
   name: string;
   description?: string;
-  type: number; // 1=Production, 2=Service, 3=Administrative, 4=Sales
+  type: string; // CostCenterType: Project, Department, Branch, ProductLine, Activity, Other
   parentId?: string;
   isActive: boolean;
   createdAt: string;
 }
 
-const CC_TYPES: Record<number, string> = {
-  1: 'إنتاج',
-  2: 'خدمات',
-  3: 'إداري',
-  4: 'مبيعات',
+const CC_TYPES: Record<string, string> = {
+  Project: 'مشروع',
+  Department: 'قسم',
+  Branch: 'فرع',
+  ProductLine: 'خط إنتاج',
+  Activity: 'نشاط',
+  Other: 'أخرى',
 };
 
 export default function CostCentersPage() {
@@ -43,7 +45,7 @@ export default function CostCentersPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/cost-centers', { cache: 'no-store' });
+      const res = await authedFetch('/api/cost-centers', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
       const data = await res.json();
       setItems(data);

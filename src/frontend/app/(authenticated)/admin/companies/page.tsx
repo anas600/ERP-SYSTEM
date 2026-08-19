@@ -482,14 +482,14 @@ export default function CompaniesAdminPage() {
 
       {error && (
         <div
-          className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
+          className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 flex items-start gap-3"
           role="alert"
         >
           <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-semibold">تعذّر تحميل قائمة الشركات</p>
             <p className="text-sm mt-0.5">{error}</p>
-            <p className="text-xs mt-1 text-red-600">
+            <p className="text-xs mt-1 text-danger-600">
               ملاحظة: في وضع التطوير قد يكون الـ endpoint غير مُفعَّل بعد.
             </p>
           </div>

@@ -113,6 +113,20 @@ export interface AuthResponse {
   holdingCompanyId: string;
 }
 
+// Sprint 52b (DEC-137): General Ledger line item returned by /api/finance/ledger/accounts/{accountId}
+export interface LedgerLine {
+  entryDate: string;
+  entryNumber: string;
+  journalEntryId: string;
+  reference?: string | null;
+  description: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
 // ============ Finance ============
 export interface Account {
   id: string;
@@ -126,8 +140,23 @@ export interface Account {
   isPostable: boolean;
   isActive: boolean;
   isIntercompany: boolean;
+  // Sprint 52a: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail. Null = not yet backfilled.
+  level?: number;
   createdAt: string;
   updatedAt: string;
+}
+
+// Sprint 52a: tree view of the CoA. L1 roots contain nested L2 → L3 → L4 children.
+// `type` and `normalBalance` are strings (BE EnumStringTypeHandler) for readability.
+export interface AccountTreeNode {
+  id: string;
+  code: string;
+  name: string;
+  type: string;  // 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense'
+  normalBalance: string;  // 'Debit' | 'Credit'
+  level: number;  // 1..4 (or 99 = orphan)
+  isPostable: boolean;
+  children: AccountTreeNode[];
 }
 
 export const ACCOUNT_TYPES: Record<number, string> = {
@@ -175,6 +204,12 @@ export interface Item {
 }
 
 // ============ Projects ============
+// DEC-177 (L120): BE returns status as STRING (Planning|Active|OnHold|Completed|Cancelled).
+// Sprint 59 v2 redesign (DEC-170..172) assumes the string form everywhere.
+// We keep PROJECT_STATUSES keyed by string for the new UI but also export the
+// numeric map for any legacy call site that still passes 1..5.
+export type ProjectStatusName = 'Planning' | 'Active' | 'OnHold' | 'Completed' | 'Cancelled';
+export type ProjectStatus = ProjectStatusName | number;
 export interface Project {
   id: string;
     companyId: string;
@@ -182,21 +217,140 @@ export interface Project {
   code: string;
   name: string;
   description?: string;
-  status: number;  // 1=Planning, 2=Active, 3=OnHold, 4=Completed, 5=Cancelled
+  status: ProjectStatusName;
   budget: number;
   startDate: string;
   endDate?: string;
   isActive: boolean;
   createdAt: string;
+  updatedAt?: string;
 }
 
-export const PROJECT_STATUSES: Record<number, string> = {
+export const PROJECT_STATUSES: Record<string, string> = {
+  Planning: 'تخطيط',
+  Active: 'نشط',
+  OnHold: 'معلق',
+  Completed: 'مكتمل',
+  Cancelled: 'ملغي',
+};
+
+// Legacy numeric map (L120: kept for any older page that still sends 1..5)
+export const PROJECT_STATUSES_NUM: Record<number, string> = {
   1: 'تخطيط',
   2: 'نشط',
   3: 'معلق',
   4: 'مكتمل',
   5: 'ملغي',
 };
+
+// ===== Sprint 57 (DEC-160..162): Project P&L =====
+export interface ProjectPnLLine {
+  accountCode: string;
+  accountName: string;
+  amount: number;
+}
+export interface ProjectPnL {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  from?: string | null;
+  to?: string | null;
+  totalRevenue: number;
+  invoiceCount: number;
+  costsByAccount: ProjectPnLLine[];
+  totalCosts: number;
+  grossProfit: number;
+  profitMarginPercent: number;
+  costEntryCount: number;
+}
+
+// ===== Sprint 58 (DEC-163..165): Project Contracts + Billings + WIP =====
+export interface Contract {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+}
+export interface CreateContractRequest {
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+}
+export interface UpdateContractRequest {
+  contractNumber?: string | null;
+  contractValue: number;
+  advancePercent: number;
+  retentionPercent: number;
+  retentionStartBilling?: number;
+  startDate?: string | null;
+  endDate?: string | null;
+  notes?: string | null;
+}
+export type BillingStatus = 1 | 2 | 3;  // 1=Draft, 2=Invoiced, 3=Cancelled
+export interface ProgressBilling {
+  id: string;
+  companyId: string;
+  projectId: string;
+  contractId: string;
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  workCompletedPercent: number;
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  status: BillingStatus;
+  statusName: string;  // BE-computed: "مسودة" | "مُرحّل" | "ملغى"
+  invoiceId?: string | null;
+  journalEntryId?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface CreateBillingRequest {
+  billingNumber: string;
+  billingDate: string;
+  periodFrom?: string | null;
+  periodTo?: string | null;
+  workCompletedPercent: number;
+  notes?: string | null;
+}
+export interface BillingPreview {
+  grossAmount: number;
+  advanceDeducted: number;
+  retentionDeducted: number;
+  netAmount: number;
+  previousMaxPercent: number;
+  nextBillingNumber: number;
+}
+export interface ProjectWip {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  totalCosts: number;
+  totalBilledNet: number;
+  totalRetentionHeld: number;
+  wip: number;
+  status: 'COSTS_EXCEED_BILLED' | 'BILLED_EXCEED_COSTS' | 'BALANCED';
+  statusName: string;  // BE-computed Arabic label
+}
 
 // ============ Resources (Sprint 32 / DEC-112) ============
 export interface Resource {
@@ -219,18 +373,222 @@ export const RESOURCE_TYPES: Record<number, string> = {
 };
 
 // ============ Reports ============
+// Sprint 36 (DEC-122): Trial Balance + Customer/Vendor Statements
+// Trial Balance — matches AccountBalanceResponse in FinanceDtos.cs
+// AccountType enum: Asset=1, Liability=2, Equity=3, Revenue=4, Expense=5
+// BE returns type/normalBalance as STRING (Dapper EnumStringTypeHandler) for
+// human-readable JSON. We accept string here and look up via a map.
+export type AccountTypeName = 'Asset' | 'Liability' | 'Equity' | 'Revenue' | 'Expense';
+export type NormalBalanceName = 'Debit' | 'Credit';
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountTypeName, string> = {
+  Asset: 'أصول',
+  Liability: 'خصوم',
+  Equity: 'حقوق ملكية',
+  Revenue: 'إيرادات',
+  Expense: 'مصروفات',
+};
+
+// Display order for grouped tables
+export const ACCOUNT_TYPE_ORDER: AccountTypeName[] = [
+  'Asset',
+  'Liability',
+  'Equity',
+  'Revenue',
+  'Expense',
+];
+
 export interface TrialBalanceRow {
   accountId: string;
   accountCode: string;
   accountName: string;
-  accountType: number;
-  debit: number;
-  credit: number;
+  type: AccountTypeName;
+  normalBalance: NormalBalanceName;
+  totalDebit: number;
+  totalCredit: number;
+  balance: number;
 }
 
 export interface TrialBalanceReport {
   asOfDate: string;
   rows: TrialBalanceRow[];
+}
+
+// Sprint 54 (DEC-142): ميزان المراجعة الهرمي — يحتوي L3 parent info
+export interface TrialBalanceV2Row {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  level: number; // 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail
+  accountType: number;
+  parentCode?: string;
+  parentName?: string;
+  parentAccountId?: string;
+  l2Code?: string;
+  l2Name?: string;
+  debit: number;
+  credit: number;
+  net: number;
+}
+
+export interface TrialBalanceV2Report {
+  asOfDate: string;
+  rows: TrialBalanceV2Row[];
+  totalDebit: number;
+  totalCredit: number;
+  isBalanced: boolean;
+  variance: number;
+}
+
+// ============== Sprint 48 — Financial Reports DTOs ==============
+
+export interface BalanceSheetRow {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  balance: number;
+}
+
+export interface BalanceSheetSection {
+  title: string;
+  rows: BalanceSheetRow[];
+  subtotal: number;
+}
+
+export interface BalanceSheetReport {
+  asOfDate: string;
+  assets: BalanceSheetSection;
+  liabilities: BalanceSheetSection;
+  equity: BalanceSheetSection;
+  totalAssets: number;
+  totalLiabilities: number;
+  totalEquity: number;
+  totalLiabilitiesAndEquity: number;
+  isBalanced: boolean;
+  variance: number;
+}
+
+export interface IncomeStatementRow {
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  amount: number;
+}
+
+export interface IncomeStatementSection {
+  title: string;
+  rows: IncomeStatementRow[];
+  subtotal: number;
+}
+
+// Sprint 54 (DEC-143): L2 section — مجموعة L2 (Sub-class) في قائمة الدخل.
+// يحتوي L4 (Detail accounts) تحت الحساب الأب L2.
+export interface IncomeStatementL2Section {
+  l2AccountId: string;
+  l2Code: string;
+  l2Name: string;
+  rows: IncomeStatementRow[];
+  subtotal: number;
+}
+
+export interface IncomeStatementReport {
+  from: string;
+  to: string;
+  revenue: IncomeStatementSection;
+  expenses: IncomeStatementSection;
+  /// <summary>Sprint 54 (DEC-143): قائمة الدخل مقسّمة إلى L2 sections.</summary>
+  revenueSections: IncomeStatementL2Section[];
+  expenseSections: IncomeStatementL2Section[];
+  totalRevenue: number;
+  totalExpenses: number;
+  netIncome: number;
+  isProfitable: boolean;
+}
+
+export interface CashFlowLine {
+  description: string;
+  amount: number;
+  /// <summary>Sprint 54 (DEC-144): ربط السطر بحساب L3 control account.</summary>
+  accountId?: string;
+  accountCode?: string;
+  accountName?: string;
+}
+
+export interface CashFlowSection {
+  title: string;
+  lines: CashFlowLine[];
+  subtotal: number;
+}
+
+export interface CashFlowReport {
+  from: string;
+  to: string;
+  operating: CashFlowSection;
+  investing: CashFlowSection;
+  financing: CashFlowSection;
+  netOperatingCash: number;
+  netInvestingCash: number;
+  netFinancingCash: number;
+  netChangeInCash: number;
+}
+
+export interface APAgingBucket {
+  vendorId: string;
+  vendorCode: string;
+  vendorName: string;
+  current: number;
+  days31To60: number;
+  days61To90: number;
+  days91Plus: number;
+  total: number;
+}
+
+export interface APAgingReport {
+  asOfDate: string;
+  vendors: APAgingBucket[];
+  totalCurrent: number;
+  total31To60: number;
+  total61To90: number;
+  total91Plus: number;
+  grandTotal: number;
+}
+
+// ============ Statements (Customer / Vendor) ============
+// Sprint 36 (DEC-122) — chronological ledger per party
+export interface StatementLine {
+  date: string;
+  type: 'Opening' | 'فاتورة' | 'سند قبض' | 'فاتورة مورّد' | 'دفعة';
+  reference: string;
+  description: string;
+  debit: number;
+  credit: number;
+  runningBalance: number;
+}
+
+export interface CustomerStatement {
+  customerId: string;
+  customerCode: string;
+  customerName: string;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  totalInvoiced: number;
+  totalReceived: number;
+  closingBalance: number;
+  lines: StatementLine[];
+}
+
+export interface VendorStatement {
+  vendorId: string;
+  vendorCode: string;
+  vendorName: string;
+  from: string | null;
+  to: string | null;
+  openingBalance: number;
+  totalBilled: number;
+  totalPaid: number;
+  closingBalance: number;
+  lines: StatementLine[];
 }
 
 // ============ Procurement ============
@@ -636,6 +994,8 @@ export interface SalesInvoice {
   status: number;
   notes?: string;
   projectId?: string;
+  // Sprint 35 (DEC-118) + Sprint 39 (DEC-125): VAT 5% opt-in flag
+  useVat5?: boolean;
   postedAt?: string;
   journalEntryId?: string;
   createdAt: string;
@@ -720,6 +1080,20 @@ export const arApi = {
     await api.delete(`/api/ar/customers/${id}`);
   },
 
+  // ----- Customer Statement (Sprint 36, DEC-122) -----
+  // كشـف حساب العميل: رصيد افتتاحي + فواتير + مقبوضات + رصيد ختامي
+  getCustomerStatement: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<CustomerStatement> => {
+    const r = await api.get<CustomerStatement>(
+      `/api/ar/customers/${id}/statement`,
+      { params: { from, to } }
+    );
+    return r.data;
+  },
+
   // ----- Sales Invoices -----
   listInvoices: async (): Promise<SalesInvoice[]> => {
     const r = await api.get<SalesInvoice[]>('/api/ar/sales-invoices');
@@ -737,6 +1111,10 @@ export const arApi = {
     exchangeRate: number;
     notes?: string;
     projectId?: string;
+    // Sprint 39 (DEC-125): useVat5 is opt-in, OFF by default. Per Libyan rule
+    // ("لا نطبق الضريبة بشكل افتراضي"). When true, the BE applies the VAT 5%
+    // posting rule and emits Cr 1411 (VAT Output). When false, no VAT.
+    useVat5?: boolean;
     lines: { description: string; quantity: number; unitPrice: number; taxRate: number; itemId?: string }[];
     postImmediately?: boolean;
   }): Promise<SalesInvoice> => {
@@ -904,13 +1282,173 @@ export const authApi = {
   },
 };
 
+// ============ Journal Entry types (Sprint 39, DEC-125) ============
+// الـ API client methods (L60): يجب استخدام api client method بدلاً من raw fetch()
+// حتى يتم إرفاق JWT تلقائياً. الـ types موحدة هنا لتجنب duplicate interfaces.
+
+export interface JournalEntryLine {
+  lineNumber: number;
+  accountId: string;
+  accountCode: string;
+  accountName: string;
+  debit: number;
+  credit: number;
+  description?: string;
+}
+
+export interface JournalEntry {
+  id: string;
+  entryNumber: string;
+  entryDate: string;
+  description: string;
+  reference?: string;
+  status: number; // 1=Draft, 2=Posted, 3=Reversed
+  postedAt?: string;
+  totalDebit: number;
+  totalCredit: number;
+  lines?: JournalEntryLine[];
+}
+
+export interface JournalEntryDetail extends JournalEntry {
+  lines: JournalEntryLine[];
+  createdAt?: string;
+  createdBy?: string;
+  postingRuleId?: string;
+  sourceType?: string;
+  sourceId?: string;
+}
+
+export interface CreateJournalEntryRequest {
+  entryDate: string;
+  description: string;
+  reference?: string;
+  lines: { accountId: string; debit: number; credit: number; description?: string }[];
+  postImmediately?: boolean;
+}
+
 export const financeApi = {
   listAccounts: async (): Promise<Account[]> => {
     const r = await api.get<Account[]>('/api/finance/accounts');
     return r.data;
   },
+  // Sprint 52a: tree view of the CoA. Used by /finance/accounts-tree.
+  getAccountsTree: async (): Promise<AccountTreeNode[]> => {
+    const r = await api.get<AccountTreeNode[]>('/api/finance/accounts/tree');
+    return r.data;
+  },
   createAccount: async (data: Partial<Account>): Promise<Account> => {
     const r = await api.post<Account>('/api/finance/accounts', data);
+    return r.data;
+  },
+  // ----- Trial Balance (Sprint 36, DEC-122) -----
+  // ميزان المراجعة: كل الحسابات وأرصدتها في تاريخ معين
+  getTrialBalance: async (asOf?: string): Promise<TrialBalanceRow[]> => {
+    const r = await api.get<TrialBalanceRow[]>('/api/finance/ledger/trial-balance', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  // ----- Trial Balance v2 (Sprint 54, DEC-142) -----
+  // ميزان المراجعة الهرمي: L4 details + L3 parent info للتجميع البصري
+  getTrialBalanceV2: async (asOf?: string): Promise<TrialBalanceV2Report> => {
+    const r = await api.get<TrialBalanceV2Report>('/api/finance/ledger/trial-balance-v2', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  // ----- General Ledger per account (Sprint 38, DEC-124) -----
+  // دفتر الأستاذ: كل الحركات على حساب معين بترتيب زمني
+  getAccountLedger: async (accountId: string, from?: string, to?: string): Promise<LedgerLine[]> => {
+    const r = await api.get<LedgerLine[]>(`/api/finance/ledger/accounts/${accountId}`, {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  // ----- Sprint 48 (DEC-130..132) — Financial Reports -----
+  /** الميزانية العمومية — Balance Sheet */
+  getBalanceSheet: async (asOf?: string): Promise<BalanceSheetReport> => {
+    const r = await api.get<BalanceSheetReport>('/api/finance/ledger/balance-sheet', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  /** قائمة الدخل — Income Statement (P&L) */
+  getIncomeStatement: async (from?: string, to?: string): Promise<IncomeStatementReport> => {
+    const r = await api.get<IncomeStatementReport>('/api/finance/ledger/income-statement', {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  /** التدفقات النقدية — Cash Flow (Indirect Method) */
+  getCashFlow: async (from?: string, to?: string): Promise<CashFlowReport> => {
+    const r = await api.get<CashFlowReport>('/api/finance/ledger/cash-flow', {
+      params: { from, to },
+    });
+    return r.data;
+  },
+  /** أعمار الذمم الدائنة — AP Aging */
+  getAPAging: async (asOf?: string): Promise<APAgingReport> => {
+    const r = await api.get<APAgingReport>('/api/procurement/ap-aging', {
+      params: asOf ? { asOf } : undefined,
+    });
+    return r.data;
+  },
+  // Sprint 39 (DEC-125): Journal entries list (L60 — API client method so JWT is attached)
+  listJournalEntries: async (): Promise<JournalEntry[]> => {
+    const r = await api.get<JournalEntry[]>('/api/finance/journal-entries');
+    return r.data;
+  },
+  getJournalEntry: async (id: string): Promise<JournalEntryDetail> => {
+    const r = await api.get<JournalEntryDetail>(`/api/finance/journal-entries/${id}`);
+    return r.data;
+  },
+  createJournalEntry: async (data: CreateJournalEntryRequest): Promise<JournalEntry> => {
+    const r = await api.post<JournalEntry>('/api/finance/journal-entries', data);
+    return r.data;
+  },
+  postJournalEntry: async (id: string): Promise<{ journalEntryId: string; entryNumber: string; status: string }> => {
+    const r = await api.post<{ journalEntryId: string; entryNumber: string; status: string }>(`/api/finance/journal-entries/${id}/post`, {});
+    return r.data;
+  },
+  reverseJournalEntry: async (id: string, reason: string): Promise<{ reversedEntryId: string; reversalEntryId: string; entryNumber: string }> => {
+    const r = await api.post<{ reversedEntryId: string; reversalEntryId: string; entryNumber: string }>(`/api/finance/journal-entries/${id}/reverse`, { reason });
+    return r.data;
+  },
+  // Sprint 40 (L67): Posting rules CRUD
+  listPostingRules: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/finance/posting-rules');
+    return r.data;
+  },
+  getPostingRule: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/finance/posting-rules/${id}`);
+    return r.data;
+  },
+  createPostingRule: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/finance/posting-rules', data);
+    return r.data;
+  },
+  updatePostingRule: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/finance/posting-rules/${id}`, data);
+    return r.data;
+  },
+  deletePostingRule: async (id: string): Promise<void> => {
+    await api.delete(`/api/finance/posting-rules/${id}`);
+  },
+  // Sprint 40 (L67): Cost Centers CRUD
+  listCostCenters: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/cost-centers');
+    return r.data;
+  },
+  getCostCenter: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/cost-centers/${id}`);
+    return r.data;
+  },
+  createCostCenter: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/cost-centers', data);
+    return r.data;
+  },
+  updateCostCenter: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/cost-centers/${id}`, data);
     return r.data;
   },
 };
@@ -1015,6 +1553,11 @@ export const inventoryApi = {
     const r = await api.get<Item>(`/api/inventory/items/${id}`);
     return r.data;
   },
+  // POST /api/inventory/items
+  createItem: async (data: Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>): Promise<Item> => {
+    const r = await api.post<Item>('/api/inventory/items', data);
+    return r.data;
+  },
   // PUT /api/inventory/items/{id}
   updateItem: async (id: string, data: Partial<Omit<Item, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>>): Promise<Item> => {
     const r = await api.put<Item>(`/api/inventory/items/${id}`, data);
@@ -1025,9 +1568,67 @@ export const inventoryApi = {
     const r = await api.get<{ id: string; code: string; name: string; parentId?: string; isActive: boolean }[]>(`/api/inventory/categories`);
     return r.data;
   },
+  // POST /api/inventory/categories — Sprint 40 (L67)
+  createCategory: async (data: { code: string; name: string; parentId?: string; isActive?: boolean }): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>('/api/inventory/categories', data);
+    return r.data;
+  },
+  // PUT /api/inventory/categories/{id} — Sprint 40 (L67)
+  updateCategory: async (id: string, data: { code: string; name: string; parentId?: string; isActive?: boolean }): Promise<{ id: string }> => {
+    const r = await api.put<{ id: string }>(`/api/inventory/categories/${id}`, data);
+    return r.data;
+  },
+  // DELETE /api/inventory/categories/{id} — Sprint 40 (L67)
+  deleteCategory: async (id: string): Promise<void> => {
+    await api.delete(`/api/inventory/categories/${id}`);
+  },
   // GET /api/inventory/units — قائمة وحدات القياس (UoM)
   listUnitsOfMeasure: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
     const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/units`);
+    return r.data;
+  },
+  // GET /api/inventory/warehouses — المستودعات (لـ select في form)
+  listWarehouses: async (): Promise<{ id: string; code: string; name: string; isActive: boolean }[]> => {
+    const r = await api.get<{ id: string; code: string; name: string; isActive: boolean }[]>(`/api/inventory/warehouses`);
+    return r.data;
+  },
+  // GET /api/inventory/reservations
+  listReservations: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/inventory/reservations');
+    return r.data;
+  },
+  // GET /api/inventory/reservations/{id}
+  getReservation: async (id: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/inventory/reservations/${id}`);
+    return r.data;
+  },
+  // POST /api/inventory/reservations
+  createReservation: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/inventory/reservations', data);
+    return r.data;
+  },
+  // PUT /api/inventory/reservations/{id}
+  updateReservation: async (id: string, data: unknown): Promise<unknown> => {
+    const r = await api.put<unknown>(`/api/inventory/reservations/${id}`, data);
+    return r.data;
+  },
+  // DELETE /api/inventory/reservations/{id} — Sprint 40 (L67)
+  deleteReservation: async (id: string): Promise<void> => {
+    await api.delete(`/api/inventory/reservations/${id}`);
+  },
+  // GET /api/inventory/movements
+  listMovements: async (): Promise<unknown[]> => {
+    const r = await api.get<unknown[]>('/api/inventory/movements');
+    return r.data;
+  },
+  // POST /api/inventory/movements
+  createMovement: async (data: unknown): Promise<unknown> => {
+    const r = await api.post<unknown>('/api/inventory/movements', data);
+    return r.data;
+  },
+  // GET /api/inventory/items/{id}/stock — get stock level for an item
+  getItemStock: async (itemId: string): Promise<unknown> => {
+    const r = await api.get<unknown>(`/api/inventory/items/${itemId}/stock`);
     return r.data;
   },
   // Sprint 22: Notifications module deleted. listNotifications + getUnreadNotifications + markNotificationRead removed.
@@ -1036,6 +1637,118 @@ export const inventoryApi = {
 export const projectsApi = {
   listProjects: async (): Promise<Project[]> => {
     const r = await api.get<Project[]>('/api/projects');
+    return r.data;
+  },
+  // Sprint 40 (L67): Project CRUD
+  createProject: async (data: Partial<Project>): Promise<Project> => {
+    const r = await api.post<Project>('/api/projects', data);
+    return r.data;
+  },
+  // DEC-177: Missing CRUD methods — Sprint 59 v2 page redesign used
+  // projectsApi.getProject but only listProjects + createProject existed.
+  // The BE has had GET/PUT/DELETE /api/projects/{id} since Sprint 12.
+  getProject: async (id: string): Promise<Project> => {
+    const r = await api.get<Project>(`/api/projects/${id}`);
+    return r.data;
+  },
+  updateProject: async (
+    id: string,
+    data: Partial<Omit<Project, 'id' | 'createdAt' | 'updatedAt'>>
+  ): Promise<Project> => {
+    const r = await api.put<Project>(`/api/projects/${id}`, data);
+    return r.data;
+  },
+  deleteProject: async (id: string): Promise<void> => {
+    await api.delete(`/api/projects/${id}`);
+  },
+
+  // ===== Sprint 57 (DEC-160..162): P&L =====
+  // GET /api/projects/{id}/pnl?from=YYYY-MM-DD&to=YYYY-MM-DD
+  getProjectPnL: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<ProjectPnL> => {
+    const r = await api.get<ProjectPnL>(`/api/projects/${id}/pnl`, {
+      params: { from, to },
+    });
+    return r.data;
+  },
+
+  // ===== Sprint 58 (DEC-163..165): Contract =====
+  // GET /api/projects/{id}/contract
+  getContract: async (id: string): Promise<Contract | null> => {
+    const r = await api.get<Contract | null>(`/api/projects/${id}/contract`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/contract
+  createContract: async (
+    id: string,
+    data: CreateContractRequest
+  ): Promise<Contract> => {
+    const r = await api.post<Contract>(`/api/projects/${id}/contract`, data);
+    return r.data;
+  },
+  // PUT /api/contracts/{contractId}
+  updateContract: async (
+    contractId: string,
+    data: UpdateContractRequest
+  ): Promise<Contract> => {
+    const r = await api.put<Contract>(`/api/contracts/${contractId}`, data);
+    return r.data;
+  },
+  // DELETE /api/contracts/{contractId}
+  deleteContract: async (contractId: string): Promise<void> => {
+    await api.delete(`/api/contracts/${contractId}`);
+  },
+
+  // ===== Sprint 58 (DEC-164): Progress Billings =====
+  // GET /api/projects/{id}/billings
+  getBillings: async (id: string): Promise<ProgressBilling[]> => {
+    const r = await api.get<ProgressBilling[]>(`/api/projects/${id}/billings`);
+    return r.data;
+  },
+  // POST /api/projects/{id}/billings
+  createBilling: async (
+    id: string,
+    data: CreateBillingRequest
+  ): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/projects/${id}/billings`,
+      data
+    );
+    return r.data;
+  },
+  // POST /api/billings/{billingId}/approve
+  approveBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/billings/${billingId}/approve`
+    );
+    return r.data;
+  },
+  // POST /api/billings/{billingId}/cancel
+  cancelBilling: async (billingId: string): Promise<ProgressBilling> => {
+    const r = await api.post<ProgressBilling>(
+      `/api/billings/${billingId}/cancel`
+    );
+    return r.data;
+  },
+  // GET /api/contracts/{contractId}/billing-preview?workCompletedPercent=N
+  previewBilling: async (
+    contractId: string,
+    workCompletedPercent: number
+  ): Promise<BillingPreview> => {
+    const r = await api.get<BillingPreview>(
+      `/api/contracts/${contractId}/billing-preview`,
+      { params: { workCompletedPercent } }
+    );
+    return r.data;
+  },
+
+  // ===== Sprint 58 (DEC-165): WIP =====
+  // GET /api/projects/{id}/wip
+  getProjectWip: async (id: string): Promise<ProjectWip> => {
+    const r = await api.get<ProjectWip>(`/api/projects/${id}/wip`);
     return r.data;
   },
 };
@@ -1068,6 +1781,20 @@ export const procurementApi = {
   },
   createVendor: async (data: Partial<Vendor>): Promise<Vendor> => {
     const r = await api.post<Vendor>('/api/procurement/vendors', data);
+    return r.data;
+  },
+
+  // ----- Vendor Statement (Sprint 36, DEC-122) -----
+  // كشـف حساب المورّد: رصيد افتتاحي + فواتير + مدفوعات + رصيد ختامي
+  getVendorStatement: async (
+    id: string,
+    from?: string,
+    to?: string
+  ): Promise<VendorStatement> => {
+    const r = await api.get<VendorStatement>(
+      `/api/procurement/vendors/${id}/statement`,
+      { params: { from, to } }
+    );
     return r.data;
   },
   // PUT /api/procurement/vendors/{id}
@@ -1633,6 +2360,34 @@ export async function getSubsidiaries(companyId: string): Promise<SubsidiaryList
     `/api/companies/${encodeURIComponent(companyId)}/subsidiaries`
   );
   return r.data;
+}
+
+// ============ authedFetch — helper for pages still using raw `fetch` ============
+//
+// Many list pages call `fetch('/api/...')` directly. That bypasses the axios
+// interceptor, so the JWT + X-Company-Id headers are never attached → BE returns
+// 401 → page shows "فشل التحميل". This helper reads the token from
+// localStorage and adds both headers, matching what `api` (axios) does.
+//
+// Use: const res = await authedFetch('/api/finance/journal-entries'); const data = await res.json();
+// Or use `api.get('/api/finance/journal-entries')` for typed responses.
+export async function authedFetch(
+  input: string,
+  init: RequestInit = {}
+): Promise<Response> {
+  const headers = new Headers(init.headers);
+  if (typeof window !== 'undefined') {
+    const token = localStorage.getItem('accessToken');
+    if (token) headers.set('Authorization', `Bearer ${token}`);
+    const companyId =
+      localStorage.getItem('currentCompanyId') ||
+      localStorage.getItem('defaultCompanyId');
+    if (companyId) headers.set('X-Company-Id', companyId);
+  }
+  if (!headers.has('Content-Type') && init.body && typeof init.body === 'string') {
+    headers.set('Content-Type', 'application/json');
+  }
+  return fetch(input, { ...init, headers });
 }
 
 

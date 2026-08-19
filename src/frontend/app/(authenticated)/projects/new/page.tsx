@@ -1,35 +1,49 @@
 'use client';
 
-// صفحة إنشاء مشروع جديد (Project) — form
+// صفحة إنشاء مشروع جديد (Project) — Sprint 59 redesign (DEC-171)
+//
+// Modern layout:
+//   1. PageHero with eyebrow + title + hint
+//   2. Form card with grouped sections (basic info, schedule, finance)
+//   3. Info banner about auto-CostCenter creation
+//   4. Save / Cancel actions in card footer
+//
+// Backend: POST /api/projects. Sprint 32 P0 (DEC-113) auto-creates a CostCenter
+// per project (code=CC-{projectCode}), so the form does NOT need a costCenterId.
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, Save } from 'lucide-react';
-import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
+import {
+  ArrowRight, Save, Briefcase, Calendar, Wallet, FileText,
+  Building2, CheckCircle2,
+} from 'lucide-react';
+import {
+  PageHero, SectionCard, StatusPill,
+  Button, Input, Select, type SelectOption,
+} from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage, type ProjectStatusName } from '@/lib/api';
 
-const PROJECT_STATUSES = [
-  { label: 'تخطيط (Planning)', value: 1 },
-  { label: 'نشط (Active)', value: 2 },
-  { label: 'معلّق (OnHold)', value: 3 },
-  { label: 'مكتمل (Completed)', value: 4 },
-  { label: 'ملغي (Cancelled)', value: 5 },
+// L120: BE serializes ProjectStatus as string. We send strings too.
+const PROJECT_STATUSES: SelectOption[] = [
+  { label: 'تخطيط (Planning)', value: 'Planning' },
+  { label: 'نشط (Active)', value: 'Active' },
+  { label: 'معلّق (OnHold)', value: 'OnHold' },
+  { label: 'مكتمل (Completed)', value: 'Completed' },
+  { label: 'ملغي (Cancelled)', value: 'Cancelled' },
 ];
 
 interface FormState {
   code: string;
   name: string;
   description: string;
-  status: number;
+  status: ProjectStatusName;
   budget: string;
   startDate: string;
   endDate: string;
 }
 
-// Sprint 32 P0 followup (DEC-113): the BE service auto-creates a CostCenter for each
-// project (type=Project, code="CC-{code}"). The form does NOT need a costCenterId field.
 export default function NewProjectPage() {
   const router = useRouter();
   useAuth();
@@ -37,7 +51,7 @@ export default function NewProjectPage() {
     code: '',
     name: '',
     description: '',
-    status: 2,
+    status: 'Active',
     budget: '0',
     startDate: new Date().toISOString().split('T')[0],
     endDate: '',
@@ -49,7 +63,7 @@ export default function NewProjectPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const v = e.target.value;
-    setForm((f) => ({ ...f, [k]: k === 'status' ? Number(v) : v }));
+    setForm((f) => ({ ...f, [k]: k === 'status' ? (v as ProjectStatusName) : v }));
   };
 
   const onSubmit = async (e: React.FormEvent) => {
@@ -57,8 +71,7 @@ export default function NewProjectPage() {
     setError(null);
     setSubmitting(true);
     try {
-      // DEC-113: companyId is NOT sent — BE service uses ICompanyContext from JWT (L19/L30).
-      const res = await fetch('/api/projects', {
+      const res = await authedFetch('/api/projects', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -83,40 +96,60 @@ export default function NewProjectPage() {
     }
   };
 
+  const isActive = form.status === 'Active';
+  const isCompleted = form.status === 'Completed';
+
   return (
-    <div>
-      <PageHeader
-        title="➕ مشروع جديد"
-        description="أضف مشروعاً جديداً إلى النظام"
-        breadcrumb={[
-          { label: 'الرئيسية', href: '/dashboard' },
-          { label: 'المشاريع', href: '/projects' },
-          { label: 'جديد' },
-        ]}
+    <div className="space-y-6">
+      <PageHero
+        eyebrow="إدارة المشاريع"
+        title="مشروع جديد"
+        subtitle="أضف مشروعاً جديداً إلى النظام. سيتم إنشاء مركز تكلفة تلقائياً وربطه بحساب إيرادات/تكاليف المشروع."
+        tone="violet"
         actions={
           <Link href="/projects">
-            <Button variant="ghost" iconLeft={<ArrowRight className="h-4 w-4" />}>
-              رجوع للقائمة
+            <Button variant="secondary" iconLeft={<ArrowRight className="h-4 w-4" />}>
+              العودة إلى المشاريع
             </Button>
           </Link>
         }
+        highlight={
+          isCompleted
+            ? { label: 'الحالة', value: 'مكتمل' }
+            : isActive
+              ? { label: 'الحالة الافتراضية', value: 'نشط' }
+              : undefined
+        }
       />
 
-      <Card className="max-w-2xl">
-        {error && (
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">
-            {error}
-          </div>
-        )}
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700" role="alert">
+          <p className="font-semibold">تعذّر إنشاء المشروع</p>
+          <p className="mt-1 text-sm">{error}</p>
+        </div>
+      )}
 
-        <form onSubmit={onSubmit} className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form onSubmit={onSubmit} className="space-y-6">
+        {/* Section 1: Basic info */}
+        <SectionCard
+          title="المعلومات الأساسية"
+          description="كود المشروع، الاسم، الوصف، والحالة"
+          actions={
+            <StatusPill
+              tone={isActive ? 'green' : isCompleted ? 'blue' : 'slate'}
+              label={isActive ? 'مشروع نشط' : isCompleted ? 'مشروع مكتمل' : 'مشروع مُعلّق'}
+              showDot={false}
+            />
+          }
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Input
               label="كود المشروع *"
               value={form.code}
               onChange={onChange('code')}
               required
               placeholder="مثال: PRJ-001"
+              hint="كود فريد — يُستخدم لإنشاء مركز التكلفة CC-{code}"
             />
             <Select
               label="الحالة"
@@ -126,28 +159,51 @@ export default function NewProjectPage() {
             />
           </div>
 
-          <Input
-            label="اسم المشروع *"
-            value={form.name}
-            onChange={onChange('name')}
-            required
-            placeholder="مثال: بناء مجمع سكني - طرابلس"
-          />
-
-          <Input
-            label="الوصف"
-            value={form.description}
-            onChange={onChange('description')}
-            placeholder="وصف تفصيلي للمشروع (اختياري)"
-          />
-
-          <div className="bg-blue-50 border border-blue-200 text-blue-800 px-4 py-3 rounded-lg text-sm">
-            ℹ️ سيُنشأ مركز تكلفة تلقائياً باسم <span className="font-mono">CC-{'{كود المشروع}'}</span> لهذا المشروع.
+          <div className="mt-4">
+            <Input
+              label="اسم المشروع *"
+              value={form.name}
+              onChange={onChange('name')}
+              required
+              placeholder="مثال: بناء مجمع سكني - طرابلس"
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mt-4">
             <Input
-              label="الميزانية"
+              label="الوصف"
+              value={form.description}
+              onChange={onChange('description')}
+              placeholder="وصف تفصيلي للمشروع (اختياري)"
+            />
+          </div>
+        </SectionCard>
+
+        {/* Info banner about auto CostCenter */}
+        <div className="flex items-start gap-3 rounded-2xl border border-blue-200 bg-blue-50 p-4">
+          <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-blue-100">
+            <CheckCircle2 className="h-5 w-5 text-blue-600" />
+          </div>
+          <div className="flex-1">
+            <p className="text-sm font-bold text-blue-900">مركز التكلفة التلقائي</p>
+            <p className="mt-0.5 text-xs text-blue-800">
+              سيُنشأ مركز تكلفة تلقائياً باسم{' '}
+              <span className="rounded bg-white/60 px-1.5 py-0.5 font-mono font-semibold">
+                CC-{form.code || '{كود المشروع}'}
+              </span>{' '}
+              من نوع <span className="font-mono">Project</span> لهذا المشروع.
+            </p>
+          </div>
+        </div>
+
+        {/* Section 2: Schedule + Budget */}
+        <SectionCard
+          title="الجدول الزمني والميزانية"
+          description="تاريخ البداية والنهاية، وقيمة الميزانية المخصصة"
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Input
+              label="الميزانية (ل.د)"
               type="number"
               step="0.01"
               value={form.budget}
@@ -167,24 +223,30 @@ export default function NewProjectPage() {
               onChange={onChange('endDate')}
             />
           </div>
+        </SectionCard>
 
-          <div className="flex items-center gap-2 pt-3 border-t">
+        {/* Actions footer */}
+        <div className="flex flex-col gap-3 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-gray-200/70 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs text-gray-500">
+            جميع الحقول المطلوبة يجب ملؤها قبل الحفظ. بعد الإنشاء يمكنك إضافة العقد والمستخلصات.
+          </p>
+          <div className="flex items-center gap-2">
+            <Link href="/projects">
+              <Button type="button" variant="ghost">
+                إلغاء
+              </Button>
+            </Link>
             <Button
               type="submit"
               variant="primary"
               loading={submitting}
               iconLeft={<Save className="h-4 w-4" />}
             >
-              حفظ المشروع
+              {submitting ? 'جاري الحفظ…' : 'حفظ المشروع'}
             </Button>
-            <Link href="/projects">
-              <Button type="button" variant="ghost">
-                إلغاء
-              </Button>
-            </Link>
           </div>
-        </form>
-      </Card>
+        </div>
+      </form>
     </div>
   );
 }

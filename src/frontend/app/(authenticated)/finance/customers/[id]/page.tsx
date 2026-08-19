@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowRight, ArrowLeft, FileText, RefreshCw } from 'lucide-react';
+import { ArrowRight, ArrowLeft, FileText, RefreshCw, FileBarChart } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
 import { api, getErrorMessage } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
@@ -62,7 +62,7 @@ export default function FinanceCustomersIdPage() {
       />
 
       {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+        <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4">
           {error}
         </div>
       )}
@@ -143,11 +143,17 @@ export default function FinanceCustomersIdPage() {
           <Card className="p-6">
             <h3 className="text-lg font-bold text-gray-800 mb-4">الإجراءات</h3>
             <div className="space-y-2">
-              <Button variant="primary" onClick={load} iconLeft={<RefreshCw className="h-4 w-4" />} className="w-full">
+              {/* Sprint 36 (DEC-122): customer statement link */}
+              <Link href={`/finance/customers/${id}/statement`}>
+                <Button variant="primary" iconLeft={<FileBarChart className="h-4 w-4" />} className="w-full">
+                  كشف حساب العميل
+                </Button>
+              </Link>
+              <Button variant="secondary" onClick={load} iconLeft={<RefreshCw className="h-4 w-4" />} className="w-full">
                 إعادة تحميل
               </Button>
               <Link href="/finance/customers">
-                <Button variant="secondary" className="w-full">العودة للقائمة</Button>
+                <Button variant="ghost" className="w-full">العودة للقائمة</Button>
               </Link>
             </div>
           </Card>

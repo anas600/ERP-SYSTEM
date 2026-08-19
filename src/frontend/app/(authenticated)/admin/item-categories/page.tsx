@@ -15,7 +15,7 @@ import {
   useToast,
 } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 interface ItemCategory {
   id: string;
@@ -45,7 +45,7 @@ export default function ItemCategoriesPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/inventory/categories', { cache: 'no-store' });
+      const res = await authedFetch('/api/inventory/categories', { cache: 'no-store' });
       if (!res.ok) throw new Error('فشل التحميل');
       const data = (await res.json()) as ItemCategory[];
       setItems(data);
@@ -64,7 +64,7 @@ export default function ItemCategoriesPage() {
     if (!deleteTarget) return;
     setDeleteSubmitting(true);
     try {
-      const res = await fetch(`/api/inventory/categories/${deleteTarget.id}`, {
+      const res = await authedFetch(`/api/inventory/categories/${deleteTarget.id}`, {
         method: 'DELETE',
       });
       if (res.status === 404 || res.status === 405) {

@@ -2,8 +2,119 @@
 @tailwind components;
 @tailwind utilities;
 
-body {
+/* ============================================================
+   Sprint 39 (DEC-125) — Design System CSS Variables
+   Provides semantic tokens for colors, shadows, spacing, etc.
+   All UI components reference these via Tailwind classes
+   (configured in tailwind.config.js) or directly via var().
+   ============================================================ */
+:root {
+  --color-bg: #f8fafc;            /* slate-50 — page background */
+  --color-surface: #ffffff;        /* card / panel surface */
+  --color-surface-hover: #f8fafc;  /* row hover */
+  --color-border: #e2e8f0;         /* slate-200 — card border, divider */
+  --color-border-strong: #cbd5e1;  /* slate-300 — input border, strong divider */
+  --color-text: #0f172a;           /* slate-900 — primary text */
+  --color-text-muted: #64748b;     /* slate-500 — secondary text */
+  --color-text-subtle: #94a3b8;    /* slate-400 — tertiary text, placeholder */
+
+  --color-brand: #3b82f6;          /* primary action */
+  --color-brand-hover: #2563eb;    /* primary hover */
+  --color-brand-soft: #dbeafe;     /* primary background */
+
+  --color-success: #16a34a;
+  --color-success-soft: #dcfce7;
+  --color-warning: #d97706;
+  --color-warning-soft: #fef3c7;
+  --color-danger: #dc2626;
+  --color-danger-soft: #fee2e2;
+
+  --radius-sm: 0.375rem;
+  --radius: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+
+  --shadow-soft: 0 1px 3px 0 rgb(0 0 0 / 0.06), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+  --shadow-soft-md: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.04);
+  --shadow-soft-lg: 0 10px 15px -3px rgb(0 0 0 / 0.06), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+  --shadow-focus: 0 0 0 3px rgb(59 130 246 / 0.18);
+
+  --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-slow: 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+html, body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
   font-family: 'Cairo', 'Noto Sans Arabic', system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Smooth scrolling for in-page navigation */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Focus-visible outline for keyboard nav (accessibility) */
+:focus-visible {
+  outline: 2px solid var(--color-brand);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* Selection */
+::selection {
+  background-color: var(--color-brand-soft);
+  color: var(--color-brand-hover);
+}
+
+/* Custom scrollbar (thin + rounded) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-strong);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-subtle);
+}
+
+/* Skeleton shimmer (for loading states) */
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    rgba(226, 232, 240, 0.4) 0%,
+    rgba(203, 213, 225, 0.6) 50%,
+    rgba(226, 232, 240, 0.4) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Smooth focus transitions on interactive elements */
+button, a, input, select, textarea {
+  transition: background-color var(--transition-fast),
+              border-color var(--transition-fast),
+              color var(--transition-fast),
+              box-shadow var(--transition-fast),
+              transform var(--transition-fast);
+}
+
+/* Page-level animation: subtle fade-in for content */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+main > * {
+  animation: pageEnter 250ms cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 /* ============ Print styles (Payslip + Sprint 5 invoices) ============

@@ -366,7 +366,7 @@ export default function UserDetailPage() {
                     onClick={() => removeCompany(c.companyId, c.companyName)}
                     disabled={saving}
                   >
-                    <Trash2 className="h-3 w-3 text-red-500" />
+                    <Trash2 className="h-3 w-3 text-danger-500" />
                   </Button>
                 </div>
               ))}

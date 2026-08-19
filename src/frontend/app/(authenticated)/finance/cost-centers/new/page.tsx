@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Select, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { authedFetch, getErrorMessage } from '@/lib/api';
 
 const CC_TYPES = [
   { label: 'إنتاج (Production)', value: 1 },
@@ -50,7 +50,7 @@ export default function NewCostCenterPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch('/api/cost-centers', {
+      const res = await authedFetch('/api/cost-centers', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

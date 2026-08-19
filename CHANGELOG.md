@@ -13,6 +13,232 @@
 
 ---
 
+## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive 2026-08-08 09:35 — merge Mephisto's Sprint 57-60 work (Project P&L + Contracts + Billings + WIP + Modern UI + UoM) into the master branch, then apply a new professional 4-level CoA + 2026 scenario seeder.
+
+**This entry is a meta-sprint describing the merge; the new CoA + scenario details are in their own sprints (Sprint 58b/c/d below).**
+
+### Added (merge)
+- `ProjectPnLService.cs` (Mephisto Sprint 57 / DEC-160..162)
+- `ContractService.cs` + `ContractRepository.cs` + `Contract` entity + `data-types/contracts.json` (Mephisto Sprint 58 / DEC-163)
+- `BillingService.cs` + `BillingRepository.cs` + `ProgressBilling` entity + `data-types/progress_billings.json` (Mephisto Sprint 58 / DEC-164)
+- WIP = `totalCosts - totalBilledNet` (Mephisto Sprint 58 / DEC-165)
+- 4 new UI components: `PageHero`, `StatCard`, `StatusPill`, `ModernTable` (Mephisto Sprint 59)
+- Modern Inventory dashboard redesign (Mephisto Sprint 59)
+- Modern Projects + Dashboard redesign (Mephisto Sprint 59 v2 / DEC-170..172)
+- Comprehensive UoM (h, d, km, ton, set...) + Select dropdown in item form (Mephisto Sprint 60)
+- `authedFetch()` helper in `lib/api.ts` (Mephisto Sprint 58 hotfix)
+
+### Changed
+- `BillingService` hardcoded account code `1103` → `1201` for new CoA compatibility
+- Posting rules updated to use new CoA codes
+
+### Merged from
+- `feature/sprint-58-contracts-billings` @ `ada78a4` (Sprint 60)
+- Conflicts resolved: 22 files (mostly `authedFetch` page.tsx conversions), all resolved in favor of Mephisto's modern version
+
+---
+
+## Sprint 58b — Professional 4-Level CoA (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's CoA design — replace illogical seeder accounts with a professional 4-level chart that serves both general accounting and project accounting.
+
+**Levels:**
+- L1 (1 char) — Account type: 0=Holding, 1=Assets, 2=Liabilities, 3=Equity, 4=Revenue, 5=COGS, 6=OpEx, 7=Other, 8=Tax, 9=Closing
+- L2 (1 char) — Sub-classification: 11=Current Assets, 12=Receivables, 13=Inventory, ...
+- L3 (2 chars) — Control accounts: 1101=Cash, 1102=Banks, 1201=AR, 2101=AP, 3101=Capital, ...
+- L4 (suffix-serial) — Detail accounts: 1101-001=Office Main Cash, 1102-001=Bank ABC, 1201-001=Customer A, 2101-001=Vendor A, ...
+
+**Critical:** L1, L2, L3 are NOT postable. Only L4 detail accounts accept journal entries.
+
+### Added
+- `ProfessionalCoASeederHostedService.cs` — seeds ~130 accounts (10 L1 + 25 L2 + 50 L3 + 50 L4) with `is_postable=false` on L1/L2/L3
+- Arabic names + English codes for every account
+- Idempotent (skip if exists for company)
+- Gated with `Bootstrap:SeedProfessionalCoA=true` + `IsDevelopment()`
+
+---
+
+## Sprint 58c — 2026 Operational Scenario (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Per Anas's directive — create a realistic 2026 fiscal year scenario (Jan-Aug) that demonstrates the system for a client who is an accountant.
+
+### Master Data
+- Holding: مجموعة الفجر القابضة
+- 2 subsidiaries (Construction + Trading)
+- 6 customers, 5 vendors, 10 employees, 10 items, 3 projects, 2 banks, 2 warehouses, 6 cost centers
+
+### Transactions (Jan-Aug 2026)
+- Capital injection: 3M LYD
+- Long-term loan: 500K LYD
+- Office setup: 80K LYD (furniture, deposits)
+- 30+ sales invoices
+- 25+ purchase bills
+- 20+ customer receipts
+- 15+ vendor payments
+- 8 monthly payroll runs (~85K LYD each)
+- 4 project progress billings (200K → 500K LYD each)
+- Project cost allocations
+- 8 months of depreciation (~5K LYD/month)
+- Bank charges
+- Year-end closing entry
+
+### Added
+- `Scenario2026SeederHostedService.cs` — phases: master data → opening → monthly transactions → depreciation → closing
+- Gated with `Bootstrap:SeedScenario2026=true` + `IsDevelopment()`
+
+---
+
+## Sprint 58d — Financial Reports Verification (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Verify the financial reports engine is accounting-correct with the new CoA + 2026 scenario.
+
+### Verified
+- Trial Balance: Σ DR = Σ CR (balanced to the cent)
+- Income Statement: Revenue − Expense = Net Income
+- Balance Sheet: Assets = Liabilities + Equity + Net Income
+- Cash Flow: Operating + Investing + Financing = Net change in cash
+- AR Aging: 5 buckets, total = AR ledger
+- AP Aging: 5 buckets, total = AP ledger
+- Top Customers + Top Items: correct aggregation
+- Executive Dashboard: 8 KPIs match underlying reports
+
+---
+
+## Sprint 58e — Smoke Tests + Per-Screen Tests (2026-08-08) ✅ DONE (LOCAL-ONLY)
+
+### Verified
+- All major FE pages load (no 500s, no broken links)
+- Arabic RTL correct
+- Drill-downs work
+- Form submissions work
+
+---
+
+## Sprint 58 — Contracts + Progress Billings + WIP (DEC-163..165) (2026-08-07) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** بناء دورة المقاولات الكاملة على رأس أساس Sprint 57.
+
+**Branched from:** `feature/sprint-57-projects-pnl` (يبي P&L foundation من Sprint 57).
+
+### Added (DEC-163) — Contracts
+- `data-types/contracts.json` (auto-applied by DataTypeMigrator)
+  - Fields: id, company_id, project_id, contract_number, contract_value, advance_percent, retention_percent, retention_start_billing, start_date, end_date, notes
+  - UNIQUE (company_id, project_id) — عقد واحد لكل مشروع
+- `Contract` entity + `IContractRepository` + `ContractService`
+- Endpoints:
+  - GET /api/projects/{id}/contract
+  - POST /api/projects/{id}/contract
+  - PUT /api/contracts/{id}
+  - DELETE /api/contracts/{id} (soft delete، فقط لو ما في billings)
+- Validations: contract_value > 0، advance/retention 0-100%
+
+### Added (DEC-164) — Progress Billings
+- `data-types/progress_billings.json` (auto-applied)
+  - Fields: id, company_id, project_id, contract_id, billing_number, billing_date, period_from/to, work_completed_percent, gross_amount, advance_deducted, retention_deducted, net_amount, status, invoice_id, journal_entry_id, notes
+  - UNIQUE (company_id, billing_number)
+- `ProgressBilling` entity + `BillingStatus` enum (Draft/Invoiced/Cancelled)
+- `BillingRepository` + `BillingService` (~19KB) — أكبر service في الـ module
+- Endpoints (7 جديد):
+  - GET /api/projects/{id}/billings
+  - POST /api/projects/{id}/billings
+  - GET /api/billings/{id}
+  - GET /api/contracts/{id}/billing-preview?percent= (live preview)
+  - POST /api/billings/{id}/approve (DRAFT → INVOICED، atomic)
+  - POST /api/billings/{id}/cancel (DRAFT → CANCELLED)
+- Billing Algorithm:
+  - gross = contract_value × (percent / 100)
+  - advance_deducted = MIN(gross, MAX(0, total_advance − previous_advance_sum))  // تُخصم مرة واحدة
+  - retention_deducted = (next_number >= retention_start_billing) ? gross × retention_percent : 0
+  - net = gross − advance − retention
+- **Atomic Approve** (الجزء الأهم):
+  - ينشئ sales_invoice (Posted) + journal_entry (Posted) + 2 journal_lines (DR 1103 AR / CR 4101 Revenue)
+  - يحدث الـ billing: status=Invoiced, invoice_id, journal_entry_id
+  - transaction واحد — لو فشل أي شيء، كله يتراجع
+
+### Added (DEC-165) — WIP + Retention
+- `WipResponse` DTO
+- `IBillingService.GetWipAsync(projectId, ct)` — wip = totalCosts − totalBilledNet
+- Status: BALANCED / COSTS_EXCEED_BILLED / BILLED_EXCEED_COSTS
+- Endpoint: GET /api/projects/{id}/wip
+- UI: WIP card في P&L tab (amber background، 4 stats + status)
+
+### Added (FE)
+- Tab "العقد" (Contract) في /projects/[id]: view/create/edit/delete + modal
+- Tab "المستخلصات" (Billings) في /projects/[id]: list + create modal مع **live preview** (debounced 300ms)
+- WIP card في P&L tab
+- ProjectsModule: 4 tabs (التفاصيل | P&L | العقد | المستخلصات)
+- API methods: getContract, createContract, updateContract, deleteContract, getBillings, createBilling, previewBilling, approveBilling, cancelBilling, getProjectWip
+- Types: Contract, CreateContractRequest, UpdateContractRequest, ProgressBilling, CreateBillingRequest, BillingPreview, ProjectWip
+
+### Changed
+- `ProjectsController`: 4 fields/services مضافة (P&L, Contract, Billing, ...)
+- `Projects/AGENTS.md`: محدّث مع Sprint 58 context (سيُحدّث بعد الـ push)
+
+### Lessons
+- L113: branching order matters (Sprint 58 branched from Sprint 57، مش develop)
+- L114: validate work_completed_percent >= previous MAX WHERE status != 'CANCELLED'
+- L115: AR (1103) + Revenue (4101) accounts لازم تكون موجودة في CoA — لو ناقصة، 400 مع رسالة واضحة
+- L116: Dapper transactions مع Npgsql تحتاج cast صريح لـ NpgsqlConnection
+- L117: branch naming `feature/sprint-NN-<topic-slug>` ثابت من Sprint 57
+- L118: live preview = debounce 300ms قبل API call
+
+### Build/Test
+- BE: 0 errors، 24/24 Project tests pass
+- FE: 0 type errors، build OK (/projects/[id] = 7.91 kB)
+- 3 جداول جديدة (contracts، progress_billings، + indexes)
+- 12 endpoint جديد
+- 2 service جديد (ContractService، BillingService)
+- 4 tab جديدة في الـ project page
+
+---
+
+## Sprint 57 — Project P&L (DEC-160..162) (2026-08-07) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** Foundation for Project module expansion. Add `project_id` to journal entries + Project P&L service + UI tab.
+
+### Added (DEC-160)
+- `journal_entries.project_id` (nullable FK → projects.id, ON DELETE SET NULL)
+- New index `ix_journal_entries_project`
+- `PostJournalEntryRequest.ProjectId` + `JournalEntryResponse.ProjectId`
+- Schema auto-applied via `DataTypeMigrator` (idempotent ADD COLUMN)
+
+### Added (DEC-161)
+- `IProjectPnLService` + `ProjectPnLService` (in `Modules/Projects/Application/Services/`)
+- `ProjectPnLResponse` + `ProjectPnLLine` DTOs
+- Endpoint: `GET /api/projects/{id}/pnl?from=&to=`
+- Registered as `AddScoped` in `Program.cs`
+
+### Added (DEC-162)
+- New tab "الأرباح والخسائر" on `/projects/[id]`
+- Date range filter (default previous year → today)
+- 4 summary cards: Revenue, Costs, Gross Profit, Margin %
+- Cost breakdown table (account code, name, amount, % of total)
+- `projectsApi.getProject(id)` + `projectsApi.getProjectPnL(id, from, to)`
+- `ProjectPnL` + `ProjectPnLLine` types
+
+### Changed
+- `/projects/[id]/page.tsx`: rewritten with tabbed interface (التفاصيل | الأرباح والخسائر)
+- `JournalEntryRepository`: all SQL includes `project_id` (GetById/GetWithLines/Insert/Update/List)
+- `JournalEntryService.CreateDraftAsync`: passes `request.ProjectId` to entity
+- `JournalEntryService.BuildResponseAsync`: includes `ProjectId` in response
+- `Modules/Projects/AGENTS.md`: updated with Sprint 57 context + new endpoint
+
+### Lessons
+- L109: `data-types/*.json` is source of truth for additive schema changes
+- L110: P&L costs come from journal_entries (not from invoices/bills) to avoid double-counting
+- L111: Header-level `project_id` on journal_entries (not per-line)
+- L112: FakeDb doesn't simulate GROUP BY — manual smoke test against real DB needed
+
+### Build/Test
+- BE: 0 errors, 24/24 Project tests pass, 25/25 Finance tests pass (4 pre-existing [Skip])
+- FE: 0 type errors, build OK (`/projects/[id]` = 4.16 kB)
+
+---
+
+## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
+
 ## Sprint 32 — Projects module tables fix (DEC-112) + Sprint 31 test collateral (2026-08-04) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's Q1 from Sprint 31 (defer to Sprint 32) — fix the Projects module's 4 missing `data-types/*.json` files so the tables get created. Closed the loop on L44 ("Projects module is partially implemented").

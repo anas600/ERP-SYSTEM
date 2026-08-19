@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { ArrowRight, Save } from 'lucide-react';
 import { Button, Input, Card, PageHeader } from '@/components/ui';
 import { useAuth } from '@/lib/useAuth';
-import { getErrorMessage } from '@/lib/api';
+import { getErrorMessage, inventoryApi } from '@/lib/api';
 
 interface ItemCategory {
   id: string;
@@ -39,21 +39,18 @@ export default function EditCategoryPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`/api/inventory/categories/${params.id}`);
-        if (!res.ok) throw new Error('فشل التحميل');
-        const data = await res.json();
+        if (!params.id) return;
+        // Sprint 40 (L67): use inventoryApi (auto-JWT) instead of raw fetch
+        const data = (await inventoryApi.listCategories()) as unknown as ItemCategory[];
+        const current = data.find((c) => c.id === params.id);
+        if (!current) throw new Error('الفئة غير موجودة');
         setForm({
-          name: data.name,
-          description: data.description || '',
-          parentId: data.parentId || '',
-          isActive: data.isActive ?? true,
+          name: current.name,
+          description: current.description || '',
+          parentId: current.parentId || '',
+          isActive: current.isActive ?? true,
         });
-
-        const listRes = await fetch('/api/inventory/categories');
-        if (listRes.ok) {
-          const list = await listRes.json();
-          setParents(list.filter((c: ItemCategory) => c.id !== params.id));
-        }
+        setParents(data.filter((c) => c.id !== params.id));
       } catch (e: unknown) {
         setError(getErrorMessage(e, 'فشل التحميل'));
       } finally {
@@ -73,18 +70,13 @@ export default function EditCategoryPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const res = await fetch(`/api/inventory/categories/${params.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...form,
-          parentId: form.parentId || null,
-        }),
+      // Sprint 40 (L67): use inventoryApi.updateCategory (auto-JWT) instead of raw fetch
+      await inventoryApi.updateCategory(params.id!, {
+        code: '',  // code is immutable on update (BE will keep existing)
+        name: form.name,
+        parentId: form.parentId || undefined,
+        isActive: form.isActive,
       });
-      if (!res.ok) {
-        const t = await res.text();
-        throw new Error(t || 'فشل تحديث الفئة');
-      }
       router.push('/admin/item-categories');
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل التحديث.'));
@@ -93,7 +85,7 @@ export default function EditCategoryPage() {
   };
 
   if (loading) return <div><PageHeader title="فئة" /><Card><div className="text-center py-12 text-gray-500">جاري التحميل...</div></Card></div>;
-  if (!form) return <div><PageHeader title="فئة" /><Card><div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/item-categories"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
+  if (!form) return <div><PageHeader title="فئة" /><Card><div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg text-sm">{error || 'غير موجود'}</div><div className="mt-4"><Link href="/admin/item-categories"><Button variant="ghost">رجوع</Button></Link></div></Card></div>;
 
   return (
     <div>
@@ -112,7 +104,7 @@ export default function EditCategoryPage() {
       />
 
       <Card className="max-w-2xl">
-        {error && <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
+        {error && <div className="bg-danger-50 border border-danger-200 text-danger-700 px-4 py-3 rounded-lg mb-4 text-sm">{error}</div>}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <Input label="الاسم *" value={form.name} onChange={onChange('name')} required />

@@ -1,7 +1,7 @@
 'use client';
 
-// مكوّن Modal — نافذة منبثقة بسيطة
-// الاستخدام: <Modal open={isOpen} onClose={...} title="...">...</Modal>
+// مكوّن Modal — Sprint 39 (DEC-125) Design System
+// نافذة منبثقة بسيطة — uses ink-* tokens, soft shadow-xl
 
 import { ReactNode, useEffect } from 'react';
 import { X } from 'lucide-react';
@@ -63,26 +63,26 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink-900/50 animate-fade-in"
       onClick={closeOnBackdrop ? onClose : undefined}
       dir="rtl"
     >
       <div
         className={cn(
-          'w-full bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col',
+          'w-full bg-white rounded-2xl shadow-xl max-h-[90vh] flex flex-col animate-scale-in',
           SIZE_STYLES[size]
         )}
         onClick={(e) => e.stopPropagation()}
       >
         {(title || description) && (
-          <div className="flex items-start justify-between px-6 py-4 border-b border-gray-100">
+          <div className="flex items-start justify-between px-6 py-4 border-b border-ink-100">
             <div>
-              {title && <h2 className="text-lg font-bold text-gray-800">{title}</h2>}
-              {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
+              {title && <h2 className="text-lg font-bold text-ink-800">{title}</h2>}
+              {description && <p className="text-sm text-ink-500 mt-1">{description}</p>}
             </div>
             <button
               onClick={onClose}
-              className="text-gray-400 hover:text-gray-600 p-1 rounded-lg hover:bg-gray-100"
+              className="text-ink-400 hover:text-ink-700 p-1 rounded-lg hover:bg-ink-100 transition-colors"
               aria-label="إغلاق"
             >
               <X className="h-5 w-5" />
@@ -91,7 +91,7 @@ export function Modal({
         )}
         <div className="flex-1 overflow-y-auto px-6 py-4">{children}</div>
         {footer && (
-          <div className="px-6 py-3 border-t border-gray-100 bg-gray-50 rounded-b-2xl flex items-center justify-end gap-2">
+          <div className="px-6 py-3 border-t border-ink-100 bg-ink-50 rounded-b-2xl flex items-center justify-end gap-2">
             {footer}
           </div>
         )}
