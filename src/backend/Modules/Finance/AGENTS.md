@@ -2,7 +2,7 @@
 
 > **Finance module** (Accounts, Transactions, CoA). Read all parent AGENTS.md files first.
 
-**Last updated:** 2026-07-29 (DOX framework applied)
+**Last updated:** 2026-08-25 (Sprint 60 Wave 1 — DEC-184, DEC-NEW-14, DEC-NEW-15)
 
 ---
 
@@ -119,6 +119,110 @@ The `FakeDbDataReader` parses the SELECT clause and projects the underlying Data
 
 ---
 
+## Sprint 60 Wave 1 — DB Foundation (2026-08-25) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** per Anas's CoA-Final-Proposal-2026-08-24, lay the DB foundation (schema + master data) for the upcoming canonical-4-level CoA migration. **No code reads the new columns yet** — Wave 2 will write the migration job that consumes them.
+
+### DEC-184 — 6 new columns on `accounts`
+
+Added 6 Financial-Statement metadata columns to the `accounts` table:
+
+| Column | Type | Default | Purpose |
+|---|---|---|---|
+| `fs_type` | TEXT | NULL | 'BS' (Balance Sheet) or 'PL' (Profit & Loss) |
+| `section` | TEXT | NULL | e.g. 'Current Asset', 'COGS', 'Tax' |
+| `is_canonical` | BOOLEAN | TRUE | FALSE for legacy rows; TRUE for new canonical-coded rows |
+| `new_code` | TEXT | NULL | the canonical 4-level code (e.g. '1.1.01.002') |
+| `migration_status` | TEXT | 'pending' | 'pending' \| 'migrated' \| 'new' \| 'deprecated' |
+| `migrated_at` | TIMESTAMPTZ | NULL | when the account was migrated to canonical |
+
+- **Migration:** `src/backend/Shared/Migrations/Sprint60_AddAccountFsMetadata_20260825_001.cs`
+- **Idempotency:** every `ALTER TABLE ... ADD COLUMN` uses `IF NOT EXISTS`; the backfill UPDATE is a no-op on already-flagged rows.
+- **Existing rows:** backfilled to `is_canonical = FALSE`, `migration_status = 'pending'`. All other new columns = NULL.
+- **Down():** drops the 6 columns in reverse order (each `DROP COLUMN IF EXISTS`).
+
+### DEC-NEW-14 — 4 foundation cost centers (idempotent seed)
+
+Added 4 cost centers for the default holding company (`companies.code = '000'`):
+
+| Code | Name (AR) | Division |
+|---|---|---|
+| `CC-CONSTR` | قسم المقاولات | Construction |
+| `CC-REST`  | قسم المطاعم  | Restaurant / Catering |
+| `CC-ADMIN` | الإدارة     | Admin / Shared |
+| `CC-WORKSHOP` | الورشة    | Workshop |
+
+- **Migration:** `src/backend/Shared/Migrations/Sprint60_FoundationDataSeed_20260825_002.cs` (shared with DEC-NEW-15)
+- **Idempotency:** every INSERT uses `ON CONFLICT (company_id, code) DO NOTHING`.
+- **Note:** `cost_centers` table already existed via `data-types/cost_centers.json` (L147 — auto-migrated by DataTypeMigrator). No schema change required.
+- **Coexistence:** the 6 Sprint 58c cost centers (`CC-001/002/003/101/102/103`) remain untouched.
+
+### DEC-NEW-15 — 5 new foundation projects (idempotent seed)
+
+Added 5 new projects for the default holding company (3 Sprint 58c `PRJ-2026-*` projects stay → total = 3 + 5 = **8 projects**):
+
+| Code | Name (AR) | Cost Center | Status | Start | End |
+|---|---|---|---|---|---|
+| `REST-2026-001` | مطعم الأسماك - عقد NDB | CC-REST | Active (2) | 2026-09-01 | 2026-12-31 |
+| `REST-2026-002` | خدمات الإعاشة - عقد catering | CC-REST | Planning (1) | 2026-09-15 | 2027-03-31 |
+| `ADMN-2026-001` | ترقية نظام ERP - مشروع داخلي | CC-ADMIN | Active (2) | 2026-09-01 | 2026-11-30 |
+| `TRNG-2026-001` | تدريب الموظفين - برنامج Q4 | CC-ADMIN | Planning (1) | 2026-10-01 | 2026-12-15 |
+| `YRCL-2026-001` | إقفال السنة المالية 2026 | CC-ADMIN | Planning (1) | 2026-12-01 | 2026-12-31 |
+
+- **Migration:** same as DEC-NEW-14 (`Sprint60_FoundationDataSeed_20260825_002.cs`)
+- **Idempotency:** every INSERT uses `ON CONFLICT (company_id, code) DO NOTHING`.
+- **FK resolution:** `cost_center_id` is looked up by `(company_id, code)` JOIN — no hardcoded UUIDs. This means the seed is portable across fresh DBs.
+- **`created_by`:** resolved as the first active user; falls back to the deterministic `00000000-0000-0000-0000-000000000002` placeholder if no user exists yet.
+- **Down():** DELETEs only the 5 new project codes. The 3 Sprint 58c projects are explicitly preserved.
+
+### Tests added (23 total, 1 per deliverable × multiple assertions)
+
+- `src/backend/Tests/ERPSystem.Tests/Finance/Sprint60AccountMetadataMigrationTests.cs` — 7 tests for DEC-184
+  - Migration class + `[Migration(20260825_001)]` attribute
+  - Up() + Down() methods exist
+  - File references all 6 new columns
+  - Idempotency via `IF NOT EXISTS`
+  - Backfill defaults (`is_canonical = FALSE`, `migration_status = 'pending'`)
+  - Down() drops all 6 columns
+  - No `tenant_id` reference
+- `src/backend/Tests/ERPSystem.Tests/Companies/Sprint60FoundationDataMigrationTests.cs` — 8 tests for DEC-NEW-14
+  - Migration class + `[Migration(20260825_002)]` attribute
+  - Up() + Down() methods exist
+  - 4 cost center codes are seeded (CC-CONSTR/REST/ADMIN/WORKSHOP)
+  - Arabic names are present
+  - Idempotency via `ON CONFLICT (company_id, code) DO NOTHING` (4 INSERTs matched)
+  - Down() removes the 4 codes
+  - No `tenant_id` reference
+  - References default holding by constitutional code '000'
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint60FoundationProjectsMigrationTests.cs` — 8 tests for DEC-NEW-15
+  - 5 project codes are seeded (REST-2026-001/002, ADMN/TRNG/YRCL-2026-001)
+  - Arabic names are present
+  - Idempotency via `ON CONFLICT (company_id, code) DO NOTHING` (5 INSERTs matched)
+  - cost_center_id is resolved by `(company_id, code)` JOIN (CC-REST, CC-ADMIN)
+  - Status values: 3 Planning (1) + 2 Active (2)
+  - Down() removes only the 5 new codes (preserves Sprint 58c `PRJ-2026-*`)
+  - No `tenant_id` reference
+  - Sanity: 3 + 5 = 8 total projects after migration
+
+### Architectural compliance
+
+- ✅ Constitution Article 3 — `company_id` only, ZERO `tenant_id` references in any new file
+- ✅ Idempotent Migrations — `IF NOT EXISTS` (schema) + `ON CONFLICT DO NOTHING` (data)
+- ✅ FluentMigrator pattern — matches existing Sprint 24/25/27/28 migrations
+- ✅ Dapper / no EF Core
+- ✅ Reversible (Down() for both migrations)
+- ✅ No secrets in code
+- ✅ All cost center + project inserts resolve the holding company by `code = '000'` (constitutional marker), not hardcoded UUIDs
+- ✅ No code currently reads the new `accounts` columns — this is **schema-only**; Wave 2 will add the migration job
+
+### Branch
+
+- `feature/sprint-60-wave-1-foundation` (off `origin/develop @ c7ce7be`)
+- **LOCAL-ONLY** (Mode 1) — no push, no PR yet (Wave 2 will merge into this branch first)
+
+---
+
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
 _2026-07-31: Sprint 8 T2 — added Test Pattern: SQL AS Alias Support (Local Team takeover)_
 _2026-07-31: Sprint 11 T2 — added BE Jimi scope declaration (Mavis Local)_
+_2026-08-25: Sprint 60 Wave 1 — DEC-184, DEC-NEW-14, DEC-NEW-15 (DB Foundation, schema + master data)_
