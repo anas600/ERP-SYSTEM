@@ -222,6 +222,96 @@ Added 5 new projects for the default holding company (3 Sprint 58c `PRJ-2026-*` 
 
 ---
 
+## Sprint 60 Wave 3A — Balance Migration + CoA Validation (2026-08-25) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** per Anas's CoA-Final-Proposal-2026-08-24, after Wave 1+2A+2B laid the foundation and migrated 27 new + 9 renamed accounts, Wave 3A adds the data-integrity checks (DEC-189) and the C# service that exposes them to the FE (DEC-190).
+
+### DEC-189 — Balance migration + validation (read-only + safe UPDATE)
+
+Added a FluentMigrator migration that runs the same data-integrity checks as the Wave 2B migration, but on a *post*-migration DB:
+
+| Check | How |
+|---|---|
+| **Journal-line integrity** (no orphans) | `LEFT JOIN accounts` on `journal_lines.account_id` + `company_id`; count rows where the account is missing. RAISE NOTICE. |
+| **Trial balance per company** | `INNER JOIN journal_entries` filtered to `status=2` (Posted), `SUM(debit)` vs `SUM(credit)` per company, RAISE NOTICE on variance. |
+| **(company_id, code) UNIQUE** | `GROUP BY company_id, code HAVING COUNT(*) > 1`, RAISE NOTICE. |
+| **Deprecated-with-postings report** | For each `migration_status='deprecated'` account that still has `journal_lines`, print the count. (Not an error — historical postings remain valid for audit.) |
+| **Promote 27 'new' → 'migrated'** | `UPDATE accounts SET migration_status='migrated', migrated_at=now() WHERE migration_status='new' AND is_canonical=TRUE`. Idempotent. |
+| **Final status tally** | RAISE NOTICE with count per `migration_status` for the holding company. |
+
+- **Migration:** `src/backend/Shared/Migrations/Sprint60_BalanceMigrationValidation_20260825_004.cs`
+- **Idempotency:** every check is RAISE NOTICE (no side effects); the promote UPDATE is guarded with `WHERE migration_status='new'` (no-op on re-run).
+- **Down():** reverts the promote using `migrated_at >= NOW() - INTERVAL '1 hour'` guard so we only undo *this* migration's work.
+
+### DEC-190 — `CoAValidationService` (C# API for FE / ops dashboard)
+
+New service + types under `src/backend/Modules/Finance/Application/Services/CoAValidationService.cs`:
+
+| Type | Purpose |
+|---|---|
+| `ICoAValidationService` / `CoAValidationService` | Runs all 5 checks. Constructor takes `IDbConnectionFactory` + `ILogger<>`. |
+| `CoAValidationResult` | `{ bool IsValid; List<ValidationIssue> Issues; int ErrorCount; int WarningCount; }`. `IsValid` is `true` iff no error-severity issues. |
+| `ValidationIssue` | `{ string Severity; string Code; string Message; Guid? AccountId; string? AccountCode; }`. |
+| `ValidationSeverity` | `"Error"` \| `"Warning"` \| `"Info"`. |
+| `ValidationCode` | `DUPLICATE_CODE` \| `ORPHAN_JOURNAL_LINE` \| `TRIAL_BALANCE_MISMATCH` \| `INVALID_CODE_FORMAT` \| `LEGACY_ACCOUNT`. |
+
+**Checks (in evaluation order):**
+1. **DUPLICATE_CODE** (Error) — `(company_id, code)` UNIQUE violation on `accounts`. Excludes `migration_status='deprecated'`.
+2. **ORPHAN_JOURNAL_LINE** (Error) — `journal_lines` with `account_id` not in `accounts` for the same `company_id`. FK should prevent, defensive check.
+3. **TRIAL_BALANCE_MISMATCH** (Error) — `Σ debit ≠ Σ credit` on posted lines (status=2) per company.
+4. **INVALID_CODE_FORMAT** (Error) — account code matches neither the canonical 4-level dot pattern (`1.1.01`, `1.1.01.001`) nor a recognized legacy 4-digit shape (`1101`, `1101-001`, `71`, `9201`).
+5. **LEGACY_ACCOUNT** (Warning) — count of `is_canonical=FALSE + migration_status='pending'` accounts (the 131 keep accounts from Wave 2B that haven't been migrated to canonical code yet).
+
+**Code format regex:**
+- Canonical: `^\d+(\.\d+){2,3}$` (3 or 4 dot-separated numeric parts)
+- Legacy: `^\d{2,4}(-\d{3})?$` (2-4 digit root, optional `-NNN` suffix)
+
+**Implementation note:** the service pre-fetches all accounts + all (posted) journal_lines for the company in two `QueryAsync` calls, then runs all 5 checks in C# memory. This trades a small bit of efficiency for clean, deterministic testing with `FakeDbConnectionFactory` (which cannot simulate SQL aggregations). Production-scale data is small (< 1000 accounts per Holding), so the in-memory pass is fine.
+
+**DI registration:** `src/backend/Host/Program.cs` adds `builder.Services.AddScoped<ICoAValidationService, CoAValidationService>();`.
+
+### Tests added (15 total)
+
+`src/backend/Tests/ERPSystem.Tests/Finance/Sprint60BalanceMigrationValidationTests.cs` — 15 tests:
+
+**Migration class shape (9 tests):**
+- `Migration_Class_Exists_With_Stable_Attribute` — `[Migration(20260825_004)]` attribute present
+- `Migration_Overrides_Up_And_Down`
+- `Migration_Validates_Journal_Line_Integrity` — file contains `LEFT JOIN accounts a`, `a.id IS NULL`, `orphan_count`
+- `Migration_Validates_Trial_Balance_Per_Company` — file contains `SUM(jl.debit)`, `SUM(jl.credit)`, `je.status = 2`, `GROUP BY jl.company_id`
+- `Migration_Promotes_New_Canonical_Accounts_To_Migrated` — file contains `UPDATE accounts`, `migration_status = 'migrated'`, `migrated_at = now()`, guarded with `migration_status = 'new'`
+- `Migration_Down_Reverts_New_To_Migrated_Promotions` — Down() uses `INTERVAL '1 hour'` guard
+- `Migration_Resolves_Company_By_Constitutional_Code` — uses `code = '000'`, not hardcoded UUID
+- `Migration_File_Contains_No_Tenant_Id_Reference`
+- `Migration_File_Contains_No_Hardcoded_Account_UUIDs`
+
+**CoAValidationService tests (6 tests):**
+- `Service_HappyPath_NoIssues_IsValidTrue` — 2 canonical accounts + 2 balanced journal_lines → `IsValid=true, Errors=0, Warnings=0`
+- `Service_DuplicateCodes_ProducesError` — same code twice → `IsValid=false, Issues` includes `DUPLICATE_CODE`
+- `Service_OrphanJournalLine_ProducesError` — journal_line with unknown account_id → `IsValid=false, Issues` includes `ORPHAN_JOURNAL_LINE`
+- `Service_TrialBalanceMismatch_ProducesError` — Dr=1000, Cr=200 → `IsValid=false, Issues` includes `TRIAL_BALANCE_MISMATCH` with variance
+- `Service_LegacyAccount_ProducesWarningNotError` — 1 legacy account → `IsValid=true, Warnings=1, Issues` includes `LEGACY_ACCOUNT`
+- `Service_InvalidCodeFormat_ProducesError` — code "abc" → `IsValid=false, Issues` includes `INVALID_CODE_FORMAT`
+
+### Architectural compliance
+
+- ✅ Constitution Article 3 — `company_id` only, ZERO `tenant_id` references in any new file
+- ✅ Idempotent Migration — RAISE NOTICE for reads, guarded UPDATEs for writes
+- ✅ FluentMigrator pattern — matches existing Sprint 24/25/27/28/Wave 1+2 migrations
+- ✅ Dapper / no EF Core
+- ✅ Reversible (Down() for the migration, IDbConnectionFactory abstraction for the service)
+- ✅ No secrets in code
+- ✅ All validation queries resolve the holding company by `code = '000'` (constitutional marker), not hardcoded UUIDs
+- ✅ All validation queries filter by `company_id` (Article 3)
+- ✅ Severity hierarchy: Error flips `IsValid`; Warning does not (so legacy accounts don't fail validation)
+
+### Branch
+
+- `feature/sprint-60-wave-3a-balance-validation` (off `feature/sprint-60-wave-2-merged @ a453606`)
+- **LOCAL-ONLY** (Mode 1) — no push, no PR yet (Wave 3B will merge into this branch first)
+
+---
+
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
 _2026-07-31: Sprint 8 T2 — added Test Pattern: SQL AS Alias Support (Local Team takeover)_
 _2026-07-31: Sprint 11 T2 — added BE Jimi scope declaration (Mavis Local)_

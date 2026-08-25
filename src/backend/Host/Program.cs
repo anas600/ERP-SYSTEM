@@ -235,6 +235,7 @@ builder.Services.AddScoped<IGeneralLedgerService, GeneralLedgerService>();
 builder.Services.AddScoped<IPostingRulesService, PostingRulesService>();
 // Sprint 53 (DEC-140): Year-End Closing + Retained Earnings Roll
 builder.Services.AddScoped<IYearEndClosingService, YearEndClosingService>();
+builder.Services.AddScoped<ICoAValidationService, CoAValidationService>(); // Sprint 60 Wave 3A (DEC-189+190)
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
