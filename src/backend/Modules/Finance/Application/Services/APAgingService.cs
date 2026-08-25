@@ -6,7 +6,13 @@ namespace ERPSystem.Modules.Finance.Application.Services;
 
 public interface IAPAgingService
 {
-    Task<APAgingReportResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct);
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
+    Task<APAgingReportResponse> GetAsync(
+        Guid companyId,
+        DateTime asOfDate,
+        Guid? costCenterId,
+        Guid? projectId,
+        CancellationToken ct);
 }
 
 /// <summary>
@@ -29,16 +35,20 @@ public sealed class APAgingService : IAPAgingService
     private readonly IDbConnectionFactory _db;
     public APAgingService(IDbConnectionFactory db) => _db = db;
 
-    public async Task<APAgingReportResponse> GetAsync(Guid companyId, DateTime asOfDate, CancellationToken ct)
+    public async Task<APAgingReportResponse> GetAsync(
+        Guid companyId,
+        DateTime asOfDate,
+        Guid? costCenterId,
+        Guid? projectId,
+        CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
-        // استعلام واحد: لكل bill في حالة Posted، نحسب المبلغ المُسدَّد عبر payment_allocations
-        // نُمرّر Status كـ Dapper parameter (نُقارن كنص صراحة عبر ::text cast لتجنّب int = text mismatch)
+        // Sprint 60 (DEC-191): فلتر اختياري على cost_center (journal_lines) و project (journal_entries).
         const string sql = @"
             SELECT vb.id AS BillId, vb.bill_number AS BillNumber, vb.vendor_id AS VendorId,
                    v.code AS VendorCode, v.name AS VendorName,
-                   vb.due_date AS DueDate, vb.total_amount AS TotalAmount,
+                   vb.due_date AS DueDate, vb.bill_date AS BillDate, vb.total_amount AS TotalAmount,
                    COALESCE((
                        SELECT SUM(pa.amount_applied)
                        FROM payment_allocations pa
@@ -53,10 +63,20 @@ public sealed class APAgingService : IAPAgingService
             WHERE vb.company_id = @CompanyId
               AND vb.status::text = @PostedStatus
               AND vb.total_amount > 0
+              AND (@ProjectId IS NULL OR EXISTS (
+                    SELECT 1 FROM journal_entries je
+                    WHERE je.id = vb.journal_entry_id
+                      AND je.company_id = vb.company_id
+                      AND je.project_id = @ProjectId))
+              AND (@CostCenterId IS NULL OR EXISTS (
+                    SELECT 1 FROM journal_lines jl
+                    WHERE jl.journal_entry_id = vb.journal_entry_id
+                      AND jl.company_id = vb.company_id
+                      AND jl.cost_center_id = @CostCenterId))
             ORDER BY v.code, vb.bill_number";
 
         var rows = (await conn.QueryAsync<AgingRow>(new CommandDefinition(sql,
-            new { CompanyId = companyId, AsOfDate = asOfDate, PostedStatus = "Posted" }, cancellationToken: ct))).ToList();
+            new { CompanyId = companyId, AsOfDate = asOfDate, PostedStatus = "Posted", CostCenterId = costCenterId, ProjectId = projectId }, cancellationToken: ct))).ToList();
 
         // تجميع per vendor
         var byVendor = new Dictionary<Guid, APAgingVendorBucket>();

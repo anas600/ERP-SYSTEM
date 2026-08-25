@@ -233,15 +233,20 @@ public class ProcurementController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
-    /// <summary>أعمار الذمم الدائنة (AP Aging) — Sprint 48 (DEC-133).</summary>
+    /// <summary>أعمار الذمم الدائنة (AP Aging) — Sprint 48 (DEC-133).
+    /// Sprint 60 (DEC-191): يدعم فلتر costCenterId + projectId.</summary>
     [HttpGet("api/procurement/ap-aging")]
     [ProducesResponseType(typeof(APAgingReportResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> APAging([FromQuery] DateTime? asOf, CancellationToken ct)
+    public async Task<IActionResult> APAging(
+        [FromQuery] DateTime? asOf,
+        [FromQuery] Guid? costCenterId,
+        [FromQuery] Guid? projectId,
+        CancellationToken ct)
     {
         var companyId = _companyContext.CompanyId
             ?? throw new InvalidOperationException("No active company in context");
         var asOfDate = (asOf ?? DateTime.UtcNow).Date;
-        var r = await _apAging.GetAsync(companyId, asOfDate, ct);
+        var r = await _apAging.GetAsync(companyId, asOfDate, costCenterId, projectId, ct);
         return Ok(r);
     }
 

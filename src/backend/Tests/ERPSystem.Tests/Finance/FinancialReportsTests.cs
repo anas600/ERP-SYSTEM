@@ -60,7 +60,8 @@ public class FinancialReportsTests
         var svc = new GeneralLedgerReportService(db, accounts);
 
         var asOf = new DateTime(2026, 6, 30);
-        var r = await svc.GetBalanceSheetAsync(companyId, asOf, CancellationToken.None);
+        // Sprint 60 (DEC-191): new signature adds costCenterId + projectId (both null for full report).
+        var r = await svc.GetBalanceSheetAsync(companyId, asOf, null, null, CancellationToken.None);
 
         Assert.True(r.Succeeded, r.Error);
         var bs = r.Value!;
@@ -78,7 +79,8 @@ public class FinancialReportsTests
 
         var from = new DateTime(2025, 1, 1);
         var to = new DateTime(2026, 6, 30);
-        var r = await svc.GetIncomeStatementAsync(companyId, from, to, CancellationToken.None);
+        // Sprint 60 (DEC-191): new signature adds costCenterId + projectId (both null for full report).
+        var r = await svc.GetIncomeStatementAsync(companyId, from, to, null, null, CancellationToken.None);
 
         Assert.True(r.Succeeded, r.Error);
         var pl = r.Value!;
