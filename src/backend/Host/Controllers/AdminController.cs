@@ -97,6 +97,25 @@ public class AdminController : ControllerBase
         return Ok(new { count = recent.Count, jobs = recent });
     }
 
+    // ============ Sprint 60 Wave 3B (DEC-191) — CoA Validation ============
+
+    /// <summary>
+    /// تشغيل CoA Validation Service (موجود في Wave 3A، DEC-190) — يعرض المشاكل
+    /// في الـ CoA: journal_line orphans، trial balance mismatch، duplicate codes،
+    /// invalid code format، legacy accounts.
+    /// النتيجة: IsValid + Issues[] (مع severity: Error | Warning).
+    /// </summary>
+    [HttpGet("coa/validate")]
+    public async Task<IActionResult> ValidateCoA(CancellationToken ct)
+    {
+        var ctx = HttpContext.RequestServices.GetRequiredService<ERPSystem.Shared.CompanyContext.ICompanyContext>();
+        var companyId = ctx.CompanyId
+            ?? throw new InvalidOperationException("No active company in context");
+        var svc = HttpContext.RequestServices.GetRequiredService<ICoAValidationService>();
+        var result = await svc.ValidateAsync(companyId, ctx, ct);
+        return Ok(result);
+    }
+
     // ============ Private helpers ============
 
     private async Task RunSeedJobAsync(Guid jobId, string scenario, Func<IServiceProvider, CancellationToken, Task> work)

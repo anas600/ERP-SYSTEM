@@ -111,7 +111,7 @@ public sealed class IncomeStatementRow
     /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
     public string? NewCode { get; set; }
     public string AccountName { get; set; } = string.Empty;
-    /// <summary>Sprint 60 (DEC-191): FS section.</summary>
+/// <summary>Sprint 60 (DEC-191): FS section (Revenue, COGS, OpEx, ...).</summary>
     public string? Section { get; set; }
     public decimal Amount { get; set; }
 }
@@ -166,7 +166,7 @@ public sealed class TrialBalanceRow
     public int AccountType { get; set; }
     /// <summary>Sprint 60 (DEC-191): FS type (BS | PL).</summary>
     public string? FsType { get; set; }
-    /// <summary>Sprint 60 (DEC-191): FS section.</summary>
+/// <summary>Sprint 60 (DEC-191): FS section (Current Asset, Revenue, OpEx, ...).</summary>
     public string? Section { get; set; }
     /// <summary>للحسابات L4: كود واسم الحساب الأب L3 (للتجميع البصري).</summary>
     public string? ParentCode { get; set; }

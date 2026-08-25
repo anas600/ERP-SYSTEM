@@ -142,6 +142,13 @@ export interface Account {
   isIntercompany: boolean;
   // Sprint 52a: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail. Null = not yet backfilled.
   level?: number;
+  // Sprint 60 (DEC-191): Financial-Statement metadata (6 new fields from Wave 2A).
+  fsType?: string | null;            // 'BS' | 'PL'
+  section?: string | null;           // 'Current Asset', 'Non-Current Asset', 'Revenue', 'OpEx', ...
+  isCanonical?: boolean;             // true = uses the 4-level coding scheme
+  newCode?: string | null;           // canonical 4-level code (e.g. '1.1.01.002')
+  migrationStatus?: string;           // 'pending' | 'migrated' | 'new' | 'deprecated'
+  migratedAt?: string | null;        // ISO timestamp
   createdAt: string;
   updatedAt: string;
 }
@@ -472,12 +479,19 @@ export interface TrialBalanceReport {
 }
 
 // Sprint 54 (DEC-142): ميزان المراجعة الهرمي — يحتوي L3 parent info
+// Sprint 60 (DEC-191): NewCode + FsType + Section مضافة.
 export interface TrialBalanceV2Row {
   accountId: string;
   accountCode: string;
+  /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
+  newCode?: string | null;
   accountName: string;
   level: number; // 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail
   accountType: number;
+  /// <summary>Sprint 60 (DEC-191): FS type (BS | PL).</summary>
+  fsType?: string | null;
+  /// <summary>Sprint 60 (DEC-191): FS section (Current Asset, Revenue, OpEx, ...).</summary>
+  section?: string | null;
   parentCode?: string;
   parentName?: string;
   parentAccountId?: string;
@@ -502,7 +516,11 @@ export interface TrialBalanceV2Report {
 export interface BalanceSheetRow {
   accountId: string;
   accountCode: string;
+  /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level (مثل '1.1.01.002').</summary>
+  newCode?: string | null;
   accountName: string;
+  /// <summary>Sprint 60 (DEC-191): FS section (Current Asset, Non-Current Liability, ...).</summary>
+  section?: string | null;
   balance: number;
 }
 
@@ -528,7 +546,11 @@ export interface BalanceSheetReport {
 export interface IncomeStatementRow {
   accountId: string;
   accountCode: string;
+  /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
+  newCode?: string | null;
   accountName: string;
+  /// <summary>Sprint 60 (DEC-191): FS section (Revenue, COGS, OpEx, ...).</summary>
+  section?: string | null;
   amount: number;
 }
 
@@ -1406,10 +1428,18 @@ export const financeApi = {
     return r.data;
   },
   // ----- Trial Balance v2 (Sprint 54, DEC-142) -----
-  // ميزان المراجعة الهرمي: L4 details + L3 parent info للتجميع البصري
-  getTrialBalanceV2: async (asOf?: string): Promise<TrialBalanceV2Report> => {
+  // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
+  getTrialBalanceV2: async (
+    asOf?: string,
+    costCenterId?: string,
+    projectId?: string,
+  ): Promise<TrialBalanceV2Report> => {
+    const params: Record<string, string> = {};
+    if (asOf) params.asOf = asOf;
+    if (costCenterId) params.costCenterId = costCenterId;
+    if (projectId) params.projectId = projectId;
     const r = await api.get<TrialBalanceV2Report>('/api/finance/ledger/trial-balance-v2', {
-      params: asOf ? { asOf } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return r.data;
   },
@@ -1422,17 +1452,36 @@ export const financeApi = {
     return r.data;
   },
   // ----- Sprint 48 (DEC-130..132) — Financial Reports -----
+  // Sprint 60 (DEC-191): optional costCenterId + projectId filters on BS, IS, AP Aging.
   /** الميزانية العمومية — Balance Sheet */
-  getBalanceSheet: async (asOf?: string): Promise<BalanceSheetReport> => {
+  getBalanceSheet: async (
+    asOf?: string,
+    costCenterId?: string,
+    projectId?: string,
+  ): Promise<BalanceSheetReport> => {
+    const params: Record<string, string> = {};
+    if (asOf) params.asOf = asOf;
+    if (costCenterId) params.costCenterId = costCenterId;
+    if (projectId) params.projectId = projectId;
     const r = await api.get<BalanceSheetReport>('/api/finance/ledger/balance-sheet', {
-      params: asOf ? { asOf } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return r.data;
   },
   /** قائمة الدخل — Income Statement (P&L) */
-  getIncomeStatement: async (from?: string, to?: string): Promise<IncomeStatementReport> => {
+  getIncomeStatement: async (
+    from?: string,
+    to?: string,
+    costCenterId?: string,
+    projectId?: string,
+  ): Promise<IncomeStatementReport> => {
+    const params: Record<string, string> = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    if (costCenterId) params.costCenterId = costCenterId;
+    if (projectId) params.projectId = projectId;
     const r = await api.get<IncomeStatementReport>('/api/finance/ledger/income-statement', {
-      params: { from, to },
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return r.data;
   },
@@ -1444,9 +1493,17 @@ export const financeApi = {
     return r.data;
   },
   /** أعمار الذمم الدائنة — AP Aging */
-  getAPAging: async (asOf?: string): Promise<APAgingReport> => {
+  getAPAging: async (
+    asOf?: string,
+    costCenterId?: string,
+    projectId?: string,
+  ): Promise<APAgingReport> => {
+    const params: Record<string, string> = {};
+    if (asOf) params.asOf = asOf;
+    if (costCenterId) params.costCenterId = costCenterId;
+    if (projectId) params.projectId = projectId;
     const r = await api.get<APAgingReport>('/api/procurement/ap-aging', {
-      params: asOf ? { asOf } : undefined,
+      params: Object.keys(params).length > 0 ? params : undefined,
     });
     return r.data;
   },

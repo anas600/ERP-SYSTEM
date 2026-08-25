@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { FileBarChart, Calendar, RefreshCw, AlertCircle, CheckCircle2, XCircle, Printer, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
-import { financeApi, BalanceSheetReport, getErrorMessage } from '@/lib/api';
+import { financeApi, projectsApi, BalanceSheetReport, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
@@ -20,18 +20,45 @@ export default function BalanceSheetPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string>(todayIso());
+  // Sprint 60 (DEC-191): فلاتر cost_center + project.
+  const [costCenterId, setCostCenterId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
+  const [costCenters, setCostCenters] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; code: string; name: string }[]>([]);
 
-  const load = async (date?: string) => {
+  // Sprint 60 (DEC-191): تحميل قوائم cost centers + projects للـ dropdowns.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ccs, projs] = await Promise.all([
+          financeApi.listCostCenters() as Promise<{ id: string; code: string; name: string }[]>,
+          projectsApi.listProjects() as Promise<{ id: string; code: string; name: string }[]>,
+        ]);
+        if (!cancelled) {
+          setCostCenters(Array.isArray(ccs) ? ccs : []);
+          setProjects(Array.isArray(projs) ? projs : []);
+        }
+      } catch { /* الفلاتر اختيارية */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const load = async (date?: string, ccId?: string, pId?: string) => {
     setLoading(true); setError(null);
     try {
-      const r = await financeApi.getBalanceSheet(date);
+      const r = await financeApi.getBalanceSheet(
+        date,
+        ccId && ccId.length > 0 ? ccId : undefined,
+        pId && pId.length > 0 ? pId : undefined,
+      );
       setReport(r);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل الميزانية العمومية.'));
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(asOf, costCenterId, projectId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   const onPrint = () => window.print();
 
@@ -56,8 +83,40 @@ export default function BalanceSheetPage() {
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <Button variant="primary" onClick={() => load(asOf || undefined)} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
-          <Button variant="ghost" onClick={() => load()} iconLeft={<RefreshCw className="h-4 w-4" />}>إعادة</Button>
+          {/* Sprint 60 (DEC-191): فلتر cost center */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">مركز التكلفة</label>
+            <select
+              value={costCenterId}
+              onChange={(e) => setCostCenterId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المراكز</option>
+              {costCenters.map((cc) => (
+                <option key={cc.id} value={cc.id}>
+                  {cc.code} — {cc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Sprint 60 (DEC-191): فلتر project */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">المشروع</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المشاريع</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button variant="primary" onClick={() => load(asOf, costCenterId, projectId)} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
+          <Button variant="ghost" onClick={() => { setAsOf(todayIso()); setCostCenterId(''); setProjectId(''); load(todayIso(), '', ''); }} iconLeft={<RefreshCw className="h-4 w-4" />}>إعادة</Button>
           {report && (
             <Button variant="secondary" onClick={onPrint} iconLeft={<Printer className="h-4 w-4" />}>طباعة</Button>
           )}
@@ -128,7 +187,7 @@ export default function BalanceSheetPage() {
   );
 }
 
-function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; accountName: string; balance: number }[]; subtotal: number; color: 'blue' | 'red' | 'emerald'; onRowClick: (accountId: string) => void }) {
+function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; newCode?: string | null; accountName: string; section?: string | null; balance: number }[]; subtotal: number; color: 'blue' | 'red' | 'emerald'; onRowClick: (accountId: string) => void }) {
   const colorMap = { blue: 'bg-blue-50 border-blue-200', red: 'bg-red-50 border-red-200', emerald: 'bg-emerald-50 border-emerald-200' };
   const textMap = { blue: 'text-blue-800', red: 'text-red-800', emerald: 'text-emerald-800' };
   return (
@@ -159,10 +218,14 @@ function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: stri
                   className={`border-b border-gray-100 ${isSynthetic ? 'bg-amber-50/50 font-semibold' : 'hover:bg-blue-50/40 cursor-pointer'} transition-colors`}
                   onClick={isSynthetic ? undefined : () => onRowClick(r.accountId)}
                 >
-                  <td className={`px-4 py-2 font-mono text-xs ${isSynthetic ? 'text-amber-700' : 'text-blue-600'}`}>{r.accountCode}</td>
+                  <td className={`px-4 py-2 font-mono text-xs ${isSynthetic ? 'text-amber-700' : 'text-emerald-700 font-semibold'}`}>
+                    {/* Sprint 60 (DEC-191): نُفضّل الـ new_code (canonical). */}
+                    {isSynthetic ? r.accountCode : (r.newCode ?? r.accountCode)}
+                  </td>
                   <td className="px-4 py-2 text-gray-800">
                     {r.accountName}
                     {isSynthetic && <span className="text-[10px] text-amber-600 mr-2">(محسوب تلقائيًا — لم يُرحَّل)</span>}
+                    {!isSynthetic && r.section && <span className="text-[10px] text-gray-400 ms-2">({r.section})</span>}
                   </td>
                   <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.balance)}</td>
                 </tr>
