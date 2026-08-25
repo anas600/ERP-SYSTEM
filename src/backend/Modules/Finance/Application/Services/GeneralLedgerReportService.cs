@@ -12,20 +12,23 @@ public interface IGeneralLedgerReportService
         Guid companyId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
 
     // Sprint 48 (DEC-130): Balance Sheet — Σ Assets = Σ Liab + Σ Equity
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<BalanceSheetResponse>> GetBalanceSheetAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct);
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 
     // Sprint 48 (DEC-131): Income Statement — Revenue − Expenses = Net Income
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<IncomeStatementResponse>> GetIncomeStatementAsync(
-        Guid companyId, DateTime from, DateTime to, CancellationToken ct);
+        Guid companyId, DateTime from, DateTime to, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 
     // Sprint 48 (DEC-132): Cash Flow (Indirect) — Operating + Investing + Financing = Net Change
     Task<FinanceResult<CashFlowResponse>> GetCashFlowAsync(
         Guid companyId, DateTime from, DateTime to, CancellationToken ct);
 
     // Sprint 54 (DEC-142): Trial Balance — كل الحسابات الـ postable مع Dr/Cr
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<TrialBalanceResponse>> GetTrialBalanceAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct);
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 }
 
 /// <summary>
