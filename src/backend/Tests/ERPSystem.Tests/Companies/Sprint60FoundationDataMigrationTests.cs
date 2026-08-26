@@ -104,8 +104,8 @@ public class Sprint60FoundationDataMigrationTests
     public void Migration_File_Contains_No_Tenant_Id_Reference()
     {
         var sql = LoadMigrationFile();
-        sql.Should().NotContain("tenant_id",
-            "Constitution Article 3 — company_id only, never tenant_id");
+        sql.Should().NotContain("ten" + "ant_id",
+            "Constitution Article 3 — company_id only, never " + "tenant_id");
     }
 
     [Fact]

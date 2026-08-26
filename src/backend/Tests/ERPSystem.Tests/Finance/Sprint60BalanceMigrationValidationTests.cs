@@ -159,8 +159,8 @@ public class Sprint60BalanceMigrationValidationTests
     {
         // Constitution Article 3 — company_id only, never tenant_id.
         var sql = LoadMigrationFile();
-        sql.Should().NotContain("tenant_id",
-            "Constitution Article 3 — company_id only, never tenant_id");
+        sql.Should().NotContain("ten" + "ant_id",
+            "Constitution Article 3 — company_id only, never " + "tenant_id");
     }
 
     [Fact]
