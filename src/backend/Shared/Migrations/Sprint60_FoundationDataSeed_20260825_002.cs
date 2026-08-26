@@ -37,7 +37,7 @@ namespace ERPSystem.Shared.Migrations;
 /// <para><b>Down()</b>: removes the 4 cost centers and 5 projects by code. Existing data from
 /// other waves (PRJ-2026-001/002/003 from Sprint 58c) is NOT touched.</para>
 /// </summary>
-[Migration(20260825_002)]
+[Migration(20260825_130000)]
 public class Sprint60_FoundationDataSeed : Migration
 {
     public override void Up()

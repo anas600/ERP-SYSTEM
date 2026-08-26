@@ -55,7 +55,7 @@ namespace ERPSystem.Shared.Migrations;
 /// resets the bonus backfill fields. The 131 keep accounts are left in place with their
 /// <c>fs_type</c>/<c>section</c> cleared (NULL) so a fresh Wave 2B run can re-derive them.</para>
 /// </summary>
-[Migration(20260825_003)]
+[Migration(20260825_140000)]
 public class Sprint60_AccountSeedsAndMigration : Migration
 {
     public override void Up()

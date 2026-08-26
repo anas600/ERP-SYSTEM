@@ -51,7 +51,7 @@ namespace ERPSystem.Shared.Migrations;
 /// revert what THIS migration just did (not any future 'migrated' inserts).
 /// Down() does NOT re-run the validation queries (no need — Down just undoes).</para>
 /// </summary>
-[Migration(20260825_004)]
+[Migration(20260825_150000)]
 public class Sprint60_BalanceMigrationValidation : Migration
 {
     public override void Up()

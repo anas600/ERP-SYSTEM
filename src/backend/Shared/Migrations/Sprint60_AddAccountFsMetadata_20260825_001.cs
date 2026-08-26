@@ -34,7 +34,7 @@ namespace ERPSystem.Shared.Migrations;
 ///
 /// <para><b>Down()</b>: drops the 6 columns. Safe because no Wave 2 code uses them yet.</para>
 /// </summary>
-[Migration(20260825_001)]
+[Migration(20260825_120000)]
 public class Sprint60_AddAccountFsMetadata : Migration
 {
     public override void Up()

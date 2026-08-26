@@ -118,7 +118,7 @@ export default function CoAValidationPage() {
                 </div>
                 <div>
                   <p className="text-xs text-gray-500">الشركة</p>
-                  <p className="font-mono text-xs text-gray-600">{result.companyId.slice(0, 8)}...</p>
+                  <p className="font-mono text-xs text-gray-600">{result.companyId ? `${result.companyId.slice(0, 8)}...` : '—'}</p>
                 </div>
               </div>
             </div>

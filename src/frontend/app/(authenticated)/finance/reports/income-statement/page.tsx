@@ -155,7 +155,7 @@ export default function IncomeStatementPage() {
                   <p className={`text-lg font-bold ${report.isProfitable ? 'text-green-800' : 'text-red-800'}`}>
                     {report.isProfitable ? 'ربح' : 'خسارة'} — صافي {formatNumber(Math.abs(report.netIncome))} LYD
                   </p>
-                  <p className="text-xs text-gray-500">الفترة من {report.from} إلى {report.to}</p>
+                  <p className="text-xs text-gray-500" dir="ltr">الفترة من {new Date(report.from).toLocaleDateString('en-GB')} إلى {new Date(report.to).toLocaleDateString('en-GB')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6 text-sm">

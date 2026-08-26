@@ -659,4 +659,44 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 
 ---
 
-_Last updated: 2026-07-29 by Mavis (Muhammad mode), approved by Anas — DOX framework applied_
+---
+
+## Sprint 60 Decisions (DEC-184..191, DEC-NEW-1..15) + Lessons (L46..L52)
+
+### Decisions
+- **DEC-184 — `ALTER TABLE accounts` (6 columns)** (Sprint 60): `fs_type` (P/L, BS), `section` (Current/NonCurrent/Equity/Operating…), `activity` (Restaurant/Construction/Logistics/Admin/Allocated/Other), `cost_center_id` (FK), `project_id` (FK), `parent_account_id` (FK to accounts). All nullable except `fs_type` (default 'BS'). Idempotent migration.
+- **DEC-185 — CoA Canonical Migration** (Sprint 60): 27 new accounts (DEC-NEW-1..5, 6..13) + 131 keep accounts updated with `fs_type` + `section`. Plus DEC-NEW-14 (4 cost centers: CC-CONSTR, CC-REST, CC-ADMIN, CC-WORKSHOP) + DEC-NEW-15 (5 projects: REST-2026-001/002, ADMN-2026-001, TRNG-2026-001, YRCL-2026-001).
+- **DEC-186 — Deprecate 1.3 Off-Balance** (Sprint 60): WIP account moved out of 1.3 (off-balance) to 1.1.06 (current asset, IAS 2 ¶37).
+- **DEC-187 — WIP 9201 → 1.1.06** (Sprint 60): WIP is a current asset, not off-balance. Per IAS 2 ¶37.
+- **DEC-188 — L1=7 split** (Sprint 60): Single "Other Income/Expense" account split into 7.1 Other Operating, 7.2 Finance, 7.3 Extraordinary. For IFRS-aligned P&L.
+- **DEC-189 — Balance Migration + Validation** (Sprint 60): `Sprint60_BalanceMigrationValidation_20260825_150000.cs` migrates all balances double-entry, then promotes 27 accounts to `migration_status='migrated'`. Legacy 4-digit accounts stay at `pending` intentionally.
+- **DEC-190 — CoAValidationService** (Sprint 60): 6 checks — Journal line integrity, Trial balance Σ Debit = Σ Credit, Unique codes, Code format, Legacy account audit, Deprecated account usage. New endpoint `/api/admin/coa/validate`.
+- **DEC-191 — Reports + Frontend** (Sprint 60): 4 report services (P&L, BS, Trial Balance, AR/AP Aging) accept `costCenterId` + `projectId` filters. 5 FE pages updated + new `/admin/coa-validation` page.
+- **DEC-NEW-1 — Cash/Banks split** (Sprint 60): 1.1.01 النقدية (Cash on Hand + Foreign Currency) + 1.1.02 البنوك (LYD, USD, cheques). Per IAS 7 ¶6.
+- **DEC-NEW-2 — Tangible/Intangible split** (Sprint 60): 2.01 ملموسة (Land, Buildings, Machinery, IT) + 2.02 غير ملموسة (Software, IAS 38 ¶8).
+- **DEC-NEW-5 — 7 new accounts (NDB+Stamps+CIT+SS)** (Sprint 60): 8.2.01.001/002/003 دمغات + 8.2.01.005 NDB 1.5% (non-refundable) + 2.1.03.002 CIT Withholding + 2.1.08.001/002 Social Security.
+- **DEC-NEW-14 — 4 Cost Centers** (Sprint 60): CC-CONSTR, CC-REST, CC-ADMIN, CC-WORKSHOP.
+- **DEC-NEW-15 — 5 Projects** (Sprint 60): REST-2026-001/002, ADMN-2026-001, TRNG-2026-001, YRCL-2026-001.
+
+### Lessons (L46..L52)
+- **L46 — Migration version must be 14-digit `YYYYMMDD_HHMMSS`, not 8-digit `YYYYMMDD_NNN`.** FluentMigrator sorts versions NUMERICALLY. Sprint 60 migrations were originally `20260825_001..004` (8 digits) which sorted BEFORE `Sprint28_Audit_20260802_220000` (14 digits). **Rule for all future sprints**: 14-digit format only.
+- **L47 — Phase6_InitialSchema transaction bug.** Drops `public` schema CASCADE then tries to INSERT into `VersionInfo` (which it just dropped). Workaround: manually create `VersionInfo` + insert old migrations as applied. **Apply when**: setting up fresh DB.
+- **L48 — Bootstrap gap: `appsettings.json` has `SeedScenario: false` + `DefaultHoldingBootstrap` only creates Holding Company, NOT roles.** With no users, no roles get created → login fails. **Real fix (Sprint 61)**: add `EnsureDefaultRolesAsync` to `DefaultHoldingBootstrapHostedService`.
+- **L49 — AuthService.RegisterAsync connection visibility bug.** `GetUserCompaniesAsync(user.Id, ct)` uses separate connection, can't see uncommitted transaction. **Real fix**: use `conn, tx, ct` overload.
+- **L50 — Wave-based parallelization works (3 waves: Foundation → Migration → Reports+FE).** 2-3 workers in parallel for Wave 2. **Gotcha**: shared git working tree causes interference; use `git worktree` for Sprint 61+.
+- **L51 — New FE pages need manual Trust Mode testing before "ادفع".** Wave 3B's `/admin/coa-validation` was committed with `TypeError` (used `result.companyId.slice()` without optional chaining; API doesn't return `companyId`). Caught only when Anas opened it. **Rule**: every new client component must be opened in browser before Sprint closure. **Permanent fix pattern**: `value ? formatValue(value) : '—'`.
+- **L52 — RTL date format display: ISO strings "2026-01-01T00:00:00" display garbled in `<p dir="rtl">` context.** Browsers re-order characters visually. **Fix**: either `dir="ltr"` on the date `<p>`, or convert with `new Date(s).toLocaleDateString('en-GB')` → "01/01/2026". Applied to `income-statement` + `cash-flow` in Trust Mode 27-Aug-2026.
+
+### Trust Mode Cosmetic Fixes (27-Aug-2026)
+- ✅ **Footer version**: `AppShell.tsx:210` updated from "v1.0.13 · Sprint 58" → "v1.0.15 · Sprint 60".
+- ✅ **Income Statement date format**: `app/(authenticated)/finance/reports/income-statement/page.tsx:158` — added `dir="ltr"` + `toLocaleDateString('en-GB')`.
+- ✅ **Cash Flow date format**: same fix applied.
+- ✅ **CoA Validation page bug**: `app/(authenticated)/admin/coa-validation/page.tsx:121` — `result.companyId?.slice(0, 8)` with fallback `'—'`.
+
+### Pending Sprint 60 → 61 carry-over
+- `AccountRepository.InsertAsync/UpdateAsync` not updated to write 6 new fields (DB defaults handle it, but should be explicit).
+- `parent_account_id` not wired up yet (L1/L2 dotted format doesn't exist for new accounts).
+- Sprint 61+ permanent fixes: EnsureDefaultRolesAsync in bootstrap, AuthService connection visibility, /api/auth/admin-bootstrap endpoint, Phase6_InitialSchema VersionInfo recreation.
+
+---
+_Last updated: 2026-08-27 by Mavis (Muhammad mode), Sprint 60 Trust Mode + cosmetic fixes approved by Anas — DOX framework applied_
