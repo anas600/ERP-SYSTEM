@@ -25,7 +25,7 @@ public class Sprint60FoundationDataMigrationTests
         var type = typeof(Sprint60_FoundationDataSeed);
         var attr = type.GetCustomAttribute<MigrationAttribute>();
         attr.Should().NotBeNull("Sprint60_FoundationDataSeed must be decorated with [Migration(...)]");
-        attr!.Version.Should().Be(20260825_002L,
+        attr!.Version.Should().Be(20260825_130000L,
             "the migration version must follow the DEC-184 migration (20260825_001)");
     }
 

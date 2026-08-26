@@ -30,7 +30,7 @@ public class Sprint60AccountMetadataMigrationTests
         var type = typeof(Sprint60_AddAccountFsMetadata);
         var attr = type.GetCustomAttribute<MigrationAttribute>();
         attr.Should().NotBeNull("Sprint60_AddAccountFsMetadata must be decorated with [Migration(...)]");
-        attr!.Version.Should().Be(20260825_001L,
+        attr!.Version.Should().Be(20260825_120000L,
             "the migration version must be unique and ascending (after Sprint28_Audit 20260802_220000)");
     }
 

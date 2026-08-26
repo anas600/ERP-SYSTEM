@@ -53,7 +53,7 @@ public class Sprint60AccountSeedsMigrationTests
         var type = typeof(Sprint60_AccountSeedsAndMigration);
         var attr = type.GetCustomAttribute<MigrationAttribute>();
         attr.Should().NotBeNull("Sprint60_AccountSeedsAndMigration must be decorated with [Migration(...)]");
-        attr!.Version.Should().Be(20260825_003L,
+        attr!.Version.Should().Be(20260825_140000L,
             "the migration version must follow the Wave 1 migrations (001 DDL, 002 data seed)");
     }
 

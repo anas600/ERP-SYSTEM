@@ -50,7 +50,7 @@ public class Sprint60BalanceMigrationValidationTests
         var type = typeof(Sprint60_BalanceMigrationValidation);
         var attr = type.GetCustomAttribute<MigrationAttribute>();
         attr.Should().NotBeNull("Sprint60_BalanceMigrationValidation must be decorated with [Migration(...)]");
-        attr!.Version.Should().Be(20260825_004L,
+        attr!.Version.Should().Be(20260825_150000L,
             "the migration version must be unique and ascending (after Wave 2B = 20260825_003)");
     }
 
