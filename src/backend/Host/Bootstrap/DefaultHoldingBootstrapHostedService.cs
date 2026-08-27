@@ -22,6 +22,7 @@ using Dapper;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
+using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using ERPSystem.Shared.SeedData;
 using Microsoft.Extensions.Configuration;
@@ -154,6 +155,28 @@ public sealed class DefaultHoldingBootstrapHostedService : IHostedService
             _logger.LogInformation(
                 "[P6-0b] Default Holding inserted (id={Id}, rows={Rows}, code={Code}, currency={Currency})",
                 holdingId, rows, HoldingCode, currency);
+
+            // 2b) L48 (Sprint 61, DEC-197): Ensure default system roles exist on
+            //     a fresh database BEFORE any user tries to register. With
+            //     SeedScenario=false and CreateDefaultAdmin=false, no other code
+            //     path created the Admin / Accountant / ProjectManager / Viewer
+            //     roles, so the first user to register would fail with
+            //     "could not find Admin role" inside the register flow. We call
+            //     the connection-aware overload to stay in the same transaction
+            //     as the Holding Company insert. Idempotent — re-runs are no-ops.
+            try
+            {
+                using var roleScope = _scopeFactory.CreateScope();
+                var roleRepo = roleScope.ServiceProvider.GetRequiredService<IRoleRepository>();
+                await roleRepo.EnsureDefaultRolesAsync(conn, null, cancellationToken);
+                _logger.LogInformation(
+                    "[Sprint61-L48] Default roles ensured (Admin, Accountant, ProjectManager, Viewer)");
+            }
+            catch (Exception roleEx)
+            {
+                _logger.LogError(roleEx,
+                    "[Sprint61-L48] Failed to seed default roles (non-fatal — register will retry)");
+            }
 
             // 3) ابذر دليل الحسابات (47 حساب) للـ Holding عبر raw SQL.
             //    لا نستدعي IAccountRepository.EnsureDefaultCoAAsync لأن الـ INSERT

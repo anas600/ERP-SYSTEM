@@ -334,6 +334,77 @@ public class AuthController : ControllerBase
         _logger.LogInformation("Password changed for user {UserId}", userId);
         return Ok(new { message = "Password changed successfully." });
     }
+
+    // ============ Sprint 61 (L175, DEC-198) — first-admin bootstrap endpoint ============
+
+    /// <summary>
+    /// One-shot bootstrap endpoint. Creates the first admin user on a brand-new
+    /// deployment. Returns 409 Conflict if any user already exists — the regular
+    /// register / login flow is the only way to onboard more users.
+    /// <para>
+    /// Why: L48 (default roles in bootstrap) + L49 (tx-aware GetUserCompaniesAsync)
+    /// make <c>POST /api/auth/register</c> reliable for *new users*, but a fresh
+    /// deployment with zero users cannot even reach register without first
+    /// having a way to log in. This endpoint closes that gap.
+    /// </para>
+    /// </summary>
+    [HttpPost("admin-bootstrap")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(AdminBootstrapResponse), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status409Conflict)]
+    [ProducesResponseType(typeof(ProblemDetails), StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> AdminBootstrap([FromBody] AdminBootstrapRequest request, CancellationToken ct)
+    {
+        if (request == null
+            || string.IsNullOrWhiteSpace(request.Email)
+            || string.IsNullOrWhiteSpace(request.Password)
+            || string.IsNullOrWhiteSpace(request.FullName))
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Validation Error",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Email, password, and full name are required."
+            });
+        }
+        if (request.Password.Length < 8)
+        {
+            return BadRequest(new ProblemDetails
+            {
+                Title = "Weak Password",
+                Status = StatusCodes.Status400BadRequest,
+                Detail = "Password must be at least 8 characters."
+            });
+        }
+
+        var result = await _authService.AdminBootstrapAsync(request, ct);
+
+        if (result.Conflict)
+        {
+            return Conflict(new ProblemDetails
+            {
+                Title = "Already Bootstrapped",
+                Status = StatusCodes.Status409Conflict,
+                Detail = result.Error ?? "System already bootstrapped — use /api/auth/login or /api/auth/register."
+            });
+        }
+
+        if (!result.Success)
+        {
+            var status = result.ErrorCode == AuthErrorCode.HoldingNotFound
+                ? StatusCodes.Status500InternalServerError
+                : StatusCodes.Status400BadRequest;
+            return StatusCode(status, new ProblemDetails
+            {
+                Title = "Bootstrap Failed",
+                Status = status,
+                Detail = result.Error ?? "Bootstrap failed for an unknown reason."
+            });
+        }
+
+        return StatusCode(StatusCodes.Status201Created, result.Response);
+    }
 }
 
 public sealed class ForgotPasswordRequest { public string Email { get; set; } = string.Empty; }

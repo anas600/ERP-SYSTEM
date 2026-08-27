@@ -25,6 +25,7 @@ public interface IUserRepository
 
     // Phase 6.1c: user → companies mapping (multi-company model).
     Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct);
+    Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // Sprint 61 (L49): connection-aware overload for the register flow
     Task<UserCompanyLink?> GetDefaultCompanyAsync(Guid userId, CancellationToken ct);
     Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, CancellationToken ct);
     Task AssignUserToCompanyAsync(Guid userId, Guid companyId, bool isDefault, IDbConnection conn, IDbTransaction? tx, CancellationToken ct);

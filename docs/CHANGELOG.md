@@ -4,6 +4,81 @@
 
 ---
 
+## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 1B)
+### Sprint 61 Wave 1B (DEC-196, DEC-197, DEC-198 — 5 permanent fixes from Sprint 60 lessons)
+
+**Goal:** إصلاح 5 مشاكل كشفها Sprint 60 (L47, L48, L49, L51, L175) — كلها صغيرة ومحددة. **Wave 1B = permanent fixes only** — لا تتطرّق إلى Engineer Report schema/entities (Wave 1A) أو Repositories/Services/Controllers (Wave 2).
+
+**Branch:** `feature/sprint-61-engineer-report` (off `develop @ 9728d17`)
+
+### ✅ Fixed (Worker 1B — 5 permanent fixes)
+
+#### **L47 — Phase6_InitialSchema recreates VersionInfo after DROP SCHEMA**
+- **File:** `src/backend/Shared/Migrations/Phase6_InitialSchema_20260725_120000.cs`
+- **Problem:** `DROP SCHEMA public CASCADE` wipes the FluentMigrator `VersionInfo` table. The migration runner then cannot INSERT this migration's row and the whole bootstrap fails with "relation VersionInfo does not exist".
+- **Fix:** Immediately after the schema drop, run `CREATE TABLE "VersionInfo" (Version BIGINT, AppliedOn TIMESTAMPTZ)` and pre-seed versions `20260101_000000` + `20260101_000001` so the runner can record this migration and older NoOp migrations don't re-run.
+
+#### **L48 — DefaultHoldingBootstrap ensures default roles**
+- **File:** `src/backend/Host/Bootstrap/DefaultHoldingBootstrapHostedService.cs`
+- **Problem:** When `Bootstrap:CreateDefaultAdmin=false` and `Bootstrap:SeedDemoData=false`, the bootstrap hosted service created the Holding Company but no roles. Fresh deployments had `0 users + 0 roles`, and the first register call would fail to find the "Admin" role.
+- **Fix:** After the Holding Company INSERT, resolve `IRoleRepository` from a scope and call `EnsureDefaultRolesAsync(conn, null, ct)` on the same connection (idempotent). Logs the success at info level. Failures are logged but do not abort the bootstrap (register will retry via the L49 path).
+
+#### **L49 — AuthService.BuildAsync passes conn + tx to GetUserCompaniesAsync**
+- **Files:** `src/backend/Modules/Identity/Application/Auth/AuthService.cs`, `src/backend/Modules/Identity/Infrastructure/IRepositories.cs`, `src/backend/Modules/Identity/Infrastructure/UserRepository.cs`
+- **Problem:** The tx-aware `BuildAsync` called `_users.GetUserCompaniesAsync(user.Id, ct)`, which opened its own connection. On pgbouncer / Supabase, that connection saw the pre-tx snapshot — `links` was empty, and the next line `links[0]` threw `ArgumentOutOfRangeException`.
+- **Fix:** Added a new `GetUserCompaniesAsync(Guid userId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)` overload on `IUserRepository` and use it from the tx-aware `BuildAsync`. The connection-less overload remains for Login/Refresh.
+
+#### **L51 — no-tenant-id.yml workflow excludes test files**
+- **File:** `.github/workflows/no-tenant-id.yml`
+- **Problem:** xUnit assertions like `Assert.DoesNotContain("tenant_id", ...)` legitimately contain the literal `tenant_id` string. The architecture guard flagged them as violations and broke the CI on every PR that added a test encoding the rule.
+- **Fix:** Added `':!src/backend/Tests/**'`, `':!src/frontend/__tests__/**'`, `':!*Tests.cs'`, `':!*Test.cs'` path exclusions to the `git diff` command. The diff is still computed across `src/`, but those paths are dropped before the regex check.
+
+#### **L175 — POST /api/auth/admin-bootstrap endpoint**
+- **Files:** `src/backend/Host/Controllers/AuthController.cs`, `src/backend/Modules/Identity/Application/Auth/AuthService.cs`, `src/backend/Modules/Identity/Application/Auth/IAuthService.cs`, `src/backend/Modules/Identity/Application/Auth/AuthDtos.cs`
+- **Problem:** Fresh deployments hit a chicken-and-egg gap — even with L48 + L49 fixed, there is no way to create the *first* user (no `CreateDefaultAdmin=true` and no register/login works for zero-user systems).
+- **Fix:** Added `POST /api/auth/admin-bootstrap` (`[AllowAnonymous]`). Body: `{email, password, fullName}`. Behavior:
+  - 400 if email/password/fullName empty or password < 8 chars
+  - **409 Conflict** if any user already exists in the system (idempotent guard)
+  - 500 if Holding Company is not initialized yet
+  - **201 Created** with `{userId, email, fullName, role: "Admin", companyId, createdAt}` on success
+- Inside, the service runs a single transaction that ensures the "Admin" role, inserts the user (BCrypt cost 12), assigns the role, and links the user to the Holding (`is_default = true`).
+
+### 🧪 Tests (9 added, all passing)
+- **File:** `src/backend/Tests/ERPSystem.Tests/Identity/Sprint61L47L48L49L175FixesTests.cs`
+- **9 [Fact]s:** file-content + reflection-based checks that work without a real Postgres DB:
+  1. `L47_Phase6Migration_RecreatesVersionInfo_AfterDropSchema`
+  2. `L47_Phase6Migration_VersionInfoHas_VersionAndAppliedOnColumns`
+  3. `L48_DefaultHoldingBootstrapHostedService_ReferencesIRoleRepository`
+  4. `L49_IUserRepository_HasConnectionAware_GetUserCompaniesAsync`
+  5. `L49_AuthService_BuildAsync_PassesConnectionAndTransactionTo_GetUserCompaniesAsync`
+  6. `L51_NoTenantIdWorkflow_ExcludesTestFiles`
+  7. `L175_AuthController_HasAdminBootstrapEndpoint`
+  8. `L175_AdminBootstrapRequest_HasExpectedFields`
+  9. `L175_AdminBootstrapAsync_ValidationError_OnEmptyRequest`
+- **Command:** `dotnet test --filter "FullyQualifiedName~Sprint61L47L48L49L175"` → 9 passed, 0 failed.
+
+### 📊 Build Status
+- `dotnet build` → 0 errors (Host + Tests projects)
+- `dotnet test` (all Sprint 61) → 9/9 new tests pass; no regressions in existing 471 tests (the 2 failing tests in `Retention` are pre-existing Postgres-connection issues on this dev box, not caused by this change).
+
+### 📁 Files Changed
+| File | Type | Notes |
+|---|---|---|
+| `src/backend/Shared/Migrations/Phase6_InitialSchema_20260725_120000.cs` | modify | L47 — recreate VersionInfo |
+| `src/backend/Host/Bootstrap/DefaultHoldingBootstrapHostedService.cs` | modify | L48 — EnsureDefaultRolesAsync after Holding insert |
+| `src/backend/Modules/Identity/Infrastructure/IRepositories.cs` | modify | L49 — new `GetUserCompaniesAsync(conn, tx, ct)` overload |
+| `src/backend/Modules/Identity/Infrastructure/UserRepository.cs` | modify | L49 — implement the conn+tx overload |
+| `src/backend/Modules/Identity/Application/Auth/AuthService.cs` | modify | L49 (use conn+tx) + L175 (AdminBootstrapAsync) |
+| `src/backend/Modules/Identity/Application/Auth/IAuthService.cs` | modify | L175 — interface + AdminBootstrapResult + AuthErrorCode.AlreadyBootstrapped/HoldingNotFound |
+| `src/backend/Modules/Identity/Application/Auth/AuthDtos.cs` | modify | L175 — AdminBootstrapRequest + AdminBootstrapResponse |
+| `src/backend/Host/Controllers/AuthController.cs` | modify | L175 — `POST api/auth/admin-bootstrap` endpoint |
+| `.github/workflows/no-tenant-id.yml` | modify | L51 — exclude test paths from the diff |
+| `src/backend/Tests/ERPSystem.Tests/Identity/Sprint61L47L48L49L175FixesTests.cs` | new | 9 [Fact]s covering the 5 fixes |
+| `src/backend/Modules/Identity/AGENTS.md` | modify | DOX pass — Sprint 61 fixes section |
+
+---
+
+
 ## [2026-08-27] - Hub Reorganization + Notion Auto-Update Rule (Sprint 60 Closure)
 
 **Goal:** بعد إغلاق Sprint 60 (CoA Cleanup)، نعيد تنظيم Notion Hub لتكون لوحة بيانات رسمية (Per Anas request 27-Aug-2026). ونضع قاعدة "Notion-First" مُلزِمة في AGENTS.md.

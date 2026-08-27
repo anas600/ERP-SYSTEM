@@ -155,6 +155,21 @@ public sealed class UserRepository : IUserRepository
     public async Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
+        return await GetUserCompaniesAsync(userId, conn, null, ct);
+    }
+
+    /// <summary>
+    /// Sprint 61 (L49): Connection-aware overload. The AuthService.Register flow
+    /// opens a single connection + transaction, then calls BuildAsync inside
+    /// that same tx. The previous implementation opened its own connection here,
+    /// which on pgbouncer / Supabase saw a snapshot BEFORE the user's
+    /// <c>user_companies</c> INSERT was committed — so <c>links</c> was empty
+    /// and the next line <c>links[0]</c> threw
+    /// <see cref="ArgumentOutOfRangeException"/>. Reusing the caller's
+    /// connection keeps the read inside the same tx's snapshot.
+    /// </summary>
+    public async Task<IReadOnlyList<UserCompanyLink>> GetUserCompaniesAsync(Guid userId, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
+    {
         // is_holding = (parent_company_id IS NULL AND is_group = true)
         const string sql = @"SELECT uc.user_id AS UserId, uc.company_id AS CompanyId,
                                     c.code AS CompanyCode, c.name AS CompanyName,
@@ -165,7 +180,7 @@ public sealed class UserRepository : IUserRepository
                              INNER JOIN companies c ON c.id = uc.company_id
                              WHERE uc.user_id = @UserId
                              ORDER BY uc.is_default DESC, c.code";
-        var rows = await conn.QueryAsync<UserCompanyLink>(new CommandDefinition(sql, new { UserId = userId }, cancellationToken: ct));
+        var rows = await conn.QueryAsync<UserCompanyLink>(new CommandDefinition(sql, new { UserId = userId }, transaction: tx, cancellationToken: ct));
         return rows.AsList();
     }
 
