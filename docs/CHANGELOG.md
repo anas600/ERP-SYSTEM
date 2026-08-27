@@ -5,6 +5,127 @@
 ---
 
 
+## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 2B)
+### Sprint 61 Wave 2B (DEC-192, DEC-193, DEC-194 — Engineer Report Frontend)
+
+**Goal:** الـ Frontend لموديول Engineer's Daily Report (DEC-192..194). 3 صفحات + 3 مكونات قابلة لإعادة الاستخدام + 5 اختبارات. يكمّل موجة الـ Backend (Wave 1A: schema/entities + Wave 2A: API).
+
+**Branch:** `feature/sprint-61-engineer-report` (off `develop @ 9728d17`)
+**Mode:** LOCAL-ONLY (Mode 1) — لا push، لا PR بعد.
+**Worker:** Jimi (Worker 2B) — Frontend pages + components + tests.
+
+### ✅ Added (Worker 2B — FE Pages + Components)
+
+#### 1. **3 new pages (DEC-192/193/194)**
+- **`/projects/[id]/engineer-reports`** — `src/frontend/app/(authenticated)/projects/[id]/engineer-reports/page.tsx`
+  - Header bilingual (AR + EN) + filter bar (date range + status chips)
+  - Status filter chips: All / Draft / Submitted / Approved / Rejected
+  - Table: Date | Status | Weather | Work Done (truncated) | Engineer | View
+  - "New Report" button (top-right) → `/projects/[id]/engineer-reports/new`
+  - Empty state + skeleton loading
+- **`/projects/[id]/engineer-reports/new`** — `…/engineer-reports/new/page.tsx`
+  - Wraps the reusable `<ReportForm />` component
+  - On Save-as-Draft: `createReport → uploadPhotos`
+  - On Save-and-Submit: `createReport → uploadPhotos → submitReport`
+  - Bilingual validation (work_done min 10 chars, max 10 photos)
+- **`/engineer-reports/[id]`** — `…/engineer-reports/[id]/page.tsx`
+  - Read-only meta + work done + issues
+  - **Photo gallery** (openable in new tab via public URL)
+  - "Submit" button (visible only if status=Draft AND user is engineer)
+  - **Sign-off panel** (visible only if status=Submitted AND user is PM/Client)
+  - Add Photos inline (only when status=Draft)
+  - Final-state notice when status=Approved or Rejected
+
+#### 2. **3 reusable components (DEC-192/193/194)**
+- **`components/engineer-report/ReportForm.tsx`** — bilingual form (date / weather / work_done / issues / photos)
+  - Char counter for work_done (emerald when ≥ 10, gray otherwise)
+  - Two submit buttons: "Save as Draft" (secondary) + "Save & Submit" (primary)
+  - Exports `toCreateRequest(values)` helper to convert form values to BE DTO
+- **`components/engineer-report/PhotoUploader.tsx`** — multi-file picker with previews
+  - Uses `URL.createObjectURL` for instant previews (revoked on unmount)
+  - Respects `maxFiles` (default 10)
+  - Per-file remove button (X)
+  - Dashed-dropzone "Add Photos" button
+- **`components/engineer-report/SignoffPanel.tsx`** — PM/Client sign-off UI
+  - Role selector (PM / Client) — pill buttons
+  - Comment textarea
+  - Approve / Reject decision buttons (green / red)
+  - Disabled-state variant with custom reason when `canSign=false`
+
+#### 3. **API client additions (`src/frontend/lib/api.ts`)**
+8 new methods on `projectsApi`:
+- `listEngineerReports(projectId)`
+- `getEngineerReport(reportId)`
+- `createEngineerReport(projectId, data)`
+- `updateEngineerReport(reportId, data)`
+- `submitEngineerReport(reportId)`
+- `listEngineerReportPhotos(reportId)`
+- `uploadEngineerReportPhoto(reportId, file, caption?)` — uses `FormData` + `multipart/form-data`
+- `signoffEngineerReport(reportId, req)`
+
+Plus DTOs + status labels: `EngineerReportDto`, `CreateEngineerReportRequest`, `UpdateEngineerReportRequest`, `EngineerReportPhotoDto`, `EngineerReportSignoffDto`, `EngineerReportSignoffRequest`, `EngineerReportStatus` (type), `ENGINEER_REPORT_STATUS_LABELS` (AR/EN map + tone), `EngineerReportSignoffRole` (PM/Client/Engineer).
+
+#### 4. **New "Engineer Reports" tab on project detail**
+- Modified `src/frontend/app/(authenticated)/projects/[id]/page.tsx`
+- Added `'engineer-reports'` to the `Tab` union + `TAB_CHIPS` (with `<Camera />` icon, label: "تقارير المهندس")
+- New `EngineerReportsTab` component:
+  - 4 StatCards: Total / Draft / Submitted / Approved
+  - "View All" + "New Report" buttons
+  - Last 5 reports in a compact `ModernTable`
+
+### 🧪 Tests (5 added, all passing)
+- **File:** `src/frontend/__tests__/engineer-report/ReportForm.test.tsx` (2 tests)
+  1. Renders the bilingual form and disables Save until work_done is long enough
+  2. Calls onSubmit with form values + submitAfter=false on "Save as Draft"
+- **File:** `src/frontend/__tests__/engineer-report/PhotoUploader.test.tsx` (2 tests)
+  1. Renders the "Add Photos" button when under the max
+  2. Removes a photo when the X button is clicked
+- **File:** `src/frontend/__tests__/engineer-report/SignoffPanel.test.tsx` (1 test)
+  1. Renders the disabled state when canSign=false with a custom reason
+- **Tooling:** Added Jest 29 + React Testing Library 14 + @testing-library/jest-dom 6 + jest-environment-jsdom 29 (and `@types/jest`) to the FE. Config: `src/frontend/jest.config.js`, polyfills: `jest.polyfills.js`, setup: `jest.setup.ts`. The `npm test` script now runs Jest.
+- **Command:** `npx jest --testPathPattern=engineer-report` → **5 passed, 0 failed**.
+
+### 📊 Build Status
+- `npm run type-check` → **0 errors** (with the 3 new pages + 3 new components)
+- `npm run build` → **OK** — all 3 new routes built:
+  - `ƒ /engineer-reports/[id]` (6.67 kB)
+  - `ƒ /projects/[id]/engineer-reports` (3.66 kB)
+  - `ƒ /projects/[id]/engineer-reports/new` (5.32 kB)
+- `npx jest --testPathPattern=engineer-report` → **5/5 pass**
+
+### 📁 Files Changed
+| File | Type | Notes |
+|---|---|---|
+| `src/frontend/lib/api.ts` | modify | +8 API methods + 6 DTO interfaces + 1 status label map (DEC-192..194) |
+| `src/frontend/components/engineer-report/ReportForm.tsx` | new | Reusable bilingual form (DEC-192 + DEC-193) |
+| `src/frontend/components/engineer-report/PhotoUploader.tsx` | new | Multi-file picker with previews (DEC-193) |
+| `src/frontend/components/engineer-report/SignoffPanel.tsx` | new | PM/Client sign-off UI (DEC-194) |
+| `src/frontend/app/(authenticated)/projects/[id]/engineer-reports/page.tsx` | new | Reports list (DEC-192) |
+| `src/frontend/app/(authenticated)/projects/[id]/engineer-reports/new/page.tsx` | new | Create form route (DEC-192) |
+| `src/frontend/app/(authenticated)/engineer-reports/[id]/page.tsx` | new | Detail + sign-off route (DEC-192..194) |
+| `src/frontend/app/(authenticated)/projects/[id]/page.tsx` | modify | Added "Engineer Reports" tab + `EngineerReportsTab` component |
+| `src/frontend/app/(authenticated)/projects/AGENTS.md` | new | DOX pass — documented new routes + components |
+| `src/frontend/jest.config.js` | new | Jest config (jsdom + babel-jest + module aliases) |
+| `src/frontend/jest.polyfills.js` | new | TextEncoder/URL.createObjectURL polyfills |
+| `src/frontend/jest.setup.ts` | new | `@testing-library/jest-dom` matcher import |
+| `src/frontend/__mocks__/styleMock.js` | new | Empty CSS mock |
+| `src/frontend/package.json` | modify | Added `"test": "jest"` script + new devDependencies |
+| `src/frontend/__tests__/engineer-report/ReportForm.test.tsx` | new | 2 tests |
+| `src/frontend/__tests__/engineer-report/PhotoUploader.test.tsx` | new | 2 tests |
+| `src/frontend/__tests__/engineer-report/SignoffPanel.test.tsx` | new | 1 test |
+
+### 🌍 Bilingual Coverage
+- All user-visible strings on the 3 new pages are AR + EN (page titles, button labels, filter chips, table headers, status pills, empty states, error messages).
+- Components `ReportForm` / `PhotoUploader` / `SignoffPanel` also use AR + EN.
+
+### 🚫 Out of Scope (per Worker contract)
+- No backend files (Wave 1A + Wave 2A territory)
+- No new UI framework (uses existing shadcn/ui + `ModernTable` + `PageHero` + `SectionCard` + `FilterChips` + `StatusPill`)
+- No `tenant_id` anywhere in the new code
+- No `git push` — Mode 1 only
+
+---
+
 ## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 2A)
 ### Sprint 61 Wave 2A (DEC-192, DEC-193, DEC-194 — Engineer Report API)
 
