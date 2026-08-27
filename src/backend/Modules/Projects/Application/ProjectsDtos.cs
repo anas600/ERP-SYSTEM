@@ -261,6 +261,10 @@ public sealed class ProgressBillingResponse
     public decimal AdvanceDeducted { get; set; }
     public decimal RetentionDeducted { get; set; }
     public decimal NetAmount { get; set; }
+    /// <summary>Sprint 62 / DEC-197 — regional premium (NDB+CIT+SS) deducted from gross.</summary>
+    public decimal RegionalPremiumDeducted { get; set; }
+    /// <summary>Sprint 62 / DEC-197 — NetAmount − RegionalPremiumDeducted.</summary>
+    public decimal NetAmountAfterPremium { get; set; }
     /// <summary>1=Draft, 2=Invoiced, 3=Cancelled (BillingStatus enum int).</summary>
     public int Status { get; set; }
     public string StatusName => Status switch
@@ -284,6 +288,10 @@ public sealed class BillingPreviewResponse
     public decimal AdvanceDeducted { get; set; }
     public decimal RetentionDeducted { get; set; }
     public decimal NetAmount { get; set; }
+    /// <summary>Sprint 62 / DEC-197 — regional premium (NDB+CIT+SS) deducted from gross.</summary>
+    public decimal RegionalPremiumDeducted { get; set; }
+    /// <summary>Sprint 62 / DEC-197 — NetAmount − RegionalPremiumDeducted.</summary>
+    public decimal NetAmountAfterPremium { get; set; }
     public decimal PreviousMaxPercent { get; set; }
     public int NextBillingNumber { get; set; }
 }

@@ -105,3 +105,21 @@ public interface IEngineerReportSignoffRepository
     Task<IReadOnlyList<EngineerReportSignoff>> ListByReportAsync(Guid reportId, CancellationToken ct);
     Task InsertAsync(EngineerReportSignoff signoff, CancellationToken ct);
 }
+
+// =============================================================================
+// Sprint 62 (DEC-197) — Regional Premium repository.
+// Used by the RegionalPremiumService for CRUD + the BillingService for
+// calculation lookups (CalculateDeductionAsync).
+// =============================================================================
+
+/// <summary>Sprint 62 / DEC-197 — Regional Premium persistence.</summary>
+public interface IRegionalPremiumRepository
+{
+    Task<RegionalPremium?> GetByIdAsync(Guid id, CancellationToken ct);
+    /// <summary>List all premiums (active + inactive) for a project. The service filters
+    /// on <c>IsActive</c> as part of the calculation logic.</summary>
+    Task<IReadOnlyList<RegionalPremium>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task InsertAsync(RegionalPremium premium, CancellationToken ct);
+    Task UpdateAsync(RegionalPremium premium, CancellationToken ct);
+    Task DeleteAsync(Guid id, CancellationToken ct);
+}

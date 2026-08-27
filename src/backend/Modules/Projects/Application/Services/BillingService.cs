@@ -46,6 +46,7 @@ public sealed class BillingService : IBillingService
     private readonly IContractRepository _contracts;
     private readonly IProjectRepository _projects;
     private readonly IAccountRepository _accounts; // من Finance module
+    private readonly IRegionalPremiumService _regionalPremiums; // Sprint 62 / DEC-197
     private readonly IDbConnectionFactory _db;
     private readonly ICompanyContext _companyContext;
     private readonly ILogger<BillingService> _logger;
@@ -64,12 +65,14 @@ public sealed class BillingService : IBillingService
         IContractRepository contracts,
         IProjectRepository projects,
         IAccountRepository accounts,
+        IRegionalPremiumService regionalPremiums,
         IDbConnectionFactory db,
         ICompanyContext companyContext,
         ILogger<BillingService> logger)
     {
         _billings = billings; _contracts = contracts; _projects = projects;
-        _accounts = accounts; _db = db; _companyContext = companyContext; _logger = logger;
+        _accounts = accounts; _regionalPremiums = regionalPremiums;
+        _db = db; _companyContext = companyContext; _logger = logger;
     }
 
     public async Task<ProjectResult<IReadOnlyList<ProgressBillingResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct)
@@ -93,12 +96,16 @@ public sealed class BillingService : IBillingService
             return ProjectResult<BillingPreviewResponse>.Fail("العقد غير موجود.", ProjectErrorCode.NotFound);
 
         var calc = await CalculateAmountsAsync(contract, workCompletedPercent, ct);
+        // Sprint 62 / DEC-197: regional premium applied on gross, after advance/retention.
+        var premium = await _regionalPremiums.CalculateDeductionAsync(contract.ProjectId, calc.gross, ct);
         return ProjectResult<BillingPreviewResponse>.Ok(new BillingPreviewResponse
         {
             GrossAmount = calc.gross,
             AdvanceDeducted = calc.advance,
             RetentionDeducted = calc.retention,
             NetAmount = calc.net,
+            RegionalPremiumDeducted = premium,
+            NetAmountAfterPremium = Math.Round(calc.net - premium, 4),
             PreviousMaxPercent = calc.prevMax,
             NextBillingNumber = calc.nextNumber,
         });
@@ -134,6 +141,10 @@ public sealed class BillingService : IBillingService
             return ProjectResult<ProgressBillingResponse>.Fail(
                 $"نسبة الإنجاز ({req.WorkCompletedPercent}%) أقل من أعلى نسبة سابقة ({c.prevMax}%).", ProjectErrorCode.ValidationError);
 
+        // 4b) Sprint 62 / DEC-197: regional premium (NDB + CIT + SS) on gross.
+        var regionalPremiumDeducted = await _regionalPremiums.CalculateDeductionAsync(projectId, c.gross, ct);
+        var netAfterPremium = Math.Round(c.net - regionalPremiumDeducted, 4);
+
         // 5) إنشاء المسودة
         var now = DateTime.UtcNow;
         var billing = new ProgressBilling
@@ -151,12 +162,15 @@ public sealed class BillingService : IBillingService
             AdvanceDeducted = c.advance,
             RetentionDeducted = c.retention,
             NetAmount = c.net,
+            RegionalPremiumDeducted = regionalPremiumDeducted,
+            NetAmountAfterPremium = netAfterPremium,
             Status = BillingStatus.Draft,
             Notes = req.Notes?.Trim(),
             CreatedAt = now, CreatedBy = userId, UpdatedAt = now, UpdatedBy = userId,
         };
         await _billings.InsertAsync(billing, ct);
-        _logger.LogInformation("تم إنشاء مسودة مستخلص {Number} للمشروع {ProjectId}: net={Net}", billing.BillingNumber, projectId, billing.NetAmount);
+        _logger.LogInformation("تم إنشاء مسودة مستخلص {Number} للمشروع {ProjectId}: net={Net}, premium={Premium}, netAfter={NetAfter}",
+            billing.BillingNumber, projectId, billing.NetAmount, billing.RegionalPremiumDeducted, billing.NetAmountAfterPremium);
         return ProjectResult<ProgressBillingResponse>.Ok(MapToResponse(billing));
     }
 
@@ -404,6 +418,8 @@ public sealed class BillingService : IBillingService
         WorkCompletedPercent = b.WorkCompletedPercent,
         GrossAmount = b.GrossAmount, AdvanceDeducted = b.AdvanceDeducted,
         RetentionDeducted = b.RetentionDeducted, NetAmount = b.NetAmount,
+        RegionalPremiumDeducted = b.RegionalPremiumDeducted,
+        NetAmountAfterPremium = b.NetAmountAfterPremium,
         Status = (int)b.Status,
         InvoiceId = b.InvoiceId, JournalEntryId = b.JournalEntryId, Notes = b.Notes,
         CreatedAt = b.CreatedAt, UpdatedAt = b.UpdatedAt,

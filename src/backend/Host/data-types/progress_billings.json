@@ -20,6 +20,8 @@
     { "name": "advance_deducted", "type": "numeric(18,4)", "nullable": false, "default": "0" },
     { "name": "retention_deducted", "type": "numeric(18,4)", "nullable": false, "default": "0" },
     { "name": "net_amount", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "regional_premium_deducted", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "net_amount_after_premium", "type": "numeric(18,4)", "nullable": false, "default": "0" },
     { "name": "status", "type": "varchar(20)", "nullable": false, "default": "'DRAFT'" },
     { "name": "invoice_id", "type": "uuid", "nullable": true,
       "foreign_key": { "table": "sales_invoices", "column": "id", "on_delete": "set_null" } },

@@ -9,6 +9,8 @@
 > **Sprint 57 (2026-08-07) — Project P&L:** أضفنا `project_id` على journal_entries (DEC-160) + ProjectPnLService (DEC-161) + UI tab "الأرباح والخسائر" (DEC-162). الـ P&L يقرأ من sales_invoices (revenue) + journal_lines على Expense accounts (costs).
 >
 > **Sprint 61 (2026-08-27) — Engineer's Daily Report (DEC-192..194):** Wave 1A أضاف schema/entities/DTOs (3 tables + 3 entities + DTOs + 15 tests). Wave 2A أضاف الـ API layer (3 repositories + service + 2 controllers = 8 endpoints + 22 tests). Wave 2B will add the frontend.
+>
+> **Sprint 62 (2026-08-27) — Progress Billing Refinement (DEC-197):** Wave 1A أضاف regional premium schema/entity/service (1 table + 2 progress_billings columns + repository + service with DEC-197 calculation + 16 tests). Wave 2A أضاف الـ API layer (RegionalPremiumsController + BillingPdfController + PdfExportService + 8 tests) + DI registration (deferred from Wave 1A per the sprint contract).
 
 ## شو فيه
 
@@ -22,15 +24,25 @@ Projects/
 │   ├── ResourceAssignment.cs # HourlyRate snapshot + computed EstimatedCost
 │   ├── EngineerReport.cs          # Sprint 61 / DEC-192 — EngineerReport + EngineerReportStatus
 │   ├── EngineerReportPhoto.cs     # Sprint 61 / DEC-193 — photo attachment (file_path + caption)
-│   └── EngineerReportSignoff.cs   # Sprint 61 / DEC-194 — electronic signoff (PM/Client/Engineer)
+│   ├── EngineerReportSignoff.cs   # Sprint 61 / DEC-194 — electronic signoff (PM/Client/Engineer)
+│   └── RegionalPremium.cs         # Sprint 62 / DEC-197 — NDB+CIT+SS regional premium per project
+│   └── ProgressBilling.cs         # Sprint 58 / DEC-164 (+Sprint 62 fields)
 ├── Application/
-│   ├── ProjectsDtos.cs     # كل الـ DTOs (+ ProjectPnLResponse, ProjectPnLLine من Sprint 57)
+│   ├── ProjectsDtos.cs     # كل الـ DTOs (+ ProjectPnLResponse, ProjectPnLLine من Sprint 57, + RegionalPremiumDeducted/NetAmountAfterPremium من Sprint 62)
 │   ├── EngineerReportDtos.cs      # Sprint 61 — Create/Update/Signoff/Photo/Response
+│   ├── Dtos/
+│   │   ├── BoqDtos.cs
+│   │   ├── EngineerReportDtos.cs
+│   │   ├── PriceListDtos.cs
+│   │   ├── RegionalPremiumDtos.cs     # Sprint 62 / DEC-197 — Create/Update/Response
+│   │   └── VariationOrderDtos.cs
 │   ├── Validators.cs       # FluentValidation
 │   └── Services/
 │       ├── ProjectService.cs           # CRUD + status workflow + auto-bootstrap
 │       ├── ProjectPnLService.cs        # Sprint 57 / DEC-161: P&L aggregation
 │       ├── EngineerReportService.cs    # Sprint 61 Wave 2A / DEC-192..194 — CRUD + submit + signoff
+│       ├── RegionalPremiumService.cs   # Sprint 62 / DEC-197 — CRUD + CalculateDeductionAsync
+│       ├── PdfExportService.cs          # Sprint 62 Wave 2A / DEC-198 — QuestPDF bilingual billing PDF
 │       └── SupportingServices.cs        # Task, Resource, Budget, Assignment
 └── Infrastructure/
     ├── IRepositories.cs
@@ -41,7 +53,8 @@ Projects/
     ├── ResourceAssignmentRepository.cs
     ├── EngineerReportRepository.cs        # Sprint 61 / DEC-192
     ├── EngineerReportPhotoRepository.cs   # Sprint 61 / DEC-193
-    └── EngineerReportSignoffRepository.cs # Sprint 61 / DEC-194
+    ├── EngineerReportSignoffRepository.cs # Sprint 61 / DEC-194
+    └── RegionalPremiumRepository.cs       # Sprint 62 / DEC-197 — Dapper repo for regional_premiums
 ```
 
 ## 🆕 Sprint 61 — Engineer's Daily Report (DEC-192..194 foundation)
@@ -111,6 +124,91 @@ Draft → Submitted → Approved
 - Public URL `/uploads/engineer-reports/{reportId}/{filename}` is returned.
 - Hard cap 10 MB per file. Allowed extensions: jpg/jpeg/png/gif/webp/heic.
 - Best-effort file cleanup if the DB INSERT fails after the disk write succeeded.
+
+## 🆕 Sprint 62 Wave 1A — Regional Premium (DEC-197)
+
+> **Status:** ✅ DONE. Schema + entity + service + 16 tests. Wave 2A will add the API layer (RegionalPremiumsController + PDF export) + the DI registration that Wave 1A deferred to Admin per the sprint contract.
+
+### Schema (1 new table + 2 new columns)
+- **`regional_premiums`** — Libyan statutory deductions (NDB 1.5% + CIT 5% + SS 0% defaults) per project per region. UNIQUE (project_id, region) — one active row per region per project. `is_active` flag for historical rate changes.
+- **`progress_billings.regional_premium_deducted NUMERIC(18,4) DEFAULT 0`** — applied on every billing in NDB regions.
+- **`progress_billings.net_amount_after_premium NUMERIC(18,4) DEFAULT 0`** — `NetAmount - RegionalPremiumDeducted`. The actual cash the contractor expects.
+
+### Algorithm (DEC-197)
+```
+gross = contract_value × (work_completed_percent / 100)
+... (advance + retention as before) ...
+net = gross - advance - retention
+premium = (project has active regional_premium row)
+    ? gross × (Ndb% + CIT% + SS%) / 100
+    : 0
+net_after_premium = net - premium
+```
+
+### Files added in Wave 1A
+- `src/backend/Shared/Migrations/Sprint62_RegionalPremium_20260827_160000.cs` (1 table + 2 column adds, idempotent)
+- `src/backend/Host/data-types/regional_premiums.json` (DataTypeMigrator schema)
+- `src/backend/Modules/Projects/Entities/RegionalPremium.cs`
+- `src/backend/Modules/Projects/Application/Dtos/RegionalPremiumDtos.cs` (Create/Update/Response + RegionalPremiumRegions constants)
+- `src/backend/Modules/Projects/Infrastructure/RegionalPremiumRepository.cs` (Dapper repo — needed for testability)
+- `src/backend/Modules/Projects/Application/Services/RegionalPremiumService.cs` (CRUD + `CalculateDeductionAsync`)
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint62RegionalPremiumMigrationTests.cs` (8 tests)
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint62RegionalPremiumServiceTests.cs` (8 tests)
+
+### Files modified in Wave 1A
+- `src/backend/Modules/Projects/Entities/ProgressBilling.cs` — added `RegionalPremiumDeducted` + `NetAmountAfterPremium` fields
+- `src/backend/Modules/Projects/Application/Services/BillingService.cs` — injected `IRegionalPremiumService`; applied DEC-197 calc in `CreateAsync` + `PreviewAsync`; mapped new fields in `MapToResponse`
+- `src/backend/Modules/Projects/Application/ProjectsDtos.cs` — added new fields to `ProgressBillingResponse` + `BillingPreviewResponse`
+- `src/backend/Modules/Projects/Infrastructure/BillingRepository.cs` — reads/writes the two new columns
+- `src/backend/Modules/Projects/Infrastructure/IRepositories.cs` — added `IRegionalPremiumRepository` interface
+- `src/backend/Host/data-types/progress_billings.json` — added the two new fields to the JSON schema
+- `src/backend/Tests/ERPSystem.Tests/Projects/EngineerReportsControllerTests.cs` — **incidental pre-existing fix** (Sprint 61 commit `058eea1` removed `EngineerId` from `CreateEngineerReportRequest` but didn't update the 2 test call sites — this would block the build for any Sprint 62 test)
+
+### L19 / DEC-095 compliance
+- `IRegionalPremiumService` resolves `CompanyId` from `ICompanyContext`, never from the request DTO.
+- `IRegionalPremiumRepository.UpdateAsync` scopes by `company_id` (defense in depth).
+- Every new table/column includes `company_id` (L19, Constitution Article 3).
+
+### Out of scope for Wave 1A (deferred to Wave 2A / Admin)
+- `RegionalPremiumsController` + 4 CRUD endpoints
+- `BillingPdfController` + HTML-to-PDF export (DEC-198)
+- DI registration in `Program.cs` — Admin will add `AddScoped<IRegionalPremiumRepository, ...>()` and `AddScoped<IRegionalPremiumService, ...>()` after merge per the sprint contract
+- `regional_premiums` seeder (admin can add a few canonical rows for AlFajr/AlBurj via the API)
+
+## 🆕 Sprint 62 Wave 2A — Regional Premium API + Billing PDF (DEC-197, DEC-198)
+
+> **Status:** ✅ DONE. 2 controllers (5 endpoints) + 1 service + 6 new tests (4 controller + 2 service) + DI.
+
+### Files added in Wave 2A
+- `src/backend/Host/Controllers/RegionalPremiumsController.cs` — 4 CRUD endpoints (list/create/update/delete) over `IRegionalPremiumService`. Mirrors the `EngineerReportsController` shape (claim-based `UserId`, `ProblemDetails` for errors, error-code → HTTP status mapping).
+- `src/backend/Host/Controllers/BillingPdfController.cs` — 1 endpoint (`GET /api/projects/{id}/billings/{billingId}/pdf`) that loads billing + project + contract via existing repos and hands a `BillingPdfModel` to the renderer.
+- `src/backend/Modules/Projects/Application/Services/PdfExportService.cs` — QuestPDF 2024.10.0 renderer (pure C#, MIT-style Community license). Produces a bilingual (AR + EN) A4 certificate with a header, period line, totals table (incl. Regional Premium), optional notes, and a 3-line signature block.
+- `src/backend/Tests/ERPSystem.Tests/Projects/RegionalPremiumsControllerTests.cs` — 4 controller tests (mocked service, claim-based `UserId`): list, create success, create 409 duplicate, delete 204.
+- `src/backend/Tests/ERPSystem.Tests/Projects/PdfExportServiceTests.cs` — 2 service tests: PDF magic bytes + size + `%%EOF` trailer.
+
+### Files modified in Wave 2A
+- `src/backend/Host/Program.cs` — 3 DI registrations (`IRegionalPremiumRepository`, `IRegionalPremiumService`, `IPdfExportService`). The first two were deferred from Wave 1A per the sprint contract.
+- `src/backend/Host/ERP-SYSTEM.csproj` — added `QuestPDF 2024.10.0` (only new dependency added in this sprint).
+
+### Endpoints (5)
+
+| Method | Path | Purpose | Auth |
+|--------|------|---------|------|
+| GET    | `/api/projects/{projectId}/regional-premiums` | List premiums for a project | `[Authorize]` |
+| POST   | `/api/projects/{projectId}/regional-premiums` | Create (UNIQUE on project+region) | `[Authorize]` |
+| PUT    | `/api/projects/{projectId}/regional-premiums/{id}` | Update | `[Authorize]` |
+| DELETE | `/api/projects/{projectId}/regional-premiums/{id}` | Delete | `[Authorize]` |
+| GET    | `/api/projects/{projectId}/billings/{id}/pdf` | Stream bilingual billing PDF | `[Authorize]` |
+
+### L19 / DEC-095 compliance
+- `IRegionalPremiumService` was already L19-compliant in Wave 1A; the controller preserves that contract by reading `userId` from the JWT (`User.FindFirst(ClaimTypes.NameIdentifier)`) and never from a request DTO.
+- `IPdfExportService` is a pure renderer (no DB I/O, no company-scope concerns). The controller is the company-scoping boundary — billing/project/contract lookups all go through the existing company-scoped repositories.
+- No `CompanyId` / `UserId` / `EngineerId` was added to any new or modified DTO.
+
+### QuestPDF notes (DEC-198)
+- License set to `LicenseType.Community` exactly once per process via `Interlocked.Exchange` (the setter in `QuestPDF.Settings` is process-wide and not thread-safe; the gate is per-process only).
+- Rendered output is fully FlateDecode-compressed by default, so the project code is NOT searchable in the raw byte stream. Tests assert on PDF structural markers (`%PDF` magic, `%%EOF` trailer, min size).
+- Filenames are sanitised to `[A-Za-z0-9._-]` so the response is safe across browsers and shells.
 
 ## Domain Model
 

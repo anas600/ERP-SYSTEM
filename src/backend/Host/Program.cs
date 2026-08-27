@@ -247,6 +247,12 @@ builder.Services.AddScoped<IEngineerReportRepository, EngineerReportRepository>(
 builder.Services.AddScoped<IEngineerReportPhotoRepository, EngineerReportPhotoRepository>();
 builder.Services.AddScoped<IEngineerReportSignoffRepository, EngineerReportSignoffRepository>();
 builder.Services.AddScoped<IEngineerReportService, EngineerReportService>();
+// Sprint 62 (DEC-197) — Regional Premium API (Wave 2A). DI deferred from Wave 1A per the
+// sprint contract (Admin-merged). Required by BillingService at runtime.
+builder.Services.AddScoped<IRegionalPremiumRepository, RegionalPremiumRepository>();
+builder.Services.AddScoped<IRegionalPremiumService, RegionalPremiumService>();
+// Sprint 62 (DEC-198) — Billing PDF export. Pure renderer, no DB I/O.
+builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181

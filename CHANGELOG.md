@@ -13,6 +13,84 @@
 
 ---
 
+## Sprint 62 — Progress Billing Refinement (DEC-197) (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
+
+**Goal:** إضافة خصم المنطقة (NDB + CIT + SS) تلقائياً على المستخلصات في مناطق NDB الليبية (DEC-197)، وتصدير PDF للمستخلص (DEC-198 — Wave 2A).
+
+**Branch:** `feature/sprint-62-progress-billing` (off `develop`)
+**Mode:** LOCAL-ONLY (M1-Local — no push until Anas's "ادفع")
+**Duration:** Autonomous run (Worker 1A on Wave 1A; Worker 2A on Wave 2A scheduled)
+
+### Wave 1A — Foundation (Schema + Entity + Service) ✅ DONE
+
+> **Worker:** Worker 1A. **Hand-off:** `docs/workflow/sprint-62.md`. **DEC:** DEC-197. **Status:** ✅ Built (0 errors), 16 Sprint62 tests pass.
+
+#### Added
+- `Sprint62_RegionalPremium_20260827_160000.cs` (FluentMigrator migration, idempotent)
+  - New table `regional_premiums` with UNIQUE (project_id, region), `company_id NOT NULL`, defaults NDB=1.5% / CIT=5.0% / SS=0.0%
+  - Two new columns on `progress_billings`: `regional_premium_deducted NUMERIC(18,4) DEFAULT 0` + `net_amount_after_premium NUMERIC(18,4) DEFAULT 0`
+- `data-types/regional_premiums.json` (DataTypeMigrator schema, mirror of the migration)
+- `data-types/progress_billings.json` — added the two new fields to keep the JSON-driven schema in sync
+- `RegionalPremium` entity (Constitution Article 3 / L19: `CompanyId` not nullable, `IsActive` flag for historical rows)
+- `IRegionalPremiumRepository` (added to `IRepositories.cs` — Dapper, scoped by `company_id` on update/delete per L19)
+- `RegionalPremiumRepository` (Dapper implementation)
+- `RegionalPremiumService` (CRUD + `CalculateDeductionAsync` used by `BillingService`)
+- `RegionalPremiumDtos.cs` (Create/Update/Response records + `RegionalPremiumRegions` constants: Tripoli, Benghazi, Misrata, NDB-Oil, NDB-Gas, Other)
+- 16 tests: `Sprint62RegionalPremiumMigrationTests` (8) + `Sprint62RegionalPremiumServiceTests` (8)
+
+#### Changed
+- `ProgressBilling` entity: added `RegionalPremiumDeducted` + `NetAmountAfterPremium` fields
+- `BillingService.CreateAsync` + `PreviewAsync`: call `IRegionalPremiumService.CalculateDeductionAsync(projectId, gross, ct)` to populate the two new fields on every Draft billing
+- `BillingRepository.GetByIdAsync` + `ListByProjectAsync` + `InsertAsync`: read/write the two new columns
+- `ProgressBillingResponse` + `BillingPreviewResponse` (in `ProjectsDtos.cs`): expose the two new fields to API consumers
+
+#### DEC-197 algorithm
+```
+gross = contract.contract_value × (work_completed_percent / 100)
+... (advance + retention as before) ...
+net = gross - advance - retention
+premium = (project has active regional_premium row)
+    ? gross × (Ndb% + CIT% + SS%) / 100
+    : 0
+net_after_premium = net - premium
+```
+The deduction is applied on `gross` (not on `net`), matching the Libyan statutory practice of withholding on the invoice face value.
+
+#### Fixed (incidental)
+- `EngineerReportsControllerTests.cs` (2 lines) — Sprint 61 commit `058eea1` removed `EngineerId` from `CreateEngineerReportRequest` but the 2 controller test call sites were not updated, breaking the build. Fixed the named-argument references to keep the build green. Pre-existing bug, not Sprint 62 scope.
+
+#### Out of scope for Wave 1A (deferred to Wave 2A / Admin)
+- `RegionalPremiumsController` + 4 CRUD endpoints
+- `BillingPdfController` + HTML-to-PDF export (DEC-198)
+- DI registration in `Program.cs` — **Admin will add** `AddScoped<IRegionalPremiumRepository, RegionalPremiumRepository>()` + `AddScoped<IRegionalPremiumService, RegionalPremiumService>()` per the sprint contract. Until that lands, DI resolution for `BillingService` will throw at runtime in environments that exercise the billing flow (build is clean).
+
+### Wave 2A — API Layer (Controllers + PDF + DI) ✅ DONE
+
+> **Worker:** Worker 2A. **DECs:** DEC-197 (API) + DEC-198 (PDF). **Status:** ✅ Built (0 errors, 0 warnings), 8 new tests pass (6 controller + 2 service); all 16 Wave 1A + 22 EngineerReport + 12 Sprint61 entity/migration tests still pass. 2 commits (feat + docs).
+
+#### Added
+- `src/backend/Host/Controllers/RegionalPremiumsController.cs` — 4 endpoints (list/create/update/delete) over `IRegionalPremiumService`. Claim-based `UserId` (L19/L186). `ProblemDetails` errors. Error-code → HTTP status mapping (`AlreadyExists` → 409, `NotFound` → 404, `ValidationError` → 400).
+- `src/backend/Host/Controllers/BillingPdfController.cs` — 1 endpoint (`GET /api/projects/{projectId}/billings/{id}/pdf`) that streams a bilingual (AR + EN) Progress Billing certificate.
+- `src/backend/Modules/Projects/Application/Services/PdfExportService.cs` — QuestPDF 2024.10.0 renderer (pure C#, MIT-style Community license). `BillingPdfModel` flat record; `IPdfExportService.GenerateBillingPdf` returns `byte[]`. License set once per process via `Interlocked.Exchange`.
+- `src/backend/Tests/ERPSystem.Tests/Projects/RegionalPremiumsControllerTests.cs` — 4 controller tests (mocked service): list 200, create 201, create 409 duplicate, delete 204. + 2 bonus tests (update 200, delete 404).
+- `src/backend/Tests/ERPSystem.Tests/Projects/PdfExportServiceTests.cs` — 2 service tests: PDF magic bytes (`%PDF`) + min size; structural marker (`%%EOF`) + size threshold.
+
+#### Changed
+- `src/backend/Host/Program.cs` — added 3 DI registrations: `IRegionalPremiumRepository`, `IRegionalPremiumService`, `IPdfExportService`. (The first two were deferred from Wave 1A per the sprint contract.)
+- `src/backend/Host/ERP-SYSTEM.csproj` — added `QuestPDF 2024.10.0` (only new dependency in Sprint 62).
+- `src/backend/Modules/Projects/AGENTS.md` — added a "Sprint 62 Wave 2A" section under the Wave 1A section.
+
+#### L19 / DEC-095 compliance
+- `UserId` on the regional premium controller is read from `User.FindFirst(ClaimTypes.NameIdentifier)` only — never from a request DTO (L186 / Sprint 61 fix preserved).
+- `IPdfExportService` is a pure renderer; all company-scope happens in the existing `IBillingRepository` / `IProjectRepository` / `IContractRepository` calls inside the controller.
+- No `CompanyId` / `UserId` / `EngineerId` was added to any new DTO.
+
+#### Out of scope (deferred to Wave 2B / Frontend)
+- Frontend UI for regional premium CRUD + PDF download button on the billing page.
+- Historical rate-change tracking (the `is_active` flag is already in the schema; UI for switching the active row is post-Sprint 62).
+
+---
+
 ## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
 
 **Goal:** Per Anas's directive 2026-08-08 09:35 — merge Mephisto's Sprint 57-60 work (Project P&L + Contracts + Billings + WIP + Modern UI + UoM) into the master branch, then apply a new professional 4-level CoA + 2026 scenario seeder.
