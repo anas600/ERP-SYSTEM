@@ -89,7 +89,6 @@ The deduction is applied on `gross` (not on `net`), matching the Libyan statutor
 #### Out of scope (deferred to Wave 2B / Frontend)
 - Frontend UI for regional premium CRUD + PDF download button on the billing page.
 - Historical rate-change tracking (the `is_active` flag is already in the schema; UI for switching the active row is post-Sprint 62).
-=======
 ## Sprint 64 — Subcontractor Module (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
 
 **Goal:** إضافة وحدة المقاولين الفرعيين — كيانات (مقاول + عقد فرعي) + CRUD API + (Wave 2A) مستخلصات + مدفوعات + (Wave 3A) كشف حساب + FE.
@@ -123,7 +122,6 @@ The deduction is applied on `gross` (not on `net`), matching the Libyan statutor
 - `[RequirePermission("projects.subcontractors.view")]` on `SubcontractorsController` (class-level)
 - `[RequirePermission("projects.sub_contracts.view")]` on `SubContractsController` (class-level)
 - When Sprint 63 merges, the temporary marker will be replaced with the full `IAsyncAuthorizationFilter` from commit `2ee3c0b` — no controller change required.
->>>>>>> dd5e69d (docs(governance): Sprint 64 Wave 1A - CHANGELOG + AGENTS)
 
 ### Wave 2A — SubProgressBilling + SubPayment (DEC-223+224) ✅ DONE
 
@@ -228,6 +226,80 @@ npm install --save-dev jest @testing-library/react @testing-library/jest-dom \
 - Wave 1A: 18 (10 service + 8 controller)
 - Wave 2A: 18 (10 service + 8 controller)
 - Wave 3A: 9 (6 service + 3 controller)
+=======
+## Sprint 65 — Finance ↔ Projects Integration (2026-08-27) 🟡 IN PROGRESS (Wave 1A LOCAL-ONLY)
+
+**Goal:** VALUE SPRINT — wire up the cross-module triggers so the books reflect construction
+operations in real time. Wave 1A delivers the auto-trigger infrastructure (DEC-231 + DEC-232);
+Waves 2A (Project P&L with subcontractor costs) and 3A (bank reconciliation) follow.
+
+**Branch:** `feature/sprint-65-finance-projects` (off `develop`)
+**Status:** Wave 1A done locally (8/8 tests pass, 0 build errors). Awaiting Anas "ادفع" for Mode 2.
+
+### Added
+
+- **In-process event bus** for cross-module auto-triggers:
+  - `IProjectEventBus` + `ProjectEventBus` — `ConcurrentDictionary<Type, List<Delegate>>`,
+    fire-and-forget, no outbox, no retry. Singleton lifetime. (Sprint 22 removed the heavy
+    cross-module event bus; this is the focused alternative for Wave 1A's use case.)
+- **2 events:**
+  - `BillingApprovedEvent` — payload: `BillingId, ProjectId, CompanyId, NetAmount, UserId`
+  - `SubPaymentCreatedEvent` — payload: `SubPaymentId, SubContractId, SubcontractorId,
+    CompanyId, Amount, RetentionReleased, UserId`
+- **2 handlers** (idempotent):
+  - `BillingApprovedHandler` (DEC-231) — resolves project customer, calls
+    `ISalesInvoiceService.CreateAsync` to create the AR Sales Invoice (Draft). Re-checks
+    `billing.InvoiceId` so it no-ops when the inline `BillingService.ApproveAsync` work
+    already produced it. Preserves the inline-created `JournalEntryId`.
+  - `SubPaymentCreatedHandler` (DEC-232) — self-contained Finance integration point. Looks up
+    CoA accounts `5100` (Subcontractor Cost) and `1101` (Cash), finds/validates the vendor
+    (subcontractorId = vendorId by Sprint 64 convention), creates an AP Vendor Bill (Draft)
+    and a balanced Journal Entry (Dr 5100 / Cr 1101) in a single transaction. When
+    `RetentionReleased > 0`, a separate bill + JE is created.
+- **`FinanceIntegrationService`** — orchestrator that subscribes both handlers to the event
+  bus at startup. `RegisterHandlers()` is idempotent via `Interlocked.Exchange`.
+- **`SubPaymentService`** (event-firing stub) — `CreateAsync` validates the request and
+  publishes `SubPaymentCreatedEvent`. Full persistence layer lands when Sprint 64's
+  Subcontractor schema merges.
+- **DI registration in `Program.cs`** — `IProjectEventBus` (singleton),
+  `IFinanceIntegrationService` (singleton), `IBillingApprovedHandler` (scoped),
+  `ISubPaymentCreatedHandler` (scoped), `ISubPaymentService` (scoped).
+  `RegisterHandlers()` called once after `var app = builder.Build();`.
+- **8 new tests** in `Tests/ERPSystem.Tests/Projects/Sprint65FinanceIntegrationTests.cs`:
+  1. `BillingApprovedEvent_FiresOnApprove_CreatesArInvoice`
+  2. `BillingApprovedHandler_PostsJournalEntry_DrArCrRevenue` (preserves inline JE)
+  3. `BillingApprovedHandler_DuplicateApprove_DoesNotCreateDuplicateInvoice`
+  4. `BillingApprovedHandler_AlreadyInvoicedBilling_NoOp`
+  5. `SubPaymentCreatedEvent_FiresOnPayment_CreatesVendorBill`
+  6. `SubPaymentCreatedHandler_PostsJournalEntry_DrCostCrCash_MissingAccountsNoOp`
+  7. `SubPaymentCreatedHandler_RetentionRelease_PathIsSeparate`
+  8. `FinanceIntegrationService_HandlesMultipleEventsInSequence`
+
+### Changed
+
+- `BillingService.ApproveAsync` — after the inline transaction commits, publishes
+  `BillingApprovedEvent`. Publish failures are caught and logged (the inline work is the
+  source of truth; the event is a safety net + cross-module extension point).
+- `BillingService` constructor — new dependency `IProjectEventBus` (L19 pattern: CompanyId
+  + UserId still come from `ICompanyContext` and the JWT respectively).
+- `src/backend/Modules/Projects/AGENTS.md` — new "Sprint 65 / Wave 1A" section documenting
+  the auto-trigger pattern, contracts, and out-of-scope items.
+
+### L19 / DEC-095 compliance
+
+- `CompanyId` in events = `ICompanyContext.CompanyId` (resolved by the firing service, NOT
+  read from a request DTO).
+- `UserId` in events = the JWT user id passed to the firing service.
+- `SubPaymentService.CreateAsync(userId, request, ct)` takes `userId` explicitly (controller
+  passes the JWT user).
+
+### Out of scope (later waves)
+
+- Wave 2A: Project P&L with `subcontractor_cost` from `sub_payments` (DEC-233), Dashboard
+  cross-module KPIs (DEC-234+236).
+- Wave 3A: Bank Reconciliation (Receipt ↔ Sub-Payment matching) (DEC-235+237).
+- Sprint 64's full Subcontractor schema (SubContract, Subcontractor entity, retention rules).
+>>>>>>> 135f446 (docs(governance): Sprint 65 Wave 1A - CHANGELOG + AGENTS)
 
 ---
 

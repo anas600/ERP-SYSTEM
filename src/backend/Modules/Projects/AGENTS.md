@@ -286,6 +286,75 @@ Forward-only (لا يمكن الرجوع من Completed). Transition invalid →
 - [`../HR/AGENTS.md`](../HR/AGENTS.md) — Phase 3.5 (Resource Assignment → Employee)
 - [`../Payroll/AGENTS.md`](../Payroll/AGENTS.md) — Phase 4 (Resource cost → Salary)
 
+---
+
+## Sprint 65 / Wave 1A — Finance ↔ Projects Integration (2026-08-27)
+
+**DECs:** DEC-231 (ProgressBilling → AR Invoice), DEC-232 (SubPayment → AP Vendor Bill)
+
+### Auto-trigger pattern (in-process event bus)
+
+```
+BillingService.ApproveAsync
+        │ (after inline work commits)
+        ▼
+BillingApprovedEvent ─── IProjectEventBus.PublishAsync
+        │                          │
+        ▼                          ▼
+BillingApprovedHandler      SubPaymentCreatedHandler
+(creates AR SalesInvoice    (creates AP VendorBill + JE
+if not already done)        Dr 5100 / Cr 1101)
+```
+
+```
+SubPaymentService.CreateAsync
+        │ (after validation)
+        ▼
+SubPaymentCreatedEvent ──→ SubPaymentCreatedHandler
+```
+
+### Files added in Wave 1A
+
+```
+Modules/Projects/Application/
+├── Events/
+│   ├── IProjectEventBus.cs        # ConcurrentDictionary<Type, List<Delegate>>
+│   ├── ProjectEventBus.cs         # in-process pub/sub (singleton)
+│   ├── BillingApprovedEvent.cs    # event payload for DEC-231
+│   └── SubPaymentCreatedEvent.cs  # event payload for DEC-232
+├── Handlers/
+│   ├── BillingApprovedHandler.cs  # creates AR SalesInvoice (idempotent)
+│   └── SubPaymentCreatedHandler.cs # creates AP VendorBill + JE (Dr Cost / Cr Cash)
+└── Services/
+    ├── FinanceIntegrationService.cs # registers handlers at startup
+    └── SubPaymentService.cs         # event-firing stub (full impl lands in Sprint 64 merge)
+```
+
+### Contracts (read before extending)
+
+1. **L19 / DEC-095:** `CompanyId` from `ICompanyContext` (NOT from request). `UserId` from
+   event payload (the firing service read it from the JWT).
+2. **Idempotency:** every handler MUST re-read state and no-op if the work is already done.
+   `BillingApprovedHandler` checks `billing.InvoiceId != null`. The orchestrator
+   (`FinanceIntegrationService.RegisterHandlers`) uses `Interlocked.Exchange` so re-registration
+   is a no-op.
+3. **In-process only:** no persistence, no outbox, no retry. If the handler fails, the inline
+   work in `BillingService.ApproveAsync` is still committed (the handler is a safety net).
+4. **Subscribed at startup:** `Program.cs` calls
+   `app.Services.GetRequiredService<IFinanceIntegrationService>().RegisterHandlers()` after
+   `var app = builder.Build();` — must run after the DI container is built so scoped handlers
+   can be resolved.
+
+### Tests (8 new)
+
+`Tests/ERPSystem.Tests/Projects/Sprint65FinanceIntegrationTests.cs` — all 8 pass on
+`dotnet test --filter Sprint65`.
+
+### Out of Wave 1A scope
+
+- Sprint 64 (Subcontractor) SubPayment persistence layer — its schema lands separately.
+- Wave 2A (Project P&L reads `sub_payments`) and Wave 3A (bank reconciliation) — later waves.
+
 
 ---
 
