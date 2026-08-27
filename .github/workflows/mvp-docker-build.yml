@@ -1,0 +1,155 @@
+name: MVP Docker Build (Layer 2)
+
+# Sprint 66 (DEC-241) — per Anas 2026-08-27 21:30 UTC+2 directive
+# Builds + tests the mvp-docker setup on every push to develop.
+# Replaces the local mvp-auto-rebuild-on-develop-push cron (Docker daemon was
+# unreliable on Anas's machine — GitHub runners have stable Docker).
+#
+# Replaces: mvp-auto-rebuild-on-develop-push cron (now disabled in .mavis/cron)
+# Replaces: Manual `cd mvp-docker && docker compose up -d --build && ./smoke-test.ps1`
+#
+# Triggers:
+#   - Push to develop (after M2 merge)
+#   - Manual workflow_dispatch (for ad-hoc verification)
+#
+# What it does:
+#   1. Build API image (production mode, Release config)
+#   2. Build Frontend image (production mode, standalone build)
+#   3. Spin up the full stack: postgres + api + frontend
+#   4. Run smoke-test (9 checks: health, login, dashboard, demo data)
+#   5. On success: mark "Layer 2 verified" on the commit (GH status check)
+#   6. On failure: post a summary with logs to the workflow run
+#   7. Cleanup: docker compose down -v (drops test volume)
+#
+# Why this is the official "sprint closure lock":
+#   - Per Constitution Article 9 + 3-Layer Model, Layer 2 must be verified
+#     before the sprint is considered "merged to production" (in our case,
+#     before Anas can browse the latest sprint).
+#   - Previously this was a manual step (`cd mvp-docker && ./smoke-test.ps1`)
+#     but Docker Desktop on Anas's machine had reliability issues.
+#   - GitHub runners have stable Docker — this workflow is the new source of truth.
+#
+# Time budget: ~5 min on GitHub runners (vs 10-15 min on local machine).
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [develop]
+  workflow_dispatch:
+    inputs:
+      skip_build:
+        description: 'Skip image build (use cached images)'
+        type: boolean
+        default: false
+
+concurrency:
+  group: mvp-docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  POSTGRES_USER: erp
+  POSTGRES_PASSWORD: erp_mvp_password
+  POSTGRES_DB: erp_system
+  JWT_SECRET: 'CI_MVP_DOCKER_SECRET_REPLACE_IN_PRODUCTION_64CHARS_xxxxxxxxxxxxxxxx'
+  BOOTSTRAP_CREATE_DEFAULT_ADMIN: 'true'
+  BOOTSTRAP_DEFAULT_ADMIN_EMAIL: 'admin@erp.local'
+  BOOTSTRAP_DEFAULT_ADMIN_PASSWORD: 'Admin1234!'
+  BOOTSTRAP_DEFAULT_ADMIN_FULL_NAME: 'Administrator'
+  BOOTSTRAP_SEED_DEMO_DATA: 'true'
+  API_URL: 'http://localhost:5000'
+  FRONTEND_URL: 'http://localhost:3000'
+  NEXT_PUBLIC_API_URL: 'http://localhost:5000'
+
+jobs:
+  # ===================================================================
+  # Build + smoke-test the mvp-docker stack
+  # ===================================================================
+  mvp-docker:
+    name: mvp-docker build + smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 15  # Cap to avoid runaway builds
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # pwsh is required to run the existing smoke-test.ps1
+      # (We keep one source of truth — same script runs locally + CI)
+      - name: Install PowerShell
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y wget apt-transport-https
+          wget -q https://packages.microsoft.com/config/ubuntu/22.04/packages-microsoft-prod.deb
+          sudo dpkg -i packages-microsoft-prod.deb
+          sudo apt-get update -qq
+          sudo apt-get install -y powershell
+          pwsh --version
+
+      - name: Build API image
+        working-directory: mvp-docker
+        run: docker compose build api
+
+      - name: Build Frontend image
+        working-directory: mvp-docker
+        run: docker compose build frontend
+
+      - name: Start the stack
+        working-directory: mvp-docker
+        run: |
+          # Tear down any previous run (idempotent)
+          docker compose down -v 2>/dev/null || true
+          # Start with a fresh volume
+          docker compose up -d
+          echo "⏳ Waiting 30s for postgres to become healthy..."
+          sleep 30
+          docker compose ps
+
+      - name: Run smoke test (9 checks)
+        working-directory: mvp-docker
+        env:
+          API_URL: ${{ env.API_URL }}
+          FRONTEND_URL: ${{ env.FRONTEND_URL }}
+          BOOTSTRAP_DEFAULT_ADMIN_EMAIL: ${{ env.BOOTSTRAP_DEFAULT_ADMIN_EMAIL }}
+          BOOTSTRAP_DEFAULT_ADMIN_PASSWORD: ${{ env.BOOTSTRAP_DEFAULT_ADMIN_PASSWORD }}
+          POSTGRES_PASSWORD: ${{ env.POSTGRES_PASSWORD }}
+          WAIT_TIMEOUT_SECONDS: '180'
+        run: |
+          set -euo pipefail
+          # Use the same smoke-test.ps1 that runs locally
+          # (Linux PowerShell is installed in the previous step)
+          pwsh -File ./smoke-test.ps1
+
+      - name: Collect logs on failure
+        if: failure()
+        working-directory: mvp-docker
+        run: |
+          echo "===== docker compose logs (last 200 lines) ====="
+          docker compose logs --tail=200 || true
+          echo "===== docker compose ps ====="
+          docker compose ps || true
+
+      - name: Tear down stack
+        if: always()
+        working-directory: mvp-docker
+        run: |
+          # Always drop the test volume (don't pollute GH runners' disk)
+          docker compose down -v 2>/dev/null || true
+
+      - name: Summary
+        if: success()
+        run: |
+          echo "✅ mvp-docker build + smoke test PASSED"
+          echo "   - All 9 smoke checks: green"
+          echo "   - API image: built + tested"
+          echo "   - Frontend image: built + tested"
+          echo "   - Postgres: clean schema + bootstrap admin + demo data verified"
+          echo ""
+          echo "📌 This run is the official 'Layer 2 verified' marker for sprint closure."
+          echo "   Anas can now browse http://localhost:3000 on his machine (after running"
+          echo "   'cd mvp-docker && docker compose up -d' on demand) to see the latest sprint."
+
+      - name: Notify failure
+        if: failure()
+        run: |
+          echo "::error title=🚨 mvp-docker smoke test FAILED::The containerized MVP failed one or more smoke checks. See workflow logs for details. Sprint is NOT considered closed until this passes."
