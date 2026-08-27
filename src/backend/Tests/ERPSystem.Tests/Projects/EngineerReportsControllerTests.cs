@@ -113,7 +113,6 @@ public class EngineerReportsControllerTests
 
         var result = await ctrl.Create(response.ProjectId, new CreateEngineerReportRequest(
             ReportDate: response.ReportDate,
-            EngineerId: response.EngineerId,
             Weather: response.Weather,
             WorkDone: response.WorkDone,
             Issues: response.Issues
@@ -137,7 +136,7 @@ public class EngineerReportsControllerTests
         var ctrl = NewController(svc.Object, Guid.NewGuid());
 
         var result = await ctrl.Create(Guid.NewGuid(), new CreateEngineerReportRequest(
-            ReportDate: DateTime.UtcNow, EngineerId: Guid.NewGuid(),
+            ReportDate: DateTime.UtcNow,
             Weather: null, WorkDone: "x", Issues: null
         ), CancellationToken.None);
 
