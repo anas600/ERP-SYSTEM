@@ -190,6 +190,9 @@ builder.Services.AddScoped<IBillingRepository, BillingRepository>(); // Sprint 5
 // Sprint 64 (DEC-221/222): Subcontractor + Sub-Contract repositories (Wave 1A foundation)
 builder.Services.AddScoped<ISubcontractorRepository, SubcontractorRepository>();
 builder.Services.AddScoped<ISubContractRepository, SubContractRepository>();
+// Sprint 64 (DEC-223/224): Sub-ProgressBilling + Sub-Payment repositories (Wave 2A)
+builder.Services.AddScoped<ISubProgressBillingRepository, SubProgressBillingRepository>();
+builder.Services.AddScoped<ISubPaymentRepository, SubPaymentRepository>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IProjectBudgetRepository, ProjectBudgetRepository>();
@@ -267,6 +270,9 @@ builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 // Sprint 64 (DEC-221/222): Subcontractor + Sub-Contract services (Wave 1A foundation)
 builder.Services.AddScoped<ISubcontractorService, SubcontractorService>();
 builder.Services.AddScoped<ISubContractService, SubContractService>();
+// Sprint 64 (DEC-223/224): Sub-ProgressBilling + Sub-Payment services (Wave 2A)
+builder.Services.AddScoped<ISubProgressBillingService, SubProgressBillingService>();
+builder.Services.AddScoped<ISubPaymentService, SubPaymentService>();
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181

@@ -123,3 +123,35 @@ public interface IRegionalPremiumRepository
     Task UpdateAsync(RegionalPremium premium, CancellationToken ct);
     Task DeleteAsync(Guid id, CancellationToken ct);
 }
+
+/// <summary>Sprint 64 / DEC-223: Sub-ProgressBilling (work done, % complete, retention).</summary>
+public interface ISubProgressBillingRepository
+{
+    Task<SubProgressBilling?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubProgressBilling>> ListBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Count of billings for this sub-contract (any status). Used to compute the retention-billing ordinal.</summary>
+    Task<int> CountBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of gross_amount for this sub-contract (across all statuses). Used to populate PreviousBillingsAmount.</summary>
+    Task<decimal> SumBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of gross_amount for this sub-contract EXCLUDING status=4 (Cancelled). Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumGrossNonCancelledBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of retention_deducted for this sub-contract EXCLUDING status=4 (Cancelled). Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumRetentionNonCancelledBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubProgressBilling billing, CancellationToken ct);
+    Task UpdateAsync(SubProgressBilling billing, CancellationToken ct);
+    /// <summary>Update only the status field (used by ApproveAsync).</summary>
+    Task UpdateStatusAsync(Guid id, int status, DateTime updatedAt, CancellationToken ct);
+}
+
+/// <summary>Sprint 64 / DEC-224: Sub-Payment (allocation + retention release).</summary>
+public interface ISubPaymentRepository
+{
+    Task<SubPayment?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubPayment>> ListBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task<IReadOnlyList<SubPayment>> ListBySubProgressBillingAsync(Guid subProgressBillingId, CancellationToken ct);
+    /// <summary>Sum of amount + retention_released for this sub-contract. Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumPaidBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of retention_released only — used to validate the ReleaseRetentionAsync cap (cannot release more than already released).</summary>
+    Task<decimal> SumRetentionReleasedBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubPayment payment, CancellationToken ct);
+}
