@@ -56,13 +56,19 @@ public sealed class ProjectCostResult<T>
 }
 
 /// <summary>
-/// Subcontractor payments repository — abstracted so the Wave 2A work can land
-/// before the Sprint 64 schema. The default implementation (NoOpSubPaymentRepository)
-/// returns 0 because the sub_payments table is not yet on `develop`; when Sprint 64
-/// merges, a Dapper-backed implementation is registered in Program.cs and the unit
-/// tests continue to pass without changes.
+/// Subcontractor cost repository — seam for cross-sprint dependency (L201).
+/// The default implementation (NoOpSubcontractorCostRepository) returns 0 because
+/// the sub_payments table is not yet on `develop`; when Sprint 64 merges, a Dapper-
+/// backed implementation is registered in Program.cs and the unit tests continue to
+/// pass without changes.
+///
+/// <para><b>Why renamed from <c>ISubPaymentRepository</c></b>: the real repository
+/// lives in <c>ERPSystem.Modules.Projects.Infrastructure.ISubPaymentRepository</c>
+/// (Sprint 64). Reusing the same name in this namespace causes a CS0104 ambiguous-
+/// reference error in any consumer that imports both. <c>ISubcontractorCostRepository</c>
+/// makes the seam explicit and intent-revealing.</para>
 /// </summary>
-public interface ISubPaymentRepository
+public interface ISubcontractorCostRepository
 {
     /// <summary>
     /// SUM of sub_payments.amount for the given project, excluding cancelled payments (status=4).
@@ -77,7 +83,7 @@ public interface ISubPaymentRepository
 /// `develop` at Wave 2A time, so this returns 0. When Sprint 64 merges, a real Dapper
 /// implementation replaces this in DI.
 /// </summary>
-public sealed class NoOpSubPaymentRepository : ISubPaymentRepository
+public sealed class NoOpSubcontractorCostRepository : ISubcontractorCostRepository
 {
     public Task<decimal> SumActivePaymentsForProjectAsync(Guid companyId, Guid projectId, CancellationToken ct)
         => Task.FromResult(0m);
@@ -103,14 +109,14 @@ public sealed class ProjectCostService : IProjectCostService
 {
     private readonly IProjectRepository _projects;
     private readonly IDbConnectionFactory _db;
-    private readonly ISubPaymentRepository _subPayments;
+    private readonly ISubcontractorCostRepository _subPayments;
     private readonly ERPSystem.Shared.CompanyContext.ICompanyContext _company;
     private readonly Microsoft.Extensions.Logging.ILogger<ProjectCostService> _logger;
 
     public ProjectCostService(
         IProjectRepository projects,
         IDbConnectionFactory db,
-        ISubPaymentRepository subPayments,
+        ISubcontractorCostRepository subPayments,
         ERPSystem.Shared.CompanyContext.ICompanyContext company,
         Microsoft.Extensions.Logging.ILogger<ProjectCostService> logger)
     {

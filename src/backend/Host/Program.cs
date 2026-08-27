@@ -17,6 +17,8 @@ using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Identity.Application.Auth;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Modules.Projects.Application;
+using ERPSystem.Modules.Projects.Application.Events;
+using ERPSystem.Modules.Projects.Application.Handlers;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Modules.Projects.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
@@ -255,7 +257,7 @@ builder.Services.AddScoped<ICoAValidationService, CoAValidationService>(); // Sp
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<IProjectCostService, ProjectCostService>(); // Sprint 65 / DEC-233
-builder.Services.AddScoped<ISubPaymentRepository, NoOpSubPaymentRepository>(); // Sprint 65 / DEC-233 — replaced when Sprint 64 merges
+builder.Services.AddScoped<ISubcontractorCostRepository, NoOpSubcontractorCostRepository>(); // Sprint 65 / DEC-233 — replaced when Sprint 64 lands (L201 seam)
 // Sprint 65 / Wave 3A (DEC-235 + DEC-237): Bank reconciliation service + sub-payment matcher
 builder.Services.AddScoped<IBankReconciliationService, BankReconciliationService>();
 builder.Services.AddScoped<ISubPaymentMatcher, NoOpSubPaymentMatcher>(); // replaced when Sprint 64 merges
