@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Entities;
@@ -17,6 +18,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.HRWrite)]
+[RequirePermission("hr.employees.view")]
 public class HrController : ControllerBase
 {
     private readonly IDepartmentService _depts;

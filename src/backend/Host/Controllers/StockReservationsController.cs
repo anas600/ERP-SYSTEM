@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using FluentValidation;
@@ -10,6 +11,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/reservations")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.InventoryWrite)]
+[RequirePermission("inventory.movements.view")]
 public class StockReservationsController : ControllerBase
 {
     private readonly IStockReservationService _service;

@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Projects.Application.Dtos;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Shared.CompanyContext;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/projects/{projectId:guid}/variations")]
 [Authorize]
+[RequirePermission("projects.view")]
 public sealed class VariationOrdersController : ControllerBase
 {
     private readonly IVariationOrderService _service;
@@ -20,10 +22,12 @@ public sealed class VariationOrdersController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("projects.view")]
     public async Task<IActionResult> List(Guid projectId, CancellationToken ct)
         => Ok(await _service.ListAsync(projectId, ct));
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("projects.view")]
     public async Task<IActionResult> GetById(Guid projectId, Guid id, CancellationToken ct)
     {
         var dto = await _service.GetByIdAsync(id, ct);
@@ -32,6 +36,7 @@ public sealed class VariationOrdersController : ControllerBase
     }
 
     [HttpPost]
+    [RequirePermission("projects.create")]
     public async Task<IActionResult> Create(Guid projectId, [FromBody] CreateVariationOrderRequest req, CancellationToken ct)
     {
         var companyId = _ctx.CompanyId;
@@ -42,6 +47,7 @@ public sealed class VariationOrdersController : ControllerBase
     }
 
     [HttpPost("{id:guid}/approve")]
+    [RequirePermission("projects.create")]
     public async Task<IActionResult> Approve(Guid projectId, Guid id, CancellationToken ct)
     {
         var companyId = _ctx.CompanyId;
@@ -52,6 +58,7 @@ public sealed class VariationOrdersController : ControllerBase
     }
 
     [HttpPost("lines")]
+    [RequirePermission("projects.create")]
     public async Task<IActionResult> AddLine(Guid projectId, [FromBody] CreateVariationOrderLineRequest req, CancellationToken ct)
     {
         var companyId = _ctx.CompanyId;

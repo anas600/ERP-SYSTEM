@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Shared.CompanyContext;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/finance/ledger")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+[RequirePermission("finance.reports.view")]
 public class LedgerController : ControllerBase
 {
     private readonly IGeneralLedgerService _ledger;

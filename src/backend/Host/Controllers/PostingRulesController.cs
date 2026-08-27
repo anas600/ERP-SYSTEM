@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
@@ -11,6 +12,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/finance/posting-rules")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("finance.posting_rules.view")]
 public class PostingRulesController : ControllerBase
 {
     private readonly IPostingRulesService _service;

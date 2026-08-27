@@ -747,6 +747,10 @@ app.Use(async (ctx, next) =>
 app.UseRequestTracking();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<RequestTimingMiddleware>(); // DEC-111
+// Sprint 63 (DEC-215): PermissionAuthorizationMiddleware runs early so the
+// [RequirePermission] filter has access to a populated ICompanyContext.
+// Sits AFTER CORS / HTTPS / Authentication so JWT claims are present.
+app.UseMiddleware<ERPSystem.Host.Authorization.PermissionAuthorizationMiddleware>();
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();

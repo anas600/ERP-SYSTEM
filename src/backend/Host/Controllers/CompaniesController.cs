@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Shared.CompanyContext;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/companies")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("companies.view")]
 public class CompaniesController : ControllerBase
 {
     private readonly ICompanyService _service;

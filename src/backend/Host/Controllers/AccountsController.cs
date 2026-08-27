@@ -9,6 +9,7 @@
 // clean. The legacy methods delegate to IChartOfAccountsService; the
 // new methods delegate to IFinanceService.ListAccountsAsync.
 
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using FluentValidation;
@@ -19,6 +20,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
+[RequirePermission("finance.accounts.view")]
 public class AccountsController : ControllerBase
 {
     private readonly IChartOfAccountsService _legacy;
@@ -44,6 +46,7 @@ public class AccountsController : ControllerBase
 
     [HttpGet("api/finance/accounts")]
     [ProducesResponseType(typeof(IReadOnlyList<AccountResponse>), StatusCodes.Status200OK)]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> ListLegacy([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
         var r = await _legacy.ListAsync(includeInactive, ct);
@@ -51,6 +54,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpGet("api/finance/accounts/{id:guid}")]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> GetByIdLegacy(Guid id, CancellationToken ct)
     {
         var r = await _legacy.GetByIdAsync(id, ct);
@@ -60,6 +64,7 @@ public class AccountsController : ControllerBase
     // Sprint 52a (Phase 4): tree view of the CoA. Returns L1 roots with nested children.
     [HttpGet("api/finance/accounts/tree")]
     [ProducesResponseType(typeof(IReadOnlyList<AccountTreeNode>), StatusCodes.Status200OK)]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> GetTree([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
         var r = await _legacy.ListAsync(includeInactive, ct);
@@ -97,6 +102,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpGet("api/finance/accounts/by-code/{code}")]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> GetByCodeLegacy(string code, CancellationToken ct)
     {
         var r = await _legacy.GetByCodeAsync(code, ct);
@@ -105,6 +111,7 @@ public class AccountsController : ControllerBase
 
     [HttpPost("api/finance/accounts")]
     [ProducesResponseType(typeof(AccountResponse), StatusCodes.Status201Created)]
+    [RequirePermission("finance.accounts.create")]
     public async Task<IActionResult> CreateLegacy([FromBody] CreateAccountRequest request, CancellationToken ct)
     {
         var v = await _validator.ValidateAsync(request, ct);
@@ -139,6 +146,7 @@ public class AccountsController : ControllerBase
     }
 
     [HttpDelete("api/finance/accounts/{id:guid}")]
+    [RequirePermission("finance.accounts.create")] // delete is a write op; create is the closest write permission
     public async Task<IActionResult> DeleteLegacy(Guid id, CancellationToken ct)
     {
         var r = await _legacy.DeleteAsync(id, ct);
@@ -153,6 +161,7 @@ public class AccountsController : ControllerBase
     // String enums (Asset/Liability/Equity/Revenue/Expense, Debit/Credit).
     [HttpGet("api/accounts")]
     [ProducesResponseType(typeof(IReadOnlyList<AccountDto>), StatusCodes.Status200OK)]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> List([FromQuery] bool includeInactive = false, CancellationToken ct = default)
     {
         var r = await _finance.ListAccountsAsync(includeInactive, ct);
@@ -162,6 +171,7 @@ public class AccountsController : ControllerBase
     // GET /api/accounts/{id} — single account.
     [HttpGet("api/accounts/{id:guid}")]
     [ProducesResponseType(typeof(AccountDto), StatusCodes.Status200OK)]
+    [RequirePermission("finance.accounts.view")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _finance.GetAccountByIdAsync(id, ct);

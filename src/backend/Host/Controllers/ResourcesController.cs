@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Application.Services;
 using FluentValidation;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/resources")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
+[RequirePermission("projects.resources.view")]
 public class ResourcesController : ControllerBase
 {
     private readonly IResourceService _service;

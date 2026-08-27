@@ -62,6 +62,10 @@ public interface IRoleRepository
     Task InsertAsync(Role role, IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload (called by EnsureDefaultRolesAsync inside the tx)
     Task EnsureDefaultRolesAsync(CancellationToken ct);
     Task EnsureDefaultRolesAsync(IDbConnection conn, IDbTransaction? tx, CancellationToken ct); // P1-9: transactional overload
+    // Sprint 63 (DEC-216): Used by AdminPermissionsController to invalidate the
+    // IPermissionService cache for every user that holds a given role. Returns
+    // an empty list when the role has no members.
+    Task<IReadOnlyList<Guid>> GetUserIdsInRoleAsync(Guid roleId, CancellationToken ct);
 }
 
 public interface IRefreshTokenRepository

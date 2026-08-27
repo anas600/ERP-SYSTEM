@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Application.Services;
 using FluentValidation;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/tasks")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
+[RequirePermission("projects.tasks.view")]
 public class TasksController : ControllerBase
 {
     private readonly ITaskService _tasks;

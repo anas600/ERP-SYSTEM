@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.AccountsReceivable.Application;
 using ERPSystem.Modules.AccountsReceivable.Application.Services;
 using ERPSystem.Modules.AccountsReceivable.Entities;
@@ -16,6 +17,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.FinanceWrite)]
+[RequirePermission("ar.customers.view")]
 public class FinanceArController : ControllerBase
 {
     private readonly ICustomerService _customers;
@@ -59,6 +61,7 @@ public class FinanceArController : ControllerBase
     // ============== Customers ==============
 
     [HttpGet("api/ar/customers")]
+    [RequirePermission("ar.customers.view")]
     public async Task<IActionResult> ListCustomers(
         [FromQuery] bool includeInactive = false,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -69,6 +72,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpGet("api/ar/customers/{id:guid}")]
+    [RequirePermission("ar.customers.view")]
     public async Task<IActionResult> GetCustomer(Guid id, CancellationToken ct)
     {
         var r = await _customers.GetByIdAsync(id, ct);
@@ -77,6 +81,7 @@ public class FinanceArController : ControllerBase
 
     /// <summary>Sprint 36 (DEC-122): كشف حساب عميل (opening + invoices + receipts + closing).</summary>
     [HttpGet("api/ar/customers/{id:guid}/statement")]
+    [RequirePermission("ar.customers.view")]
     public async Task<IActionResult> GetCustomerStatement(
         Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct = default)
     {
@@ -85,6 +90,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPost("api/ar/customers")]
+    [RequirePermission("ar.customers.create")]
     public async Task<IActionResult> CreateCustomer([FromBody] CreateCustomerRequest req, CancellationToken ct)
     {
         var v = await _createCustomerV.ValidateAsync(req, ct);
@@ -96,6 +102,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/customers/{id:guid}")]
+    [RequirePermission("ar.customers.update")]
     public async Task<IActionResult> UpdateCustomer(Guid id, [FromBody] UpdateCustomerRequest req, CancellationToken ct)
     {
         var v = await _updateCustomerV.ValidateAsync(req, ct);
@@ -105,6 +112,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpDelete("api/ar/customers/{id:guid}")]
+    [RequirePermission("ar.customers.update")] // deactivate is an update-style write
     public async Task<IActionResult> DeactivateCustomer(Guid id, CancellationToken ct)
     {
         var r = await _customers.DeactivateAsync(UserId, id, ct);
@@ -114,6 +122,7 @@ public class FinanceArController : ControllerBase
     // ============== Sales Invoices ==============
 
     [HttpGet("api/ar/sales-invoices")]
+    [RequirePermission("ar.invoices.view")]
     public async Task<IActionResult> ListInvoices(
         [FromQuery] Guid? customerId, [FromQuery] SalesInvoiceStatus? status,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -124,6 +133,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpGet("api/ar/sales-invoices/{id:guid}")]
+    [RequirePermission("ar.invoices.view")]
     public async Task<IActionResult> GetInvoice(Guid id, CancellationToken ct)
     {
         var r = await _invoices.GetByIdAsync(id, ct);
@@ -131,6 +141,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPost("api/ar/sales-invoices")]
+    [RequirePermission("ar.invoices.create")]
     public async Task<IActionResult> CreateInvoice([FromBody] CreateSalesInvoiceRequest req, CancellationToken ct)
     {
         var v = await _createInvoiceV.ValidateAsync(req, ct);
@@ -142,6 +153,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/sales-invoices/{id:guid}")]
+    [RequirePermission("ar.invoices.create")] // edit before posting
     public async Task<IActionResult> UpdateInvoice(Guid id, [FromBody] UpdateSalesInvoiceRequest req, CancellationToken ct)
     {
         var v = await _updateInvoiceV.ValidateAsync(req, ct);
@@ -151,6 +163,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/sales-invoices/{id:guid}/post")]
+    [RequirePermission("ar.invoices.post")]
     public async Task<IActionResult> PostInvoice(Guid id, CancellationToken ct)
     {
         var r = await _invoices.PostAsync(UserId, id, ct);
@@ -158,6 +171,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/sales-invoices/{id:guid}/cancel")]
+    [RequirePermission("ar.invoices.create")]
     public async Task<IActionResult> CancelInvoice(Guid id, CancellationToken ct)
     {
         var r = await _invoices.CancelAsync(UserId, id, ct);
@@ -167,6 +181,7 @@ public class FinanceArController : ControllerBase
     // ============== Receipts ==============
 
     [HttpGet("api/ar/receipts")]
+    [RequirePermission("ar.receipts.create")]
     public async Task<IActionResult> ListReceipts(
         [FromQuery] Guid? customerId,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -177,6 +192,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpGet("api/ar/receipts/{id:guid}")]
+    [RequirePermission("ar.receipts.create")]
     public async Task<IActionResult> GetReceipt(Guid id, CancellationToken ct)
     {
         var r = await _receipts.GetByIdAsync(id, ct);
@@ -184,6 +200,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPost("api/ar/receipts")]
+    [RequirePermission("ar.receipts.create")]
     public async Task<IActionResult> CreateReceipt([FromBody] CreateReceiptRequest req, CancellationToken ct)
     {
         var v = await _createReceiptV.ValidateAsync(req, ct);
@@ -195,6 +212,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/receipts/{id:guid}/post")]
+    [RequirePermission("ar.receipts.create")] // posting receipts = part of the receipt workflow
     public async Task<IActionResult> PostReceipt(Guid id, CancellationToken ct)
     {
         var r = await _receipts.PostAsync(UserId, id, ct);
@@ -202,6 +220,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpPut("api/ar/receipts/{id:guid}/reverse")]
+    [RequirePermission("ar.receipts.create")]
     public async Task<IActionResult> ReverseReceipt(Guid id, CancellationToken ct)
     {
         var r = await _receipts.ReverseAsync(UserId, id, ct);
@@ -211,6 +230,7 @@ public class FinanceArController : ControllerBase
     // ============== Aging ==============
 
     [HttpGet("api/ar/aging")]
+    [RequirePermission("ar.invoices.view")]
     public async Task<IActionResult> GetAging([FromQuery] DateTime? asOfDate, CancellationToken ct = default)
     {
         var asOf = asOfDate ?? DateTime.UtcNow;
@@ -221,6 +241,7 @@ public class FinanceArController : ControllerBase
     // ============== Sprint 56 (DEC-149 + DEC-150) — Top Customers + Top Items ==============
 
     [HttpGet("api/ar/reports/top-customers")]
+    [RequirePermission("ar.invoices.view")]
     public async Task<IActionResult> GetTopCustomers(
         [FromQuery] DateTime? from, [FromQuery] DateTime? to,
         [FromQuery] int top = 10, CancellationToken ct = default)
@@ -232,6 +253,7 @@ public class FinanceArController : ControllerBase
     }
 
     [HttpGet("api/ar/reports/top-items")]
+    [RequirePermission("ar.invoices.view")]
     public async Task<IActionResult> GetTopItems(
         [FromQuery] DateTime? from, [FromQuery] DateTime? to,
         [FromQuery] int top = 10, CancellationToken ct = default)

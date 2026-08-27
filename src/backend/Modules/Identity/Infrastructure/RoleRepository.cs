@@ -32,6 +32,22 @@ public sealed class RoleRepository : IRoleRepository
         return await conn.QueryFirstOrDefaultAsync<Role>(new CommandDefinition(sql, new { Id = id }, cancellationToken: ct));
     }
 
+    /// <summary>
+    /// Sprint 63 (DEC-216): returns the user ids that currently hold
+    /// <paramref name="roleId"/> (via the <c>user_roles</c> join table).
+    /// Used by AdminPermissionsController to invalidate the IPermissionService
+    /// cache for every member of a role. Returns an empty list when the
+    /// role has no members.
+    /// </summary>
+    public async Task<IReadOnlyList<Guid>> GetUserIdsInRoleAsync(Guid roleId, CancellationToken ct)
+    {
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        const string sql = "SELECT user_id FROM user_roles WHERE role_id = @RoleId";
+        var rows = await conn.QueryAsync<Guid>(
+            new CommandDefinition(sql, new { RoleId = roleId }, cancellationToken: ct));
+        return rows.AsList();
+    }
+
     public async Task InsertAsync(Role role, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);

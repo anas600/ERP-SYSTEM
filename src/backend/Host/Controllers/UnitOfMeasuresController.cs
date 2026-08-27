@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using FluentValidation;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/uom")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("inventory.items.view")]
 public class UnitOfMeasuresController : ControllerBase
 {
     private readonly IUnitOfMeasureService _service;

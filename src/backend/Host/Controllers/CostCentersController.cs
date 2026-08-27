@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Companies.Application.Services;
 using ERPSystem.Modules.Companies.Entities;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/cost-centers")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("finance.cost_centers.view")]
 public class CostCentersController : ControllerBase
 {
     private readonly ICostCenterService _service;

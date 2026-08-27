@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using Dapper;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
 using Microsoft.AspNetCore.Authorization;
@@ -14,6 +15,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/identity")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.AdminOnly)]
+[RequirePermission("identity.users.view")]
 public class RolesController : ControllerBase
 {
     private readonly IUserRepository _users;

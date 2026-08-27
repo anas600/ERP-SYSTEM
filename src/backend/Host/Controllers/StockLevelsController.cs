@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Shared.CompanyContext;
 using Microsoft.AspNetCore.Authorization;
@@ -8,6 +9,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/levels")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+[RequirePermission("inventory.movements.view")]
 public class StockLevelsController : ControllerBase
 {
     private readonly IStockLevelService _service;
