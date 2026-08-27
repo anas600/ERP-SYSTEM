@@ -85,7 +85,6 @@ public class EngineerReportServiceTests
 
     private static CreateEngineerReportRequest MakeCreate(DateTime? date = null) => new(
         date ?? new DateTime(2026, 8, 27),
-        EngineerId: Guid.NewGuid(),
         Weather: "مشمس",
         WorkDone: "صب خرسانة الدور الأرضي",
         Issues: null

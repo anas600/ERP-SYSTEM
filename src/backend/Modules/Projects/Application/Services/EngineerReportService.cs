@@ -119,7 +119,7 @@ public sealed class EngineerReportService : IEngineerReportService
             CompanyId = companyId,
             ProjectId = projectId,
             ReportDate = req.ReportDate.Date,
-            EngineerId = req.EngineerId,
+            EngineerId = userId, // L19 / DEC-095: from JWT (matches authenticated engineer)
             Status = EngineerReportStatus.Draft,
             Weather = req.Weather,
             WorkDone = req.WorkDone.Trim(),

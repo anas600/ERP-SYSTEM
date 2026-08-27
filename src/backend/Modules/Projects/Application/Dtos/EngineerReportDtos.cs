@@ -62,11 +62,12 @@ public record EngineerReportSignoffResponse(
 /// </summary>
 public record CreateEngineerReportRequest(
     DateTime ReportDate,
-    Guid EngineerId,
     string? Weather,
     string WorkDone,
     string? Issues
 );
+// L19 / DEC-095: EngineerId is NOT in the request — the service resolves
+// it from the authenticated user (JWT) via UserId.
 
 /// <summary>
 /// Body for PUT /api/engineer-reports/{id} (update a draft report).
