@@ -34,6 +34,8 @@ name: MVP Docker Build (Layer 2)
 on:
   push:
     branches: [develop]
+  pull_request:
+    branches: [develop]
   workflow_dispatch:
     inputs:
       skip_build:
