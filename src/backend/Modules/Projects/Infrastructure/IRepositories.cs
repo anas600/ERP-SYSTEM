@@ -155,3 +155,30 @@ public interface ISubPaymentRepository
     Task<decimal> SumRetentionReleasedBySubContractAsync(Guid subContractId, CancellationToken ct);
     Task InsertAsync(SubPayment payment, CancellationToken ct);
 }
+
+/// <summary>Sprint 64 / DEC-221: Subcontractor master (code, name, contact, trade, tax_id).</summary>
+public interface ISubcontractorRepository
+{
+    Task<Subcontractor?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<Subcontractor?> GetByCodeAsync(Guid companyId, string code, CancellationToken ct);
+    Task<IReadOnlyList<Subcontractor>> ListAsync(
+        Guid companyId, bool? isActive, string? tradeSpecialty, int skip, int take, CancellationToken ct);
+    Task InsertAsync(Subcontractor sub, CancellationToken ct);
+    Task UpdateAsync(Subcontractor sub, CancellationToken ct);
+    /// <summary>Soft delete — sets is_active = FALSE. Returns true if a row was actually updated.</summary>
+    Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
+}
+
+/// <summary>Sprint 64 / DEC-222: Sub-Contract (subcontractor ↔ project + scope + value + retention).</summary>
+public interface ISubContractRepository
+{
+    Task<SubContract?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubContract>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<IReadOnlyList<SubContract>> ListBySubcontractorAsync(Guid subcontractorId, CancellationToken ct);
+    /// <summary>Count of sub-progress-billings linked to this sub-contract. Returns 0 if the Wave 2A table is missing (defensive).</summary>
+    Task<int> CountBillingsAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubContract sc, CancellationToken ct);
+    Task UpdateAsync(SubContract sc, CancellationToken ct);
+    /// <summary>Hard delete — refuses (returns false) if any sub_progress_billings reference this contract.</summary>
+    Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
+}
