@@ -125,6 +125,40 @@ The deduction is applied on `gross` (not on `net`), matching the Libyan statutor
 - When Sprint 63 merges, the temporary marker will be replaced with the full `IAsyncAuthorizationFilter` from commit `2ee3c0b` — no controller change required.
 >>>>>>> dd5e69d (docs(governance): Sprint 64 Wave 1A - CHANGELOG + AGENTS)
 
+### Wave 2A — SubProgressBilling + SubPayment (DEC-223+224) ✅ DONE
+
+> **Worker:** Worker 2A. **Hand-off:** `docs/workflow/sprint-64.md`. **DECs:** DEC-223, DEC-224. **Status:** ✅ Built (0 errors), 28/28 Sprint64 tests pass (18 new + 10 from Wave 1A).
+
+#### Added
+- `Sprint64_SubProgressBilling_20260827_190000.cs` (FluentMigrator, idempotent)
+  - New table `sub_progress_billings` with UNIQUE (sub_contract_id, billing_number), `company_id NOT NULL`, status int (1=Draft, 2=Approved, 3=Paid, 4=Cancelled), gross/retention/net columns
+  - New table `sub_payments` with UNIQUE (sub_contract_id, payment_number), FK to sub_progress_billings, `retention_released` column for the release flow
+  - Indexes: `ux_sub_progress_billings_sub_contract_number` (unique), `ix_sub_progress_billings_sub_contract`, `ux_sub_payments_sub_contract_number` (unique), `ix_sub_payments_sub_progress_billing`
+- `data-types/sub_progress_billings.json` + `data-types/sub_payments.json`
+- `SubProgressBilling` entity + `SubProgressBillingStatus` enum (Draft/Approved/Paid/Cancelled) — L19: CompanyId not nullable
+- `SubPayment` entity — L19: CompanyId not nullable, `RetentionReleased` defaults to 0 (regular payments) or > 0 (release payments)
+- `ISubProgressBillingRepository` + `ISubPaymentRepository` (Dapper) — with SUM/COUNT queries for the balance algorithm
+- `SubProgressBillingService` — algorithm: `gross = contract_value × work_completed_percent / 100`, `retention_deducted = (n <= sub_contract.retention_release_billing) ? gross × retention% / 100 : 0`, `net_payable = gross - retention_deducted`
+- `SubPaymentService` — GetBalanceAsync computes `outstandingBalance = totalBilledGross - totalPaid` (withheld retention stays in outstanding until released); ReleaseRetentionAsync creates a `SubPayment` with `retention_released = amount` after validating the cap
+- 2 new DTO files: `SubProgressBillingDtos.cs` (incl. `SubContractBalanceResponse`) + `SubPaymentDtos.cs` (incl. `ReleaseRetentionRequest`)
+- 2 new controllers (10 endpoints total):
+  - `SubProgressBillingsController`: `GET /api/sub-contracts/{id}/billings`, `GET /api/sub-progress-billings/{id}`, `POST /api/sub-contracts/{id}/billings`, `PUT /api/sub-progress-billings/{id}`, `POST /api/sub-progress-billings/{id}/approve`
+  - `SubPaymentsController`: `GET /api/sub-contracts/{id}/payments`, `GET /api/sub-payments/{id}`, `POST /api/sub-contracts/{id}/billings/{billingId}/payments`, `POST /api/sub-contracts/{id}/release-retention`, `GET /api/sub-contracts/{id}/balance`
+- 4 new test files (18 tests): `Sprint64SubProgressBillingServiceTests` (5) + `Sprint64SubPaymentServiceTests` (5) + `SubProgressBillingsControllerTests` (4) + `SubPaymentsControllerTests` (4)
+
+#### L19 / DEC-095
+- `CompanyId` from `ICompanyContext` (never from request DTO)
+- `UserId` from JWT `NameIdentifier` claim (never from request DTO)
+- The `GetBalanceAsync` algorithm uses 3 SUM queries (gross, retention, paid) — all scoped to the sub-contract via JWT-derived `CompanyId`
+
+#### Sprint 63 RBAC (using the Wave 1A temporary marker)
+- `[RequirePermission("projects.sub_progress_billings.view")]` on `SubProgressBillingsController` (class-level)
+- `[RequirePermission("projects.sub_payments.view")]` on `SubPaymentsController` (class-level)
+- Per-endpoint `create`/`update`/`approve` permission codes applied as in Wave 1A
+
+#### Algorithm references
+- Wave 3A (`SubStatement` + FE) will consume `GetBalanceAsync` and add WIP + Status (ACTIVE/OVERDUE/SETTLED) on top.
+
 ---
 
 ## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
