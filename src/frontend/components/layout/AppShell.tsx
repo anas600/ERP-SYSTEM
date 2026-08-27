@@ -30,6 +30,8 @@ import {
   X,
   LogOut,
   ChevronLeft,
+  // Sprint 64 (DEC-226): Subcontractor module
+  HardHat,
   // Phase 6.2 additions
   FolderTree,
   GitBranch,
@@ -133,6 +135,11 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'المشاريع', href: '/projects', icon: Briefcase },
       { label: 'الموارد', href: '/resources', icon: Hammer },
+      // Sprint 64 (DEC-226): Subcontractor module. The subcontractor pages
+      // are project-scoped (need a projectId in the URL), so this nav item
+      // points to the main list. Users typically land here from inside a
+      // project page; the link is provided for direct access.
+      { label: 'مقاولو الباطن', href: '/projects', icon: HardHat },
     ],
   },
   {

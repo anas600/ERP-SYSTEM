@@ -273,6 +273,8 @@ builder.Services.AddScoped<ISubContractService, SubContractService>();
 // Sprint 64 (DEC-223/224): Sub-ProgressBilling + Sub-Payment services (Wave 2A)
 builder.Services.AddScoped<ISubProgressBillingService, SubProgressBillingService>();
 builder.Services.AddScoped<ISubPaymentService, SubPaymentService>();
+// Sprint 64 (DEC-225): Sub-Statement service (Wave 3A)
+builder.Services.AddScoped<ISubStatementService, SubStatementService>();
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181
