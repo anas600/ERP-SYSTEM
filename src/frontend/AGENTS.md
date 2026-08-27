@@ -4,9 +4,8 @@
 
 <<<<<<< HEAD
 **Last updated:** 2026-08-27 (Sprint 63 Wave 3A — RBAC module visibility FE)
-=======
 **Last updated:** 2026-08-27 (Sprint 64 Wave 3A — DEC-225 + DEC-226 — SubStatement + subcontractor pages)
->>>>>>> 4036cf1 (docs(governance): Sprint 64 Wave 3A - CHANGELOG + AGENTS)
+**Last updated:** 2026-08-27 (Sprint 65 Wave 3A — DEC-237)
 
 ---
 
@@ -96,7 +95,6 @@ npm run test                      # Jest
 - [ ] RTL works correctly (test in browser).
 - [ ] X-Company-Id header set on all API calls.
 
-<<<<<<< HEAD
 ## Sprint 63 Wave 3A — RBAC Module Visibility (FE)
 
 **DECs delivered:** DEC-217 (module visibility service for FE), DEC-218 (sidebar + role-aware nav).
@@ -192,7 +190,6 @@ npm test
 - `src/frontend/app/(authenticated)/hr/employees/page.tsx` — wrapped "موظف جديد" with `<PermissionGate permission="hr.employees.create">`.
 - `src/frontend/app/(authenticated)/finance/accounts/page.tsx` — wrapped "حساب جديد" with `<PermissionGate permission="finance.accounts.create">`.
 - `src/frontend/package.json` — added `test`/`test:watch` scripts + Jest/RTL/babel deps.
-=======
 ---
 
 ## Sprint 64 / Wave 3A (DEC-225 + DEC-226) — Subcontractor Module FE (2026-08-27)
@@ -250,7 +247,6 @@ npm install --save-dev jest @testing-library/react @testing-library/jest-dom \
 Until then, `tsconfig.json` excludes `tests/` from the main `tsc --noEmit`
 check, so the build still passes. The test files are runnable as-is once
 the stack is installed.
->>>>>>> 4036cf1 (docs(governance): Sprint 64 Wave 3A - CHANGELOG + AGENTS)
 
 ## Child DOX Index
 
@@ -267,4 +263,61 @@ the stack is installed.
 
 ---
 
+## Sprint 65 Wave 3A — Bank Reconciliation (2026-08-27) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** per Sprint 65 hand-off (`docs/workflow/sprint-65.md`, Wave 3A), deliver
+the FE page + components for the bank reconciliation flow so the accountant can
+review suggested matches and confirm them with a single click.
+
+**DECs delivered (1):** DEC-237 (FE page + components + tests).
+
+### New files
+
+| Path | Purpose |
+|---|---|
+| `app/(authenticated)/finance/reconciliation/page.tsx` | The bank reconciliation page. Loads the queue of unmatched receipts and shows suggested matches in a side panel. |
+| `components/finance/ReceiptMatchCard.tsx` | One suggested match row (subcontractor + amount + date + score badge + Confirm button). |
+| `components/finance/ReconciliationQueue.tsx` | List of unmatched receipts with a "Find matches" button per row. |
+| `lib/api/reconciliation.ts` | The 3 API client functions (suggestMatches, confirmMatch, fetchReconciliationQueue). |
+| `tests/components/finance/ReceiptMatchCard.test.tsx` | 3 component tests. |
+| `tests/components/finance/ReconciliationQueue.test.tsx` | 3 component tests. |
+
+### Modified files
+
+| Path | Change |
+|---|---|
+| `lib/api-types.ts` | Added `SubPaymentMatch`, `UnmatchedReceipt`, `MatchQuality` types. |
+| `components/layout/AppShell.tsx` | Added "تسوية البنك" sub-item under Finance group, pointing to `/finance/reconciliation`. |
+
+### Matching algorithm (mirrors the BE)
+
+The FE does not re-score matches; the BE returns a 0-100 score with a bucket label
+(`EXCELLENT` / `GOOD` / `FAIR` / `POOR`). The card maps the bucket to a Badge
+variant: success for EXCELLENT/GOOD, warning for FAIR, danger for POOR.
+
+### L19 / DEC-095 compliance
+
+- The X-Company-Id header is set by the axios interceptor in `lib/api.ts`, so
+  callers don't pass the companyId explicitly. The page reads the companyId from
+  the active-company context (set by the CompanySwitcher in the Topbar).
+- No `req.UserId` or `req.CompanyId` is read from any DTO. The JWT user is
+  resolved server-side at the BE; the FE only triggers the call.
+
+### Tests (6 total)
+
+- 3 ReceiptMatchCard tests: subcontractor info, badge tone, click handler.
+- 3 ReconciliationQueue tests: empty state, row render, click handler.
+
+The FE test infrastructure (Jest + RTL) was already in place from Sprint 65
+Wave 2A; this wave is the first sprint-65 wave that exercises it for the
+reconciliation domain.
+
+### Branch
+
+- `feature/sprint-65-finance-projects` (off `develop`)
+- **LOCAL-ONLY** (Mode 1) — no push, no PR yet
+
+---
+
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
+_2026-08-27: Sprint 65 Wave 3A — DEC-237 (Bank Reconciliation FE)_

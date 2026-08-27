@@ -111,6 +111,45 @@ Waves 2A (Project P&L with subcontractor costs) and 3A (bank reconciliation) fol
 - Wave 3A: Bank Reconciliation (Receipt ↔ Sub-Payment matching) (DEC-235+237).
 - Sprint 64's full Subcontractor schema (SubContract, Subcontractor entity, retention rules).
 
+### Wave 3A — Bank Reconciliation (DEC-235+237) ✅ DONE (2026-08-27)
+
+> **Worker:** Worker 3A. **Hand-off:** `docs/workflow/sprint-65.md`. **DECs:** DEC-235, DEC-237. **Status:** ✅ Built + typecheck, 29 BE + 15 FE tests pass.
+
+**Added (BE):**
+- `BankReconciliationService` + matching algorithm (amount ±5%, date ±30 days, scored 0-100)
+  - Pure-function `ComputeScore` (public static for direct unit testing) — amount exact: +80, ±1%: +50, ±5%: +20, date exact: +20, ±7 days: +10, ±30 days: +5
+  - Bucket label: EXCELLENT (>80) | GOOD (50-80) | FAIR (20-50) | POOR (<20)
+- `BankReconciliationsController` (3 endpoints: suggest-matches, confirm-match, queue)
+- `ISubPaymentMatcher` abstraction + `NoOpSubPaymentMatcher` (replaced when Sprint 64 merges)
+- 2 test files (12 tests: 7 service + 5 controller)
+
+**Added (FE):**
+- 1 page: `finance/reconciliation/page.tsx` — Bank reconciliation page (queue + matches panel)
+- 2 components: `ReceiptMatchCard`, `ReconciliationQueue`
+- 1 API client: `lib/api/reconciliation.ts`
+- 2 test files (6 tests)
+
+**Modified:**
+- `AppShell.tsx` — "تسوية البنك" sub-item under Finance group
+- `api-types.ts` — `SubPaymentMatch`, `UnmatchedReceipt`, `MatchQuality`
+- `Program.cs` — DI for `IBankReconciliationService` + `ISubPaymentMatcher`
+- `src/backend/Modules/Finance/AGENTS.md` — Wave 3A section
+- `src/frontend/AGENTS.md` — Wave 3A section
+
+**L19 / DEC-095:** CompanyId from `ICompanyContext.CompanyId`. UserId from JWT only.
+
+**Algorithm (pure-function score 0-100):**
+- amount exact: +80, ±1%: +50, ±5%: +20
+- date exact: +20, ±7 days: +10, ±30 days: +5
+- Total score 0-100, bucketed: EXCELLENT (>80) | GOOD (50-80) | FAIR (20-50) | POOR (<20)
+
+**Sprint 64 pre-merge posture:**
+- The `sub_payments` table is on the `feature/sprint-64-subcontractor` branch and
+  has not yet merged into `develop`. The service depends on a pluggable
+  `ISubPaymentMatcher` interface (mirroring `NoOpSubPaymentRepository` from Wave 2A).
+  When Sprint 64 merges, a Dapper-backed `ISubPaymentMatcher` replaces the no-op
+  in DI and the unit tests continue to pass without changes.
+
 ---
 
 ## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
