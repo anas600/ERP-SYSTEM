@@ -71,12 +71,12 @@ public class DashboardCrossModuleController : ControllerBase
         // over-paid rows (paid > total) — the GREATEST() ensures we never return
         // a negative outstanding.
         const string arSql = @"
-            SELECT COALESCE(SUM(GREATEST(si.total_amount - si.amount_paid, 0)), 0) AS OutstandingAR
+            SELECT COALESCE(SUM(GREATEST(si.total_amount - si.paid_amount, 0)), 0) AS OutstandingAR
             FROM sales_invoices si
             WHERE si.company_id = @CompanyId
               AND si.is_deleted = false
               AND si.status = 'Posted'
-              AND si.amount_paid < si.total_amount;";
+              AND si.paid_amount < si.total_amount;";
 
         var outstandingAR = await conn.ExecuteScalarAsync<decimal>(new CommandDefinition(
             arSql,
@@ -117,7 +117,7 @@ public class DashboardCrossModuleController : ControllerBase
             SELECT COUNT(*) AS ProjectCount,
                    COALESCE(SUM(c.contract_value), 0) AS TotalContractValue
             FROM projects p
-            LEFT JOIN project_contracts c ON c.project_id = p.id AND c.is_active = true
+            LEFT JOIN contracts c ON c.project_id = p.id AND c.is_active = true AND c.deleted_at IS NULL
             WHERE p.company_id = @CompanyId
               AND p.is_active = true
               AND p.status <> 5;"; // 5 = Cancelled
@@ -239,7 +239,7 @@ public class DashboardCrossModuleController : ControllerBase
                          WHERE si.project_id = p.id AND si.status = 'Posted' AND si.is_deleted = false
                    ), 0) AS TotalRevenue
             FROM projects p
-            LEFT JOIN project_contracts c ON c.project_id = p.id AND c.is_active = true
+            LEFT JOIN contracts c ON c.project_id = p.id AND c.is_active = true AND c.deleted_at IS NULL
             WHERE p.company_id = @CompanyId
               AND p.is_active = true
               AND p.status <> 5
@@ -332,7 +332,7 @@ public sealed class DashboardCrossModuleResponse
     public decimal NetPosition { get; set; }
     /// <summary>Active non-cancelled projects in the company.</summary>
     public int ProjectCount { get; set; }
-    /// <summary>SUM(project_contracts.contract_value) for the company's active projects.</summary>
+    /// <summary>SUM(contracts.contract_value) for the company's active projects.</summary>
     public decimal TotalContractValue { get; set; }
     /// <summary>SUM(sales_invoices.total_amount) for the company's posted invoices.</summary>
     public decimal TotalRevenue { get; set; }
