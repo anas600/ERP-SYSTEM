@@ -79,6 +79,31 @@ Waves 2A (Project P&L with subcontractor costs) and 3A (bank reconciliation) fol
 - `SubPaymentService.CreateAsync(userId, request, ct)` takes `userId` explicitly (controller
   passes the JWT user).
 
+### Wave 2A — Project P&L + Dashboard Cross-Module (DEC-233+234+236) ✅ DONE
+
+> **Worker:** Worker 2A. **Status:** ✅ BE 9/9 + FE 9/9 tests pass.
+
+**Added (BE):**
+- `ProjectCostService` + `ProjectCostBreakdown` DTO (5 cost categories: DirectLabor, Material, Subcontractor, Equipment, Overhead)
+- `DashboardCrossModuleController` (2 endpoints: `/api/dashboard/cross-module` + `/api/dashboard/project-profitability`)
+- 2 test files (9 tests)
+- `SubcontractorCost` field added to `ProjectPnLResponse`
+
+**Added (FE):**
+- 1 page: `dashboard/cross-module/page.tsx`
+- 3 components: `OutstandingArCard`, `OutstandingApCard`, `ProjectProfitabilityCard`
+- 1 API client: `lib/api/dashboard.ts`
+- 3 test files (9 tests, **jest infra now installed** — fixes L200 gap)
+
+**Modified:**
+- `ProjectPnLService.cs` — uses `ProjectCostService` to include subcontractor cost in P&L
+- `api-types.ts` — `DashboardCrossModuleResponse`, `ProjectProfitabilityResponse`
+- `AppShell.tsx` — Cross-Module KPIs sub-item
+- `package.json` — added `test` script + jest dev dependencies
+- `jest.config.js` + `tests/setup.ts` + `tests/__mocks__/fileMock.js` — new FE test infrastructure (fixes L200)
+
+**L19 / DEC-095:** userId from JWT context only.
+
 ### Out of scope (later waves)
 
 - Wave 2A: Project P&L with `subcontractor_cost` from `sub_payments` (DEC-233), Dashboard
