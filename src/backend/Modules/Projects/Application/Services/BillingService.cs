@@ -2,6 +2,7 @@ using System.Data;
 using Dapper;
 using ERPSystem.Modules.Finance.Infrastructure; // IAccountRepository
 using ERPSystem.Modules.Projects.Application;
+using ERPSystem.Modules.Projects.Application.Events;
 using ERPSystem.Modules.Projects.Entities;
 using ERPSystem.Modules.Projects.Infrastructure;
 using ERPSystem.Shared.CompanyContext;
@@ -49,6 +50,7 @@ public sealed class BillingService : IBillingService
     private readonly IRegionalPremiumService _regionalPremiums; // Sprint 62 / DEC-197
     private readonly IDbConnectionFactory _db;
     private readonly ICompanyContext _companyContext;
+    private readonly IProjectEventBus _eventBus; // Sprint 65 / DEC-231
     private readonly ILogger<BillingService> _logger;
 
     // COA codes المستخدمة في الـ approve
@@ -68,11 +70,15 @@ public sealed class BillingService : IBillingService
         IRegionalPremiumService regionalPremiums,
         IDbConnectionFactory db,
         ICompanyContext companyContext,
+        IProjectEventBus eventBus, // Sprint 65 / DEC-231
         ILogger<BillingService> logger)
     {
         _billings = billings; _contracts = contracts; _projects = projects;
         _accounts = accounts; _regionalPremiums = regionalPremiums;
         _db = db; _companyContext = companyContext; _logger = logger;
+        _accounts = accounts; _db = db; _companyContext = companyContext;
+        _eventBus = eventBus; // Sprint 65 / DEC-231
+        _logger = logger;
     }
 
     public async Task<ProjectResult<IReadOnlyList<ProgressBillingResponse>>> ListByProjectAsync(Guid projectId, CancellationToken ct)
@@ -298,6 +304,28 @@ public sealed class BillingService : IBillingService
 
             await tx.CommitAsync(ct);
             _logger.LogInformation("تم ترحيل المستخلص {Number}: invoice={InvoiceId}, je={JeId}", billing.BillingNumber, invoiceId, jeId);
+
+            // ===== Sprint 65 / DEC-231: fire BillingApprovedEvent (Wave 1A) =====
+            // The handler is idempotent — it re-checks billing.InvoiceId and no-ops if the
+            // inline flow above already produced the AR invoice.
+            try
+            {
+                await _eventBus.PublishAsync(new BillingApprovedEvent(
+                    billingId: billing.Id,
+                    projectId: billing.ProjectId,
+                    companyId: billing.CompanyId,
+                    netAmount: billing.NetAmount,
+                    userId: userId), ct);
+            }
+            catch (Exception evtEx)
+            {
+                // Event publish failure must not break the approve result — the inline work
+                // is the source of truth. The handler is a safety net; the log entry makes
+                // the gap auditable.
+                _logger.LogError(evtEx,
+                    "Sprint 65: BillingApprovedEvent publish failed for billing {Id} — inline work is committed, handler may be stale",
+                    billing.Id);
+            }
         }
         catch (Exception ex)
         {

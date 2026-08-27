@@ -275,6 +275,11 @@ builder.Services.AddScoped<ISubProgressBillingService, SubProgressBillingService
 builder.Services.AddScoped<ISubPaymentService, SubPaymentService>();
 // Sprint 64 (DEC-225): Sub-Statement service (Wave 3A)
 builder.Services.AddScoped<ISubStatementService, SubStatementService>();
+// Sprint 65 / DEC-231..232 (Wave 1A): Finance integration event bus + handlers + sub-payment service
+builder.Services.AddSingleton<IProjectEventBus, ProjectEventBus>(); // In-process pub/sub
+builder.Services.AddScoped<IBillingApprovedHandler, BillingApprovedHandler>(); // DEC-231
+builder.Services.AddScoped<ISubPaymentCreatedHandler, SubPaymentCreatedHandler>(); // DEC-232
+builder.Services.AddSingleton<IFinanceIntegrationService, FinanceIntegrationService>(); // Orchestrator
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181
