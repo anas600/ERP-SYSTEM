@@ -73,3 +73,63 @@ public interface IRefreshTokenRepository
     Task RevokeAsync(RefreshToken token, string reason, string? replacedByHash, string? ip, CancellationToken ct);
     Task RevokeAllForUserAsync(Guid userId, string reason, string? ip, CancellationToken ct);
 }
+
+// =====================================================================
+// Sprint 63 (DEC-211..214) — RBAC foundation
+// =====================================================================
+
+/// <summary>
+/// Sprint 63 (DEC-211) — Permission catalog repository.
+/// <para>
+/// Read-mostly (the catalog is seeded at startup and rarely mutated). Used by
+/// <see cref="ERPSystem.Modules.Identity.Application.Services.IPermissionService"/>
+/// to resolve a user's effective permission set.
+/// </para>
+/// </summary>
+public interface IPermissionRepository
+{
+    Task<Permission?> GetByCodeAsync(string code, CancellationToken ct);
+    Task<Permission?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<Permission>> ListAsync(CancellationToken ct);
+    Task<IReadOnlyList<Permission>> ListByRoleAsync(Guid roleId, CancellationToken ct);
+    Task InsertAsync(Permission permission, CancellationToken ct);
+}
+
+/// <summary>
+/// Sprint 63 (DEC-212) — Role-to-Permission M2M repository.
+/// <para>
+/// Used by the bootstrap to seed the 5 default role templates, and (later) by
+/// <c>AdminPermissionsController</c> to grant/revoke permissions per role.
+/// </para>
+/// </summary>
+public interface IRolePermissionRepository
+{
+    Task InsertAsync(RolePermission rolePermission, CancellationToken ct);
+    Task<IReadOnlyList<Permission>> ListByRoleAsync(Guid roleId, CancellationToken ct);
+    /// <summary>
+    /// Joins <c>users → user_roles → role_permissions → permissions</c> and returns
+    /// the user's effective permission set. Used by <c>IPermissionService</c>.
+    /// </summary>
+    Task<IReadOnlyList<Permission>> ListByUserAsync(Guid userId, CancellationToken ct);
+    Task DeleteAsync(Guid roleId, Guid permissionId, CancellationToken ct);
+}
+
+/// <summary>
+/// Sprint 63 (DEC-213) — Module visibility per role.
+/// <para>
+/// Used by the bootstrap to seed the 5×10 module matrix, and (later) by the
+/// admin UI to toggle visibility per role.
+/// </para>
+/// </summary>
+public interface IModuleVisibilityRepository
+{
+    Task<IReadOnlyList<ModuleVisibility>> ListByRoleAsync(Guid roleId, CancellationToken ct);
+    /// <summary>
+    /// Joins <c>users → user_roles → module_visibility</c> and returns the visible
+    /// modules for a user (filters out rows where <c>is_visible = false</c>).
+    /// </summary>
+    Task<IReadOnlyList<ModuleVisibility>> ListByUserAsync(Guid userId, CancellationToken ct);
+    Task InsertAsync(ModuleVisibility visibility, CancellationToken ct);
+    Task UpdateAsync(Guid roleId, string module, bool isVisible, CancellationToken ct);
+    Task DeleteAsync(Guid roleId, string module, CancellationToken ct);
+}

@@ -1,0 +1,21 @@
+{
+  "name": "Permission",
+  "table": "permissions",
+  "version": "1.0.0",
+  "module": "Identity",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "code", "type": "varchar(120)", "nullable": false },
+    { "name": "resource", "type": "varchar(80)", "nullable": false },
+    { "name": "action", "type": "varchar(40)", "nullable": false },
+    { "name": "name", "type": "varchar(200)", "nullable": false },
+    { "name": "name_ar", "type": "varchar(200)", "nullable": true },
+    { "name": "module", "type": "varchar(80)", "nullable": false },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ix_permissions_code", "columns": ["code"], "unique": true },
+    { "name": "ix_permissions_resource_action", "columns": ["resource", "action"], "unique": true },
+    { "name": "ix_permissions_module", "columns": ["module"] }
+  ]
+}

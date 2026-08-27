@@ -70,6 +70,8 @@
     <Content Include="..\Shared\SeedData\ArabicHrDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicHrDevData.json" />
     <Content Include="..\Shared\SeedData\ArabicProcurementDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicProcurementDevData.json" />
     <Content Include="..\Shared\SeedData\ArabicYearScenarioDevData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\ArabicYearScenarioDevData.json" />
+    <!-- Sprint 63: RBAC seed data — 5 role templates + 82 permissions + visibility matrix. -->
+    <Content Include="..\Shared\SeedData\RbacSeedData.json" CopyToOutputDirectory="PreserveNewest" Link="Shared\SeedData\RbacSeedData.json" />
   </ItemGroup>
 
 </Project>

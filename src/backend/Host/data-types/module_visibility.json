@@ -1,0 +1,17 @@
+{
+  "name": "ModuleVisibility",
+  "table": "module_visibility",
+  "version": "1.0.0",
+  "module": "Identity",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "role_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "roles", "column": "id", "on_delete": "cascade" } },
+    { "name": "module", "type": "varchar(80)", "nullable": false },
+    { "name": "is_visible", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ux_module_visibility_role_module", "columns": ["role_id", "module"], "unique": true }
+  ]
+}
