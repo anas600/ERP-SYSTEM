@@ -20,6 +20,8 @@ public sealed class BillingRepository : IBillingRepository
                    work_completed_percent AS WorkCompletedPercent,
                    gross_amount AS GrossAmount, advance_deducted AS AdvanceDeducted,
                    retention_deducted AS RetentionDeducted, net_amount AS NetAmount,
+                   regional_premium_deducted AS RegionalPremiumDeducted,
+                   net_amount_after_premium AS NetAmountAfterPremium,
                    status, invoice_id AS InvoiceId, journal_entry_id AS JournalEntryId, notes,
                    created_at AS CreatedAt, created_by AS CreatedBy,
                    updated_at AS UpdatedAt, updated_by AS UpdatedBy
@@ -37,6 +39,8 @@ public sealed class BillingRepository : IBillingRepository
                    work_completed_percent AS WorkCompletedPercent,
                    gross_amount AS GrossAmount, advance_deducted AS AdvanceDeducted,
                    retention_deducted AS RetentionDeducted, net_amount AS NetAmount,
+                   regional_premium_deducted AS RegionalPremiumDeducted,
+                   net_amount_after_premium AS NetAmountAfterPremium,
                    status, invoice_id AS InvoiceId, journal_entry_id AS JournalEntryId, notes,
                    created_at AS CreatedAt, created_by AS CreatedBy,
                    updated_at AS UpdatedAt, updated_by AS UpdatedBy
@@ -83,13 +87,17 @@ public sealed class BillingRepository : IBillingRepository
             INSERT INTO progress_billings (id, company_id, project_id, contract_id, billing_number,
                                           billing_date, period_from, period_to,
                                           work_completed_percent, gross_amount, advance_deducted,
-                                          retention_deducted, net_amount, status,
+                                          retention_deducted, net_amount,
+                                          regional_premium_deducted, net_amount_after_premium,
+                                          status,
                                           invoice_id, journal_entry_id, notes,
                                           created_at, created_by, updated_at, updated_by)
             VALUES (@Id, @CompanyId, @ProjectId, @ContractId, @BillingNumber,
                     @BillingDate, @PeriodFrom, @PeriodTo,
                     @WorkCompletedPercent, @GrossAmount, @AdvanceDeducted,
-                    @RetentionDeducted, @NetAmount, @Status,
+                    @RetentionDeducted, @NetAmount,
+                    @RegionalPremiumDeducted, @NetAmountAfterPremium,
+                    @Status,
                     @InvoiceId, @JournalEntryId, @Notes,
                     @CreatedAt, @CreatedBy, @UpdatedAt, @UpdatedBy)";
         // status column is varchar(20) — convert enum to string explicitly
@@ -98,7 +106,9 @@ public sealed class BillingRepository : IBillingRepository
             billing.Id, billing.CompanyId, billing.ProjectId, billing.ContractId, billing.BillingNumber,
             billing.BillingDate, billing.PeriodFrom, billing.PeriodTo,
             billing.WorkCompletedPercent, billing.GrossAmount, billing.AdvanceDeducted,
-            billing.RetentionDeducted, billing.NetAmount, Status = StatusToString(billing.Status),
+            billing.RetentionDeducted, billing.NetAmount,
+            billing.RegionalPremiumDeducted, billing.NetAmountAfterPremium,
+            Status = StatusToString(billing.Status),
             billing.InvoiceId, billing.JournalEntryId, billing.Notes,
             billing.CreatedAt, billing.CreatedBy, billing.UpdatedAt, billing.UpdatedBy,
         }, cancellationToken: ct));

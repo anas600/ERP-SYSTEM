@@ -45,6 +45,20 @@ public class ProgressBilling
     /// <summary>الصافي = gross - advance - retention.</summary>
     public decimal NetAmount { get; set; }
 
+    /// <summary>
+    /// Sprint 62 / DEC-197 — Regional Premium deducted (NDB + CIT + SS) on this billing.
+    /// Zero if the project has no active regional premium row. Computed as
+    /// <c>gross × (Ndb% + Cit% + Ss%) / 100</c>.
+    /// </summary>
+    public decimal RegionalPremiumDeducted { get; set; }
+
+    /// <summary>
+    /// Sprint 62 / DEC-197 — Net amount after regional premium deduction.
+    /// = <c>NetAmount - RegionalPremiumDeducted</c>. This is the actual cash the
+    /// contractor expects to receive on this billing.
+    /// </summary>
+    public decimal NetAmountAfterPremium { get; set; }
+
     public BillingStatus Status { get; set; } = BillingStatus.Draft;
 
     /// <summary>الفاتورة اللي انولّدت عند الـ approve (nullable قبل الـ approve).</summary>
