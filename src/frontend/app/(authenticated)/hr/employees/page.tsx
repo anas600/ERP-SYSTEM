@@ -7,6 +7,7 @@ import { formatDate, formatTime } from '@/lib/utils';
 import Link from 'next/link';
 import { Plus, Mail, Phone } from 'lucide-react';
 import { Button, Input, Table, Badge, PageHeader } from '@/components/ui';
+import { PermissionGate } from '@/components/layout/PermissionGate';
 import { useAuth } from '@/lib/useAuth';
 import { hrApi, Employee, getErrorMessage } from '@/lib/api';
 
@@ -49,11 +50,13 @@ export default function EmployeesPage() {
         title="👥 الموظفين"
         description="قائمة الموظفين النشطين في الشركة"
         actions={
-          <Link href="/hr/employees/new">
-            <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
-              موظف جديد
-            </Button>
-          </Link>
+          <PermissionGate permission="hr.employees.create">
+            <Link href="/hr/employees/new">
+              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                موظف جديد
+              </Button>
+            </Link>
+          </PermissionGate>
         }
       />
 

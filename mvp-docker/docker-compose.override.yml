@@ -1,0 +1,30 @@
+# Local override for mvp-docker: removes the host port mappings that conflict with
+# other services on this machine (Postgres on 5432, Next.js dev server on 3000).
+# This file is gitignored (do NOT commit) — only used when running on this host.
+#
+# Behaviour change vs docker-compose.yml:
+#   - postgres: 5432 NOT mapped on host (only accessible from inside Docker network)
+#   - frontend: 3000 NOT mapped on host (so the local Next.js dev server keeps 3000)
+#   - api:      5000 still mapped (no conflict on this machine)
+#
+# The mvp stack's internal links (api -> postgres via `postgres:5432`) still work
+# because the containers share the `mvp-docker_default` network. Only the host port
+# mappings are removed.
+#
+# Trade-off: opening http://localhost:3000 shows the local dev server (not the mvp
+# stack). To see the mvp frontend, exec into the container
+#   docker exec -it erp-mvp-frontend sh
+# or add your own host port mapping here (e.g. "3010:3000") when the dev server
+# is stopped.
+#
+# Sprint 24+ fix: use `!reset` directive (Docker Compose v2.24+) to fully drop
+# the base file's `ports` list. The previous `ports: []` syntax worked in some
+# Compose versions but was overridden by the base in others.
+services:
+  postgres:
+    ports: !reset []
+  frontend:
+    # Temporary (Anas browsing demo at 02:50 UTC+2): expose on 3010 to avoid conflict with local dev on 3000
+    # List merge: the base's [3000:3000] is replaced (not merged) in Compose v2.20+
+    ports:
+      - "3010:3000"

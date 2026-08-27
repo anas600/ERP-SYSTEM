@@ -434,6 +434,49 @@ export interface PagedResult<T> {
   pageSize: number;
 }
 
+// ============ Module Visibility (Sprint 63 — DEC-217) ============
+//
+// Contract: GET /api/me/visible-modules → { "modules": ["Projects", "Finance", ...] }
+//
+// `ModuleCode` is the canonical list of module names the BE knows about. The
+// string values must match the BE's `module` column in `permissions` and
+// `module_visibility` (case-sensitive).
+//
+// L19 / DEC-095: the FE never sends a userId — the BE reads it from the JWT.
+
+export type ModuleCode =
+  | 'Projects'
+  | 'Finance'
+  | 'HR'
+  | 'Payroll'
+  | 'Inventory'
+  | 'Procurement'
+  | 'AR'
+  | 'Companies'
+  | 'Identity'
+  | 'Dashboard';
+
+export interface VisibleModulesResponse {
+  /** Sorted, deduped list of module names the user can see. */
+  modules: ModuleCode[];
+}
+
+// ============ My Permissions (Sprint 63 — DEC-218) ============
+//
+// Contract: GET /api/me/permissions → { "permissions": ["projects.view", ...] }
+//
+// Permission codes follow the pattern `<resource>.<action>` (e.g.
+// `projects.create`, `finance.accounts.post`). The wildcard `admin.all` is
+// the Admin-bypass token — if present, every `hasPermission(...)` call
+// returns true (see `usePermissions` hook).
+//
+// L19 / DEC-095: the FE never sends a userId — the BE reads it from the JWT.
+
+export interface MyPermissionsResponse {
+  /** Sorted, deduped list of permission codes the user holds. */
+  permissions: string[];
+}
+
 // ============ Re-exports (legacy DTOs) ============
 //
 // To keep the new demo pages clean, this file re-exports the legacy shapes

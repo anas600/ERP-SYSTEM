@@ -21,6 +21,7 @@ import {
   ModernTable, FilterChips,
   Button, EmptyState, SkeletonTable, type ModernTableColumn,
 } from '@/components/ui';
+import { PermissionGate } from '@/components/layout/PermissionGate';
 import { useAuth } from '@/lib/useAuth';
 import { projectsApi, getErrorMessage, type Project, type ProjectStatusName } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
@@ -175,11 +176,13 @@ export default function ProjectsPage() {
         }
         actions={
           <>
-            <Link href="/projects/new">
-              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
-                مشروع جديد
-              </Button>
-            </Link>
+            <PermissionGate permission="projects.create">
+              <Link href="/projects/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  مشروع جديد
+                </Button>
+              </Link>
+            </PermissionGate>
             <Button variant="secondary" onClick={load} disabled={loading}>
               تحديث
             </Button>
@@ -278,11 +281,13 @@ export default function ProjectsPage() {
           }
           action={
             items.length === 0 ? (
-              <Link href="/projects/new">
-                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
-                  إنشاء مشروع جديد
-                </Button>
-              </Link>
+              <PermissionGate permission="projects.create">
+                <Link href="/projects/new">
+                  <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                    إنشاء مشروع جديد
+                  </Button>
+                </Link>
+              </PermissionGate>
             ) : (
               <Button
                 variant="secondary"
