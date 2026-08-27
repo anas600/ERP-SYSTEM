@@ -1,0 +1,27 @@
+{
+  "name": "SubPayment",
+  "table": "sub_payments",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "sub_contract_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "sub_contracts", "column": "id", "on_delete": "restrict" } },
+    { "name": "sub_progress_billing_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "sub_progress_billings", "column": "id", "on_delete": "restrict" } },
+    { "name": "payment_number", "type": "varchar(50)", "nullable": false },
+    { "name": "payment_date", "type": "date", "nullable": false },
+    { "name": "amount", "type": "numeric(18,4)", "nullable": false },
+    { "name": "retention_released", "type": "numeric(18,4)", "nullable": false, "default": "0" },
+    { "name": "payment_method", "type": "text", "nullable": true },
+    { "name": "reference_number", "type": "text", "nullable": true },
+    { "name": "notes", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ux_sub_payments_sub_contract_number", "columns": ["sub_contract_id", "payment_number"], "unique": true },
+    { "name": "ix_sub_payments_sub_progress_billing", "columns": ["sub_progress_billing_id"], "unique": false }
+  ]
+}

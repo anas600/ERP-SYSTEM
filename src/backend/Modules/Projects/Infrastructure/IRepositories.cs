@@ -123,3 +123,62 @@ public interface IRegionalPremiumRepository
     Task UpdateAsync(RegionalPremium premium, CancellationToken ct);
     Task DeleteAsync(Guid id, CancellationToken ct);
 }
+
+/// <summary>Sprint 64 / DEC-223: Sub-ProgressBilling (work done, % complete, retention).</summary>
+public interface ISubProgressBillingRepository
+{
+    Task<SubProgressBilling?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubProgressBilling>> ListBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Count of billings for this sub-contract (any status). Used to compute the retention-billing ordinal.</summary>
+    Task<int> CountBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of gross_amount for this sub-contract (across all statuses). Used to populate PreviousBillingsAmount.</summary>
+    Task<decimal> SumBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of gross_amount for this sub-contract EXCLUDING status=4 (Cancelled). Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumGrossNonCancelledBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of retention_deducted for this sub-contract EXCLUDING status=4 (Cancelled). Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumRetentionNonCancelledBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubProgressBilling billing, CancellationToken ct);
+    Task UpdateAsync(SubProgressBilling billing, CancellationToken ct);
+    /// <summary>Update only the status field (used by ApproveAsync).</summary>
+    Task UpdateStatusAsync(Guid id, int status, DateTime updatedAt, CancellationToken ct);
+}
+
+/// <summary>Sprint 64 / DEC-224: Sub-Payment (allocation + retention release).</summary>
+public interface ISubPaymentRepository
+{
+    Task<SubPayment?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubPayment>> ListBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task<IReadOnlyList<SubPayment>> ListBySubProgressBillingAsync(Guid subProgressBillingId, CancellationToken ct);
+    /// <summary>Sum of amount + retention_released for this sub-contract. Used by SubPaymentService.GetBalanceAsync.</summary>
+    Task<decimal> SumPaidBySubContractAsync(Guid subContractId, CancellationToken ct);
+    /// <summary>Sum of retention_released only — used to validate the ReleaseRetentionAsync cap (cannot release more than already released).</summary>
+    Task<decimal> SumRetentionReleasedBySubContractAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubPayment payment, CancellationToken ct);
+}
+
+/// <summary>Sprint 64 / DEC-221: Subcontractor master (code, name, contact, trade, tax_id).</summary>
+public interface ISubcontractorRepository
+{
+    Task<Subcontractor?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<Subcontractor?> GetByCodeAsync(Guid companyId, string code, CancellationToken ct);
+    Task<IReadOnlyList<Subcontractor>> ListAsync(
+        Guid companyId, bool? isActive, string? tradeSpecialty, int skip, int take, CancellationToken ct);
+    Task InsertAsync(Subcontractor sub, CancellationToken ct);
+    Task UpdateAsync(Subcontractor sub, CancellationToken ct);
+    /// <summary>Soft delete — sets is_active = FALSE. Returns true if a row was actually updated.</summary>
+    Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
+}
+
+/// <summary>Sprint 64 / DEC-222: Sub-Contract (subcontractor ↔ project + scope + value + retention).</summary>
+public interface ISubContractRepository
+{
+    Task<SubContract?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<SubContract>> ListByProjectAsync(Guid projectId, CancellationToken ct);
+    Task<IReadOnlyList<SubContract>> ListBySubcontractorAsync(Guid subcontractorId, CancellationToken ct);
+    /// <summary>Count of sub-progress-billings linked to this sub-contract. Returns 0 if the Wave 2A table is missing (defensive).</summary>
+    Task<int> CountBillingsAsync(Guid subContractId, CancellationToken ct);
+    Task InsertAsync(SubContract sc, CancellationToken ct);
+    Task UpdateAsync(SubContract sc, CancellationToken ct);
+    /// <summary>Hard delete — refuses (returns false) if any sub_progress_billings reference this contract.</summary>
+    Task<bool> SoftDeleteAsync(Guid id, CancellationToken ct);
+}

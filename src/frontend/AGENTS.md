@@ -2,7 +2,11 @@
 
 > **Frontend (Next.js 14) source.** Read `/AGENTS.md` and `/src/AGENTS.md` first.
 
+<<<<<<< HEAD
 **Last updated:** 2026-08-27 (Sprint 63 Wave 3A — RBAC module visibility FE)
+=======
+**Last updated:** 2026-08-27 (Sprint 64 Wave 3A — DEC-225 + DEC-226 — SubStatement + subcontractor pages)
+>>>>>>> 4036cf1 (docs(governance): Sprint 64 Wave 3A - CHANGELOG + AGENTS)
 
 ---
 
@@ -92,6 +96,7 @@ npm run test                      # Jest
 - [ ] RTL works correctly (test in browser).
 - [ ] X-Company-Id header set on all API calls.
 
+<<<<<<< HEAD
 ## Sprint 63 Wave 3A — RBAC Module Visibility (FE)
 
 **DECs delivered:** DEC-217 (module visibility service for FE), DEC-218 (sidebar + role-aware nav).
@@ -187,6 +192,65 @@ npm test
 - `src/frontend/app/(authenticated)/hr/employees/page.tsx` — wrapped "موظف جديد" with `<PermissionGate permission="hr.employees.create">`.
 - `src/frontend/app/(authenticated)/finance/accounts/page.tsx` — wrapped "حساب جديد" with `<PermissionGate permission="finance.accounts.create">`.
 - `src/frontend/package.json` — added `test`/`test:watch` scripts + Jest/RTL/babel deps.
+=======
+---
+
+## Sprint 64 / Wave 3A (DEC-225 + DEC-226) — Subcontractor Module FE (2026-08-27)
+
+> Worker 3A delivered the SubStatement visual layer + 5 subcontractor pages.
+
+### Subcontractor pages (`app/(authenticated)/projects/[id]/subcontractors/`)
+
+| Route | الغرض |
+|-------|-------|
+| `page.tsx` | قائمة المقاولين الفرعيين على المشروع (مع filter بالاسم/الكود/التخصص) |
+| `[subId]/page.tsx` | تفاصيل المقاول: بيانات أساسية + قائمة عقوده + 4 stat cards (cross-contract summary) |
+| `[subId]/contracts/page.tsx` | قائمة عقود الباطن لهذا المقاول على هذا المشروع |
+| `[subId]/contracts/[contractId]/page.tsx` | تفاصيل العقد: SubStatement (main visual) + المستخلصات + المدفوعات |
+| `[subId]/contracts/new/page.tsx` | نموذج عقد جديد (مع pre-selected subcontractor من URL) |
+| `contracts/new/page.tsx` | نموذج عقد جديد على مستوى المشروع (subcontractor من dropdown) |
+
+### Subcontractor components (`components/subcontractor/`)
+
+- `SubStatement.tsx` — visual P&L with health badge (OK / OVERDUE / SETTLED)
+- `SubcontractorCard.tsx` — list-page card with trade pill + contact info
+- `SubcontractorForm.tsx` — create/edit form with hand-rolled validation
+- `SubContractForm.tsx` — sub-contract create form (with subcontractor dropdown)
+
+### API client (`lib/api/subcontractors.ts`)
+
+Single typed client that wraps the entire Subcontractor module's surface:
+subcontractors (CRUD), sub-contracts (CRUD), progress billings (CRUD), payments
+(CRUD + retention release), and SubStatement (2 endpoints).
+
+Uses the existing axios `api` instance — so every request automatically carries
+the JWT (Authorization) and active company id (X-Company-Id) via the interceptor
+in `lib/api.ts`. L19 / DEC-095: CompanyId is never sent in the request body.
+
+### L19 / DEC-095 applied
+- `CompanyId` is never in any request body or DTO
+- All requests go through `api` (axios) which auto-attaches the JWT
+- SubStatement response does NOT include `CompanyId` (the caller knows it from JWT)
+
+### Test infrastructure gap (READ BEFORE RUNNING `npm run test`)
+The `tests/` directory contains 4 RTL tests for `SubStatement.test.tsx`, but
+the **Jest + RTL stack is not installed** in this repository (the `package.json`
+has no `test` script and no `jest` dependency). The Worker contract claimed
+Sprint 63 Wave 3A set this up, but that setup was not committed to this branch.
+
+**To enable the tests** (one-time, after Wave 3A):
+```bash
+npm install --save-dev jest @testing-library/react @testing-library/jest-dom \
+  jest-environment-jsdom ts-jest @types/jest
+# add jest.config.js + jest.setup.js
+# add "test": "jest" to package.json scripts
+# add tsconfig test types
+```
+
+Until then, `tsconfig.json` excludes `tests/` from the main `tsc --noEmit`
+check, so the build still passes. The test files are runnable as-is once
+the stack is installed.
+>>>>>>> 4036cf1 (docs(governance): Sprint 64 Wave 3A - CHANGELOG + AGENTS)
 
 ## Child DOX Index
 

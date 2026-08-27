@@ -187,6 +187,12 @@ builder.Services.AddScoped<ICostCenterRepository, CostCenterRepository>();
 builder.Services.AddScoped<IProjectRepository, ProjectRepository>();
 builder.Services.AddScoped<IContractRepository, ContractRepository>(); // Sprint 58 / DEC-163
 builder.Services.AddScoped<IBillingRepository, BillingRepository>(); // Sprint 58 / DEC-164
+// Sprint 64 (DEC-221/222): Subcontractor + Sub-Contract repositories (Wave 1A foundation)
+builder.Services.AddScoped<ISubcontractorRepository, SubcontractorRepository>();
+builder.Services.AddScoped<ISubContractRepository, SubContractRepository>();
+// Sprint 64 (DEC-223/224): Sub-ProgressBilling + Sub-Payment repositories (Wave 2A)
+builder.Services.AddScoped<ISubProgressBillingRepository, SubProgressBillingRepository>();
+builder.Services.AddScoped<ISubPaymentRepository, SubPaymentRepository>();
 builder.Services.AddScoped<ITaskRepository, TaskRepository>();
 builder.Services.AddScoped<IResourceRepository, ResourceRepository>();
 builder.Services.AddScoped<IProjectBudgetRepository, ProjectBudgetRepository>();
@@ -261,6 +267,14 @@ builder.Services.AddScoped<IRegionalPremiumRepository, RegionalPremiumRepository
 builder.Services.AddScoped<IRegionalPremiumService, RegionalPremiumService>();
 // Sprint 62 (DEC-198) — Billing PDF export. Pure renderer, no DB I/O.
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
+// Sprint 64 (DEC-221/222): Subcontractor + Sub-Contract services (Wave 1A foundation)
+builder.Services.AddScoped<ISubcontractorService, SubcontractorService>();
+builder.Services.AddScoped<ISubContractService, SubContractService>();
+// Sprint 64 (DEC-223/224): Sub-ProgressBilling + Sub-Payment services (Wave 2A)
+builder.Services.AddScoped<ISubProgressBillingService, SubProgressBillingService>();
+builder.Services.AddScoped<ISubPaymentService, SubPaymentService>();
+// Sprint 64 (DEC-225): Sub-Statement service (Wave 3A)
+builder.Services.AddScoped<ISubStatementService, SubStatementService>();
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181

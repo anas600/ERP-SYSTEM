@@ -492,3 +492,51 @@ export type {
   ActivityItem,
   DashboardSummary,
 } from './api';
+
+// ============ Sprint 64 / DEC-225 — Sub-Statement types ============
+//
+// Wire-format for the Sub-Statement API. Returned by:
+//   - GET /api/sub-contracts/{subContractId}/statement                  → SubStatement
+//   - GET /api/subcontractors/{subId}/projects/{projectId}/summary     → SubStatementSummary
+//
+// CompanyId is intentionally NOT in the responses (L19 / DEC-095) — the
+// caller already knows the active company from the JWT context, so we
+// don't echo it back.
+
+export interface SubStatement {
+  subContractId: string;
+  subcontractorName: string;
+  subcontractorCode: string;
+  contractNumber: string;
+  scopeOfWork: string;
+  contractValue: number;
+  totalBilledGross: number;
+  totalRetentionWithheld: number;
+  totalRetentionReleased: number;
+  totalPaid: number;
+  outstandingBalance: number;
+  /** Cumulative % complete (0-100). Capped at 100. */
+  workCompletedToDate: number;
+  billingCount: number;
+  firstBillingDate: string | null;
+  lastBillingDate: string | null;
+  lastPaymentDate: string | null;
+  /** 1=Active, 2=Completed, 3=Cancelled. */
+  status: number;
+  statusName: string;
+  /** 'OK' | 'OVERDUE' | 'SETTLED' */
+  healthStatus: 'OK' | 'OVERDUE' | 'SETTLED';
+  healthStatusName: string;
+}
+
+export interface SubStatementSummary {
+  subcontractorId: string;
+  subcontractorName: string;
+  projectId: string;
+  projectName: string;
+  subContractCount: number;
+  totalContractValue: number;
+  totalBilled: number;
+  totalPaid: number;
+  totalOutstanding: number;
+}
