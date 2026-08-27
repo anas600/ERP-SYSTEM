@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using ERPSystem.Modules.Projects.Application.Dtos;
 using ERPSystem.Modules.Projects.Entities;
 using ERPSystem.Modules.Projects.Infrastructure;
+using ERPSystem.Modules.Projects.Application.Events;
 using ERPSystem.Shared.CompanyContext;
 using Microsoft.Extensions.Logging;
 

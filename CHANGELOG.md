@@ -13,221 +13,142 @@
 
 ---
 
-<<<<<<< HEAD
-## Sprint 62 — Progress Billing Refinement (DEC-197) (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
+## Sprint 65 — Finance ↔ Projects Integration (2026-08-27) 🟡 IN PROGRESS (Wave 1A LOCAL-ONLY)
 
-**Goal:** إضافة خصم المنطقة (NDB + CIT + SS) تلقائياً على المستخلصات في مناطق NDB الليبية (DEC-197)، وتصدير PDF للمستخلص (DEC-198 — Wave 2A).
+**Goal:** VALUE SPRINT — wire up the cross-module triggers so the books reflect construction
+operations in real time. Wave 1A delivers the auto-trigger infrastructure (DEC-231 + DEC-232);
+Waves 2A (Project P&L with subcontractor costs) and 3A (bank reconciliation) follow.
 
-**Branch:** `feature/sprint-62-progress-billing` (off `develop`)
-**Mode:** LOCAL-ONLY (M1-Local — no push until Anas's "ادفع")
-**Duration:** Autonomous run (Worker 1A on Wave 1A; Worker 2A on Wave 2A scheduled)
+**Branch:** `feature/sprint-65-finance-projects` (off `develop`)
+**Status:** Wave 1A + 2A done locally (17/17 BE + 9/9 FE tests pass, 0 build errors). Awaiting Anas "ادفع" for Mode 2.
 
-### Wave 1A — Foundation (Schema + Entity + Service) ✅ DONE
+### Added
 
-> **Worker:** Worker 1A. **Hand-off:** `docs/workflow/sprint-62.md`. **DEC:** DEC-197. **Status:** ✅ Built (0 errors), 16 Sprint62 tests pass.
+- **In-process event bus** for cross-module auto-triggers:
+  - `IProjectEventBus` + `ProjectEventBus` — `ConcurrentDictionary<Type, List<Delegate>>`,
+    fire-and-forget, no outbox, no retry. Singleton lifetime. (Sprint 22 removed the heavy
+    cross-module event bus; this is the focused alternative for Wave 1A's use case.)
+- **2 events:**
+  - `BillingApprovedEvent` — payload: `BillingId, ProjectId, CompanyId, NetAmount, UserId`
+  - `SubPaymentCreatedEvent` — payload: `SubPaymentId, SubContractId, SubcontractorId,
+    CompanyId, Amount, RetentionReleased, UserId`
+- **2 handlers** (idempotent):
+  - `BillingApprovedHandler` (DEC-231) — resolves project customer, calls
+    `ISalesInvoiceService.CreateAsync` to create the AR Sales Invoice (Draft). Re-checks
+    `billing.InvoiceId` so it no-ops when the inline `BillingService.ApproveAsync` work
+    already produced it. Preserves the inline-created `JournalEntryId`.
+  - `SubPaymentCreatedHandler` (DEC-232) — self-contained Finance integration point. Looks up
+    CoA accounts `5100` (Subcontractor Cost) and `1101` (Cash), finds/validates the vendor
+    (subcontractorId = vendorId by Sprint 64 convention), creates an AP Vendor Bill (Draft)
+    and a balanced Journal Entry (Dr 5100 / Cr 1101) in a single transaction. When
+    `RetentionReleased > 0`, a separate bill + JE is created.
+- **`FinanceIntegrationService`** — orchestrator that subscribes both handlers to the event
+  bus at startup. `RegisterHandlers()` is idempotent via `Interlocked.Exchange`.
+- **`SubPaymentService`** (event-firing stub) — `CreateAsync` validates the request and
+  publishes `SubPaymentCreatedEvent`. Full persistence layer lands when Sprint 64's
+  Subcontractor schema merges.
+- **DI registration in `Program.cs`** — `IProjectEventBus` (singleton),
+  `IFinanceIntegrationService` (singleton), `IBillingApprovedHandler` (scoped),
+  `ISubPaymentCreatedHandler` (scoped), `ISubPaymentService` (scoped).
+  `RegisterHandlers()` called once after `var app = builder.Build();`.
+- **8 new tests** in `Tests/ERPSystem.Tests/Projects/Sprint65FinanceIntegrationTests.cs`:
+  1. `BillingApprovedEvent_FiresOnApprove_CreatesArInvoice`
+  2. `BillingApprovedHandler_PostsJournalEntry_DrArCrRevenue` (preserves inline JE)
+  3. `BillingApprovedHandler_DuplicateApprove_DoesNotCreateDuplicateInvoice`
+  4. `BillingApprovedHandler_AlreadyInvoicedBilling_NoOp`
+  5. `SubPaymentCreatedEvent_FiresOnPayment_CreatesVendorBill`
+  6. `SubPaymentCreatedHandler_PostsJournalEntry_DrCostCrCash_MissingAccountsNoOp`
+  7. `SubPaymentCreatedHandler_RetentionRelease_PathIsSeparate`
+  8. `FinanceIntegrationService_HandlesMultipleEventsInSequence`
 
-#### Added
-- `Sprint62_RegionalPremium_20260827_160000.cs` (FluentMigrator migration, idempotent)
-  - New table `regional_premiums` with UNIQUE (project_id, region), `company_id NOT NULL`, defaults NDB=1.5% / CIT=5.0% / SS=0.0%
-  - Two new columns on `progress_billings`: `regional_premium_deducted NUMERIC(18,4) DEFAULT 0` + `net_amount_after_premium NUMERIC(18,4) DEFAULT 0`
-- `data-types/regional_premiums.json` (DataTypeMigrator schema, mirror of the migration)
-- `data-types/progress_billings.json` — added the two new fields to keep the JSON-driven schema in sync
-- `RegionalPremium` entity (Constitution Article 3 / L19: `CompanyId` not nullable, `IsActive` flag for historical rows)
-- `IRegionalPremiumRepository` (added to `IRepositories.cs` — Dapper, scoped by `company_id` on update/delete per L19)
-- `RegionalPremiumRepository` (Dapper implementation)
-- `RegionalPremiumService` (CRUD + `CalculateDeductionAsync` used by `BillingService`)
-- `RegionalPremiumDtos.cs` (Create/Update/Response records + `RegionalPremiumRegions` constants: Tripoli, Benghazi, Misrata, NDB-Oil, NDB-Gas, Other)
-- 16 tests: `Sprint62RegionalPremiumMigrationTests` (8) + `Sprint62RegionalPremiumServiceTests` (8)
+### Changed
 
-#### Changed
-- `ProgressBilling` entity: added `RegionalPremiumDeducted` + `NetAmountAfterPremium` fields
-- `BillingService.CreateAsync` + `PreviewAsync`: call `IRegionalPremiumService.CalculateDeductionAsync(projectId, gross, ct)` to populate the two new fields on every Draft billing
-- `BillingRepository.GetByIdAsync` + `ListByProjectAsync` + `InsertAsync`: read/write the two new columns
-- `ProgressBillingResponse` + `BillingPreviewResponse` (in `ProjectsDtos.cs`): expose the two new fields to API consumers
+- `BillingService.ApproveAsync` — after the inline transaction commits, publishes
+  `BillingApprovedEvent`. Publish failures are caught and logged (the inline work is the
+  source of truth; the event is a safety net + cross-module extension point).
+- `BillingService` constructor — new dependency `IProjectEventBus` (L19 pattern: CompanyId
+  + UserId still come from `ICompanyContext` and the JWT respectively).
+- `src/backend/Modules/Projects/AGENTS.md` — new "Sprint 65 / Wave 1A" section documenting
+  the auto-trigger pattern, contracts, and out-of-scope items.
 
-#### DEC-197 algorithm
-```
-gross = contract.contract_value × (work_completed_percent / 100)
-... (advance + retention as before) ...
-net = gross - advance - retention
-premium = (project has active regional_premium row)
-    ? gross × (Ndb% + CIT% + SS%) / 100
-    : 0
-net_after_premium = net - premium
-```
-The deduction is applied on `gross` (not on `net`), matching the Libyan statutory practice of withholding on the invoice face value.
+### L19 / DEC-095 compliance
 
-#### Fixed (incidental)
-- `EngineerReportsControllerTests.cs` (2 lines) — Sprint 61 commit `058eea1` removed `EngineerId` from `CreateEngineerReportRequest` but the 2 controller test call sites were not updated, breaking the build. Fixed the named-argument references to keep the build green. Pre-existing bug, not Sprint 62 scope.
+- `CompanyId` in events = `ICompanyContext.CompanyId` (resolved by the firing service, NOT
+  read from a request DTO).
+- `UserId` in events = the JWT user id passed to the firing service.
+- `SubPaymentService.CreateAsync(userId, request, ct)` takes `userId` explicitly (controller
+  passes the JWT user).
 
-#### Out of scope for Wave 1A (deferred to Wave 2A / Admin)
-- `RegionalPremiumsController` + 4 CRUD endpoints
-- `BillingPdfController` + HTML-to-PDF export (DEC-198)
-- DI registration in `Program.cs` — **Admin will add** `AddScoped<IRegionalPremiumRepository, RegionalPremiumRepository>()` + `AddScoped<IRegionalPremiumService, RegionalPremiumService>()` per the sprint contract. Until that lands, DI resolution for `BillingService` will throw at runtime in environments that exercise the billing flow (build is clean).
+### Wave 2A — Project P&L + Dashboard Cross-Module (DEC-233+234+236) ✅ DONE
 
-### Wave 2A — API Layer (Controllers + PDF + DI) ✅ DONE
+> **Worker:** Worker 2A. **Status:** ✅ BE 9/9 + FE 9/9 tests pass.
 
-> **Worker:** Worker 2A. **DECs:** DEC-197 (API) + DEC-198 (PDF). **Status:** ✅ Built (0 errors, 0 warnings), 8 new tests pass (6 controller + 2 service); all 16 Wave 1A + 22 EngineerReport + 12 Sprint61 entity/migration tests still pass. 2 commits (feat + docs).
+**Added (BE):**
+- `ProjectCostService` + `ProjectCostBreakdown` DTO (5 cost categories: DirectLabor, Material, Subcontractor, Equipment, Overhead)
+- `DashboardCrossModuleController` (2 endpoints: `/api/dashboard/cross-module` + `/api/dashboard/project-profitability`)
+- 2 test files (9 tests)
+- `SubcontractorCost` field added to `ProjectPnLResponse`
 
-#### Added
-- `src/backend/Host/Controllers/RegionalPremiumsController.cs` — 4 endpoints (list/create/update/delete) over `IRegionalPremiumService`. Claim-based `UserId` (L19/L186). `ProblemDetails` errors. Error-code → HTTP status mapping (`AlreadyExists` → 409, `NotFound` → 404, `ValidationError` → 400).
-- `src/backend/Host/Controllers/BillingPdfController.cs` — 1 endpoint (`GET /api/projects/{projectId}/billings/{id}/pdf`) that streams a bilingual (AR + EN) Progress Billing certificate.
-- `src/backend/Modules/Projects/Application/Services/PdfExportService.cs` — QuestPDF 2024.10.0 renderer (pure C#, MIT-style Community license). `BillingPdfModel` flat record; `IPdfExportService.GenerateBillingPdf` returns `byte[]`. License set once per process via `Interlocked.Exchange`.
-- `src/backend/Tests/ERPSystem.Tests/Projects/RegionalPremiumsControllerTests.cs` — 4 controller tests (mocked service): list 200, create 201, create 409 duplicate, delete 204. + 2 bonus tests (update 200, delete 404).
-- `src/backend/Tests/ERPSystem.Tests/Projects/PdfExportServiceTests.cs` — 2 service tests: PDF magic bytes (`%PDF`) + min size; structural marker (`%%EOF`) + size threshold.
+**Added (FE):**
+- 1 page: `dashboard/cross-module/page.tsx`
+- 3 components: `OutstandingArCard`, `OutstandingApCard`, `ProjectProfitabilityCard`
+- 1 API client: `lib/api/dashboard.ts`
+- 3 test files (9 tests, **jest infra now installed** — fixes L200 gap)
 
-#### Changed
-- `src/backend/Host/Program.cs` — added 3 DI registrations: `IRegionalPremiumRepository`, `IRegionalPremiumService`, `IPdfExportService`. (The first two were deferred from Wave 1A per the sprint contract.)
-- `src/backend/Host/ERP-SYSTEM.csproj` — added `QuestPDF 2024.10.0` (only new dependency in Sprint 62).
-- `src/backend/Modules/Projects/AGENTS.md` — added a "Sprint 62 Wave 2A" section under the Wave 1A section.
+**Modified:**
+- `ProjectPnLService.cs` — uses `ProjectCostService` to include subcontractor cost in P&L
+- `api-types.ts` — `DashboardCrossModuleResponse`, `ProjectProfitabilityResponse`
+- `AppShell.tsx` — Cross-Module KPIs sub-item
+- `package.json` — added `test` script + jest dev dependencies
+- `jest.config.js` + `tests/setup.ts` + `tests/__mocks__/fileMock.js` — new FE test infrastructure (fixes L200)
 
-#### L19 / DEC-095 compliance
-- `UserId` on the regional premium controller is read from `User.FindFirst(ClaimTypes.NameIdentifier)` only — never from a request DTO (L186 / Sprint 61 fix preserved).
-- `IPdfExportService` is a pure renderer; all company-scope happens in the existing `IBillingRepository` / `IProjectRepository` / `IContractRepository` calls inside the controller.
-- No `CompanyId` / `UserId` / `EngineerId` was added to any new DTO.
+**L19 / DEC-095:** userId from JWT context only.
 
-#### Out of scope (deferred to Wave 2B / Frontend)
-- Frontend UI for regional premium CRUD + PDF download button on the billing page.
-- Historical rate-change tracking (the `is_active` flag is already in the schema; UI for switching the active row is post-Sprint 62).
-=======
-## Sprint 64 — Subcontractor Module (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
+### Out of scope (later waves)
 
-**Goal:** إضافة وحدة المقاولين الفرعيين — كيانات (مقاول + عقد فرعي) + CRUD API + (Wave 2A) مستخلصات + مدفوعات + (Wave 3A) كشف حساب + FE.
+- Wave 2A: Project P&L with `subcontractor_cost` from `sub_payments` (DEC-233), Dashboard
+  cross-module KPIs (DEC-234+236).
+- Wave 3A: Bank Reconciliation (Receipt ↔ Sub-Payment matching) (DEC-235+237).
+- Sprint 64's full Subcontractor schema (SubContract, Subcontractor entity, retention rules).
 
-**Branch:** `feature/sprint-64-subcontractor` (off `develop` @ a305077 — Sprint 63 not yet merged)
-**Mode:** LOCAL-ONLY (M1-Local — no push until Anas's "ادفع")
+### Wave 3A — Bank Reconciliation (DEC-235+237) ✅ DONE (2026-08-27)
 
-### Wave 1A — Subcontractor + SubContract Foundation ✅ DONE
+> **Worker:** Worker 3A. **Hand-off:** `docs/workflow/sprint-65.md`. **DECs:** DEC-235, DEC-237. **Status:** ✅ Built + typecheck, 29 BE + 15 FE tests pass.
 
-> **Worker:** Worker 1A. **Hand-off:** `docs/workflow/sprint-64.md`. **DECs:** DEC-221, DEC-222. **Status:** ✅ Built (0 errors), 18/18 Sprint64 tests pass.
+**Added (BE):**
+- `BankReconciliationService` + matching algorithm (amount ±5%, date ±30 days, scored 0-100)
+  - Pure-function `ComputeScore` (public static for direct unit testing) — amount exact: +80, ±1%: +50, ±5%: +20, date exact: +20, ±7 days: +10, ±30 days: +5
+  - Bucket label: EXCELLENT (>80) | GOOD (50-80) | FAIR (20-50) | POOR (<20)
+- `BankReconciliationsController` (3 endpoints: suggest-matches, confirm-match, queue)
+- `ISubPaymentMatcher` abstraction + `NoOpSubPaymentMatcher` (replaced when Sprint 64 merges)
+- 2 test files (12 tests: 7 service + 5 controller)
 
-#### Added
-- `Sprint64_Subcontractor_20260827_180000.cs` (FluentMigrator, idempotent)
-  - New table `subcontractors` with UNIQUE (company_id, code), `company_id NOT NULL`, `is_active` flag
-  - New table `sub_contracts` with UNIQUE (project_id, contract_number), FK to projects + subcontractors
-- `data-types/subcontractors.json` + `data-types/sub_contracts.json`
-- `Subcontractor` entity + `SubContract` entity (L19: CompanyId not nullable)
-- `ISubcontractorRepository` + `ISubContractRepository` (Dapper)
-- `SubcontractorService` (CRUD + Result<T> envelopes + validation)
-- `SubContractService` (CRUD + retention % validation)
-- `SubcontractorDtos.cs` (Create/Update/Response records × 2 entities)
-- 2 new controllers (8 endpoints total): `SubcontractorsController` + `SubContractsController`
-- 4 new test files (18 tests total): 2 service + 2 controller
-- **Temporary marker**: `Host/Authorization/RequirePermissionAttribute.cs` — minimal no-op attribute so the new controllers compile. Will be overwritten when Sprint 63 (`feature/sprint-63-rbac`) merges to develop. The full Sprint 63 implementation is API-compatible at the call sites, so no controller change required post-merge.
+**Added (FE):**
+- 1 page: `finance/reconciliation/page.tsx` — Bank reconciliation page (queue + matches panel)
+- 2 components: `ReceiptMatchCard`, `ReconciliationQueue`
+- 1 API client: `lib/api/reconciliation.ts`
+- 2 test files (6 tests)
 
-#### L19 / DEC-095
-- `CompanyId` from `ICompanyContext` (never from request DTO)
-- `UserId` from JWT `NameIdentifier` claim (never from request DTO)
+**Modified:**
+- `AppShell.tsx` — "تسوية البنك" sub-item under Finance group
+- `api-types.ts` — `SubPaymentMatch`, `UnmatchedReceipt`, `MatchQuality`
+- `Program.cs` — DI for `IBankReconciliationService` + `ISubPaymentMatcher`
+- `src/backend/Modules/Finance/AGENTS.md` — Wave 3A section
+- `src/frontend/AGENTS.md` — Wave 3A section
 
-#### Sprint 63 RBAC
-- `[RequirePermission("projects.subcontractors.view")]` on `SubcontractorsController` (class-level)
-- `[RequirePermission("projects.sub_contracts.view")]` on `SubContractsController` (class-level)
-- When Sprint 63 merges, the temporary marker will be replaced with the full `IAsyncAuthorizationFilter` from commit `2ee3c0b` — no controller change required.
->>>>>>> dd5e69d (docs(governance): Sprint 64 Wave 1A - CHANGELOG + AGENTS)
+**L19 / DEC-095:** CompanyId from `ICompanyContext.CompanyId`. UserId from JWT only.
 
-### Wave 2A — SubProgressBilling + SubPayment (DEC-223+224) ✅ DONE
+**Algorithm (pure-function score 0-100):**
+- amount exact: +80, ±1%: +50, ±5%: +20
+- date exact: +20, ±7 days: +10, ±30 days: +5
+- Total score 0-100, bucketed: EXCELLENT (>80) | GOOD (50-80) | FAIR (20-50) | POOR (<20)
 
-> **Worker:** Worker 2A. **Hand-off:** `docs/workflow/sprint-64.md`. **DECs:** DEC-223, DEC-224. **Status:** ✅ Built (0 errors), 28/28 Sprint64 tests pass (18 new + 10 from Wave 1A).
-
-#### Added
-- `Sprint64_SubProgressBilling_20260827_190000.cs` (FluentMigrator, idempotent)
-  - New table `sub_progress_billings` with UNIQUE (sub_contract_id, billing_number), `company_id NOT NULL`, status int (1=Draft, 2=Approved, 3=Paid, 4=Cancelled), gross/retention/net columns
-  - New table `sub_payments` with UNIQUE (sub_contract_id, payment_number), FK to sub_progress_billings, `retention_released` column for the release flow
-  - Indexes: `ux_sub_progress_billings_sub_contract_number` (unique), `ix_sub_progress_billings_sub_contract`, `ux_sub_payments_sub_contract_number` (unique), `ix_sub_payments_sub_progress_billing`
-- `data-types/sub_progress_billings.json` + `data-types/sub_payments.json`
-- `SubProgressBilling` entity + `SubProgressBillingStatus` enum (Draft/Approved/Paid/Cancelled) — L19: CompanyId not nullable
-- `SubPayment` entity — L19: CompanyId not nullable, `RetentionReleased` defaults to 0 (regular payments) or > 0 (release payments)
-- `ISubProgressBillingRepository` + `ISubPaymentRepository` (Dapper) — with SUM/COUNT queries for the balance algorithm
-- `SubProgressBillingService` — algorithm: `gross = contract_value × work_completed_percent / 100`, `retention_deducted = (n <= sub_contract.retention_release_billing) ? gross × retention% / 100 : 0`, `net_payable = gross - retention_deducted`
-- `SubPaymentService` — GetBalanceAsync computes `outstandingBalance = totalBilledGross - totalPaid` (withheld retention stays in outstanding until released); ReleaseRetentionAsync creates a `SubPayment` with `retention_released = amount` after validating the cap
-- 2 new DTO files: `SubProgressBillingDtos.cs` (incl. `SubContractBalanceResponse`) + `SubPaymentDtos.cs` (incl. `ReleaseRetentionRequest`)
-- 2 new controllers (10 endpoints total):
-  - `SubProgressBillingsController`: `GET /api/sub-contracts/{id}/billings`, `GET /api/sub-progress-billings/{id}`, `POST /api/sub-contracts/{id}/billings`, `PUT /api/sub-progress-billings/{id}`, `POST /api/sub-progress-billings/{id}/approve`
-  - `SubPaymentsController`: `GET /api/sub-contracts/{id}/payments`, `GET /api/sub-payments/{id}`, `POST /api/sub-contracts/{id}/billings/{billingId}/payments`, `POST /api/sub-contracts/{id}/release-retention`, `GET /api/sub-contracts/{id}/balance`
-- 4 new test files (18 tests): `Sprint64SubProgressBillingServiceTests` (5) + `Sprint64SubPaymentServiceTests` (5) + `SubProgressBillingsControllerTests` (4) + `SubPaymentsControllerTests` (4)
-
-#### L19 / DEC-095
-- `CompanyId` from `ICompanyContext` (never from request DTO)
-- `UserId` from JWT `NameIdentifier` claim (never from request DTO)
-- The `GetBalanceAsync` algorithm uses 3 SUM queries (gross, retention, paid) — all scoped to the sub-contract via JWT-derived `CompanyId`
-
-#### Sprint 63 RBAC (using the Wave 1A temporary marker)
-- `[RequirePermission("projects.sub_progress_billings.view")]` on `SubProgressBillingsController` (class-level)
-- `[RequirePermission("projects.sub_payments.view")]` on `SubPaymentsController` (class-level)
-- Per-endpoint `create`/`update`/`approve` permission codes applied as in Wave 1A
-
-#### Algorithm references
-- Wave 3A (`SubStatement` + FE) will consume `GetBalanceAsync` and add WIP + Status (ACTIVE/OVERDUE/SETTLED) on top.
-
-### Wave 3A — SubStatement + FE Pages (DEC-225+226) ✅ DONE
-
-> **Worker:** Worker 3A. **Hand-off:** `docs/workflow/sprint-64.md`. **DECs:** DEC-225, DEC-226. **Status:** ✅ Built (0 errors) + ✅ typecheck (0 errors) + ✅ build (succeeds) + 9/9 Wave 3A tests pass + 45/45 Sprint 64 tests pass.
-
-#### Added (BE)
-- `SubStatementDtos.cs` — `SubStatementResponse` (17 fields incl. health status) + `SubStatementSummaryResponse` (9 fields)
-- `SubStatementService` + `ISubStatementService` — P&L aggregation algorithm:
-  - `totalBilledGross = SUM(sub_progress_billings.gross_amount WHERE status != 4)`
-  - `totalRetentionWithheld = SUM(sub_progress_billings.retention_deducted WHERE status != 4)`
-  - `totalRetentionReleased = SUM(sub_payments.retention_released)`
-  - `totalPaid = SUM(sub_payments.amount + retention_released)`
-  - `outstandingBalance = totalBilledGross - totalPaid`
-  - `workCompletedToDate = MIN(100, SUM(work_completed_percent) of all billings)`
-  - `healthStatus = 'SETTLED' if outstanding == 0 AND totalBilledGross > 0; 'OVERDUE' if lastBillingDate > 60 days ago AND outstanding > 0; else 'OK'`
-  - 2 endpoints: `GetBySubContractAsync` + `GetBySubcontractorAndProjectAsync` (cross-contract aggregation)
-- `SubStatementsController` (2 endpoints):
-  - `GET /api/sub-contracts/{subContractId}/statement`
-  - `GET /api/subcontractors/{subcontractorId}/projects/{projectId}/summary`
-- DI wiring in `Host/Program.cs`
-- 2 new test files (9 tests): `SubStatementServiceTests` (6) + `SubStatementsControllerTests` (3)
-
-#### Added (FE)
-- `lib/api/subcontractors.ts` — single typed API client for the entire Subcontractor module surface (subcontractor + sub-contract + billing + payment + statement CRUD), uses the axios `api` instance so JWT + X-Company-Id headers auto-attach
-- 2 new types in `lib/api-types.ts`: `SubStatement` + `SubStatementSummary`
-- 4 new components in `components/subcontractor/`:
-  - `SubStatement.tsx` — visual P&L with health badge (OK/OVERDUE/SETTLED), 4 stat cells, retention summary, progress bar
-  - `SubcontractorCard.tsx` — list-page card with trade pill + contact info
-  - `SubcontractorForm.tsx` — create/edit form with hand-rolled validation
-  - `SubContractForm.tsx` — sub-contract create form (with subcontractor dropdown)
-- 6 new pages in `app/(authenticated)/projects/[id]/subcontractors/`:
-  - `page.tsx` — list of subcontractors on the project (with search)
-  - `[subId]/page.tsx` — subcontractor detail (master data + 4 stat cards + contracts list)
-  - `[subId]/contracts/page.tsx` — list of sub-contracts under a subcontractor
-  - `[subId]/contracts/[contractId]/page.tsx` — sub-contract detail (SubStatement as main visual + billings + payments)
-  - `[subId]/contracts/new/page.tsx` — pre-selected new-contract form (with [subId] in URL)
-  - `contracts/new/page.tsx` — project-level new-contract form (subcontractor from dropdown)
-- `AppShell.tsx` — added "مقاولو الباطن" (HardHat) nav item under "المشاريع" group
-- 1 test file (4 tests): `tests/components/subcontractor/SubStatement.test.tsx` — ready for jest+RTL installation (see "Test infrastructure gap" below)
-
-#### Modified
-- `tsconfig.json` — added `tests/` to `exclude` so the (not-yet-installed) `@testing-library/react` import doesn't break `tsc --noEmit`
-- `src/backend/Modules/Projects/AGENTS.md` — Wave 3A section (entity/DTO tree + algorithm + endpoints)
-- `src/frontend/AGENTS.md` — Wave 3A section (routes + components + test infrastructure gap)
-
-#### L19 / DEC-095
-- `CompanyId` is never in any FE request body
-- All FE requests go through axios `api` instance (JWT + X-Company-Id auto-attached)
-- SubStatement response does NOT include `CompanyId` (the caller knows it from JWT)
-- `UserId` is never in any DTO (no audit trail writes in Wave 3A — read-only)
-
-#### Sprint 63 RBAC (using the Wave 1A temporary marker)
-- `[RequirePermission("projects.sub_statements.view")]` on `SubStatementsController` (class-level)
-
-#### Test infrastructure gap
-The Worker contract claimed Sprint 63 Wave 3A set up jest + RTL. This is **not
-the case** in the current branch: `package.json` has no `test` script, no `jest`
-dependency, no `@testing-library/react`. The 4 test files in `tests/` are
-written against the standard RTL API and are runnable as-is once the stack is
-installed. Steps to enable:
-```bash
-npm install --save-dev jest @testing-library/react @testing-library/jest-dom \
-  jest-environment-jsdom ts-jest @types/jest
-# add jest.config.js + jest.setup.js + test script + tsconfig test types
-```
-
-#### Sprint 64 final test count: 45/45 pass
-- Wave 1A: 18 (10 service + 8 controller)
-- Wave 2A: 18 (10 service + 8 controller)
-- Wave 3A: 9 (6 service + 3 controller)
+**Sprint 64 pre-merge posture:**
+- The `sub_payments` table is on the `feature/sprint-64-subcontractor` branch and
+  has not yet merged into `develop`. The service depends on a pluggable
+  `ISubPaymentMatcher` interface (mirroring `NoOpSubPaymentRepository` from Wave 2A).
+  When Sprint 64 merges, a Dapper-backed `ISubPaymentMatcher` replaces the no-op
+  in DI and the unit tests continue to pass without changes.
 
 ---
 

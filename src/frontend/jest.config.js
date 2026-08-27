@@ -1,30 +1,4 @@
-<<<<<<< HEAD
-/**
- * Jest config for the FE unit tests.
- *
- * Sprint 61 (Wave 2B) — added engineer-report tests.
- * Minimal setup: jsdom env, TS via babel-jest, module aliases matching tsconfig.
- */
-module.exports = {
-  testEnvironment: 'jsdom',
-  roots: ['<rootDir>/__tests__'],
-  testMatch: ['**/__tests__/**/*.test.(ts|tsx)'],
-  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/$1',
-    '\\.(css|less|scss|sass)$': '<rootDir>/__mocks__/styleMock.js',
-  },
-  transform: {
-    '^.+\\.(ts|tsx)$': ['babel-jest', { presets: ['next/babel'] }],
-  },
-  setupFiles: ['<rootDir>/jest.polyfills.js'],
-  setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
-  testPathIgnorePatterns: ['/node_modules/', '/.next/', '/e2e/'],
-  collectCoverageFrom: [
-    'components/engineer-report/**/*.{ts,tsx}',
-  ],
-=======
-// Sprint 63 — Jest configuration (FE tests for Sprint 63 Wave 3A and beyond).
+﻿﻿// Sprint 63 / 65 — Jest configuration (FE tests for Sprint 63 Wave 3A and beyond).
 //
 // Run with: `npm test` (or `npm test -- SmartSidebar` to filter).
 // The tests live in `src/frontend/tests/**` and `*.test.{ts,tsx}`.
@@ -40,11 +14,7 @@ module.exports = {
 module.exports = {
   testEnvironment: 'jsdom',
   rootDir: __dirname,
-  roots: ['<rootDir>/tests', '<rootDir>/hooks', '<rootDir>/components', '<rootDir>/lib'],
-  // Match `*.test.ts`, `*.test.tsx`, and `*.spec.tsx` — but only inside
-  // the FE tree (we don't want to run node_modules tests).
-  // Use testRegex because the testMatch glob with <rootDir>/... prefixes
-  // is resolved as absolute paths on Windows, which Jest does not match.
+  roots: ['<rootDir>/tests'],
   testRegex: '(/__tests__/.*|\\.(test|spec))\\.(ts|tsx)$',
   testPathIgnorePatterns: [
     '/node_modules/',
@@ -52,27 +22,17 @@ module.exports = {
     '/dist/',
   ],
   moduleNameMapper: {
-    // Match tsconfig.json path alias `@/*` → `./*`
     '^@/(.*)$': '<rootDir>/$1',
-    // CSS / asset stubs
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
     '\\.(jpg|jpeg|png|gif|svg)$': '<rootDir>/tests/__mocks__/fileMock.js',
   },
   transform: {
-    // Use babel-jest with the Next.js babel preset. This is the same
-    // transform Next.js uses for the dev server, so test transpilation
-    // matches the dev runtime as closely as possible.
     '^.+\\.(ts|tsx|js|jsx)$': ['babel-jest', { presets: ['next/babel'] }],
   },
   transformIgnorePatterns: [
-    // node_modules is transformed only when needed for ESM-only packages
-    // (e.g. lucide-react). Default is fine for the current dependency set.
     '/node_modules/',
   ],
   testTimeout: 10_000,
-  // Load @testing-library/jest-dom matchers (toBeInTheDocument, toHaveClass, ...).
   setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
-  // Reporters — keep it simple.
   verbose: true,
->>>>>>> efda62d (feat(fe+be): Sprint 63 Wave 3A - module visibility API + SmartSidebar (DEC-217, DEC-218))
 };

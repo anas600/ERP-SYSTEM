@@ -85,6 +85,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
       // Sprint 57 (DEC-152): Executive Dashboard — Holding overview with charts
       { label: 'اللوحة التنفيذية', href: '/dashboard/executive', icon: TrendingUp },
+      // Sprint 65 / Wave 2A (DEC-234 + DEC-236): Cross-Module KPIs (AR / AP / project profitability)
+      { label: 'مؤشرات الموديولات المشتركة', href: '/dashboard/cross-module', icon: ArrowRightLeft },
     ],
   },
   {
@@ -102,6 +104,9 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },
+      // Sprint 65 / Wave 3A (DEC-237): Bank reconciliation — match AR receipts
+      // to AP sub-payments.
+      { label: 'تسوية البنك', href: '/finance/reconciliation', icon: ArrowRightLeft },
     ],
   },
   // Sprint 48: مجموعة التقارير المالية — كل التقارير في مكان واحد

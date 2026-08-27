@@ -17,6 +17,8 @@ using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Identity.Application.Auth;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Modules.Projects.Application;
+using ERPSystem.Modules.Projects.Application.Events;
+using ERPSystem.Modules.Projects.Application.Handlers;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Modules.Projects.Infrastructure;
 using ERPSystem.Modules.Inventory.Application;
@@ -254,6 +256,11 @@ builder.Services.AddScoped<IYearEndClosingService, YearEndClosingService>();
 builder.Services.AddScoped<ICoAValidationService, CoAValidationService>(); // Sprint 60 Wave 3A (DEC-189+190)
 builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
+builder.Services.AddScoped<IProjectCostService, ProjectCostService>(); // Sprint 65 / DEC-233
+builder.Services.AddScoped<ISubcontractorCostRepository, NoOpSubcontractorCostRepository>(); // Sprint 65 / DEC-233 — replaced when Sprint 64 lands (L201 seam)
+// Sprint 65 / Wave 3A (DEC-235 + DEC-237): Bank reconciliation service + sub-payment matcher
+builder.Services.AddScoped<IBankReconciliationService, BankReconciliationService>();
+builder.Services.AddScoped<ISubPaymentMatcher, NoOpSubPaymentMatcher>(); // replaced when Sprint 64 merges
 builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
 builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
 // Sprint 61 (DEC-192, DEC-193, DEC-194) — Engineer's Daily Report API (Wave 2A).
@@ -275,6 +282,11 @@ builder.Services.AddScoped<ISubProgressBillingService, SubProgressBillingService
 builder.Services.AddScoped<ISubPaymentService, SubPaymentService>();
 // Sprint 64 (DEC-225): Sub-Statement service (Wave 3A)
 builder.Services.AddScoped<ISubStatementService, SubStatementService>();
+// Sprint 65 / DEC-231..232 (Wave 1A): Finance integration event bus + handlers + sub-payment service
+builder.Services.AddSingleton<IProjectEventBus, ProjectEventBus>(); // In-process pub/sub
+builder.Services.AddScoped<IBillingApprovedHandler, BillingApprovedHandler>(); // DEC-231
+builder.Services.AddScoped<ISubPaymentCreatedHandler, SubPaymentCreatedHandler>(); // DEC-232
+builder.Services.AddSingleton<IFinanceIntegrationService, FinanceIntegrationService>(); // Orchestrator
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181

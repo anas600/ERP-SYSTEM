@@ -540,3 +540,82 @@ export interface SubStatementSummary {
   totalPaid: number;
   totalOutstanding: number;
 }
+
+// ============ Sprint 65 / Wave 2A: Dashboard Cross-Module (DEC-234 + DEC-236) ============
+//
+// Flat cross-module KPI payload served by GET /api/dashboard/cross-module. All values
+// are LYD (Libyan Dinar) unless otherwise specified; the FE renders them as-is
+// (the `format.ts` lib wraps the display formatting). Field names match the
+// C# DTO `DashboardCrossModuleResponse` in
+// `src/backend/Host/Controllers/DashboardCrossModuleController.cs`.
+
+export interface DashboardCrossModuleResponse {
+  /** SUM(sales_invoices.total - amount_paid) for unpaid posted invoices. */
+  outstandingAR: number;
+  /** SUM(sub_payments.amount) for unmatched sub-payments. 0 before Sprint 64 merge. */
+  outstandingAP: number;
+  /** OutstandingAR - OutstandingAP. */
+  netPosition: number;
+  /** Active non-cancelled projects in the company. */
+  projectCount: number;
+  /** SUM(project_contracts.contract_value) for the company's active projects. */
+  totalContractValue: number;
+  /** SUM(sales_invoices.total_amount) for the company's posted invoices. */
+  totalRevenue: number;
+  /** SUM(sub_payments.amount) for the company. 0 before Sprint 64 merge. */
+  totalSubcontractorCost: number;
+  /** Count of active projects where sum(cost) > sum(revenue). */
+  unprofitableProjects: number;
+}
+
+export type ProjectHealthStatus = 'OK' | 'AT_RISK' | 'OVER_BUDGET';
+
+// Per-project profitability row served by GET /api/dashboard/project-profitability.
+// Includes the subcontractor cost (Sprint 65 / DEC-233).
+export interface ProjectProfitabilityResponse {
+  projectId: string;
+  projectCode: string;
+  projectName: string;
+  totalRevenue: number;
+  /** Includes the subcontractor cost (DEC-233). */
+  totalCosts: number;
+  grossProfit: number;
+  profitMarginPercent: number;
+  healthStatus: ProjectHealthStatus;
+}
+
+// ============ Sprint 65 / Wave 3A: Bank Reconciliation (DEC-235 + DEC-237) ============
+//
+// Bank reconciliation matches incoming AR Receipts to expected AP Sub-Payments. The
+// matching algorithm is a pure-function scorer (see BE `BankReconciliationService`)
+// that produces a 0-100 score based on amount tolerance (±5%) and date tolerance
+// (±30 days).
+//
+// The FE surfaces the suggested matches as cards and the accountant confirms the
+// match with a single click. The queue endpoint returns all posted receipts that
+// have not yet been matched to a sub-payment.
+
+// One possible match between a Receipt and a Sub-Payment. Scored 0-100.
+export type MatchQuality = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+
+export interface SubPaymentMatch {
+  subPaymentId: string;
+  subContractId: string;
+  subcontractorName: string;
+  paymentNumber: string;
+  amount: number;
+  paymentDate: string; // ISO-8601
+  score: number; // 0-100
+  matchQuality: MatchQuality;
+  matchQualityName: string; // Arabic label
+}
+
+// A receipt that has not yet been matched to a sub-payment (queue row).
+export interface UnmatchedReceipt {
+  receiptId: string;
+  receiptNumber: string;
+  receiptDate: string; // ISO-8601
+  amount: number;
+  customerName: string | null;
+  daysSinceReceipt: number;
+}

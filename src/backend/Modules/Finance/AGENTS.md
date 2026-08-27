@@ -2,7 +2,7 @@
 
 > **Finance module** (Accounts, Transactions, CoA). Read all parent AGENTS.md files first.
 
-**Last updated:** 2026-08-25 (Sprint 60 Wave 1 — DEC-184, DEC-NEW-14, DEC-NEW-15)
+**Last updated:** 2026-08-27 (Sprint 65 Wave 3A — DEC-235 + DEC-237)
 
 ---
 
@@ -312,7 +312,92 @@ New service + types under `src/backend/Modules/Finance/Application/Services/CoAV
 
 ---
 
+## Sprint 65 Wave 3A — Bank Reconciliation (2026-08-27) ✅ DONE (LOCAL-ONLY)
+
+**Goal:** per Sprint 65 hand-off (`docs/workflow/sprint-65.md`, Wave 3A), deliver the
+Receipt ↔ Sub-Payment matching algorithm + the controller endpoints + the FE page so
+that when a subcontractor's bank credit appears in our account, the system suggests
+which of our sub-payment obligations it satisfies, and the accountant confirms the
+match.
+
+**DECs delivered (2):** DEC-235 (BE matching + endpoints), DEC-237 (FE page).
+
+### New files
+
+| Path | Purpose |
+|---|---|
+| `src/backend/Modules/Finance/Application/Services/BankReconciliationService.cs` | Service + matching algorithm + DTOs (`SubPaymentMatch`, `UnmatchedReceipt`, `BankReconciliationResult<T>`, `ISubPaymentMatcher`, `NoOpSubPaymentMatcher`). |
+| `src/backend/Host/Controllers/BankReconciliationsController.cs` | 3 endpoints under `/api/receipts/*/suggest-matches`, `/api/receipts/*/confirm-match/*`, `/api/reconciliation/queue`. |
+| `src/backend/Tests/ERPSystem.Tests/Finance/Sprint65BankReconciliationServiceTests.cs` | 7 tests (6 contract + 1 pure-function score). |
+| `src/backend/Tests/ERPSystem.Tests/Finance/Sprint65BankReconciliationsControllerTests.cs` | 5 tests (3 contract + 2 error-path). |
+
+### Modified files
+
+| Path | Change |
+|---|---|
+| `src/backend/Host/Program.cs` | Added `AddScoped<IBankReconciliationService, BankReconciliationService>()` + `AddScoped<ISubPaymentMatcher, NoOpSubPaymentMatcher>()`. |
+
+### Matching algorithm (DEC-235 contract)
+
+The pure-function `BankReconciliationService.ComputeScore` produces a 0-100 score by
+summing the best-fit amount bucket + the best-fit date bucket:
+
+| Bucket | Amount score | Date score |
+|---|---|---|
+| exact | +80 | +20 |
+| ±1% / ±7 days | +50 | +10 |
+| ±5% / ±30 days | +20 | +5 |
+| out of range | 0 | 0 |
+
+The EXCELLENT (>80) / GOOD (50-80) / FAIR (20-50) / POOR (<20) bucket is applied at
+the call site after the sort. The function is `public static` so the test assembly
+can call it directly without `InternalsVisibleTo`.
+
+### L19 / DEC-095 compliance
+
+- `CompanyId` is read from `ICompanyContext.CompanyId` at the top of every public
+  method. The controller never reads companyId from a DTO.
+- `UserId` is read from the JWT `sub`/`NameIdentifier` claim in the controller
+  (`BankReconciliationsController.UserId`) and passed explicitly to
+  `ConfirmMatchAsync`. The service does not extract userId from any request DTO.
+
+### Sprint 64 pre-merge posture
+
+The `sub_payments` table is on the `feature/sprint-64-subcontractor` branch and
+has not yet merged into `develop`. The service depends on a pluggable
+`ISubPaymentMatcher` interface (mirroring `NoOpSubPaymentRepository` from
+Sprint 65 Wave 2A). The default `NoOpSubPaymentMatcher` returns an empty
+candidate list. When Sprint 64 merges, a Dapper-backed `ISubPaymentMatcher`
+replaces the no-op in `Program.cs` and the unit tests continue to pass without
+changes (because they mock the interface).
+
+### Tests (12 total)
+
+**Service tests (7):**
+1. `SuggestMatchesAsync_FindsExactMatch_ReturnsScore100` — exact amount + exact date = 100 → EXCELLENT
+2. `SuggestMatchesAsync_FindsWithin5Percent_ReturnsWithDiscountedScore` — ±2% amount + ±7d date = 30 → FAIR
+3. `SuggestMatchesAsync_NoMatches_ReturnsEmpty` — empty candidate list (Sprint 64 pre-merge)
+4. `SuggestMatchesAsync_OrdersByScoreDesc` — perfect (100) > decent (60) > weak (5)
+5. `ConfirmMatchAsync_ValidPair_UpdatesBoth` — confirm passes the JWT userId to the matcher
+6. `ConfirmMatchAsync_DuplicateConfirm_ThrowsConflict` — InvalidOperationException → CONFLICT
+7. `ComputeScore_PureFunction_BucketsWorkAsExpected` — 5 cases of the scoring buckets
+
+**Controller tests (5):**
+1. `SuggestMatches_Returns200_WithList`
+2. `SuggestMatches_Returns404_WhenServiceReturnsNotFound`
+3. `ConfirmMatch_Returns200_WithUpdatedMatch`
+4. `ConfirmMatch_Returns409_OnConflict`
+5. `GetQueue_Returns200_WithUnmatchedReceipts`
+
+### Branch
+
+- `feature/sprint-65-finance-projects` (off `develop`)
+- **LOCAL-ONLY** (Mode 1) — no push, no PR yet
+
+---
+
 _Last updated: 2026-07-29 by Mavis (Muhammad mode) — DOX framework applied_
 _2026-07-31: Sprint 8 T2 — added Test Pattern: SQL AS Alias Support (Local Team takeover)_
 _2026-07-31: Sprint 11 T2 — added BE Jimi scope declaration (Mavis Local)_
 _2026-08-25: Sprint 60 Wave 1 — DEC-184, DEC-NEW-14, DEC-NEW-15 (DB Foundation, schema + master data)_
+_2026-08-27: Sprint 65 Wave 3A — DEC-235 + DEC-237 (Bank Reconciliation)_
