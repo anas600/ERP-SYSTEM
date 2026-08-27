@@ -4,6 +4,54 @@
 
 ---
 
+## [2026-08-27] - Hub Reorganization + Notion Auto-Update Rule (Sprint 60 Closure)
+
+**Goal:** بعد إغلاق Sprint 60 (CoA Cleanup)، نعيد تنظيم Notion Hub لتكون لوحة بيانات رسمية (Per Anas request 27-Aug-2026). ونضع قاعدة "Notion-First" مُلزِمة في AGENTS.md.
+
+### 📋 ما تم
+
+#### 1. **Notion Hub Updates** ([🏢 Hub](https://app.notion.com/p/3c6c003bf39681dcb1cbc904cbaf82da))
+- ✅ Action Card في أعلى Hub (ما يحتاج قرار Anas للـ Sprint 61 GO)
+- ✅ تحديث timestamp: "27 أغسطس 2026 — 04:30 UTC+3"
+- ✅ روابط سريعة محدّثة بمسارات فعلية (`C:\Users\Anas\....`)
+- ✅ Auto-Update Rule section في الأسفل
+
+#### 2. **Lessons DB جديد** ([📚 Lessons DB](https://app.notion.com/91b1f48c80c24cab9ca51f61d70a7817))
+- ✅ DB جديد: `collection://6209269c-a676-4ee7-ab4f-a708e128b3f9`
+- ✅ 8 دروس Sprint 60 مُهاجَرة (L046..L052 + L175)
+- ✅ Schema: Lesson (title) + ID + Category + Type + Sprint + Related DEC + Date Learned + Severity + Body
+- ✅ قابل للبحث + الفلترة (توصية #2 من تقرير التحسينات)
+
+#### 3. **Local Files Map جديد** ([📂 Local Files Map](https://app.notion.com/p/3c9c003bf396818c9074c469665bc6e5))
+- ✅ جدول ربط كامل بين الملفات المحلية (`C:\Users\Anas\Documents\*.html`) وصفحات Notion
+- ✅ 16 تقرير مربوط بمساراته الفعلية
+- ✅ Auto-Update Rule: كل ملف جديد → row في Reports DB + entry هنا
+
+#### 4. **Reports DB — إصلاحات + إضافات**
+- ✅ 15 File Path مُصحَّح (backslashes كانت مفقودة: `C:UsersAnas...` → `C:\Users\Anas\...`)
+- ✅ Sprint 60 Verification Report أُضيف كـ row جديد
+
+#### 5. **Discussions DB — تحديثات**
+- ✅ "Sprint 60 Plan + 5 CoA Corrections" → ✅ Resolved
+- ✅ "CoA Assets Deep-Dive (1.x)" → ✅ Resolved
+
+#### 6. **Tasks DB — Sprint 61 + Sprint 60 closure**
+- ✅ 8 مهام Sprint 61 Open (DEC-192..195 + 5 permanent fixes + 2 carry-over)
+- ✅ 1 مهمة Sprint 60 closure Done
+
+#### 7. **AGENTS.md** — Notion-First Integration section
+- ✅ قاعدة مُلزِمة: "كل إغلاق Sprint = تحديث Notion Hub تلقائياً"
+- ✅ 9 خطوات auto-update موثّقة
+- ✅ Last updated: 2026-08-27
+
+### 🎯 النتيجة
+- **Hub → Dashboard** حقيقي: Action Card يعرض ما يحتاج قرارك فوراً
+- **Lessons DB → بحث**: L046..L175+ قابل للبحث والفلترة
+- **Local Files Map → ربط**: كل ملف محلي مربوط بـ Notion Page
+- **Auto-Update Rule → استدامة**: لا يُغلَق Sprint بدون تحديث Notion
+
+---
+
 ## [Unreleased] - 2026-08-25 (Jimi Worker — Sprint 60 Wave 1)
 ### Sprint 60 Wave 1 (DEC-184, DEC-NEW-14, DEC-NEW-15) — DB Foundation (Schema + Cost Centers + Projects)
 
