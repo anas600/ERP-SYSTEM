@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-27 (Sprint 61: Engineer's Report + 5 Permanent Fixes fully DONE in 3 waves — 7 DECs (DEC-192..198), 56 tests pass, 0 regressions, awaiting Anas "ادفع" for Mode 2. Sprint 60: CoA Cleanup fully DONE. Sprint 59: BOQ + Variation Orders + 6 CoA accounts. Sprint 22: 15→9 modules major refactor. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-27 (Sprint 62: Progress Billing Refinement FULLY DONE in 2 waves — DEC-197 Regional Premium (NDB+CIT+SS) + DEC-198 PDF Export via QuestPDF, 24 tests pass, 0 regressions, branch `feature/sprint-62-progress-billing` @ `3ba6e47`, awaiting Anas "ادفع" for Mode 2. Sprint 61: Engineer's Report + 5 Permanent Fixes fully DONE in 3 waves — 7 DECs (DEC-192..198), 56 tests pass, 0 regressions. Sprint 60: CoA Cleanup fully DONE. Sprint 59: BOQ + Variation Orders + 6 CoA accounts. Sprint 22: 15→9 modules major refactor. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 🗂️ NOTION-FIRST INTEGRATION (Sprint 60+)
 >
