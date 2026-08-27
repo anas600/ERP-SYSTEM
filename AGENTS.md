@@ -3,7 +3,38 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-05 (Sprint 38: L19 audit on service layer (3 services) + 4 final manual JE templates (12 of 12 DONE, DEC-124). Sprint 37: L19 audit sweep (5 repos) + 4 manual JE templates + 5 CoA accounts (DEC-123). Sprint 36: Customer + Vendor Statements + Trial Balance FE (DEC-122). 3 new pages + 2 new services + 2 L19/DB-schema fixes. Sprint 35: VAT 5% opt-in (DEC-118). Sprint 34: Article 3 FINAL audit (DEC-114..117). Sprint 33: UI Polish (DEC-120..122). Sprint 32: Projects module tables fix (DEC-112) + DEC-113 followups. Sprint 31: Playwright MCP setup + DEC-107..110 (DepartmentResponse enrichment, Posting Rules benchmark, 5th VAT rule, Payments audit). Sprint 30: 6 architectural cleanups (DEC-100..106) + full PO+GR+Bill seeder (DEC-105). Sprint 29: Year-Scenario dev seeder (POC #4) + cleanup of 2 legacy seeders (102.8 KB) per DEC-098. Sprint 28: 8 more Article 3 violations in Payroll + Projects + StockMovement + Finance/Account (DEC-094..097) + Procurement seeder POC #3 + L26 IIFE-pattern fix in tests. Sprint 27: HR Article 3 audit (DEC-091) + Arabic HR dev seeder (POC #2). Sprint 26: Arabic dev seeder (DEC-087) — fixes encoding bug from Sprint 25 PowerShell scripts. Sprint 25: 4 Article 3 violations in Procurement cycle + demo data. Sprint 24: outbox cleanup (DEC-082) + Constitution Article 3 audit (DEC-083). Sprint 23: company_id propagation fix + Stock→Posting Rules direct call. Sprint 22: major refactor — 15→9 modules. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-27 (Sprint 60: CoA Cleanup fully DONE + Hub Reorganization + Notion auto-update rule. Sprint 59: BOQ + Variation Orders + 6 CoA accounts. Sprint 22: 15→9 modules major refactor. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+
+> ## 🗂️ NOTION-FIRST INTEGRATION (Sprint 60+)
+>
+> **Notion Hub = Source of Truth للقرارات والمهام والدروس والتقارير.** [🏢 Hub Page](https://app.notion.com/p/3c6c003bf39681dcb1cbc904cbaf82da)
+>
+> ### 📊 6 قواعد بيانات + 1 صفحة ربط
+> - **🚀 Sprints DB** (`collection://05812e3c-...`): كل سبرنت بحالته (Status, Tag, Commit, PR, Lessons)
+> - **📋 DEC Log DB** (`collection://d6790d05-...`): كل قرار (DEC-XXX) بحالته
+> - **✅ Tasks DB** (`collection://d7372a8a-...`): كل مهمة (Open/In Progress/Done)
+> - **💭 Discussions DB** (`collection://3a5d445a-...`): كل نقاش (Active/Resolved)
+> - **📊 Reports DB** (`collection://2439683d-...`): كل تقرير (مع File Path + Notion Page)
+> - **📚 Lessons DB** (`collection://6209269c-...`) 🆕: كل درس (L001..L175+ قابل للبحث)
+> - **📂 Local Files Map** 🆕: ربط المسارات المحلية (`C:\Users\Anas\Documents\`) ↔ Notion Pages
+>
+> ### 🔄 Auto-Update Rule (مُلزِم)
+> **كل إغلاق Sprint = Admin يحدّث Notion Hub تلقائياً** (قبل ما يقول "ادفع"):
+> 1. ✅ إضافة/تحديث row في `Sprints DB` (Status: ✅ Done + Tag/Version + Commit + PR + Lessons)
+> 2. ✅ إضافة/تحديث rows في `DEC Log DB` (Status: ✅ Approved + Date)
+> 3. ✅ إضافة/تحديث rows في `Tasks DB` (Status: ✅ Done + Owner)
+> 4. ✅ إضافة rows في `Lessons DB` (L### جديد مع Date Learned + Sprint + Related DEC + Body)
+> 5. ✅ تحديث Action Card في Hub (ما يحتاج قرار Anas للـ Sprint القادم)
+> 6. ✅ (اختياري) إضافة row في `Reports DB` (إن وُجد تقرير جديد مع File Path + Notion Page)
+> 7. ✅ (اختياري) تحديث `Local Files Map` (إن وُجد ملف جديد محلياً)
+> 8. ✅ إضافة entry جديد في `CHANGELOG.md` (Source of Truth للتغييرات الكود)
+> 9. ✅ تحديث `docs/workflow/sprint-N.md` (Sprint hand-off doc)
+>
+> **كل ملف يُحفظ محلياً → row في Reports DB + entry في Local Files Map.**
+> **كل درس يُكتشف → row في Lessons DB.**
+> **كل مهمة → row في Tasks DB (تتحدّث دورياً).**
+>
+> **ممنوع:** إغلاق Sprint بدون تحديث Notion Hub.
 
 > ## 📜 ACTIVE GOVERNANCE (Sprint 17+)
 >
@@ -700,3 +731,37 @@ CI runs 6 required checks on PR open. Admin bypass is ON (per Article 10).
 
 ---
 _Last updated: 2026-08-27 by Mavis (Muhammad mode), Sprint 60 Trust Mode + cosmetic fixes approved by Anas — DOX framework applied_
+
+---
+
+## 🔄 Workflow المُنفّذ في Sprint 60 (5 Phases)
+
+**للتفاصيل الكاملة:** راجع Notion Workflow page → `📋 Workflow — تنفيذ خارطة الطريق (من Sprint 60)` → قسم "🟢 Sprint 60 — Workflow الفعلي المُنفّذ" + "📋 ملف تنفيذي للـ Workflow (Sprint 61+)".
+
+### ملخص الـ 5 Phases:
+
+| Phase | Mode | المسؤول | النشاط | الإخراج |
+|-------|------|---------|--------|---------|
+| **1. M1-Local** | Default | Admin (workers) | تنفيذ العقد في 5 Waves (1/2A/2B/3A/3B) | feature/sprint-N-wave-3b-final @ XXXX |
+| **2. M3-Trust** | Anas request | Muhammad (as client) | تصفح localhost:3000 + فحص 6+ صفحات | verification + bug fixes |
+| **3. M2-Discussion** | "ادفع" | Anas → Muhammad | "ادفع" | Mode 1 → Mode 2 |
+| **4. M2-Release** | Admin = Muhammad | git push + PR + CI + relax (if false positive) + merge + tag | develop @ aXXXXX + tag vX.Y.Z-sprintN |
+| **5. Report** | Muhammad | Notion + AGENTS.md + CHANGELOG.md | Sprint N Done |
+
+### Sprint 60 Carry-over to Sprint 61+ (Permanent Fixes):
+
+| # | Issue | Source Lesson | Fix Location |
+|---|-------|---------------|--------------|
+| 1 | CI false positive on `NotContain("tenant_id", ...)` | L51 | Update `.github/workflows/no-tenant-id.yml` |
+| 2 | `EnsureDefaultRolesAsync` not called in bootstrap | L48 | Add to `DefaultHoldingBootstrapHostedService` |
+| 3 | `AuthService.BuildAsync` line 191 uses wrong connection | L49 | Use `conn, tx, ct` overload |
+| 4 | No `/api/auth/admin-bootstrap` endpoint | L175 | New endpoint for fresh deployments |
+| 5 | `Phase6_InitialSchema` drops VersionInfo | L47 | Re-create VersionInfo after DROP SCHEMA |
+
+### المعمار الجديد للورك فلو (3 Internal Personas + Workers):
+
+- **محمد (Muhammad)** = مستشارك الشخصي + Orchestrator + Verifier (صوت بشري واحد)
+- **Admin (القائد التقني)** = Tech Lead، internal في نفس root session
+- **Workers (Jimis)** = Bounded producers، sub-sessions via `task({run_in_background: true})`
+
+**القاعدة الذهبية:** صوت واحد في المحادثة = محمد. الـ hand-offs الداخلية تُذكر ولا تُمثّل. أنس لا تتحدث مع Workers مباشرةً.
