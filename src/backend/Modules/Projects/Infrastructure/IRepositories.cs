@@ -71,3 +71,37 @@ public interface IBillingRepository
     Task InsertAsync(ProgressBilling billing, CancellationToken ct);
     Task UpdateStatusAsync(Guid id, BillingStatus status, Guid? invoiceId, Guid? journalEntryId, Guid updatedBy, CancellationToken ct);
 }
+
+// =============================================================================
+// Sprint 61 (DEC-192, DEC-193, DEC-194) — Engineer's Daily Report repositories.
+// =============================================================================
+
+/// <summary>Sprint 61 / DEC-192 — EngineerReport persistence.</summary>
+public interface IEngineerReportRepository
+{
+    Task<EngineerReport?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<EngineerReport>> ListByProjectAsync(
+        Guid projectId, Guid companyId, DateTime? from, DateTime? to,
+        EngineerReportStatus? status, int skip, int take, CancellationToken ct);
+    Task<int> CountByProjectAndDateAsync(Guid projectId, DateTime reportDate, CancellationToken ct);
+    Task InsertAsync(EngineerReport report, CancellationToken ct);
+    Task UpdateAsync(EngineerReport report, CancellationToken ct);
+}
+
+/// <summary>Sprint 61 / DEC-193 — EngineerReportPhoto persistence.</summary>
+public interface IEngineerReportPhotoRepository
+{
+    Task<EngineerReportPhoto?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<EngineerReportPhoto>> ListByReportAsync(Guid reportId, CancellationToken ct);
+    Task<int> CountByReportAsync(Guid reportId, CancellationToken ct);
+    Task InsertAsync(EngineerReportPhoto photo, CancellationToken ct);
+    Task DeleteAsync(Guid id, CancellationToken ct);
+}
+
+/// <summary>Sprint 61 / DEC-194 — EngineerReportSignoff persistence.</summary>
+public interface IEngineerReportSignoffRepository
+{
+    Task<EngineerReportSignoff?> GetByIdAsync(Guid id, CancellationToken ct);
+    Task<IReadOnlyList<EngineerReportSignoff>> ListByReportAsync(Guid reportId, CancellationToken ct);
+    Task InsertAsync(EngineerReportSignoff signoff, CancellationToken ct);
+}

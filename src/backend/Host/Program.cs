@@ -162,6 +162,8 @@ SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Procurement.Entities.VendorBillStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollRunStatus>());
 SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Payroll.Domain.Entities.PayrollItemStatus>());
+// Sprint 61 (DEC-192): EngineerReport status is stored as TEXT in the DB.
+SqlMapper.AddTypeHandler(new EnumStringTypeHandler<ERPSystem.Modules.Projects.Entities.EngineerReportStatus>());
 // DEC-107 / DL 82: Response caching
 builder.Services.AddMemoryCache();
 
@@ -240,6 +242,11 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
 builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
+// Sprint 61 (DEC-192, DEC-193, DEC-194) — Engineer's Daily Report API (Wave 2A).
+builder.Services.AddScoped<IEngineerReportRepository, EngineerReportRepository>();
+builder.Services.AddScoped<IEngineerReportPhotoRepository, EngineerReportPhotoRepository>();
+builder.Services.AddScoped<IEngineerReportSignoffRepository, EngineerReportSignoffRepository>();
+builder.Services.AddScoped<IEngineerReportService, EngineerReportService>();
 // Sprint 59 (DEC-180..182): Construction Core — price lists, BOQ, variation orders
 builder.Services.AddScoped<IPriceListService, PriceListService>(); // DEC-180
 builder.Services.AddScoped<IBoqService, BoqService>(); // DEC-181

@@ -4,6 +4,57 @@
 
 ---
 
+
+## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 2A)
+### Sprint 61 Wave 2A (DEC-192, DEC-193, DEC-194 — Engineer Report API)
+
+**Goal:** Build the full REST API layer (repositories + service + 8 endpoints) for the **Engineer's Daily Report** module. Wave 1A provided the schema/entities/DTOs; Wave 2A wires them through the standard repo → service → controller pattern. Wave 2B (next) will add the frontend; Wave 3 is integration + verification.
+
+**Branch:** eature/sprint-61-engineer-report (off develop @ 9728d17)
+**Mode:** LOCAL-ONLY (Mode 1) — no push, no PR yet.
+**Worker:** Jimi (Worker 2A) — backend API layer only.
+
+#### DEC-192 — EngineerReport API (CRUD + status workflow)
+- **Repository:** src/backend/Modules/Projects/Infrastructure/EngineerReportRepository.cs (Dapper; SELECT / INSERT / UPDATE / ListByProjectAsync with from/to/status filters + paging; CountByProjectAndDateAsync for the UNIQUE constraint check).
+- **Service:** src/backend/Modules/Projects/Application/Services/EngineerReportService.cs — state machine Draft → Submitted → Approved | Rejected, rejects duplicates on (project_id, report_date), only allows Update in Draft state.
+- **Endpoints (5):**
+  - GET /api/projects/{id}/engineer-reports?from=&to=&status=&skip=&take= — list
+  - GET /api/engineer-reports/{id} — details (with photos + signoffs)
+  - POST /api/projects/{id}/engineer-reports — create Draft (409 on duplicate date)
+  - PUT /api/engineer-reports/{id} — update (only Draft)
+  - POST /api/engineer-reports/{id}/submit — Draft → Submitted
+
+#### DEC-193 — EngineerReportPhoto API (upload + list)
+- **Repository:** src/backend/Modules/Projects/Infrastructure/EngineerReportPhotoRepository.cs (Dapper; GetByIdAsync / ListByReportAsync / CountByReportAsync / InsertAsync / DeleteAsync).
+- **Service method:** EngineerReportService.AddPhotoAsync / ListPhotosAsync — uses parent report's company_id (denormalized per DEC-193).
+- **Endpoints (2):**
+  - GET /api/engineer-reports/{id}/photos — list photos
+  - POST /api/engineer-reports/{id}/photos — multipart upload (10 MB cap; allowed: jpg/jpeg/png/gif/webp/heic; written to wwwroot/uploads/engineer-reports/{reportId}/{guid}.{ext}; best-effort file cleanup on DB insert failure).
+
+#### DEC-194 — EngineerReportSignoff API (electronic approval)
+- **Repository:** src/backend/Modules/Projects/Infrastructure/EngineerReportSignoffRepository.cs (Dapper; GetByIdAsync / ListByReportAsync / InsertAsync).
+- **Service method:** EngineerReportService.SignoffAsync — only allowed in Submitted state; validates SignerRole ∈ {PM, Client, Engineer}; pproved=true → report → Approved, pproved=false → Rejected.
+- **Endpoint (1):**
+  - POST /api/engineer-reports/{id}/signoff — body {SignerRole, SignatureText, Comment, Approved}
+
+#### Cross-cutting
+- **DI registration:** Program.cs — added 4 AddScoped lines + EnumStringTypeHandler<EngineerReportStatus> (status is TEXT in DB, enum in code).
+- **L19 / DEC-095:** every repo query includes company_id. The service resolves company from ICompanyContext.CompanyId (never from the request DTO). Verified in EngineerReportServiceTests.Create_NewReport_DefaultsToDraft_WithContextCompany.
+- **Interface segregation:** added 3 new interfaces (IEngineerReportRepository, IEngineerReportPhotoRepository, IEngineerReportSignoffRepository) to IRepositories.cs — no breaking changes to existing interfaces.
+
+#### Tests (22 new — 0 regressions)
+- src/backend/Tests/ERPSystem.Tests/Projects/EngineerReportServiceTests.cs — **10 tests** (Create happy path, duplicate date rejected, Submit transition + double-submit guard, List with from/to/status filter, Approve → Approved, Reject → Rejected, invalid role rejected, AddPhoto uses parent company, Update non-Draft guard, GetById not-found).
+- src/backend/Tests/ERPSystem.Tests/Projects/EngineerReportsControllerTests.cs — **12 tests** (GetById 200/404, Create 201/409, Update 200/400, Submit 200, Signoff 200, ListByProject with status filter parsing + invalid status → 400, ListPhotos 200, Upload happy path 201, Upload missing file 400).
+- **Total EngineerReport test count (incl. Wave 1A):** 42 tests pass (dotnet test --filter "FullyQualifiedName~EngineerReport").
+- **Full suite (excluding RetentionTests + HoldingSmokeTest + E2E which need a live DB):** 482 passed / 0 failed / 12 skipped.
+
+#### Out of scope (deferred to Wave 2B / 3)
+- Frontend pages (Worker 2B).
+- Auto-archive / purge of orphaned photos when a report is hard-deleted (Wave 3 if needed).
+
+---
+
+## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 1B)
 ## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 1B)
 ### Sprint 61 Wave 1B (DEC-196, DEC-197, DEC-198 — 5 permanent fixes from Sprint 60 lessons)
 
