@@ -1,0 +1,25 @@
+{
+  "name": "Subcontractor",
+  "table": "subcontractors",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "code", "type": "varchar(20)", "nullable": false },
+    { "name": "name", "type": "text", "nullable": false },
+    { "name": "name_ar", "type": "text", "nullable": true },
+    { "name": "contact_person", "type": "text", "nullable": true },
+    { "name": "phone", "type": "text", "nullable": true },
+    { "name": "email", "type": "text", "nullable": true },
+    { "name": "trade_specialty", "type": "text", "nullable": true },
+    { "name": "tax_id", "type": "text", "nullable": true },
+    { "name": "is_active", "type": "boolean", "nullable": false, "default": "true" },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ux_subcontractors_company_code", "columns": ["company_id", "code"], "unique": true }
+  ]
+}
