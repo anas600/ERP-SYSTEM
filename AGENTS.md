@@ -3,7 +3,7 @@
 > **This is the DOX rail.** All work in this repository must follow the DOX framework.
 > Read this file fully + walk the chain to your target path before editing anything.
 
-**Last updated:** 2026-08-27 (Sprint 64: Subcontractor Module FULLY DONE in 3 waves — DEC-221..226 (6 DECs), 3 new lessons L198-L200, BE 45/45 + FE 4 written (jest infra not merged, see L200), branch `feature/sprint-64-subcontractor` @ `4036cf1`, awaiting Anas "ادفع" for Mode 2. Sprint 63: RBAC + Module Visibility FULLY DONE in 3 waves — DEC-211..218 (8 DECs). Sprint 62: Progress Billing Refinement FULLY DONE. Sprint 61: Engineer's Report + 5 Permanent Fixes fully DONE. Sprint 60: CoA Cleanup fully DONE. Sprint 22: 15→9 modules major refactor. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
+**Last updated:** 2026-08-27 (Sprint 65: Finance↔Projects Integration VALUE SPRINT FULLY DONE in 3 waves — DEC-231..237 (7 DECs), 12 new lessons L189-L201, BE 29/29 + FE 15/15 tests pass, branch `feature/sprint-65-finance-projects` @ `8b38e9c`, awaiting Anas "ادفع" for Mode 2. Sprint 64: Subcontractor Module FULLY DONE. Sprint 63: RBAC + Module Visibility FULLY DONE. Sprint 62: Progress Billing Refinement FULLY DONE. Sprint 61: Engineer's Report + 5 Permanent Fixes fully DONE. Sprint 60: CoA Cleanup fully DONE. Sprint 22: 15→9 modules major refactor. **Architecture target:** `/docs/architecture/REFACTOR-SPRINT-22.md`)
 
 > ## 🗂️ NOTION-FIRST INTEGRATION (Sprint 60+)
 >
