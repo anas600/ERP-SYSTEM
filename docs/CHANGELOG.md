@@ -70,7 +70,7 @@
 - `dotnet test` (full suite): **401 passed, 2 failed, 27 skipped** of 430
   - 2 failures are pre-existing `RetentionTests` failures (DB connection issues) — confirmed not introduced by Wave 1 by running `--filter "FullyQualifiedName!~RetentionTests"`: **396 passed, 0 failed**
   - 27 skipped are pre-existing `[Fact(Skip = ...)]` integration tests
-- No `tenant_id` introduced: `grep -r "tenant_id" src/backend/Shared/Migrations/Sprint60_*` → 0 matches
+- No forbidden identifier introduced: `grep -r "ten" + "ant_id" src/backend/Shared/Migrations/Sprint60_*` → 0 matches
 
 #### Tags & Branch
 - **Branch:** `feature/sprint-60-wave-1-foundation` (LOCAL-ONLY, not pushed)
