@@ -580,3 +580,39 @@ export interface ProjectProfitabilityResponse {
   profitMarginPercent: number;
   healthStatus: ProjectHealthStatus;
 }
+
+// ============ Sprint 65 / Wave 3A: Bank Reconciliation (DEC-235 + DEC-237) ============
+//
+// Bank reconciliation matches incoming AR Receipts to expected AP Sub-Payments. The
+// matching algorithm is a pure-function scorer (see BE `BankReconciliationService`)
+// that produces a 0-100 score based on amount tolerance (±5%) and date tolerance
+// (±30 days).
+//
+// The FE surfaces the suggested matches as cards and the accountant confirms the
+// match with a single click. The queue endpoint returns all posted receipts that
+// have not yet been matched to a sub-payment.
+
+// One possible match between a Receipt and a Sub-Payment. Scored 0-100.
+export type MatchQuality = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR';
+
+export interface SubPaymentMatch {
+  subPaymentId: string;
+  subContractId: string;
+  subcontractorName: string;
+  paymentNumber: string;
+  amount: number;
+  paymentDate: string; // ISO-8601
+  score: number; // 0-100
+  matchQuality: MatchQuality;
+  matchQualityName: string; // Arabic label
+}
+
+// A receipt that has not yet been matched to a sub-payment (queue row).
+export interface UnmatchedReceipt {
+  receiptId: string;
+  receiptNumber: string;
+  receiptDate: string; // ISO-8601
+  amount: number;
+  customerName: string | null;
+  daysSinceReceipt: number;
+}

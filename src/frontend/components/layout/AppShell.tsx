@@ -104,6 +104,9 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'العملاء', href: '/finance/customers', icon: UserPlus },
       { label: 'فواتير المبيعات', href: '/finance/sales-invoices', icon: ShoppingCart },
       { label: 'سندات القبض', href: '/finance/receipts', icon: HandCoins },
+      // Sprint 65 / Wave 3A (DEC-237): Bank reconciliation — match AR receipts
+      // to AP sub-payments.
+      { label: 'تسوية البنك', href: '/finance/reconciliation', icon: ArrowRightLeft },
     ],
   },
   // Sprint 48: مجموعة التقارير المالية — كل التقارير في مكان واحد

@@ -256,6 +256,9 @@ builder.Services.AddScoped<IProjectService, ProjectService>();
 builder.Services.AddScoped<IProjectPnLService, ProjectPnLService>(); // Sprint 57 / DEC-161
 builder.Services.AddScoped<IProjectCostService, ProjectCostService>(); // Sprint 65 / DEC-233
 builder.Services.AddScoped<ISubPaymentRepository, NoOpSubPaymentRepository>(); // Sprint 65 / DEC-233 — replaced when Sprint 64 merges
+// Sprint 65 / Wave 3A (DEC-235 + DEC-237): Bank reconciliation service + sub-payment matcher
+builder.Services.AddScoped<IBankReconciliationService, BankReconciliationService>();
+builder.Services.AddScoped<ISubPaymentMatcher, NoOpSubPaymentMatcher>(); // replaced when Sprint 64 merges
 builder.Services.AddScoped<IContractService, ContractService>(); // Sprint 58 / DEC-163
 builder.Services.AddScoped<IBillingService, BillingService>(); // Sprint 58 / DEC-164
 // Sprint 61 (DEC-192, DEC-193, DEC-194) — Engineer's Daily Report API (Wave 2A).
