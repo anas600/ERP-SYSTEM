@@ -62,6 +62,20 @@ public class Phase6_InitialSchema : Migration
         Execute.Sql("GRANT ALL ON SCHEMA public TO postgres;");
         Execute.Sql("GRANT ALL ON SCHEMA public TO public;");
 
+        // 2b) L47 (Sprint 61, DEC-196): Re-create the FluentMigrator VersionInfo
+        //     table immediately after the schema drop. Without this, the
+        //     migration runner cannot record this migration as applied, and the
+        //     whole bootstrap fails with "relation VersionInfo does not exist".
+        //     We also pre-seed a row with the previous highest version (20260101_000000)
+        //     so any older NoOp migrations do not re-run on next startup.
+        Execute.Sql(@"CREATE TABLE ""VersionInfo"" (
+            ""Version"" BIGINT PRIMARY KEY,
+            ""AppliedOn"" TIMESTAMPTZ NULL
+        );");
+        Execute.Sql(@"INSERT INTO ""VersionInfo"" (""Version"", ""AppliedOn"")
+            SELECT v, NOW() FROM unnest(ARRAY[20260101_000000, 20260101_000001]) AS u(v)
+            ON CONFLICT (""Version"") DO NOTHING;");
+
         // 3) Drop auto-increment sequences that may not be tied to a column.
         //    بعد DROP SCHEMA ما يبقى شي، لكن للسلامة لو في sequences خارج الـ schema.
         Execute.Sql("DROP SEQUENCE IF EXISTS audit_log_id_seq CASCADE;");

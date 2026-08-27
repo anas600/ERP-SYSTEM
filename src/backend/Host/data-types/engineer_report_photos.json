@@ -1,0 +1,19 @@
+{
+  "name": "EngineerReportPhoto",
+  "table": "engineer_report_photos",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "report_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "engineer_reports", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "file_path", "type": "text", "nullable": false },
+    { "name": "caption", "type": "text", "nullable": true },
+    { "name": "uploaded_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "idx_engineer_report_photos_report", "columns": ["report_id"] }
+  ]
+}

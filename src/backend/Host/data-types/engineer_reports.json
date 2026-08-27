@@ -1,0 +1,27 @@
+{
+  "name": "EngineerReport",
+  "table": "engineer_reports",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "project_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "projects", "column": "id", "on_delete": "restrict" } },
+    { "name": "report_date", "type": "date", "nullable": false },
+    { "name": "engineer_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "users", "column": "id", "on_delete": "restrict" } },
+    { "name": "status", "type": "varchar(20)", "nullable": false, "default": "'Draft'" },
+    { "name": "weather", "type": "text", "nullable": true },
+    { "name": "work_done", "type": "text", "nullable": false },
+    { "name": "issues", "type": "text", "nullable": true },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "updated_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ux_engineer_reports_project_date", "columns": ["project_id", "report_date"], "unique": true },
+    { "name": "idx_engineer_reports_company_project", "columns": ["company_id", "project_id"] },
+    { "name": "idx_engineer_reports_status", "columns": ["company_id", "status"] }
+  ]
+}

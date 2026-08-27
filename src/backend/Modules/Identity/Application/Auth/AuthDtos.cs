@@ -64,3 +64,28 @@ public sealed class GetUserCompaniesResponse
     public Guid DefaultCompanyId { get; set; }
     public IReadOnlyList<UserCompanyInfo> Companies { get; set; } = Array.Empty<UserCompanyInfo>();
 }
+
+// ============ Sprint 61 (L175, DEC-198) — first-admin bootstrap ============
+
+/// <summary>
+/// Request body for <c>POST /api/auth/admin-bootstrap</c>. Only callable on a
+/// brand-new deployment (zero users in the system). Creates the first admin
+/// user, the "Admin" role, the <c>user_role</c> link, and the
+/// <c>user_companies</c> link to the Holding — all in a single transaction.
+/// </summary>
+public sealed class AdminBootstrapRequest
+{
+    public string Email { get; set; } = string.Empty;
+    public string Password { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+}
+
+public sealed class AdminBootstrapResponse
+{
+    public Guid UserId { get; set; }
+    public string Email { get; set; } = string.Empty;
+    public string FullName { get; set; } = string.Empty;
+    public string Role { get; set; } = "Admin";
+    public Guid CompanyId { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

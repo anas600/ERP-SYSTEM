@@ -1,5 +1,6 @@
 using System.Data;
 using System.Security.Claims;
+using Dapper;
 using ERPSystem.Modules.Companies.Infrastructure;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Modules.Identity.Infrastructure;
@@ -183,12 +184,128 @@ public sealed class AuthService : IAuthService
         };
     }
 
+    /// <summary>
+    /// Sprint 61 (L175, DEC-198): Bootstrap the first admin on a brand-new
+    /// deployment. Closes the chicken-and-egg gap left by L48 + L49:
+    ///   - L48 ensures default roles exist when the bootstrap hosted service runs.
+    ///   - L49 makes <see cref="RegisterAsync"/> reliable when the user/role
+    ///     and user_companies rows are still inside the same transaction.
+    /// But if no user has ever been created and a new deployment cannot log
+    /// in, even those fixes are unreachable. This method bypasses the broken
+    /// register flow once and creates the very first user.
+    /// <para>
+    /// Behavior:
+    ///   1. If <c>SELECT COUNT(*) FROM users</c> &gt; 0 → return
+    ///      <see cref="AdminBootstrapResult.ConflictResult"/> (already bootstrapped).
+    ///   2. Otherwise, in a single transaction:
+    ///      a. Insert the "Admin" role if it does not exist.
+    ///      b. Insert the user (BCrypt cost 12).
+    ///      c. Insert <c>user_roles(user, Admin)</c>.
+    ///      d. Insert <c>user_companies(user, Holding, is_default=true)</c>.
+    ///   3. Return the new user id + email + role.
+    /// </para>
+    /// <para>
+    /// Idempotency: the COUNT check makes the second call a no-op conflict.
+    /// </para>
+    /// </summary>
+    public async Task<AdminBootstrapResult> AdminBootstrapAsync(AdminBootstrapRequest req, CancellationToken ct)
+    {
+        if (req == null) throw new ArgumentNullException(nameof(req));
+        if (string.IsNullOrWhiteSpace(req.Email) || string.IsNullOrWhiteSpace(req.Password) || string.IsNullOrWhiteSpace(req.FullName))
+            return AdminBootstrapResult.Fail("Email, password, and full name are required.", AuthErrorCode.ValidationError);
+
+        using var conn = await _db.CreateOltpConnectionAsync(ct);
+        using var tx = conn.BeginTransaction();
+        try
+        {
+            // 1) Idempotency / conflict check: only one admin-bootstrap ever.
+            var existing = await conn.ExecuteScalarAsync<int>(new CommandDefinition(
+                "SELECT COUNT(*)::int FROM users",
+                transaction: tx, cancellationToken: ct));
+            if (existing > 0)
+            {
+                try { tx.Rollback(); } catch { /* best-effort */ }
+                return AdminBootstrapResult.ConflictResult("System already bootstrapped — use POST /api/auth/register or /api/auth/login.");
+            }
+
+            // 2) Verify the Holding Company exists (seeded by DefaultHoldingBootstrapHostedService).
+            var holding = await _companies.GetByIdAsync(_holdingCompanyId, ct);
+            if (holding == null)
+            {
+                try { tx.Rollback(); } catch { /* best-effort */ }
+                return AdminBootstrapResult.Fail("Holding Company is not initialized yet. Try again in a moment.", AuthErrorCode.HoldingNotFound);
+            }
+
+            // 3) Ensure the "Admin" role exists (idempotent insert).
+            var adminRole = await _roles.GetByNameAsync("Admin", conn, tx, ct);
+            if (adminRole == null)
+            {
+                adminRole = new Role
+                {
+                    Id = Guid.NewGuid(),
+                    Name = "Admin",
+                    Description = "مدير النظام — صلاحيات كاملة",
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _roles.InsertAsync(adminRole, conn, tx, ct);
+            }
+
+            // 4) Insert the user with BCrypt-hashed password (workFactor = 12).
+            var now = DateTime.UtcNow;
+            var userId = Guid.NewGuid();
+            var user = new User
+            {
+                Id = userId,
+                Email = req.Email.Trim().ToLowerInvariant(),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(req.Password, workFactor: 12),
+                FullName = req.FullName.Trim(),
+                IsActive = true,
+                CreatedAt = now,
+                UpdatedAt = now
+            };
+            await _users.InsertAsync(user, conn, tx, ct);
+
+            // 5) Link the user to the Admin role.
+            await _users.AssignRoleAsync(user.Id, adminRole.Id, conn, tx, ct);
+
+            // 6) Link the user to the Holding Company (is_default = true).
+            await _users.AssignUserToCompanyAsync(user.Id, _holdingCompanyId, isDefault: true, conn, tx, ct);
+
+            tx.Commit();
+
+            _logger.LogInformation(
+                "[Sprint61-L175] Admin bootstrap succeeded (userId={UserId}, email={Email}, holdingId={HoldingId})",
+                userId, user.Email, _holdingCompanyId);
+
+            return AdminBootstrapResult.Ok(new AdminBootstrapResponse
+            {
+                UserId = userId,
+                Email = user.Email,
+                FullName = user.FullName,
+                Role = "Admin",
+                CompanyId = _holdingCompanyId,
+                CreatedAt = now
+            });
+        }
+        catch
+        {
+            try { tx.Rollback(); } catch { /* best-effort */ }
+            throw;
+        }
+    }
+
     // Tx-aware BuildAsync for the register flow — refresh token insert rolls back
     // together with the user/company insert if anything later throws.
+    //
+    // Sprint 61 (L49): pass conn + tx into GetUserCompaniesAsync so the read
+    // sees the in-flight user_companies INSERT from the same transaction.
+    // Previously this opened its own connection which (on pgbouncer / Supabase)
+    // saw a pre-tx snapshot — links was empty, then links[0] threw
+    // ArgumentOutOfRangeException.
     private async Task<AuthResponse> BuildAsync(User user, Guid holdingId, string? ip, IDbConnection conn, IDbTransaction? tx, CancellationToken ct)
     {
         var roles = await _users.GetRoleNamesAsync(user.Id, conn, tx, ct);
-        var links = await _users.GetUserCompaniesAsync(user.Id, ct);
+        var links = await _users.GetUserCompaniesAsync(user.Id, conn, tx, ct);
         var defaultLink = links.FirstOrDefault(l => l.IsDefault) ?? links[0];
         var (at, atExp) = _jwt.GenerateAccessToken(user, roles, defaultLink.CompanyId, links.Select(l => l.CompanyId).ToList());
         var (rt, rtHash, rtExp) = _jwt.GenerateRefreshToken();

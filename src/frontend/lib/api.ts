@@ -416,6 +416,83 @@ export interface VariationOrderDto {
   linesCount: number;
 }
 
+// ============ Sprint 61 (DEC-192..194): Engineer's Daily Report ============
+// Status is a string for human-readable display. BE returns "Draft" | "Submitted" | "Approved" | "Rejected".
+export type EngineerReportStatus = 'Draft' | 'Submitted' | 'Approved' | 'Rejected';
+
+export interface EngineerReportDto {
+  id: string;
+  companyId: string;
+  projectId: string;
+  reportDate: string;            // YYYY-MM-DD
+  engineerId: string;
+  engineerName?: string | null;
+  status: EngineerReportStatus;
+  statusName?: string;           // BE-computed Arabic label
+  weather: string | null;
+  workDone: string;
+  issues: string | null;
+  createdAt: string;
+  updatedAt: string;
+  photosCount?: number;
+  signoffsCount?: number;
+}
+
+export interface CreateEngineerReportRequest {
+  reportDate: string;
+  weather?: string | null;
+  workDone: string;
+  issues?: string | null;
+}
+
+export interface UpdateEngineerReportRequest {
+  reportDate: string;
+  weather?: string | null;
+  workDone: string;
+  issues?: string | null;
+}
+
+export interface EngineerReportPhotoDto {
+  id: string;
+  reportId: string;
+  companyId: string;
+  filePath: string;
+  /** Public URL exposed by the BE (e.g. /uploads/engineer-reports/{reportId}/{filename}). */
+  publicUrl: string;
+  caption: string | null;
+  uploadedAt: string;
+  uploadedBy?: string | null;
+}
+
+export type EngineerReportSignoffRole = 'PM' | 'Client' | 'Engineer';
+
+export interface EngineerReportSignoffDto {
+  id: string;
+  reportId: string;
+  companyId: string;
+  signerId: string;
+  signerName?: string | null;
+  signerRole: EngineerReportSignoffRole;
+  signedAt: string;
+  signatureText: string | null;
+  comment: string | null;
+  approved: boolean;
+}
+
+export interface EngineerReportSignoffRequest {
+  approved: boolean;
+  signerRole: EngineerReportSignoffRole;
+  comment?: string | null;
+  signatureText?: string | null;
+}
+
+export const ENGINEER_REPORT_STATUS_LABELS: Record<EngineerReportStatus, { ar: string; en: string; tone: 'slate' | 'amber' | 'green' | 'red' | 'blue' }> = {
+  Draft: { ar: 'مسودة', en: 'Draft', tone: 'slate' },
+  Submitted: { ar: 'مُقدَّم', en: 'Submitted', tone: 'blue' },
+  Approved: { ar: 'معتمد', en: 'Approved', tone: 'green' },
+  Rejected: { ar: 'مرفوض', en: 'Rejected', tone: 'red' },
+};
+
 // ============ Resources (Sprint 32 / DEC-112) ============
 export interface Resource {
   id: string;
@@ -1985,6 +2062,87 @@ export const projectsApi = {
   ): Promise<{ id: string }> => {
     const r = await api.post<{ id: string }>(
       `/api/projects/${id}/variations/lines`,
+      data
+    );
+    return r.data;
+  },
+
+  // ===== Sprint 61 (DEC-192..194): Engineer's Daily Report =====
+  // GET /api/projects/{id}/engineer-reports
+  listEngineerReports: async (id: string): Promise<EngineerReportDto[]> => {
+    const r = await api.get<EngineerReportDto[]>(
+      `/api/projects/${id}/engineer-reports`
+    );
+    return r.data;
+  },
+  // GET /api/engineer-reports/{id}
+  getEngineerReport: async (reportId: string): Promise<EngineerReportDto> => {
+    const r = await api.get<EngineerReportDto>(
+      `/api/engineer-reports/${reportId}`
+    );
+    return r.data;
+  },
+  // POST /api/projects/{id}/engineer-reports
+  createEngineerReport: async (
+    projectId: string,
+    data: CreateEngineerReportRequest
+  ): Promise<{ id: string }> => {
+    const r = await api.post<{ id: string }>(
+      `/api/projects/${projectId}/engineer-reports`,
+      data
+    );
+    return r.data;
+  },
+  // PUT /api/engineer-reports/{id}
+  updateEngineerReport: async (
+    reportId: string,
+    data: UpdateEngineerReportRequest
+  ): Promise<EngineerReportDto> => {
+    const r = await api.put<EngineerReportDto>(
+      `/api/engineer-reports/${reportId}`,
+      data
+    );
+    return r.data;
+  },
+  // POST /api/engineer-reports/{id}/submit
+  submitEngineerReport: async (reportId: string): Promise<EngineerReportDto> => {
+    const r = await api.post<EngineerReportDto>(
+      `/api/engineer-reports/${reportId}/submit`
+    );
+    return r.data;
+  },
+  // GET /api/engineer-reports/{id}/photos
+  listEngineerReportPhotos: async (
+    reportId: string
+  ): Promise<EngineerReportPhotoDto[]> => {
+    const r = await api.get<EngineerReportPhotoDto[]>(
+      `/api/engineer-reports/${reportId}/photos`
+    );
+    return r.data;
+  },
+  // POST /api/engineer-reports/{id}/photos (multipart)
+  uploadEngineerReportPhoto: async (
+    reportId: string,
+    file: File,
+    caption?: string
+  ): Promise<EngineerReportPhotoDto> => {
+    const form = new FormData();
+    form.append('file', file);
+    if (caption) form.append('caption', caption);
+    const r = await api.post<EngineerReportPhotoDto>(
+      `/api/engineer-reports/${reportId}/photos`,
+      form,
+      { headers: { 'Content-Type': 'multipart/form-data' } }
+    );
+    return r.data;
+  },
+  // POST /api/engineer-reports/{id}/signoff
+  signoffEngineerReport: async (
+    reportId: string,
+    data: EngineerReportSignoffRequest
+  ): Promise<EngineerReportSignoffDto> => {
+    const r = await api.post<EngineerReportSignoffDto>(
+      `/api/engineer-reports/${reportId}/signoff`,
       data
     );
     return r.data;

@@ -18,6 +18,7 @@ import {
   ArrowRight, FileText, RefreshCw, TrendingUp, TrendingDown,
   Calendar, BarChart3, FileSignature, Receipt, Plus, Trash2, CheckCircle, XCircle,
   AlertTriangle, Package, Pencil, Wallet, Coins, Calculator, ClipboardList, Ruler, Hammer, ListChecks,
+  Camera,
 } from 'lucide-react';
 import {
   PageHero, StatCard, StatusPill, SectionCard, ProgressBar,
@@ -29,6 +30,7 @@ import {
   type CreateContractRequest, type UpdateContractRequest, type ProgressBilling,
   type CreateBillingRequest, type BillingPreview, type ProjectWip,
   type BoqSectionDto, type BoqLineDto, type BoqSubitemDto, type VariationOrderDto,
+  type EngineerReportDto, type EngineerReportStatus, ENGINEER_REPORT_STATUS_LABELS,
 } from '@/lib/api';
 import { formatDate, formatCurrency } from '@/lib/utils';
 
@@ -41,7 +43,7 @@ const STATUS_META: Record<ProjectStatusName, { label: string; tone: 'green' | 'a
   Cancelled: { label: 'ملغي', tone: 'red' },
 };
 
-type Tab = 'details' | 'pnl' | 'contract' | 'billings' | 'boq' | 'variations';
+type Tab = 'details' | 'pnl' | 'contract' | 'billings' | 'boq' | 'variations' | 'engineer-reports';
 
 const TAB_CHIPS = [
   { key: 'details', label: 'التفاصيل', icon: <FileText className="h-3.5 w-3.5" /> },
@@ -50,6 +52,7 @@ const TAB_CHIPS = [
   { key: 'billings', label: 'المستخلصات', icon: <Receipt className="h-3.5 w-3.5" /> },
   { key: 'boq', label: 'كراسة الحصر', icon: <ClipboardList className="h-3.5 w-3.5" /> },
   { key: 'variations', label: 'الأوامر التعديلية', icon: <AlertTriangle className="h-3.5 w-3.5" /> },
+  { key: 'engineer-reports', label: 'تقارير المهندس', icon: <Camera className="h-3.5 w-3.5" /> },
 ];
 
 export default function ProjectsIdPage() {
@@ -217,6 +220,7 @@ export default function ProjectsIdPage() {
           {tab === 'billings' && <BillingsTab projectId={id} onChange={() => undefined} />}
           {tab === 'boq' && <BoqTab projectId={id} />}
           {tab === 'variations' && <VariationsTab projectId={id} />}
+          {tab === 'engineer-reports' && <EngineerReportsTab projectId={id} />}
         </>
       )}
     </div>
@@ -1612,6 +1616,152 @@ function VariationsTab({ projectId }: { projectId: string }) {
           </div>
         </Modal>
       )}
+    </div>
+  );
+}
+
+// =================== Sprint 61 (DEC-192..194): Tab: Engineer Reports ===================
+// Compact summary view embedded in the project detail. For the full list + filters,
+// the user clicks "View all" which navigates to the dedicated /engineer-reports route.
+
+function EngineerReportsTab({ projectId }: { projectId: string }) {
+  const [items, setItems] = useState<EngineerReportDto[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setLoading(true); setError(null);
+    projectsApi.listEngineerReports(projectId)
+      .then((d) => setItems(Array.isArray(d) ? d : []))
+      .catch((e: unknown) => setError(getErrorMessage(e, 'فشل تحميل تقارير المهندس.')))
+      .finally(() => setLoading(false));
+  }, [projectId]);
+
+  const counts = useMemo(() => {
+    const c: Record<EngineerReportStatus, number> = {
+      Draft: 0, Submitted: 0, Approved: 0, Rejected: 0,
+    };
+    for (const r of items) c[r.status] = (c[r.status] ?? 0) + 1;
+    return c;
+  }, [items]);
+
+  const recent = useMemo(() => {
+    return [...items]
+      .sort((a, b) => b.reportDate.localeCompare(a.reportDate))
+      .slice(0, 5);
+  }, [items]);
+
+  const columns: ModernTableColumn<EngineerReportDto>[] = [
+    {
+      key: 'date',
+      header: 'التاريخ',
+      widthClass: 'w-32',
+      render: (r) => <span className="text-xs tabular-nums">{formatDate(r.reportDate)}</span>,
+    },
+    {
+      key: 'status',
+      header: 'الحالة',
+      widthClass: 'w-32',
+      align: 'center',
+      render: (r) => {
+        const meta = ENGINEER_REPORT_STATUS_LABELS[r.status] ?? ENGINEER_REPORT_STATUS_LABELS.Draft;
+        return <StatusPill tone={meta.tone} label={meta.ar} showDot={false} />;
+      },
+    },
+    {
+      key: 'work',
+      header: 'العمل',
+      render: (r) => (
+        <span className="line-clamp-1 text-sm text-gray-800" title={r.workDone}>
+          {(r.workDone ?? '').slice(0, 60)}{(r.workDone ?? '').length > 60 ? '…' : ''}
+        </span>
+      ),
+    },
+    {
+      key: 'view',
+      header: '',
+      align: 'end',
+      widthClass: 'w-24',
+      render: (r) => (
+        <Link href={`/engineer-reports/${r.id}`}>
+          <Button variant="ghost" size="sm">عرض</Button>
+        </Link>
+      ),
+    },
+  ];
+
+  if (loading) return <SkeletonTable rows={3} cols={3} />;
+
+  return (
+    <div className="space-y-4">
+      {error && (
+        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-rose-700" role="alert">
+          <p className="font-semibold">تعذّر التحميل</p>
+          <p className="mt-1 text-sm">{error}</p>
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard
+          label="إجمالي التقارير"
+          value={items.length.toLocaleString('en-US')}
+          icon={Camera}
+          tone="blue"
+        />
+        <StatCard
+          label="مسودة / Draft"
+          value={counts.Draft.toLocaleString('en-US')}
+          icon={Camera}
+          tone="slate"
+        />
+        <StatCard
+          label="مُقدَّم / Submitted"
+          value={counts.Submitted.toLocaleString('en-US')}
+          icon={Camera}
+          tone="amber"
+        />
+        <StatCard
+          label="معتمد / Approved"
+          value={counts.Approved.toLocaleString('en-US')}
+          icon={Camera}
+          tone="green"
+          hint={`${counts.Rejected} مرفوض`}
+        />
+      </div>
+
+      <SectionCard
+        title="آخر التقارير"
+        description="آخر 5 تقارير مرتبة حسب التاريخ"
+        actions={
+          <div className="flex items-center gap-2">
+            <Link href={`/projects/${projectId}/engineer-reports`}>
+              <Button variant="secondary" size="sm">عرض الكل / View All</Button>
+            </Link>
+            <Link href={`/projects/${projectId}/engineer-reports/new`}>
+              <Button variant="primary" size="sm" iconLeft={<Plus className="h-3.5 w-3.5" />}>
+                تقرير جديد / New
+              </Button>
+            </Link>
+          </div>
+        }
+      >
+        {recent.length === 0 ? (
+          <EmptyState
+            icon={<Camera className="h-12 w-12" />}
+            title="لا توجد تقارير بعد"
+            description="ابدأ بإنشاء أول تقرير المهندس اليومي للمشروع."
+            action={
+              <Link href={`/projects/${projectId}/engineer-reports/new`}>
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  تقرير جديد / New Report
+                </Button>
+              </Link>
+            }
+          />
+        ) : (
+          <ModernTable columns={columns} rows={recent} rowKey={(r) => r.id} />
+        )}
+      </SectionCard>
     </div>
   );
 }

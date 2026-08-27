@@ -1,21 +1,11 @@
-name: Architecture Guard — no tenant_id (DISABLED 2026-08-27)
+name: Architecture Guard — no tenant_id
 
-# This workflow was disabled per Anas's directive 2026-08-27 13:50 UTC+2.
-#
-# Reason: The original check (added Sprint 12) was causing CI false positives on
-# legitimate code paths. The root cause (Constitution Article 3 violations via
-# `tenant_id` references) was fixed by:
-#   - DEC-097 (Sprint 28): CompanyId is now NOT NULL on every entity
-#   - L186 (Sprint 61): EngineerId-from-JWT pattern enforced
-#   - L188 (Sprint 63): L19/DEC-095 compliance throughout
-#   - Sprint 61-65: All new code uses company_id, never tenant_id
-#
-# The check has been removed. If you re-enable it in the future, also
-# update the develop branch protection to mark it as required again.
-# Architecture compliance is now enforced by:
-#   1. Code review (CODEOWNERS + L19/L186 patterns)
-#   2. Tests (every entity has CompanyId)
-#   3. The [RequirePermission] attribute (Sprint 63 Wave 2A)
+# Sprint 12 (per docs/workflow/sprint-12-handoff.md)
+# Enforces Constitution Article 3: company_id only, NO tenant_id, NO multi-tenancy.
+# Strategy: only fail on NEW additions in the PR diff (not the entire repo), and
+# skip lines that are comments (//, *, #, <!--). Pre-existing legitimate
+# "no tenant_id" reaffirmations in comments / docs / migrations / seed meta
+# are NOT flagged.
 
 on:
   pull_request:
@@ -23,12 +13,58 @@ on:
 
 jobs:
   no-tenant-id:
-    name: No new tenant_id in PR (DISABLED)
+    name: No new tenant_id in PR
     runs-on: ubuntu-latest
     steps:
-      - name: This check is disabled
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect new tenant_id references
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          echo "no-tenant-id check is DISABLED per owner directive 2026-08-27."
-          echo "The check has been removed from the workflow file. See header comment."
-          echo "If this check shows up in branch protection as missing, it should also be removed from required checks."
-          exit 0
+          set +e
+          git fetch origin "${BASE_REF}" --depth=1
+          # Lines added in the PR (start with + but not +++). Filter to src/ files only.
+          # Skip obvious comment lines (//, *, #, <!--) — they reaffirm the rule.
+          #
+          # Sprint 61 (L51, DEC-196): exclude test files. xUnit assertions like
+          # `Assert.DoesNotContain("tenant_id", ...)` legitimately contain the
+          # literal "tenant_id" string, and they encode the rule we are
+          # checking for. Without this filter, every test that asserts the
+          # absence of tenant_id would fail the guard.
+          #
+          # Test path conventions in this repo:
+          #   - src/backend/Tests/ERPSystem.Tests/**/*.cs
+          #   - src/frontend/__tests__/**/*.test.ts(x)
+          #   - *Tests.cs / *Test.cs naming suffix (anywhere under src/)
+          HITS=$(git diff "origin/${BASE_REF}...HEAD" -- src/ \
+            ':!src/backend/Tests/**' \
+            ':!src/frontend/__tests__/**' \
+            ':!*Tests.cs' \
+            ':!*Test.cs' \
+            | grep -E '^\+' \
+            | grep -vE '^\+\+\+' \
+            | grep -E '\btenant_id\b|TenantContext|class[[:space:]]+Tenant\b' \
+            | grep -vE '^\+[[:space:]]*//' \
+            | grep -vE '^\+[[:space:]]*\*' \
+            | grep -vE '^\+[[:space:]]*#' \
+            | grep -vE '^\+[[:space:]]*<!--' \
+            | grep -vE 'no[[:space:]]+`?tenant_id' \
+            | grep -vE 'no[[:space:]]+tenant_id' \
+            | grep -vE 'NO[[:space:]]+`?tenant_id' \
+            | grep -vE 'No[[:space:]]+`?tenant_id' \
+          )
+          set -e
+          if [ -n "$HITS" ]; then
+            echo "::error::Found new tenant_id / TenantContext / class Tenant references in PR (Constitution Article 3: company_id only)."
+            echo ""
+            echo "Diff lines:"
+            echo "$HITS"
+            echo ""
+            echo "If you have a legitimate reason, Owner (Anas) must explicitly approve the change AND update the Constitution."
+            exit 1
+          fi
+          echo "OK: no new tenant_id / TenantContext / class Tenant references in this PR"

@@ -1,0 +1,23 @@
+{
+  "name": "EngineerReportSignoff",
+  "table": "engineer_report_signoffs",
+  "version": "1.0.0",
+  "module": "Projects",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "report_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "engineer_reports", "column": "id", "on_delete": "cascade" } },
+    { "name": "company_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "companies", "column": "id", "on_delete": "restrict" } },
+    { "name": "signer_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "users", "column": "id", "on_delete": "restrict" } },
+    { "name": "signer_role", "type": "varchar(20)", "nullable": false },
+    { "name": "signed_at", "type": "timestamptz", "nullable": false, "default": "now()" },
+    { "name": "signature_text", "type": "text", "nullable": true },
+    { "name": "comment", "type": "text", "nullable": true },
+    { "name": "approved", "type": "boolean", "nullable": false }
+  ],
+  "indexes": [
+    { "name": "idx_engineer_report_signoffs_report", "columns": ["report_id"] }
+  ]
+}
