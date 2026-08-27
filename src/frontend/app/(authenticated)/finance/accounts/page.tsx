@@ -42,6 +42,7 @@ import {
   EmptyState,
   useToast,
 } from '@/components/ui';
+import { PermissionGate } from '@/components/layout/PermissionGate';
 import { useAuth } from '@/lib/useAuth';
 import {
   financeApi,
@@ -338,11 +339,13 @@ export default function AccountsPage() {
         description="شجرة الحسابات المحاسبية الأساسية"
         actions={
           <div className="flex items-center gap-2">
-            <Link href="/finance/accounts/new">
-              <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
-                حساب جديد
-              </Button>
-            </Link>
+            <PermissionGate permission="finance.accounts.create">
+              <Link href="/finance/accounts/new">
+                <Button variant="primary" iconLeft={<Plus className="h-4 w-4" />}>
+                  حساب جديد
+                </Button>
+              </Link>
+            </PermissionGate>
           </div>
         }
       />

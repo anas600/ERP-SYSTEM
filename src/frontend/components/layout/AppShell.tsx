@@ -58,6 +58,7 @@ import {
 } from 'lucide-react';
 import { authApi } from '@/lib/api';
 import { CompanySwitcher } from '@/components/layout/CompanySwitcher';
+import { SmartSidebar } from '@/components/layout/SmartSidebar';
 import { cn } from '@/lib/utils';
 
 // ============ Navigation structure ============
@@ -393,7 +394,7 @@ export function AppShell({ children }: AppShellProps) {
 
   return (
     <div className="min-h-screen bg-ink-50 flex" dir="rtl">
-      <Sidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
+      <SmartSidebar open={sidebarOpen} onClose={() => setSidebarOpen(false)} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
           onMenuClick={() => setSidebarOpen(true)}

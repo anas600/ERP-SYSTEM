@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Procurement.Application;
@@ -18,6 +19,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ProcurementWrite)]
+[RequirePermission("procurement.vendors.view")]
 public class ProcurementController : ControllerBase
 {
     private readonly IVendorService _vendors;
@@ -63,6 +65,7 @@ public class ProcurementController : ControllerBase
     // ============== Vendors ==============
 
     [HttpGet("api/procurement/vendors")]
+    [RequirePermission("procurement.vendors.view")]
     public async Task<IActionResult> ListVendors(
         [FromQuery] bool includeInactive = false,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -73,6 +76,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpGet("api/procurement/vendors/{id:guid}")]
+    [RequirePermission("procurement.vendors.view")]
     public async Task<IActionResult> GetVendor(Guid id, CancellationToken ct)
     {
         var r = await _vendors.GetByIdAsync(id, ct);
@@ -81,6 +85,7 @@ public class ProcurementController : ControllerBase
 
     /// <summary>Sprint 36 (DEC-122): كشف حساب مورّد (opening + bills + payments + closing).</summary>
     [HttpGet("api/procurement/vendors/{id:guid}/statement")]
+    [RequirePermission("procurement.vendors.view")]
     public async Task<IActionResult> GetVendorStatement(
         Guid id, [FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct = default)
     {
@@ -89,6 +94,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPost("api/procurement/vendors")]
+    [RequirePermission("procurement.vendors.create")]
     public async Task<IActionResult> CreateVendor([FromBody] CreateVendorRequest req, CancellationToken ct)
     {
         var v = await _createVendorV.ValidateAsync(req, ct);
@@ -100,6 +106,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPut("api/procurement/vendors/{id:guid}")]
+    [RequirePermission("procurement.vendors.create")]
     public async Task<IActionResult> UpdateVendor(Guid id, [FromBody] UpdateVendorRequest req, CancellationToken ct)
     {
         var v = await _updateVendorV.ValidateAsync(req, ct);
@@ -109,6 +116,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpDelete("api/procurement/vendors/{id:guid}")]
+    [RequirePermission("procurement.vendors.create")]
     public async Task<IActionResult> DeactivateVendor(Guid id, CancellationToken ct)
     {
         var r = await _vendors.DeactivateAsync(UserId, id, ct);
@@ -118,6 +126,7 @@ public class ProcurementController : ControllerBase
     // ============== Purchase Orders ==============
 
     [HttpGet("api/procurement/pos")]
+    [RequirePermission("procurement.po.view")]
     public async Task<IActionResult> ListPOs(
         [FromQuery] Guid? vendorId, [FromQuery] PurchaseOrderStatus? status,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -128,6 +137,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpGet("api/procurement/pos/{id:guid}")]
+    [RequirePermission("procurement.po.view")]
     public async Task<IActionResult> GetPO(Guid id, CancellationToken ct)
     {
         var r = await _pos.GetByIdAsync(id, ct);
@@ -135,6 +145,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPost("api/procurement/pos")]
+    [RequirePermission("procurement.po.create")]
     public async Task<IActionResult> CreatePO([FromBody] CreatePurchaseOrderRequest req, CancellationToken ct)
     {
         var v = await _createPoV.ValidateAsync(req, ct);
@@ -146,6 +157,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPut("api/procurement/pos/{id:guid}/approve")]
+    [RequirePermission("procurement.po.approve")]
     public async Task<IActionResult> ApprovePO(Guid id, CancellationToken ct)
     {
         var r = await _pos.ApproveAsync(UserId, id, ct);
@@ -153,6 +165,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPut("api/procurement/pos/{id:guid}/send")]
+    [RequirePermission("procurement.po.create")]
     public async Task<IActionResult> SendPO(Guid id, CancellationToken ct)
     {
         var r = await _pos.SendAsync(UserId, id, ct);
@@ -162,6 +175,7 @@ public class ProcurementController : ControllerBase
     // ============== Goods Receipts ==============
 
     [HttpGet("api/procurement/grs")]
+    [RequirePermission("procurement.gr.view")]
     public async Task<IActionResult> ListGRs(
         [FromQuery] Guid? poId, [FromQuery] GoodsReceiptStatus? status,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -172,6 +186,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpGet("api/procurement/grs/{id:guid}")]
+    [RequirePermission("procurement.gr.view")]
     public async Task<IActionResult> GetGR(Guid id, CancellationToken ct)
     {
         var r = await _grs.GetByIdAsync(id, ct);
@@ -179,6 +194,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPost("api/procurement/grs")]
+    [RequirePermission("procurement.gr.create")]
     public async Task<IActionResult> CreateGR([FromBody] CreateGoodsReceiptRequest req, CancellationToken ct)
     {
         var v = await _createGrV.ValidateAsync(req, ct);
@@ -190,6 +206,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPut("api/procurement/grs/{id:guid}/receive")]
+    [RequirePermission("procurement.gr.create")]
     public async Task<IActionResult> ReceiveGR(Guid id, CancellationToken ct)
     {
         var r = await _grs.ReceiveAsync(UserId, id, ct);
@@ -199,6 +216,7 @@ public class ProcurementController : ControllerBase
     // ============== Vendor Bills ==============
 
     [HttpGet("api/procurement/bills")]
+    [RequirePermission("procurement.bills.view")]
     public async Task<IActionResult> ListBills(
         [FromQuery] Guid? vendorId, [FromQuery] Guid? grId, [FromQuery] VendorBillStatus? status,
         [FromQuery] int skip = 0, [FromQuery] int take = 50,
@@ -209,6 +227,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpGet("api/procurement/bills/{id:guid}")]
+    [RequirePermission("procurement.bills.view")]
     public async Task<IActionResult> GetBill(Guid id, CancellationToken ct)
     {
         var r = await _bills.GetByIdAsync(id, ct);
@@ -216,6 +235,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPost("api/procurement/bills")]
+    [RequirePermission("procurement.bills.create")]
     public async Task<IActionResult> CreateBill([FromBody] CreateVendorBillRequest req, CancellationToken ct)
     {
         var v = await _createBillV.ValidateAsync(req, ct);
@@ -227,6 +247,7 @@ public class ProcurementController : ControllerBase
     }
 
     [HttpPut("api/procurement/bills/{id:guid}/post")]
+    [RequirePermission("procurement.bills.approve")]
     public async Task<IActionResult> PostBill(Guid id, CancellationToken ct)
     {
         var r = await _bills.PostAsync(UserId, id, ct);

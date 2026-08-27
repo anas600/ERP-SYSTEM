@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application;
 using ERPSystem.Modules.Finance.Application.Services;
 using ERPSystem.Modules.Finance.Entities;
@@ -11,6 +12,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/finance/journal-entries")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteFinance)]
+[RequirePermission("finance.journal.view")]
 public class JournalEntriesController : ControllerBase
 {
     private readonly IJournalEntryService _service;
@@ -31,6 +33,7 @@ public class JournalEntriesController : ControllerBase
     }
 
     [HttpGet]
+    [RequirePermission("finance.journal.view")]
     public async Task<IActionResult> List(
         [FromQuery] DateTime? from,
         [FromQuery] DateTime? to,
@@ -45,6 +48,7 @@ public class JournalEntriesController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("finance.journal.view")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _service.GetByIdAsync(id, ct);
@@ -54,6 +58,7 @@ public class JournalEntriesController : ControllerBase
     /// <summary>إنشاء قيد (Draft). يجب أن يكون متوازن (Σ debit = Σ credit).</summary>
     [HttpPost]
     [ProducesResponseType(typeof(JournalEntryResponse), StatusCodes.Status201Created)]
+    [RequirePermission("finance.journal.create")]
     public async Task<IActionResult> CreateDraft([FromBody] PostJournalEntryRequest request, CancellationToken ct)
     {
         var userId = CurrentUserId();
@@ -73,6 +78,7 @@ public class JournalEntriesController : ControllerBase
 
     /// <summary>ترحيل قيد (Draft → Posted). يجعله يؤثر على General Ledger.</summary>
     [HttpPost("{id:guid}/post")]
+    [RequirePermission("finance.journal.post")]
     public async Task<IActionResult> Post(Guid id, CancellationToken ct)
     {
         var userId = CurrentUserId();

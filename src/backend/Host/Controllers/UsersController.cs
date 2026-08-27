@@ -2,6 +2,7 @@
 // Admin operations for user management (list, view, assign roles).
 
 using Dapper;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Identity.Entities;
 using ERPSystem.Modules.Identity.Infrastructure;
 using ERPSystem.Shared.Infrastructure;
@@ -13,6 +14,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/users")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("identity.users.view")]
 public class UsersController : ControllerBase
 {
     private readonly IUserRepository _users;

@@ -1,0 +1,17 @@
+{
+  "name": "RolePermission",
+  "table": "role_permissions",
+  "version": "1.0.0",
+  "module": "Identity",
+  "fields": [
+    { "name": "id", "type": "uuid", "nullable": false, "primary_key": true },
+    { "name": "role_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "roles", "column": "id", "on_delete": "cascade" } },
+    { "name": "permission_id", "type": "uuid", "nullable": false,
+      "foreign_key": { "table": "permissions", "column": "id", "on_delete": "cascade" } },
+    { "name": "created_at", "type": "timestamptz", "nullable": false, "default": "now()" }
+  ],
+  "indexes": [
+    { "name": "ux_role_permissions_role_perm", "columns": ["role_id", "permission_id"], "unique": true }
+  ]
+}

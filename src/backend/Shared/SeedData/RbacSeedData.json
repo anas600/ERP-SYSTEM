@@ -1,0 +1,197 @@
+{
+  "_comment": "Sprint 63 (DEC-211..214) — RBAC seed data: 5 role templates + 82 permission codes + role→permission mapping + module visibility matrix. Consumed by RbacBootstrapHostedService on first startup; idempotent. UTF-8 (DEC-087: never use PowerShell ConvertTo-Json for Arabic strings).",
+
+  "roles": [
+    { "code": "admin",    "name": "Administrator",     "nameAr": "مدير النظام" },
+    { "code": "finance",  "name": "Finance Officer",   "nameAr": "مسؤول مالي" },
+    { "code": "hr",       "name": "HR Officer",        "nameAr": "مسؤول موارد بشرية" },
+    { "code": "pm",       "name": "Project Manager",   "nameAr": "مدير مشاريع" },
+    { "code": "readonly", "name": "Read Only",         "nameAr": "قراءة فقط" }
+  ],
+
+  "permissions": [
+    { "code": "projects.view",          "resource": "projects",       "action": "view",    "name": "View Projects",                "nameAr": "عرض المشاريع",          "module": "Projects" },
+    { "code": "projects.create",        "resource": "projects",       "action": "create",  "name": "Create Project",              "nameAr": "إنشاء مشروع",           "module": "Projects" },
+    { "code": "projects.update",        "resource": "projects",       "action": "update",  "name": "Update Project",              "nameAr": "تعديل مشروع",           "module": "Projects" },
+    { "code": "projects.delete",        "resource": "projects",       "action": "delete",  "name": "Delete Project",              "nameAr": "حذف مشروع",             "module": "Projects" },
+    { "code": "projects.tasks.view",    "resource": "projects.tasks", "action": "view",    "name": "View Project Tasks",          "nameAr": "عرض مهام المشروع",      "module": "Projects" },
+    { "code": "projects.tasks.create",  "resource": "projects.tasks", "action": "create",  "name": "Create Project Task",         "nameAr": "إنشاء مهمة مشروع",      "module": "Projects" },
+    { "code": "projects.tasks.update",  "resource": "projects.tasks", "action": "update",  "name": "Update Project Task",         "nameAr": "تعديل مهمة مشروع",      "module": "Projects" },
+    { "code": "projects.billings.view", "resource": "projects.billings", "action": "view", "name": "View Project Billings",       "nameAr": "عرض فوترة المشروع",     "module": "Projects" },
+    { "code": "projects.billings.create", "resource": "projects.billings", "action": "create", "name": "Create Billing",           "nameAr": "إنشاء فاتورة مشروع",    "module": "Projects" },
+    { "code": "projects.billings.approve", "resource": "projects.billings", "action": "approve", "name": "Approve Billing",          "nameAr": "اعتماد فاتورة مشروع",   "module": "Projects" },
+    { "code": "projects.engineer_reports.view",    "resource": "projects.engineer_reports", "action": "view",    "name": "View Engineer's Reports", "nameAr": "عرض تقارير المهندس",    "module": "Projects" },
+    { "code": "projects.engineer_reports.create",  "resource": "projects.engineer_reports", "action": "create",  "name": "Create Engineer's Report",  "nameAr": "إنشاء تقرير مهندس",     "module": "Projects" },
+    { "code": "projects.engineer_reports.approve", "resource": "projects.engineer_reports", "action": "approve", "name": "Approve Engineer's Report", "nameAr": "اعتماد تقرير مهندس",    "module": "Projects" },
+
+    { "code": "finance.accounts.view",   "resource": "finance.accounts",   "action": "view",    "name": "View Chart of Accounts",    "nameAr": "عرض دليل الحسابات",      "module": "Finance" },
+    { "code": "finance.accounts.create", "resource": "finance.accounts",   "action": "create",  "name": "Create Account",            "nameAr": "إنشاء حساب",            "module": "Finance" },
+    { "code": "finance.accounts.update", "resource": "finance.accounts",   "action": "update",  "name": "Update Account",            "nameAr": "تعديل حساب",            "module": "Finance" },
+    { "code": "finance.journal.view",    "resource": "finance.journal",    "action": "view",    "name": "View Journal Entries",      "nameAr": "عرض القيود",            "module": "Finance" },
+    { "code": "finance.journal.create",  "resource": "finance.journal",    "action": "create",  "name": "Create Journal Entry",      "nameAr": "إنشاء قيد",             "module": "Finance" },
+    { "code": "finance.journal.post",    "resource": "finance.journal",    "action": "post",    "name": "Post Journal Entry",        "nameAr": "ترحيل قيد",             "module": "Finance" },
+    { "code": "finance.journal.reverse", "resource": "finance.journal",    "action": "reverse", "name": "Reverse Journal Entry",     "nameAr": "عكس قيد",               "module": "Finance" },
+    { "code": "finance.reports.view",    "resource": "finance.reports",    "action": "view",    "name": "View Financial Reports",    "nameAr": "عرض التقارير المالية",  "module": "Finance" },
+    { "code": "finance.tax.view",        "resource": "finance.tax",        "action": "view",    "name": "View Tax Settings",         "nameAr": "عرض إعدادات الضرائب",   "module": "Finance" },
+    { "code": "finance.year_end.close",  "resource": "finance.year_end",  "action": "close",   "name": "Close Fiscal Year",         "nameAr": "إقفال السنة المالية",   "module": "Finance" },
+
+    { "code": "ar.customers.view",     "resource": "ar.customers",     "action": "view",    "name": "View Customers",        "nameAr": "عرض العملاء",            "module": "AR" },
+    { "code": "ar.customers.create",   "resource": "ar.customers",     "action": "create",  "name": "Create Customer",       "nameAr": "إنشاء عميل",            "module": "AR" },
+    { "code": "ar.customers.update",   "resource": "ar.customers",     "action": "update",  "name": "Update Customer",       "nameAr": "تعديل عميل",            "module": "AR" },
+    { "code": "ar.invoices.view",      "resource": "ar.invoices",      "action": "view",    "name": "View Sales Invoices",   "nameAr": "عرض فواتير المبيعات",   "module": "AR" },
+    { "code": "ar.invoices.create",    "resource": "ar.invoices",      "action": "create",  "name": "Create Sales Invoice",  "nameAr": "إنشاء فاتورة مبيعات",   "module": "AR" },
+    { "code": "ar.invoices.post",      "resource": "ar.invoices",      "action": "post",    "name": "Post Sales Invoice",    "nameAr": "ترحيل فاتورة مبيعات",   "module": "AR" },
+    { "code": "ar.receipts.create",    "resource": "ar.receipts",      "action": "create",  "name": "Create Customer Receipt", "nameAr": "إنشاء سند قبض",       "module": "AR" },
+
+    { "code": "hr.employees.view",     "resource": "hr.employees",     "action": "view",    "name": "View Employees",        "nameAr": "عرض الموظفين",          "module": "HR" },
+    { "code": "hr.employees.create",   "resource": "hr.employees",     "action": "create",  "name": "Create Employee",       "nameAr": "إضافة موظف",            "module": "HR" },
+    { "code": "hr.employees.update",   "resource": "hr.employees",     "action": "update",  "name": "Update Employee",       "nameAr": "تعديل موظف",            "module": "HR" },
+    { "code": "hr.attendance.view",    "resource": "hr.attendance",    "action": "view",    "name": "View Attendance",       "nameAr": "عرض الحضور",            "module": "HR" },
+    { "code": "hr.attendance.create",  "resource": "hr.attendance",    "action": "create",  "name": "Record Attendance",     "nameAr": "تسجيل الحضور",         "module": "HR" },
+    { "code": "hr.leave.view",         "resource": "hr.leave",         "action": "view",    "name": "View Leave Requests",   "nameAr": "عرض طلبات الإجازة",    "module": "HR" },
+    { "code": "hr.leave.approve",      "resource": "hr.leave",         "action": "approve", "name": "Approve Leave",         "nameAr": "اعتماد إجازة",          "module": "HR" },
+
+    { "code": "payroll.runs.view",     "resource": "payroll.runs",     "action": "view",    "name": "View Payroll Runs",     "nameAr": "عرض دورات الرواتب",     "module": "Payroll" },
+    { "code": "payroll.runs.create",   "resource": "payroll.runs",     "action": "create",  "name": "Create Payroll Run",    "nameAr": "إنشاء دورة رواتب",      "module": "Payroll" },
+    { "code": "payroll.runs.approve",  "resource": "payroll.runs",     "action": "approve", "name": "Approve Payroll Run",   "nameAr": "اعتماد دورة رواتب",     "module": "Payroll" },
+    { "code": "payroll.runs.post",     "resource": "payroll.runs",     "action": "post",    "name": "Post Payroll Run",      "nameAr": "ترحيل الرواتب",         "module": "Payroll" },
+    { "code": "payroll.structures.view",  "resource": "payroll.structures",  "action": "view",    "name": "View Salary Structures",  "nameAr": "عرض هياكل الرواتب",  "module": "Payroll" },
+    { "code": "payroll.structures.update", "resource": "payroll.structures", "action": "update",  "name": "Update Salary Structure", "nameAr": "تعديل هيكل رواتب",  "module": "Payroll" },
+    { "code": "payroll.eos.calculate",   "resource": "payroll.eos",   "action": "calculate", "name": "Calculate EOS",         "nameAr": "حساب نهاية الخدمة",   "module": "Payroll" },
+
+    { "code": "inventory.items.view",     "resource": "inventory.items",     "action": "view",    "name": "View Items",          "nameAr": "عرض الأصناف",         "module": "Inventory" },
+    { "code": "inventory.items.create",   "resource": "inventory.items",     "action": "create",  "name": "Create Item",         "nameAr": "إنشاء صنف",          "module": "Inventory" },
+    { "code": "inventory.items.update",   "resource": "inventory.items",     "action": "update",  "name": "Update Item",         "nameAr": "تعديل صنف",          "module": "Inventory" },
+    { "code": "inventory.stock.view",     "resource": "inventory.stock",     "action": "view",    "name": "View Stock Levels",   "nameAr": "عرض المخزون",         "module": "Inventory" },
+    { "code": "inventory.stock.adjust",   "resource": "inventory.stock",     "action": "adjust",  "name": "Adjust Stock",        "nameAr": "تعديل المخزون",       "module": "Inventory" },
+    { "code": "inventory.movements.view", "resource": "inventory.movements", "action": "view",    "name": "View Stock Movements","nameAr": "عرض حركات المخزون",   "module": "Inventory" },
+    { "code": "inventory.warehouses.view","resource": "inventory.warehouses","action": "view",    "name": "View Warehouses",     "nameAr": "عرض المستودعات",      "module": "Inventory" },
+
+    { "code": "procurement.vendors.view",    "resource": "procurement.vendors",    "action": "view",    "name": "View Vendors",        "nameAr": "عرض الموردين",       "module": "Procurement" },
+    { "code": "procurement.vendors.create",  "resource": "procurement.vendors",    "action": "create",  "name": "Create Vendor",       "nameAr": "إضافة مورد",         "module": "Procurement" },
+    { "code": "procurement.po.view",         "resource": "procurement.po",         "action": "view",    "name": "View Purchase Orders","nameAr": "عرض أوامر الشراء",   "module": "Procurement" },
+    { "code": "procurement.po.create",       "resource": "procurement.po",         "action": "create",  "name": "Create Purchase Order","nameAr": "إنشاء أمر شراء",    "module": "Procurement" },
+    { "code": "procurement.po.approve",      "resource": "procurement.po",         "action": "approve", "name": "Approve Purchase Order","nameAr": "اعتماد أمر شراء",  "module": "Procurement" },
+    { "code": "procurement.gr.view",         "resource": "procurement.gr",         "action": "view",    "name": "View Goods Receipts", "nameAr": "عرض استلامات البضاعة","module": "Procurement" },
+    { "code": "procurement.gr.create",       "resource": "procurement.gr",         "action": "create",  "name": "Create Goods Receipt","nameAr": "إنشاء استلام بضاعة",  "module": "Procurement" },
+    { "code": "procurement.bills.view",      "resource": "procurement.bills",      "action": "view",    "name": "View Vendor Bills",   "nameAr": "عرض فواتير الموردين","module": "Procurement" },
+    { "code": "procurement.bills.create",    "resource": "procurement.bills",      "action": "create",  "name": "Create Vendor Bill",  "nameAr": "إنشاء فاتورة مورد",  "module": "Procurement" },
+    { "code": "procurement.bills.approve",   "resource": "procurement.bills",      "action": "approve", "name": "Approve Vendor Bill", "nameAr": "اعتماد فاتورة مورد",  "module": "Procurement" },
+
+    { "code": "companies.view",         "resource": "companies",        "action": "view",    "name": "View Companies",       "nameAr": "عرض الشركات",         "module": "Companies" },
+    { "code": "companies.create",       "resource": "companies",        "action": "create",  "name": "Create Company",       "nameAr": "إنشاء شركة",         "module": "Companies" },
+    { "code": "companies.update",       "resource": "companies",        "action": "update",  "name": "Update Company",       "nameAr": "تعديل شركة",         "module": "Companies" },
+    { "code": "companies.cost_centers.view",  "resource": "companies.cost_centers",  "action": "view",    "name": "View Cost Centers",  "nameAr": "عرض مراكز التكلفة",  "module": "Companies" },
+    { "code": "companies.cost_centers.create","resource": "companies.cost_centers",  "action": "create",  "name": "Create Cost Center",  "nameAr": "إنشاء مركز تكلفة",  "module": "Companies" },
+
+    { "code": "identity.users.view",    "resource": "identity.users",   "action": "view",    "name": "View Users",           "nameAr": "عرض المستخدمين",      "module": "Identity" },
+    { "code": "identity.users.create",  "resource": "identity.users",   "action": "create",  "name": "Create User",          "nameAr": "إضافة مستخدم",        "module": "Identity" },
+    { "code": "identity.users.update",  "resource": "identity.users",   "action": "update",  "name": "Update User",          "nameAr": "تعديل مستخدم",        "module": "Identity" },
+    { "code": "identity.roles.view",    "resource": "identity.roles",   "action": "view",    "name": "View Roles",           "nameAr": "عرض الأدوار",         "module": "Identity" },
+    { "code": "identity.roles.manage",  "resource": "identity.roles",   "action": "manage",  "name": "Manage Roles",         "nameAr": "إدارة الأدوار",       "module": "Identity" },
+    { "code": "identity.permissions.view",    "resource": "identity.permissions", "action": "view",    "name": "View Permissions",    "nameAr": "عرض الصلاحيات",     "module": "Identity" },
+    { "code": "identity.permissions.manage",  "resource": "identity.permissions", "action": "manage",  "name": "Manage Permissions",  "nameAr": "إدارة الصلاحيات",   "module": "Identity" },
+
+    { "code": "dashboard.view",         "resource": "dashboard",        "action": "view",    "name": "View Dashboard",       "nameAr": "عرض لوحة التحكم",     "module": "Dashboard" },
+    { "code": "dashboard.kpis.view",    "resource": "dashboard.kpis",   "action": "view",    "name": "View KPI Summary",     "nameAr": "عرض مؤشرات الأداء",    "module": "Dashboard" },
+
+    { "code": "projects.budgets.view",  "resource": "projects.budgets",  "action": "view",    "name": "View Project Budgets",  "nameAr": "عرض ميزانيات المشروع",  "module": "Projects" },
+    { "code": "projects.budgets.update","resource": "projects.budgets",  "action": "update",  "name": "Update Project Budget", "nameAr": "تعديل ميزانية مشروع",  "module": "Projects" },
+    { "code": "projects.resources.view","resource": "projects.resources","action": "view",    "name": "View Project Resources","nameAr": "عرض موارد المشروع",    "module": "Projects" },
+    { "code": "projects.resources.assign","resource":"projects.resources","action": "assign",  "name": "Assign Resource",       "nameAr": "تعيين مورد",          "module": "Projects" },
+    { "code": "finance.cost_centers.view",   "resource": "finance.cost_centers",   "action": "view",    "name": "View Cost Centers",  "nameAr": "عرض مراكز التكلفة",  "module": "Finance" },
+    { "code": "finance.cost_centers.create", "resource": "finance.cost_centers",   "action": "create",  "name": "Create Cost Center",  "nameAr": "إنشاء مركز تكلفة",  "module": "Finance" },
+    { "code": "finance.posting_rules.view",   "resource": "finance.posting_rules",   "action": "view",    "name": "View Posting Rules",   "nameAr": "عرض قواعد الترحيل",   "module": "Finance" },
+    { "code": "finance.posting_rules.manage", "resource": "finance.posting_rules",   "action": "manage",  "name": "Manage Posting Rules", "nameAr": "إدارة قواعد الترحيل", "module": "Finance" },
+    { "code": "procurement.payments.create", "resource": "procurement.payments", "action": "create",  "name": "Create Vendor Payment", "nameAr": "إنشاء دفعة مورد",   "module": "Procurement" },
+    { "code": "procurement.payments.approve","resource": "procurement.payments", "action": "approve", "name": "Approve Vendor Payment","nameAr": "اعتماد دفعة مورد",   "module": "Procurement" },
+    { "code": "hr.payroll.view",              "resource": "hr.payroll",         "action": "view",    "name": "View Payroll",        "nameAr": "عرض الرواتب",          "module": "HR" }
+  ],
+
+  "rolePermissions": {
+    "admin": ["*"],
+
+    "finance": [
+      "projects.view",
+      "finance.accounts.view", "finance.accounts.create", "finance.accounts.update",
+      "finance.journal.view", "finance.journal.create", "finance.journal.post", "finance.journal.reverse",
+      "finance.reports.view",
+      "finance.tax.view",
+      "finance.year_end.close",
+      "ar.customers.view", "ar.customers.create", "ar.customers.update",
+      "ar.invoices.view", "ar.invoices.create", "ar.invoices.post",
+      "ar.receipts.create",
+      "companies.view", "companies.cost_centers.view", "companies.cost_centers.create",
+      "dashboard.view", "dashboard.kpis.view",
+      "identity.users.view"
+    ],
+
+    "hr": [
+      "hr.employees.view", "hr.employees.create", "hr.employees.update",
+      "hr.attendance.view", "hr.attendance.create",
+      "hr.leave.view", "hr.leave.approve",
+      "payroll.runs.view", "payroll.runs.create", "payroll.runs.approve", "payroll.runs.post",
+      "payroll.structures.view", "payroll.structures.update",
+      "payroll.eos.calculate",
+      "companies.view",
+      "dashboard.view", "dashboard.kpis.view"
+    ],
+
+    "pm": [
+      "projects.view", "projects.create", "projects.update", "projects.delete",
+      "projects.tasks.view", "projects.tasks.create", "projects.tasks.update",
+      "projects.billings.view", "projects.billings.create", "projects.billings.approve",
+      "projects.engineer_reports.view", "projects.engineer_reports.create", "projects.engineer_reports.approve",
+      "inventory.items.view", "inventory.stock.view", "inventory.movements.view", "inventory.warehouses.view",
+      "procurement.vendors.view",
+      "procurement.po.view", "procurement.po.create", "procurement.po.approve",
+      "procurement.gr.view", "procurement.gr.create",
+      "procurement.bills.view",
+      "companies.view",
+      "dashboard.view", "dashboard.kpis.view",
+      "hr.employees.view",
+      "ar.customers.view"
+    ],
+
+    "readonly": [
+      "projects.view",
+      "finance.accounts.view", "finance.journal.view", "finance.reports.view", "finance.tax.view",
+      "ar.customers.view", "ar.invoices.view",
+      "hr.employees.view", "hr.attendance.view", "hr.leave.view",
+      "payroll.runs.view", "payroll.structures.view",
+      "inventory.items.view", "inventory.stock.view", "inventory.movements.view", "inventory.warehouses.view",
+      "procurement.vendors.view", "procurement.po.view", "procurement.gr.view", "procurement.bills.view",
+      "companies.view", "companies.cost_centers.view",
+      "identity.users.view", "identity.roles.view", "identity.permissions.view",
+      "dashboard.view", "dashboard.kpis.view"
+    ]
+  },
+
+  "moduleVisibility": {
+    "admin": {
+      "Projects": true, "Finance": true, "HR": true, "Payroll": true,
+      "Inventory": true, "Procurement": true, "AR": true,
+      "Companies": true, "Identity": true, "Dashboard": true
+    },
+    "finance": {
+      "Projects": false, "Finance": true, "HR": false, "Payroll": false,
+      "Inventory": false, "Procurement": false, "AR": true,
+      "Companies": true, "Identity": false, "Dashboard": true
+    },
+    "hr": {
+      "Projects": false, "Finance": false, "HR": true, "Payroll": false,
+      "Inventory": false, "Procurement": false, "AR": false,
+      "Companies": true, "Identity": false, "Dashboard": true
+    },
+    "pm": {
+      "Projects": true, "Finance": false, "HR": true, "Payroll": false,
+      "Inventory": true, "Procurement": true, "AR": true,
+      "Companies": true, "Identity": false, "Dashboard": true
+    },
+    "readonly": {
+      "Projects": true, "Finance": true, "HR": true, "Payroll": true,
+      "Inventory": true, "Procurement": true, "AR": true,
+      "Companies": true, "Identity": true, "Dashboard": true
+    }
+  }
+}

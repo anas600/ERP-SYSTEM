@@ -28,6 +28,7 @@ using ERPSystem.Modules.Procurement.Infrastructure;
 using ERPSystem.Modules.HR.Application;
 using ERPSystem.Modules.HR.Application.Services;
 using ERPSystem.Modules.HR.Infrastructure;
+using ERPSystem.Modules.Identity.Application.Services;
 using ERPSystem.Modules.Payroll.Application;
 using ERPSystem.Modules.Payroll.Application.Services;
 using ERPSystem.Modules.Payroll.Domain.Calculators;
@@ -175,6 +176,10 @@ builder.Services.AddScoped<IAPAgingService, APAgingService>();
 // Sprint 22: complex reports removed (Reports module deleted).
 // Simple per-module reports stay in their parent module.
 builder.Services.AddScoped<IRoleRepository, RoleRepository>();
+// Sprint 63 (DEC-211..214) — RBAC foundation: 3 new repos for permissions / role-permission mapping / module visibility.
+builder.Services.AddScoped<IPermissionRepository, PermissionRepository>();
+builder.Services.AddScoped<IRolePermissionRepository, RolePermissionRepository>();
+builder.Services.AddScoped<IModuleVisibilityRepository, ModuleVisibilityRepository>();
 // Phase 6.1c: ITenantRepository removed — multi-company model has no tenants.
 builder.Services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
 builder.Services.AddScoped<ICompanyRepository, CompanyRepository>();
@@ -226,6 +231,9 @@ builder.Services.AddScoped<IAuditLogger, AuditLogger>();
 // ============ Services ============
 builder.Services.AddSingleton<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+// Sprint 63 (DEC-213/217) — Permission + module visibility services (60s IMemoryCache).
+builder.Services.AddScoped<IPermissionService, PermissionService>();
+builder.Services.AddScoped<IModuleVisibilityService, ModuleVisibilityService>();
 builder.Services.AddScoped<CompanyService>();
 // Phase 6.1c: ITenantBootstrap removed — multi-company model. Holding is auto-seeded at startup.
 builder.Services.AddScoped<ICompanyService>(sp => sp.GetRequiredService<CompanyService>());
@@ -417,6 +425,7 @@ builder.Services.AddFluentMigratorCore()
 builder.Services.AddHostedService<MigrationRunnerHostedService>();  // Phase 6.0 (P6-0): Phase6_InitialSchema_20260725_120000 drops every old business table (Clean Slate) so the JSON migrator can rebuild without tenant_id
 builder.Services.AddHostedService<DataTypeHostedService>();  // DEC-079 + DEC-096: JSON-driven schema migrator recreates all tables (no tenant_id) per the new model
 builder.Services.AddHostedService<DefaultHoldingBootstrapHostedService>();  // Phase 6.0b (P6-0b): seeds the default Holding + 47-account CoA + 6 UoMs + 5 categories on the clean schema
+builder.Services.AddHostedService<RbacBootstrapHostedService>();  // Sprint 63 (DEC-211..214): seeds 5 RBAC role templates + 82 permissions + module visibility matrix. Idempotent.
 builder.Services.AddHostedService<AccountLevelBackfillHostedService>();  // Sprint 52a (Phase 4): بعد الـ CoA يُبذَر، يحسب عمود level من parent chain (1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail). Idempotent.
 builder.Services.AddHostedService<YearEndClosingHostedService>();  // Sprint 53 (DEC-140): يتفقّد السنوات السابقة ويقفلها تلقائيًا لو لم تكن مقفلة
 // Sprint 57 (DEC-152): Executive Dashboard service (KPIs + chart data)
@@ -738,6 +747,10 @@ app.Use(async (ctx, next) =>
 app.UseRequestTracking();
 app.UseSerilogRequestLogging();
 app.UseMiddleware<RequestTimingMiddleware>(); // DEC-111
+// Sprint 63 (DEC-215): PermissionAuthorizationMiddleware runs early so the
+// [RequirePermission] filter has access to a populated ICompanyContext.
+// Sits AFTER CORS / HTTPS / Authentication so JWT claims are present.
+app.UseMiddleware<ERPSystem.Host.Authorization.PermissionAuthorizationMiddleware>();
 app.UseCors();
 app.UseHttpsRedirection();
 app.UseAuthentication();

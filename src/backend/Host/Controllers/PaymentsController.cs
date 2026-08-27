@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Payments.Application;
 using ERPSystem.Modules.Payments.Application.Services;
 using ERPSystem.Modules.Payments.Entities;
@@ -15,6 +16,7 @@ namespace ERPSystem.Host.Controllers;
 /// </summary>
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.FinanceWrite)]
+[RequirePermission("procurement.payments.create")]
 public class PaymentsController : ControllerBase
 {
     private readonly IPaymentService _payments;

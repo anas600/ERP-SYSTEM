@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using FluentValidation;
@@ -10,6 +11,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/items")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteStock)]
+[RequirePermission("inventory.items.view")]
 public class ItemsController : ControllerBase
 {
     private readonly IItemService _service;
@@ -20,6 +22,7 @@ public class ItemsController : ControllerBase
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
+    [RequirePermission("inventory.items.view")]
     public async Task<IActionResult> List(
         [FromQuery] Guid? companyId,
         [FromQuery] Guid? categoryId,
@@ -32,12 +35,14 @@ public class ItemsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpGet("{id:guid}")]
+    [RequirePermission("inventory.items.view")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _service.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound();
     }
     [HttpPost]
+    [RequirePermission("inventory.items.create")]
     public async Task<IActionResult> Create([FromBody] CreateItemRequest req, CancellationToken ct)
     {
         var v = await _createV.ValidateAsync(req, ct);
@@ -48,6 +53,7 @@ public class ItemsController : ControllerBase
             : BadRequest(Problem(r));
     }
     [HttpPut("{id:guid}")]
+    [RequirePermission("inventory.items.create")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateItemRequest req, CancellationToken ct)
     {
         var v = await _updateV.ValidateAsync(req, ct);
@@ -56,6 +62,7 @@ public class ItemsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpDelete("{id:guid}")]
+    [RequirePermission("inventory.items.create")]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
         var r = await _service.DeactivateAsync(UserId, id, ct);

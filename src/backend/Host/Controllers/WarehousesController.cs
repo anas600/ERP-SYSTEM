@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using FluentValidation;
@@ -10,6 +11,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/warehouses")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteMasterData)]
+[RequirePermission("inventory.warehouses.view")]
 public class WarehousesController : ControllerBase
 {
     private readonly IWarehouseService _service;

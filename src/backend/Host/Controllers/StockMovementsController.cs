@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Inventory.Application;
 using ERPSystem.Modules.Inventory.Application.Services;
 using ERPSystem.Modules.Inventory.Entities;
@@ -11,6 +12,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/inventory/movements")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteStock)]
+[RequirePermission("inventory.movements.view")]
 public class StockMovementsController : ControllerBase
 {
     private readonly IStockMovementService _service;
@@ -26,6 +28,7 @@ public class StockMovementsController : ControllerBase
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
+    [RequirePermission("inventory.movements.view")]
     public async Task<IActionResult> List(
         [FromQuery] Guid? companyId,
         [FromQuery] StockMovementType? type,
@@ -38,12 +41,14 @@ public class StockMovementsController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpGet("{id:guid}")]
+    [RequirePermission("inventory.movements.view")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _service.GetByIdAsync(id, ct);
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
     [HttpPost("receive")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Receive([FromBody] ReceiveStockRequest req, CancellationToken ct)
     {
         var v = await _recvV.ValidateAsync(req, ct);
@@ -54,6 +59,7 @@ public class StockMovementsController : ControllerBase
             : BadRequest(Problem(r));
     }
     [HttpPost("issue")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Issue([FromBody] IssueStockRequest req, CancellationToken ct)
     {
         var v = await _issueV.ValidateAsync(req, ct);
@@ -64,6 +70,7 @@ public class StockMovementsController : ControllerBase
             : BadRequest(Problem(r));
     }
     [HttpPost("transfer")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Transfer([FromBody] TransferStockRequest req, CancellationToken ct)
     {
         var v = await _trfV.ValidateAsync(req, ct);
@@ -74,6 +81,7 @@ public class StockMovementsController : ControllerBase
             : BadRequest(Problem(r));
     }
     [HttpPost("adjust")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Adjust([FromBody] AdjustStockRequest req, CancellationToken ct)
     {
         var v = await _adjV.ValidateAsync(req, ct);
@@ -84,12 +92,14 @@ public class StockMovementsController : ControllerBase
             : BadRequest(Problem(r));
     }
     [HttpPost("{id:guid}/post")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Post(Guid id, CancellationToken ct)
     {
         var r = await _service.PostAsync(UserId, id, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
     [HttpPost("{id:guid}/reverse")]
+    [RequirePermission("inventory.movements.create")]
     public async Task<IActionResult> Reverse(Guid id, [FromBody] ReverseRequest? body, CancellationToken ct)
     {
         var r = await _service.ReverseAsync(UserId, id, body?.Reason, ct);

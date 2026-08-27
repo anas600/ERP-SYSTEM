@@ -12,6 +12,7 @@
 // Auth: ReadAccess policy. The transactions page is part of the demo
 // landing surface, all roles can view it.
 
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -20,6 +21,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+[RequirePermission("finance.reports.view")]
 public class TransactionsController : ControllerBase
 {
     private readonly IFinanceService _finance;

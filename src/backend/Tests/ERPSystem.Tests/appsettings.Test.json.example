@@ -8,5 +8,9 @@
       "Microsoft.AspNetCore": "Warning"
     }
   },
+  "Authorization": {
+    "Enabled": false,
+    "_authorization_comment": "Sprint 63 (DEC-215): set to false so [RequirePermission] is a no-op in the 50+ existing unit tests (which don't mock JWT/claims/IPermissionService). RequirePermissionAttributeTests and AdminPermissionsControllerTests opt back in by configuring IConfiguration in-memory with Authorization:Enabled=true."
+  },
   "_comment": "Sample test config — copy to appsettings.Test.json (gitignored) and adjust. Used by RetentionTests when ASPNETCORE_ENVIRONMENT=Testing and SUPABASE_URL/NEON_URL env vars are not set."
 }

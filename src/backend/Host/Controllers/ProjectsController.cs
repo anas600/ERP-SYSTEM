@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Projects.Application;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Modules.Projects.Entities;
@@ -11,6 +12,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/projects")]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.WriteProjects)]
+[RequirePermission("projects.view")]
 public class ProjectsController : ControllerBase
 {
     private readonly IProjectService _projects;
@@ -42,6 +44,7 @@ public class ProjectsController : ControllerBase
     private Guid UserId => Guid.Parse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? User.FindFirst("sub")!.Value);
 
     [HttpGet]
+    [RequirePermission("projects.view")]
     public async Task<IActionResult> List(
         [FromQuery] Guid? companyId,
         [FromQuery] ProjectStatus? status,
@@ -55,6 +58,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpGet("{id:guid}")]
+    [RequirePermission("projects.view")]
     public async Task<IActionResult> GetById(Guid id, CancellationToken ct)
     {
         var r = await _projects.GetByIdAsync(id, ct);
@@ -62,6 +66,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPost]
+    [RequirePermission("projects.create")]
     public async Task<IActionResult> Create([FromBody] CreateProjectRequest req, CancellationToken ct)
     {
         var v = await _createV.ValidateAsync(req, ct);
@@ -73,6 +78,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPut("{id:guid}")]
+    [RequirePermission("projects.update")]
     public async Task<IActionResult> Update(Guid id, [FromBody] UpdateProjectRequest req, CancellationToken ct)
     {
         var v = await _updateV.ValidateAsync(req, ct);
@@ -82,6 +88,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/status")]
+    [RequirePermission("projects.update")]
     public async Task<IActionResult> ChangeStatus(Guid id, [FromBody] ChangeStatusRequest req, CancellationToken ct)
     {
         var r = await _projects.ChangeStatusAsync(UserId, id, req.Status, ct);
@@ -89,6 +96,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpDelete("{id:guid}")]
+    [RequirePermission("projects.delete")]
     public async Task<IActionResult> Deactivate(Guid id, CancellationToken ct)
     {
         var r = await _projects.DeactivateAsync(UserId, id, ct);
@@ -212,6 +220,7 @@ public class ProjectsController : ControllerBase
     }
 
     [HttpPost("{id:guid}/budget/recalculate")]
+    [RequirePermission("projects.budgets.update")]
     public async Task<IActionResult> RecalculateBudget(Guid id, CancellationToken ct)
     {
         var r = await _budgets.RecalculateSpentAsync(id, ct);

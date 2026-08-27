@@ -18,6 +18,7 @@
 // returns a zero-filled DTO; we forward it as 200 OK. The FE renders the
 // empty state cleanly.
 
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Finance.Application.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,6 +27,7 @@ namespace ERPSystem.Host.Controllers;
 
 [ApiController]
 [Authorize(Policy = ERPSystem.Host.Auth.PolicyNames.ReadAccess)]
+[RequirePermission("dashboard.view")]
 public class HoldingController : ControllerBase
 {
     private readonly IFinanceService _finance;

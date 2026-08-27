@@ -1,3 +1,4 @@
+using ERPSystem.Host.Authorization;
 using ERPSystem.Modules.Projects.Application.Dtos;
 using ERPSystem.Modules.Projects.Application.Services;
 using ERPSystem.Shared.CompanyContext;
@@ -9,6 +10,7 @@ namespace ERPSystem.Host.Controllers;
 [ApiController]
 [Route("api/price-lists")]
 [Authorize]
+[RequirePermission("inventory.items.view")]
 public sealed class PriceListsController : ControllerBase
 {
     private readonly IPriceListService _service;
