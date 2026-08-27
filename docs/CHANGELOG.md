@@ -1708,3 +1708,48 @@ ERP-SYSTEM/
 
 > AGENTS السابقة لم تكن تحتفظ بـ CHANGELOG. هذا أول إدخال رسمي.
 > التغييرات السابقة موثّقة في git history عبر commit messages.
+
+
+## [2026-08-27] - Sprint 61 (CLOSED) - Engineer's Report + 5 Permanent Fixes
+
+**Status:** ✅ **DONE (M1-Local complete, awaiting Mode 2 push)**
+**Branch:** eature/sprint-61-engineer-report @  58eea1 (5 commits ahead of develop)
+**Mode:** Autonomous (M2 push pending Anas's 'ادفع')
+
+### DECs Delivered (7)
+- **DEC-192** Engineer's Daily Report (CRUD + state machine) — Wave 1A + 2A
+- **DEC-193** Photos (multipart upload, 10MB cap) — Wave 2A
+- **DEC-194** Sign-off (PM/Client approve workflow) — Wave 2A
+- **DEC-195** Tests + Documentation (56 tests) — All waves
+- **DEC-196** L47 (Phase6 VersionInfo) + L51 (CI fix) — Wave 1B
+- **DEC-197** L48 (EnsureDefaultRolesAsync) + L49 (AuthService conn+tx) — Wave 1B
+- **DEC-198** L175 (/api/auth/admin-bootstrap) — Wave 1B
+
+### Stats
+- ✅ 56 Sprint 61 tests pass (15 + 9 + 22 + 5 + 5)
+- ✅ 482/482 total BE tests (0 regressions)
+- ✅ 5/5 FE tests pass
+- ✅ 0 build errors (BE + FE)
+- ✅ Trust Mode verified (BE 8/8 + FE 3/3 pages)
+- 🟡 1 minor bug (L183 — photo caption null, low priority)
+
+### Trust Mode bug found + fixed
+- **L186** — EngineerId from JWT (not request) — FK violation discovered by Anas in real browser. Worker 2A missed L19 compliance. Fix: DTO removed EngineerId, service uses userId from JWT.
+
+### Lessons captured
+L176..L186 (11 new lessons) covering parallel workers, FE test infra, L19 compliance, admin-bootstrap, FK violations, etc.
+
+### Carry-over to Sprint 61 push
+- AccountRepository.InsertAsync/UpdateAsync 6 fields (DB defaults handle)
+- parent_account_id wiring (deferred)
+- L183 photo caption bug (low priority)
+
+### Notion Hub Updated
+- Sprint 61 → ✅ Done
+- 7 DECs → ✅ Approved
+- 5 Tasks → ✅ Done
+- 6 Lessons (L178..L183) added
+- Action Card updated
+
+### Awaiting
+- Anas's 'ادفع' for Mode 2 push (PR + CI + merge + tag v1.0.16-sprint61)
