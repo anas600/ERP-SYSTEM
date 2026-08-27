@@ -71,6 +71,53 @@ const TYPE_FILTER_OPTIONS = [
   })),
 ];
 
+// Sprint 60 (DEC-191): فلاتر FS metadata الجديدة.
+const FS_TYPE_FILTER_OPTIONS = [
+  { value: '', label: 'كل الأنواع (BS/PL)' },
+  { value: 'BS', label: 'الميزانية (BS)' },
+  { value: 'PL', label: 'قائمة الدخل (PL)' },
+];
+
+const SECTION_FILTER_OPTIONS = [
+  { value: '', label: 'كل الأقسام' },
+  { value: 'Current Asset', label: 'أصول متداولة' },
+  { value: 'Non-Current Asset', label: 'أصول غير متداولة' },
+  { value: 'Current Liability', label: 'التزامات متداولة' },
+  { value: 'Non-Current Liability', label: 'التزامات غير متداولة' },
+  { value: 'Equity', label: 'حقوق ملكية' },
+  { value: 'Revenue', label: 'إيرادات' },
+  { value: 'COGS', label: 'تكلفة المبيعات' },
+  { value: 'OpEx', label: 'مصروفات تشغيلية' },
+];
+
+const IS_CANONICAL_FILTER_OPTIONS = [
+  { value: '', label: 'الكل (قانوني + قديم)' },
+  { value: 'canonical', label: 'قانوني فقط' },
+  { value: 'legacy', label: 'قديم فقط' },
+];
+
+const MIGRATION_STATUS_FILTER_OPTIONS = [
+  { value: '', label: 'كل الحالات' },
+  { value: 'migrated', label: 'مُرحَّل' },
+  { value: 'new', label: 'جديد' },
+  { value: 'pending', label: 'بالانتظار' },
+  { value: 'deprecated', label: 'مُهمَل' },
+];
+
+/** Sprint 60 (DEC-191): Badge للـ fs_type — أخضر للـ BS، أحمر للـ PL. */
+const FS_TYPE_BADGE: Record<string, { label: string; chip: string }> = {
+  BS: { label: 'BS', chip: 'bg-green-100 text-green-800' },
+  PL: { label: 'PL', chip: 'bg-red-100 text-red-800' },
+};
+
+/** Sprint 60 (DEC-191): Badge لـ migration status. */
+const MIGRATION_STATUS_BADGE: Record<string, { label: string; chip: string }> = {
+  pending: { label: 'بالانتظار', chip: 'bg-yellow-100 text-yellow-800' },
+  migrated: { label: 'مُرحَّل', chip: 'bg-blue-100 text-blue-800' },
+  new: { label: 'جديد', chip: 'bg-emerald-100 text-emerald-800' },
+  deprecated: { label: 'مُهمَل', chip: 'bg-gray-200 text-gray-700' },
+};
+
 // ============ Tree types ============
 
 interface AccountNode extends Account {
@@ -172,6 +219,11 @@ export default function AccountsPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
+  // Sprint 60 (DEC-191): فلاتر FS metadata.
+  const [fsTypeFilter, setFsTypeFilter] = useState<string>('');
+  const [sectionFilter, setSectionFilter] = useState<string>('');
+  const [isCanonicalFilter, setIsCanonicalFilter] = useState<string>('');
+  const [migrationStatusFilter, setMigrationStatusFilter] = useState<string>('');
   const [showInactive, setShowInactive] = useState(true);
   // Default: expand all root nodes so the demo immediately shows the tree.
   // The Set is hydrated from localStorage on mount and persisted on change.
@@ -217,15 +269,23 @@ export default function AccountsPage() {
     let flat = accounts;
     if (!showInactive) flat = flat.filter((a) => a.isActive);
     if (typeFilter) flat = flat.filter((a) => String(a.type) === typeFilter);
+    // Sprint 60 (DEC-191): فلاتر FS metadata.
+    if (fsTypeFilter) flat = flat.filter((a) => a.fsType === fsTypeFilter);
+    if (sectionFilter) flat = flat.filter((a) => a.section === sectionFilter);
+    if (isCanonicalFilter === 'canonical') flat = flat.filter((a) => a.isCanonical);
+    if (isCanonicalFilter === 'legacy') flat = flat.filter((a) => !a.isCanonical);
+    if (migrationStatusFilter) flat = flat.filter((a) => a.migrationStatus === migrationStatusFilter);
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       flat = flat.filter(
         (a) =>
-          a.code.toLowerCase().includes(q) || a.name.toLowerCase().includes(q)
+          a.code.toLowerCase().includes(q) ||
+          a.name.toLowerCase().includes(q) ||
+          (a.newCode ?? '').toLowerCase().includes(q)
       );
     }
     return buildTree(flat);
-  }, [accounts, typeFilter, showInactive, search]);
+  }, [accounts, typeFilter, fsTypeFilter, sectionFilter, isCanonicalFilter, migrationStatusFilter, showInactive, search]);
 
   const flatRows = useMemo(() => flattenTree(tree, expanded), [tree, expanded]);
 
@@ -290,7 +350,7 @@ export default function AccountsPage() {
       {/* ============ Filter bar ============ */}
       <Card className="mb-4">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end">
-          <div className="md:col-span-6">
+          <div className="md:col-span-4">
             <Input
               label="بحث"
               iconLeft={<Search className="h-4 w-4" />}
@@ -299,12 +359,47 @@ export default function AccountsPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
           </div>
-          <div className="md:col-span-3">
+          <div className="md:col-span-2">
             <Select
               label="النوع"
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
               options={TYPE_FILTER_OPTIONS}
+            />
+          </div>
+          {/* Sprint 60 (DEC-191): فلاتر FS metadata */}
+          <div className="md:col-span-2">
+            <Select
+              label="FS Type"
+              value={fsTypeFilter}
+              onChange={(e) => setFsTypeFilter(e.target.value)}
+              options={FS_TYPE_FILTER_OPTIONS}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Select
+              label="القسم (Section)"
+              value={sectionFilter}
+              onChange={(e) => setSectionFilter(e.target.value)}
+              options={SECTION_FILTER_OPTIONS}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <Select
+              label="الكود"
+              value={isCanonicalFilter}
+              onChange={(e) => setIsCanonicalFilter(e.target.value)}
+              options={IS_CANONICAL_FILTER_OPTIONS}
+            />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-end mt-3">
+          <div className="md:col-span-3">
+            <Select
+              label="حالة الترحيل"
+              value={migrationStatusFilter}
+              onChange={(e) => setMigrationStatusFilter(e.target.value)}
+              options={MIGRATION_STATUS_FILTER_OPTIONS}
             />
           </div>
           <div className="md:col-span-3">
@@ -332,6 +427,21 @@ export default function AccountsPage() {
                 type="button"
               >
                 إغلاق الكل
+              </button>
+              <span className="text-gray-300">|</span>
+              <button
+                onClick={() => {
+                  setSearch('');
+                  setTypeFilter('');
+                  setFsTypeFilter('');
+                  setSectionFilter('');
+                  setIsCanonicalFilter('');
+                  setMigrationStatusFilter('');
+                }}
+                className="text-blue-600 hover:underline"
+                type="button"
+              >
+                مسح كل الفلاتر
               </button>
             </div>
           </div>
@@ -393,9 +503,12 @@ export default function AccountsPage() {
               <thead>
                 <tr className="text-right text-xs text-gray-500 border-b border-gray-200 bg-gray-50">
                   <th className="py-2.5 px-3 font-semibold w-2/5">الحساب</th>
-                  <th className="py-2.5 px-3 font-semibold">الكود</th>
+                  <th className="py-2.5 px-3 font-semibold">الكود (قديم)</th>
+                  <th className="py-2.5 px-3 font-semibold">الكود (جديد)</th>
                   <th className="py-2.5 px-3 font-semibold">النوع</th>
-                  <th className="py-2.5 px-3 font-semibold">الرصيد الطبيعي</th>
+                  <th className="py-2.5 px-3 font-semibold">FS</th>
+                  <th className="py-2.5 px-3 font-semibold">القسم</th>
+                  <th className="py-2.5 px-3 font-semibold">الحالة</th>
                   <th className="py-2.5 px-3 font-semibold text-center">نشط</th>
                   <th className="py-2.5 px-3 font-semibold w-1" />
                 </tr>
@@ -519,14 +632,53 @@ function AccountRow({ node, isExpanded, onToggle, onAddChild }: AccountRowProps)
         <span className="font-mono text-blue-600 text-sm">{node.code}</span>
       </td>
       <td className="py-2 px-3">
+        {/* Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.
+            لو الحساب قديم، يعرض الكود القديم مع شارة "قديم". */}
+        {node.newCode ? (
+          <span className="font-mono text-emerald-700 text-sm font-semibold" title="الكود القانوني الجديد (canonical)">
+            {node.newCode}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400 italic" title="لم يُرحَّل بعد — يستخدم الكود القديم">
+            —
+          </span>
+        )}
+      </td>
+      <td className="py-2 px-3">
         <span
           className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${accent.chip}`}
         >
           {accent.label}
         </span>
       </td>
+      <td className="py-2 px-3">
+        {/* Sprint 60 (DEC-191): FS type badge (BS | PL) */}
+        {node.fsType && FS_TYPE_BADGE[node.fsType] ? (
+          <span
+            className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${FS_TYPE_BADGE[node.fsType].chip}`}
+            title={`Financial-Statement type: ${node.fsType}`}
+          >
+            {FS_TYPE_BADGE[node.fsType].label}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400">—</span>
+        )}
+      </td>
       <td className="py-2 px-3 text-xs text-gray-600">
-        {node.normalBalance === 1 ? 'مدين' : 'دائن'}
+        {node.section ?? <span className="text-gray-400">—</span>}
+      </td>
+      <td className="py-2 px-3">
+        {/* Sprint 60 (DEC-191): migration status badge */}
+        {MIGRATION_STATUS_BADGE[node.migrationStatus ?? 'pending'] ? (
+          <span
+            className={`inline-flex px-2 py-0.5 rounded text-xs font-semibold ${MIGRATION_STATUS_BADGE[node.migrationStatus ?? 'pending'].chip}`}
+            title={`Migration status: ${node.migrationStatus ?? 'pending'}`}
+          >
+            {MIGRATION_STATUS_BADGE[node.migrationStatus ?? 'pending'].label}
+          </span>
+        ) : (
+          <span className="text-xs text-gray-400">—</span>
+        )}
       </td>
       <td className="py-2 px-3 text-center text-base">
         {node.isActive ? (

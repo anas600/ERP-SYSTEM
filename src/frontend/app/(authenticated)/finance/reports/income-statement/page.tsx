@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { TrendingUp, Calendar, RefreshCw, AlertCircle, TrendingDown, Printer, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
-import { financeApi, IncomeStatementReport, getErrorMessage } from '@/lib/api';
+import { financeApi, projectsApi, IncomeStatementReport, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 
 function firstOfYearIso(): string {
@@ -25,18 +25,55 @@ export default function IncomeStatementPage() {
   const [error, setError] = useState<string | null>(null);
   const [from, setFrom] = useState<string>(firstOfYearIso());
   const [to, setTo] = useState<string>(todayIso());
+  // Sprint 60 (DEC-191): فلاتر cost_center + project.
+  const [costCenterId, setCostCenterId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
+  const [costCenters, setCostCenters] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; code: string; name: string }[]>([]);
 
-  const load = async (f?: string, t?: string) => {
+  // Sprint 60 (DEC-191): تحميل قوائم cost centers + projects للـ dropdowns.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ccs, projs] = await Promise.all([
+          financeApi.listCostCenters() as Promise<{ id: string; code: string; name: string }[]>,
+          projectsApi.listProjects() as Promise<{ id: string; code: string; name: string }[]>,
+        ]);
+        if (!cancelled) {
+          setCostCenters(Array.isArray(ccs) ? ccs : []);
+          setProjects(Array.isArray(projs) ? projs : []);
+        }
+      } catch { /* الفلاتر اختيارية — نتجاهل الفشل */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const load = async (f?: string, t?: string, ccId?: string, pId?: string) => {
     setLoading(true); setError(null);
     try {
-      const r = await financeApi.getIncomeStatement(f, t);
+      const r = await financeApi.getIncomeStatement(
+        f,
+        t,
+        ccId && ccId.length > 0 ? ccId : undefined,
+        pId && pId.length > 0 ? pId : undefined,
+      );
       setReport(r);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل قائمة الدخل.'));
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(from, to); }, []);
+  useEffect(() => { load(from, to, costCenterId, projectId); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
+
+  const onApply = () => load(from, to, costCenterId, projectId);
+  const onReset = () => {
+    setFrom(firstOfYearIso());
+    setTo(todayIso());
+    setCostCenterId('');
+    setProjectId('');
+    load(firstOfYearIso(), todayIso(), '', '');
+  };
 
   return (
     <div>
@@ -59,8 +96,40 @@ export default function IncomeStatementPage() {
             <label className="text-xs text-gray-500 mb-1">إلى تاريخ</label>
             <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
-          <Button variant="primary" onClick={() => load(from, to)} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
-          <Button variant="ghost" onClick={() => { setFrom(firstOfYearIso()); setTo(todayIso()); load(firstOfYearIso(), todayIso()); }} iconLeft={<RefreshCw className="h-4 w-4" />}>السنة الحالية</Button>
+          {/* Sprint 60 (DEC-191): فلتر cost center */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">مركز التكلفة</label>
+            <select
+              value={costCenterId}
+              onChange={(e) => setCostCenterId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المراكز</option>
+              {costCenters.map((cc) => (
+                <option key={cc.id} value={cc.id}>
+                  {cc.code} — {cc.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          {/* Sprint 60 (DEC-191): فلتر project */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">المشروع</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المشاريع</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.code} — {p.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Button variant="primary" onClick={onApply} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
+          <Button variant="ghost" onClick={onReset} iconLeft={<RefreshCw className="h-4 w-4" />}>السنة الحالية</Button>
           {report && <Button variant="secondary" onClick={() => window.print()} iconLeft={<Printer className="h-4 w-4" />}>طباعة</Button>}
         </div>
       </Card>
@@ -86,7 +155,7 @@ export default function IncomeStatementPage() {
                   <p className={`text-lg font-bold ${report.isProfitable ? 'text-green-800' : 'text-red-800'}`}>
                     {report.isProfitable ? 'ربح' : 'خسارة'} — صافي {formatNumber(Math.abs(report.netIncome))} LYD
                   </p>
-                  <p className="text-xs text-gray-500">الفترة من {report.from} إلى {report.to}</p>
+                  <p className="text-xs text-gray-500" dir="ltr">الفترة من {new Date(report.from).toLocaleDateString('en-GB')} إلى {new Date(report.to).toLocaleDateString('en-GB')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6 text-sm">
@@ -150,7 +219,7 @@ export default function IncomeStatementPage() {
   );
 }
 
-function L2SectionCard({ section, color, onRowClick }: { section: { l2Code: string; l2Name: string; rows: { accountId: string; accountCode: string; accountName: string; amount: number }[]; subtotal: number }; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
+function L2SectionCard({ section, color, onRowClick }: { section: { l2Code: string; l2Name: string; rows: { accountId: string; accountCode: string; accountName: string; newCode?: string | null; section?: string | null; amount: number }[]; subtotal: number }; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
   const headerMap = { emerald: 'bg-emerald-50/60 border-emerald-200 text-emerald-900', red: 'bg-red-50/60 border-red-200 text-red-900' };
   const badgeMap = { emerald: 'bg-emerald-600 text-white', red: 'bg-red-600 text-white' };
   return (
@@ -168,14 +237,20 @@ function L2SectionCard({ section, color, onRowClick }: { section: { l2Code: stri
         <tbody>
           {section.rows.map((r) => (
             <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
-              <td className="px-3 py-1.5 w-20">
+              <td className="px-3 py-1.5 w-32">
                 <div className="flex items-center gap-1.5">
                   <span className="inline-block w-3 h-px bg-gray-300"></span>
                   <span className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-gray-200 text-gray-600">L4</span>
-                  <span className="font-mono text-xs text-blue-600">{r.accountCode}</span>
+                  {/* Sprint 60 (DEC-191): نُفضّل الـ new_code (canonical) للعرض. */}
+                  <span className="font-mono text-xs text-emerald-700 font-semibold">{r.newCode ?? r.accountCode}</span>
                 </div>
               </td>
-              <td className="px-3 py-1.5 text-gray-800">{r.accountName}</td>
+              <td className="px-3 py-1.5 text-gray-800">
+                {r.accountName}
+                {r.section && (
+                  <span className="ms-2 text-[10px] text-gray-400">({r.section})</span>
+                )}
+              </td>
               <td className="px-3 py-1.5 text-end font-mono">{formatNumber(r.amount)}</td>
             </tr>
           ))}
@@ -185,7 +260,7 @@ function L2SectionCard({ section, color, onRowClick }: { section: { l2Code: stri
   );
 }
 
-function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; accountName: string; amount: number }[]; subtotal: number; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
+function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: string; rows: { accountId: string; accountCode: string; accountName: string; newCode?: string | null; section?: string | null; amount: number }[]; subtotal: number; color: 'emerald' | 'red'; onRowClick: (accountId: string) => void }) {
   const colorMap = { emerald: 'bg-emerald-50 border-emerald-200', red: 'bg-red-50 border-red-200' };
   const textMap = { emerald: 'text-emerald-800', red: 'text-red-800' };
   return (
@@ -208,8 +283,16 @@ function SectionCard({ title, rows, subtotal, color, onRowClick }: { title: stri
           <tbody>
             {rows.map((r) => (
               <tr key={r.accountId} className="border-b border-gray-100 hover:bg-blue-50/40 cursor-pointer transition-colors" onClick={() => onRowClick(r.accountId)}>
-                <td className="px-4 py-2 font-mono text-xs text-blue-600">{r.accountCode}</td>
-                <td className="px-4 py-2 text-gray-800">{r.accountName}</td>
+                <td className="px-4 py-2 font-mono text-xs">
+                  {/* Sprint 60 (DEC-191): نُفضّل الـ new_code (canonical). */}
+                  <span className="text-emerald-700 font-semibold">{r.newCode ?? r.accountCode}</span>
+                </td>
+                <td className="px-4 py-2 text-gray-800">
+                  {r.accountName}
+                  {r.section && (
+                    <span className="ms-2 text-[10px] text-gray-400">({r.section})</span>
+                  )}
+                </td>
                 <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.amount)}</td>
               </tr>
             ))}

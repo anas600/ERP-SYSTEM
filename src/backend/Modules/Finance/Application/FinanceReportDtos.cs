@@ -48,7 +48,11 @@ public sealed class BalanceSheetRow
 {
     public Guid AccountId { get; set; }
     public string AccountCode { get; set; } = string.Empty;
+    /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
+    public string? NewCode { get; set; }
     public string AccountName { get; set; } = string.Empty;
+    /// <summary>Sprint 60 (DEC-191): FS section.</summary>
+    public string? Section { get; set; }
     public decimal Balance { get; set; }
 }
 
@@ -104,7 +108,11 @@ public sealed class IncomeStatementRow
 {
     public Guid AccountId { get; set; }
     public string AccountCode { get; set; } = string.Empty;
+    /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
+    public string? NewCode { get; set; }
     public string AccountName { get; set; } = string.Empty;
+/// <summary>Sprint 60 (DEC-191): FS section (Revenue, COGS, OpEx, ...).</summary>
+    public string? Section { get; set; }
     public decimal Amount { get; set; }
 }
 
@@ -150,10 +158,16 @@ public sealed class TrialBalanceRow
 {
     public Guid AccountId { get; set; }
     public string AccountCode { get; set; } = string.Empty;
+    /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد 4-level.</summary>
+    public string? NewCode { get; set; }
     public string AccountName { get; set; } = string.Empty;
     /// <summary>Sprint 54: 1=L1 Class, 2=L2 Sub-class, 3=L3 Control, 4=L4 Detail (postable).</summary>
     public int Level { get; set; }
     public int AccountType { get; set; }
+    /// <summary>Sprint 60 (DEC-191): FS type (BS | PL).</summary>
+    public string? FsType { get; set; }
+/// <summary>Sprint 60 (DEC-191): FS section (Current Asset, Revenue, OpEx, ...).</summary>
+    public string? Section { get; set; }
     /// <summary>للحسابات L4: كود واسم الحساب الأب L3 (للتجميع البصري).</summary>
     public string? ParentCode { get; set; }
     public string? ParentName { get; set; }

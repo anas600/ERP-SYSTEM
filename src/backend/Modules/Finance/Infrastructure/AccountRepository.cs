@@ -16,6 +16,11 @@ public sealed class AccountRepository : IAccountRepository
         normal_balance AS NormalBalance, parent_account_id AS ParentAccountId,
         is_postable AS IsPostable, is_active AS IsActive, is_intercompany AS IsIntercompany,
         level AS Level,
+        -- Sprint 60 Wave 2A (DEC-185): Financial-Statement metadata columns
+        -- (added by Sprint60_AddAccountFsMetadata, Wave 1, DEC-184).
+        fs_type AS FsType, section AS Section, is_canonical AS IsCanonical,
+        new_code AS NewCode, migration_status AS MigrationStatus,
+        migrated_at AS MigratedAt,
         created_at AS CreatedAt, updated_at AS UpdatedAt";
 
     public async Task<Account?> GetByIdAsync(Guid id, CancellationToken ct)

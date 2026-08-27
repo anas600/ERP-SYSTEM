@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Scale, RefreshCw, Calendar, AlertCircle, CheckCircle2, XCircle, ArrowLeft, Layers, Wallet } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
-import { financeApi, TrialBalanceV2Report, TrialBalanceV2Row, getErrorMessage } from '@/lib/api';
+import { financeApi, projectsApi, TrialBalanceV2Report, TrialBalanceV2Row, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
@@ -20,12 +20,39 @@ export default function TrialBalanceV2Page() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [asOf, setAsOf] = useState<string>(todayIso());
+  // Sprint 60 (DEC-191): فلاتر cost_center + project.
+  const [costCenterId, setCostCenterId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
+  const [costCenters, setCostCenters] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; code: string; name: string }[]>([]);
 
-  const load = async (date?: string) => {
+  // Sprint 60 (DEC-191): تحميل قوائم cost centers + projects.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ccs, projs] = await Promise.all([
+          financeApi.listCostCenters() as Promise<{ id: string; code: string; name: string }[]>,
+          projectsApi.listProjects() as Promise<{ id: string; code: string; name: string }[]>,
+        ]);
+        if (!cancelled) {
+          setCostCenters(Array.isArray(ccs) ? ccs : []);
+          setProjects(Array.isArray(projs) ? projs : []);
+        }
+      } catch { /* الفلاتر اختيارية */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const load = async (date?: string, ccId?: string, pId?: string) => {
     setLoading(true);
     setError(null);
     try {
-      const r = await financeApi.getTrialBalanceV2(date);
+      const r = await financeApi.getTrialBalanceV2(
+        date,
+        ccId && ccId.length > 0 ? ccId : undefined,
+        pId && pId.length > 0 ? pId : undefined,
+      );
       setReport(r);
     } catch (e: unknown) {
       setError(getErrorMessage(e, 'فشل تحميل ميزان المراجعة.'));
@@ -35,7 +62,7 @@ export default function TrialBalanceV2Page() {
   };
 
   useEffect(() => {
-    load();
+    load(asOf, costCenterId, projectId);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -98,8 +125,36 @@ export default function TrialBalanceV2Page() {
               className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <Button variant="primary" onClick={() => load(asOf || undefined)} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
-          <Button variant="ghost" onClick={() => { setAsOf(todayIso()); load(); }} iconLeft={<RefreshCw className="h-4 w-4" />}>اليوم</Button>
+          {/* Sprint 60 (DEC-191): فلتر cost center */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">مركز التكلفة</label>
+            <select
+              value={costCenterId}
+              onChange={(e) => setCostCenterId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المراكز</option>
+              {costCenters.map((cc) => (
+                <option key={cc.id} value={cc.id}>{cc.code} — {cc.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Sprint 60 (DEC-191): فلتر project */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">المشروع</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المشاريع</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button variant="primary" onClick={() => load(asOf, costCenterId, projectId)} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
+          <Button variant="ghost" onClick={() => { setAsOf(todayIso()); setCostCenterId(''); setProjectId(''); load(todayIso(), '', ''); }} iconLeft={<RefreshCw className="h-4 w-4" />}>اليوم</Button>
         </div>
       </Card>
 
@@ -191,14 +246,18 @@ export default function TrialBalanceV2Page() {
                         className="border-b border-gray-100 last:border-b-0 hover:bg-blue-50/40 cursor-pointer transition-colors"
                         onClick={() => router.push(`/finance/reports/general-ledger?accountId=${r.accountId}`)}
                       >
-                        <td className="px-4 py-2 w-20">
+                        <td className="px-4 py-2 w-32">
                           <div className="flex items-center gap-1.5">
                             <span className="inline-block w-3 h-px bg-gray-300"></span>
                             <span className="inline-block px-1.5 py-0.5 text-[9px] font-mono font-bold rounded bg-gray-200 text-gray-600">L{r.level}</span>
-                            <span className="font-mono text-xs text-blue-600">{r.accountCode}</span>
+                            {/* Sprint 60 (DEC-191): نُفضّل الـ new_code (canonical). */}
+                            <span className="font-mono text-xs text-emerald-700 font-semibold">{r.newCode ?? r.accountCode}</span>
                           </div>
                         </td>
-                        <td className="px-4 py-2 text-gray-800">{r.accountName}</td>
+                        <td className="px-4 py-2 text-gray-800">
+                          {r.accountName}
+                          {r.section && <span className="ms-2 text-[10px] text-gray-400">({r.section})</span>}
+                        </td>
                         <td className="px-4 py-2 text-end font-mono text-blue-700">{r.debit > 0 ? formatNumber(r.debit) : '—'}</td>
                         <td className="px-4 py-2 text-end font-mono text-orange-700">{r.credit > 0 ? formatNumber(r.credit) : '—'}</td>
                         <td className="px-4 py-2 text-end font-mono font-bold">{formatNumber(r.net)}</td>

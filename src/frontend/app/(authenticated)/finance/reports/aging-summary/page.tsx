@@ -8,7 +8,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Hourglass, Calendar, AlertCircle, RefreshCw, TrendingUp, TrendingDown, ArrowLeft } from 'lucide-react';
 import { PageHeader, Card, Button } from '@/components/ui';
-import { arApi, financeApi, getErrorMessage } from '@/lib/api';
+import { arApi, financeApi, projectsApi, getErrorMessage } from '@/lib/api';
 import { formatNumber } from '@/lib/format';
 
 function todayIso(): string { return new Date().toISOString().slice(0, 10); }
@@ -20,13 +20,40 @@ export default function AgingSummaryPage() {
   const [asOf, setAsOf] = useState<string>(todayIso());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Sprint 60 (DEC-191): فلاتر cost_center + project (تنطبق على AP فقط).
+  const [costCenterId, setCostCenterId] = useState<string>('');
+  const [projectId, setProjectId] = useState<string>('');
+  const [costCenters, setCostCenters] = useState<{ id: string; code: string; name: string }[]>([]);
+  const [projects, setProjects] = useState<{ id: string; code: string; name: string }[]>([]);
+
+  // Sprint 60 (DEC-191): تحميل قوائم cost centers + projects.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [ccs, projs] = await Promise.all([
+          financeApi.listCostCenters() as Promise<{ id: string; code: string; name: string }[]>,
+          projectsApi.listProjects() as Promise<{ id: string; code: string; name: string }[]>,
+        ]);
+        if (!cancelled) {
+          setCostCenters(Array.isArray(ccs) ? ccs : []);
+          setProjects(Array.isArray(projs) ? projs : []);
+        }
+      } catch { /* الفلاتر اختيارية */ }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const load = async () => {
     setLoading(true); setError(null);
     try {
       const [arR, apR] = await Promise.all([
         arApi.aging?.(asOf).catch(() => null),
-        financeApi.getAPAging(asOf),
+        financeApi.getAPAging(
+          asOf,
+          costCenterId && costCenterId.length > 0 ? costCenterId : undefined,
+          projectId && projectId.length > 0 ? projectId : undefined,
+        ),
       ]);
       setAr(arR);
       setAp(apR);
@@ -35,7 +62,7 @@ export default function AgingSummaryPage() {
     } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
 
   return (
     <div>
@@ -54,8 +81,36 @@ export default function AgingSummaryPage() {
             <label className="text-xs text-gray-500 mb-1">كما في تاريخ</label>
             <input type="date" value={asOf} onChange={(e) => setAsOf(e.target.value)} className="border border-gray-300 rounded-lg px-3 py-2 text-sm" />
           </div>
+          {/* Sprint 60 (DEC-191): فلتر cost center (ينطبق على AP Aging فقط) */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">مركز التكلفة (AP)</label>
+            <select
+              value={costCenterId}
+              onChange={(e) => setCostCenterId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المراكز</option>
+              {costCenters.map((cc) => (
+                <option key={cc.id} value={cc.id}>{cc.code} — {cc.name}</option>
+              ))}
+            </select>
+          </div>
+          {/* Sprint 60 (DEC-191): فلتر project (ينطبق على AP Aging فقط) */}
+          <div className="flex flex-col">
+            <label className="text-xs text-gray-500 mb-1">المشروع (AP)</label>
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[160px]"
+            >
+              <option value="">كل المشاريع</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.code} — {p.name}</option>
+              ))}
+            </select>
+          </div>
           <Button variant="primary" onClick={load} iconLeft={<Calendar className="h-4 w-4" />}>تطبيق</Button>
-          <Button variant="ghost" onClick={load} iconLeft={<RefreshCw className="h-4 w-4" />}>إعادة</Button>
+          <Button variant="ghost" onClick={() => { setCostCenterId(''); setProjectId(''); load(); }} iconLeft={<RefreshCw className="h-4 w-4" />}>إعادة</Button>
         </div>
       </Card>
 

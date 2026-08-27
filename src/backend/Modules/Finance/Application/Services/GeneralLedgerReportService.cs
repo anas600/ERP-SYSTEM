@@ -12,20 +12,23 @@ public interface IGeneralLedgerReportService
         Guid companyId, Guid accountId, DateTime? from, DateTime? to, CancellationToken ct);
 
     // Sprint 48 (DEC-130): Balance Sheet — Σ Assets = Σ Liab + Σ Equity
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<BalanceSheetResponse>> GetBalanceSheetAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct);
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 
     // Sprint 48 (DEC-131): Income Statement — Revenue − Expenses = Net Income
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<IncomeStatementResponse>> GetIncomeStatementAsync(
-        Guid companyId, DateTime from, DateTime to, CancellationToken ct);
+        Guid companyId, DateTime from, DateTime to, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 
     // Sprint 48 (DEC-132): Cash Flow (Indirect) — Operating + Investing + Financing = Net Change
     Task<FinanceResult<CashFlowResponse>> GetCashFlowAsync(
         Guid companyId, DateTime from, DateTime to, CancellationToken ct);
 
     // Sprint 54 (DEC-142): Trial Balance — كل الحسابات الـ postable مع Dr/Cr
+    // Sprint 60 (DEC-191): optional costCenterId + projectId filters.
     Task<FinanceResult<TrialBalanceResponse>> GetTrialBalanceAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct);
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct);
 }
 
 /// <summary>
@@ -160,47 +163,51 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     /// L19: company_id filter على كل الـ JOINs.
     /// </summary>
     public async Task<FinanceResult<BalanceSheetResponse>> GetBalanceSheetAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct)
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
-        // نجلب كل الحسابات (postable = ParentId != null في النموذج، أو Leaves فقط) مع رصيدها
-        // نشترط: الحساب مُرحَّل إليه (balance != 0) في تاريخ asOfDate
-        // نعتمد على journal_lines.debit/credit للشركات
+        // Sprint 60 (DEC-191): فلتر اختياري على cost_center (journal_lines) و project (journal_entries).
         const string sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName,
+                   a.new_code AS NewCode, a.fs_type AS FsType, a.section AS Section,
                    a.type AS AccountType, a.normal_balance AS NormalBalance,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
             FROM accounts a
             LEFT JOIN journal_lines jl ON jl.account_id = a.id AND jl.company_id = a.company_id
+                AND (@CostCenterId IS NULL OR jl.cost_center_id = @CostCenterId)
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
                 AND je.company_id = a.company_id
                 AND je.status = 2 AND je.entry_date <= @AsOfDate
+                AND (@ProjectId IS NULL OR je.project_id = @ProjectId)
             WHERE a.company_id = @CompanyId
               AND a.is_postable = true
               AND a.is_active = true
               AND a.type IN (1, 2, 3)
-            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance
+            GROUP BY a.id, a.code, a.name, a.new_code, a.fs_type, a.section, a.type, a.normal_balance
             ORDER BY a.code";
 
         var rows = (await conn.QueryAsync<BSRow>(new CommandDefinition(sql,
-            new { CompanyId = companyId, AsOfDate = asOfDate.Date },
+            new { CompanyId = companyId, AsOfDate = asOfDate.Date, CostCenterId = costCenterId, ProjectId = projectId },
             cancellationToken: ct))).ToList();
 
         var resp = new BalanceSheetResponse { AsOfDate = asOfDate.Date };
 
         foreach (var r in rows)
         {
-            // الرصيد بحسب NormalBalance
             var balance = r.NormalBalance == 1 ? (r.TotalDebit - r.TotalCredit) : (r.TotalCredit - r.TotalDebit);
-            if (Math.Abs(balance) < 0.005m) continue; // skip صفر
+            if (Math.Abs(balance) < 0.005m) continue;
+
+            var displayCode = !string.IsNullOrWhiteSpace(r.NewCode) ? r.NewCode! : r.AccountCode;
 
             var row = new BalanceSheetRow
             {
                 AccountId = r.AccountId,
-                AccountCode = r.AccountCode,
+                AccountCode = displayCode,
+                NewCode = r.NewCode,
                 AccountName = r.AccountName,
+                Section = r.Section,
                 Balance = balance
             };
 
@@ -212,13 +219,8 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
             }
         }
 
-        // Sprint 53: بدلاً من الصف الافتراضي، نعتمد على قيد الإقفال الحقيقي (YE-{year}-CLOSING).
-        // لو السنة مقفلة، صافي الدخل يكون في 3210 (Current Year P&L) أو في 3200 (Retained Earnings)
-        // بحسب ما إذا تم ترحيل الرصيد.
-        // لو السنة لم تُقفل بعد، نضيف صفًّا محاسبيًّا صحيحًا (وليس synthetic) — هذا هو المبدأ المحاسبي.
-        // الحساب: NetIncome = Σ Revenue (Cr) − Σ Expenses (Dr) لنفس الفترة.
         var yearStart = new DateTime(asOfDate.Year, 1, 1);
-        var plResult = await GetIncomeStatementAsync(companyId, yearStart, asOfDate, ct);
+        var plResult = await GetIncomeStatementAsync(companyId, yearStart, asOfDate, costCenterId, projectId, ct);
         if (plResult.Succeeded)
         {
             var netIncome = plResult.Value!.NetIncome;
@@ -266,43 +268,44 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     /// Expense normal: Debit (debit − credit) → موجب.
     /// </summary>
     public async Task<FinanceResult<IncomeStatementResponse>> GetIncomeStatementAsync(
-        Guid companyId, DateTime from, DateTime to, CancellationToken ct)
+        Guid companyId, DateTime from, DateTime to, Guid? costCenterId, Guid? projectId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
-        // Sprint 54 (DEC-143): نجلب كل الحسابات الـ postable + الآباء (L1..L3) لتكوين L2 sections.
         const string sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName,
+                   a.new_code AS NewCode, a.fs_type AS FsType, a.section AS Section,
                    a.type AS AccountType, a.normal_balance AS NormalBalance,
                    a.parent_account_id AS ParentAccountId, a.level,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
             FROM accounts a
             LEFT JOIN journal_lines jl ON jl.account_id = a.id AND jl.company_id = a.company_id
+                AND (@CostCenterId IS NULL OR jl.cost_center_id = @CostCenterId)
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
                 AND je.company_id = a.company_id
                 AND je.status = 2
                 AND je.entry_date >= @From AND je.entry_date <= @To
+                AND (@ProjectId IS NULL OR je.project_id = @ProjectId)
             WHERE a.company_id = @CompanyId
               AND a.is_postable = true
               AND a.is_active = true
               AND a.type IN (4, 5)
-            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance, a.parent_account_id, a.level
+            GROUP BY a.id, a.code, a.name, a.new_code, a.fs_type, a.section, a.type, a.normal_balance, a.parent_account_id, a.level
             ORDER BY a.code";
 
         var rows = (await conn.QueryAsync<ISRow>(new CommandDefinition(sql,
-            new { CompanyId = companyId, From = from.Date, To = to.Date },
+            new { CompanyId = companyId, From = from.Date, To = to.Date, CostCenterId = costCenterId, ProjectId = projectId },
             cancellationToken: ct))).ToList();
 
-        // نجلب كل الحسابات لبناء قاموس الآباء
         const string allSql = @"
-            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId
+            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId,
+                   new_code AS NewCode, fs_type AS FsType, section AS Section
             FROM accounts WHERE company_id = @CompanyId";
         var allAccounts = (await conn.QueryAsync<AccountLookup>(new CommandDefinition(allSql,
             new { CompanyId = companyId }, cancellationToken: ct))).ToList();
         var accountById = allAccounts.ToDictionary(a => a.Id, a => a);
 
-        // دالة لايجاد الـ L2 ancestor (المستوى 2) — تمشي للأعلى حتى تجد level=2
         AccountLookup? FindL2Ancestor(Guid? accountId)
         {
             var current = accountId.HasValue && accountById.TryGetValue(accountId.Value, out var a) ? a : null;
@@ -312,12 +315,10 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                 if (!current.ParentAccountId.HasValue) break;
                 accountById.TryGetValue(current.ParentAccountId.Value, out current);
             }
-            // fallback: لو الحساب نفسه L2 أو L1، نرجعه (لكن للـ IS نريد L2 فقط)
             return current?.Level == 2 ? current : null;
         }
 
         var resp = new IncomeStatementResponse { From = from.Date, To = to.Date };
-        // قواميس L2 sections لتجميع الصفوف
         var revenueSectionsMap = new Dictionary<string, IncomeStatementL2Section>();
         var expenseSectionsMap = new Dictionary<string, IncomeStatementL2Section>();
 
@@ -326,18 +327,21 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
             var amount = r.NormalBalance == 1 ? (r.TotalDebit - r.TotalCredit) : (r.TotalCredit - r.TotalDebit);
             if (Math.Abs(amount) < 0.005m) continue;
 
+            var displayCode = !string.IsNullOrWhiteSpace(r.NewCode) ? r.NewCode! : r.AccountCode;
+
             var row = new IncomeStatementRow
             {
                 AccountId = r.AccountId,
-                AccountCode = r.AccountCode,
+                AccountCode = displayCode,
+                NewCode = r.NewCode,
                 AccountName = r.AccountName,
+                Section = r.Section,
                 Amount = amount
             };
 
             if (r.AccountType == 4) resp.Revenue.Rows.Add(row);
             else resp.Expenses.Rows.Add(row);
 
-            // Sprint 54 (DEC-143): ضع الصف في L2 section المناسب
             var l2 = FindL2Ancestor(r.AccountId);
             if (l2 != null)
             {
@@ -393,7 +397,8 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         });
 
         // 1) Net income من قائمة الدخل
-        var pl = await GetIncomeStatementAsync(companyId, from, to, ct);
+        // Sprint 60 (DEC-191): Cash Flow لا يدعم CC/Project filters في الواجهة حاليًا — نمرر null.
+        var pl = await GetIncomeStatementAsync(companyId, from, to, null, null, ct);
         if (!pl.Succeeded) return FinanceResult<CashFlowResponse>.Fail(pl.Error ?? "خطأ غير معروف", FinanceErrorCode.ValidationError);
         var netIncome = pl.Value!.NetIncome;
 
@@ -674,9 +679,15 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     {
         public Guid AccountId { get; set; }
         public string AccountCode { get; set; } = string.Empty;
+        /// <summary>Sprint 60 (DEC-191): الكود القانوني الجديد.</summary>
+        public string? NewCode { get; set; }
         public string AccountName { get; set; } = string.Empty;
         public int AccountType { get; set; }
         public int NormalBalance { get; set; }
+        /// <summary>Sprint 60 (DEC-191): FS type (BS | PL).</summary>
+        public string? FsType { get; set; }
+        /// <summary>Sprint 60 (DEC-191): FS section.</summary>
+        public string? Section { get; set; }
         public decimal TotalDebit { get; set; }
         public decimal TotalCredit { get; set; }
     }
@@ -689,7 +700,8 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         public int? Level { get; set; }
     }
 
-    /// <summary>Sprint 54 (DEC-143): سجل lookup بسيط للحسابات — لبناء قاموس الآباء.</summary>
+    /// <summary>Sprint 54 (DEC-143): سجل lookup بسيط للحسابات — لبناء قاموس الآباء.
+    /// Sprint 60 (DEC-191): NewCode + FsType + Section مضافة.</summary>
     private sealed class AccountLookup
     {
         public Guid Id { get; set; }
@@ -698,6 +710,9 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         public int Type { get; set; }
         public int Level { get; set; }
         public Guid? ParentAccountId { get; set; }
+        public string? NewCode { get; set; }
+        public string? FsType { get; set; }
+        public string? Section { get; set; }
     }
 
     /// <summary>Sprint 54 (DEC-144): يجلب L3 control accounts (level=3) بحسب prefix.
@@ -728,40 +743,45 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
     /// الحسابات مرتّبة بحسب الكود، مع معلومات الـ L3 parent للتجميع البصري.
     /// </summary>
     public async Task<FinanceResult<TrialBalanceResponse>> GetTrialBalanceAsync(
-        Guid companyId, DateTime asOfDate, CancellationToken ct)
+        Guid companyId, DateTime asOfDate, Guid? costCenterId, Guid? projectId, CancellationToken ct)
     {
         using var conn = await _db.CreateOltpConnectionAsync(ct);
 
         // نجلب كل الحسابات (postable + غير postable) — لبناء قاموس الآباء بالكامل
+        // Sprint 60 (DEC-191): نجلب fs_type + new_code + section للعرض.
         const string allSql = @"
-            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId
+            SELECT id, code, name, type, level, parent_account_id AS ParentAccountId,
+                   new_code AS NewCode, fs_type AS FsType, section AS Section
             FROM accounts WHERE company_id = @CompanyId";
         var allAccounts = (await conn.QueryAsync<AccountLookup>(new CommandDefinition(allSql,
             new { CompanyId = companyId }, cancellationToken: ct))).ToList();
         var accountById = allAccounts.ToDictionary(a => a.Id, a => a);
 
         // نجلب أرصدة كل الحسابات الـ postable
+        // Sprint 60 (DEC-191): فلتر اختياري على cost_center (jl) و project (je).
         const string sql = @"
             SELECT a.id AS AccountId, a.code AS AccountCode, a.name AS AccountName,
+                   a.new_code AS NewCode, a.fs_type AS FsType, a.section AS Section,
                    a.type AS AccountType, a.normal_balance AS NormalBalance,
                    a.parent_account_id AS ParentAccountId, a.level,
                    COALESCE(SUM(jl.debit), 0) AS TotalDebit,
                    COALESCE(SUM(jl.credit), 0) AS TotalCredit
             FROM accounts a
             LEFT JOIN journal_lines jl ON jl.account_id = a.id AND jl.company_id = a.company_id
+                AND (@CostCenterId IS NULL OR jl.cost_center_id = @CostCenterId)
             LEFT JOIN journal_entries je ON je.id = jl.journal_entry_id
                 AND je.company_id = a.company_id
                 AND je.status = 2 AND je.entry_date <= @AsOfDate
+                AND (@ProjectId IS NULL OR je.project_id = @ProjectId)
             WHERE a.company_id = @CompanyId
               AND a.is_postable = true AND a.is_active = true
-            GROUP BY a.id, a.code, a.name, a.type, a.normal_balance, a.parent_account_id, a.level
+            GROUP BY a.id, a.code, a.name, a.new_code, a.fs_type, a.section, a.type, a.normal_balance, a.parent_account_id, a.level
             ORDER BY a.code";
 
         var rows = (await conn.QueryAsync<BSRow>(new CommandDefinition(sql,
-            new { CompanyId = companyId, AsOfDate = asOfDate.Date },
+            new { CompanyId = companyId, AsOfDate = asOfDate.Date, CostCenterId = costCenterId, ProjectId = projectId },
             cancellationToken: ct))).ToList();
 
-        // دالة لايجاد الـ L3 parent (immediate parent + الـ L3 ancestor)
         AccountLookup? FindL3Parent(Guid? accountId)
         {
             var current = accountId.HasValue && accountById.TryGetValue(accountId.Value, out var a) ? a : null;
@@ -789,16 +809,11 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
         foreach (var r in rows)
         {
             var balance = r.NormalBalance == 1 ? (r.TotalDebit - r.TotalCredit) : (r.TotalCredit - r.TotalDebit);
-            if (Math.Abs(balance) < 0.005m) continue; // skip صفر
+            if (Math.Abs(balance) < 0.005m) continue;
 
-            // الـ L3 parent (المباشر أو الـ ancestor)
             var l3 = FindL3Parent(r.AccountId);
-            // الـ L2 ancestor (للتجميع)
             var l2 = FindL2Ancestor(r.AccountId);
 
-            // الحساب نفسه — لو L4 (level=4) استخدم الـ L3 parent كـ "parent"
-            // لو L3 نفسه postable، فالـ L3 = self
-            // لو L1/L2 (لا ينبغي أن تصل هنا لأن الفلتر postable=true)
             string? parentCode = null, parentName = null;
             Guid? parentId = null;
             if (l3 != null && l3.Id != r.AccountId)
@@ -815,31 +830,31 @@ public sealed class GeneralLedgerReportService : IGeneralLedgerReportService
                 parentId = directParent.Id;
             }
 
+            var displayCode = !string.IsNullOrWhiteSpace(r.NewCode) ? r.NewCode! : r.AccountCode;
+
             var row = new TrialBalanceRow
             {
                 AccountId = r.AccountId,
-                AccountCode = r.AccountCode,
+                AccountCode = displayCode,
+                NewCode = r.NewCode,
                 AccountName = r.AccountName,
-                // Sprint 54: اقرأ الـ level الفعلي من قاموس الحسابات (لا من AccountType).
                 Level = accountById.TryGetValue(r.AccountId, out var aa) ? aa.Level : 4,
                 AccountType = r.AccountType,
+                FsType = r.FsType,
+                Section = r.Section,
                 ParentCode = parentCode,
                 ParentName = parentName,
                 ParentAccountId = parentId,
                 L2Code = l2?.Code,
                 L2Name = l2?.Name,
             };
-            // الرصيد Dr أو Cr بحسب NormalBalance والقيمة الموجبة
             if (balance >= 0)
             {
-                // Dr-normal: الرصيد الموجب يظهر في Dr
-                // Cr-normal: الرصيد الموجب يظهر في Cr
                 if (r.NormalBalance == 1) row.Debit = balance;
                 else row.Credit = balance;
             }
             else
             {
-                // الرصيد السالب يظهر في الجهة المعاكسة
                 if (r.NormalBalance == 1) row.Credit = -balance;
                 else row.Debit = -balance;
             }

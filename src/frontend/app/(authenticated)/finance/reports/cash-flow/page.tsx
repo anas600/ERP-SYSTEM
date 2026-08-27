@@ -84,7 +84,7 @@ export default function CashFlowPage() {
                   <p className={`text-lg font-bold ${report.netChangeInCash >= 0 ? 'text-emerald-800' : 'text-red-800'}`}>
                     صافي التغير في النقد: {formatNumber(report.netChangeInCash)} LYD
                   </p>
-                  <p className="text-xs text-gray-500">الفترة من {report.from} إلى {report.to}</p>
+                  <p className="text-xs text-gray-500" dir="ltr">الفترة من {new Date(report.from).toLocaleDateString('en-GB')} إلى {new Date(report.to).toLocaleDateString('en-GB')}</p>
                 </div>
               </div>
               <div className="flex items-center gap-6 text-sm">

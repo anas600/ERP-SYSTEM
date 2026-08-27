@@ -207,7 +207,7 @@ function Sidebar({ open, onClose }: SidebarProps) {
             </div>
             <div>
               <p className="font-bold text-ink-800 leading-tight text-sm">ERP-SYSTEM</p>
-              <p className="text-[10px] text-ink-500">v1.0.13 · Sprint 58</p>
+              <p className="text-[10px] text-ink-500">v1.0.15 · Sprint 60</p>
             </div>
           </Link>
           <button

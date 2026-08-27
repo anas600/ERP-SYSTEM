@@ -44,15 +44,20 @@ public class LedgerController : ControllerBase
     }
 
     /// <summary>Sprint 54 (DEC-142): ميزان المراجعة الهرمي — يعرض L4 (Detail) مع L3 (Control) parent.
-    /// يدعم الـ drill-down من الحسابات L3 إلى L4.</summary>
+    /// يدعم الـ drill-down من الحسابات L3 إلى L4.
+    /// Sprint 60 (DEC-191): يدعم فلتر costCenterId + projectId.</summary>
     [HttpGet("trial-balance-v2")]
     [ProducesResponseType(typeof(TrialBalanceResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> TrialBalanceV2([FromQuery] DateTime? asOf, CancellationToken ct)
+    public async Task<IActionResult> TrialBalanceV2(
+        [FromQuery] DateTime? asOf,
+        [FromQuery] Guid? costCenterId,
+        [FromQuery] Guid? projectId,
+        CancellationToken ct)
     {
         var companyId = _companyContext.CompanyId
             ?? throw new InvalidOperationException("No active company in context");
         var asOfDate = (asOf ?? DateTime.UtcNow).Date;
-        var r = await _report.GetTrialBalanceAsync(companyId, asOfDate, ct);
+        var r = await _report.GetTrialBalanceAsync(companyId, asOfDate, costCenterId, projectId, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
@@ -67,28 +72,39 @@ public class LedgerController : ControllerBase
         return r.Succeeded ? Ok(r.Value) : NotFound(Problem(r));
     }
 
-    /// <summary>الميزانية العمومية — Sprint 48 (DEC-130). Σ Assets = Σ Liab + Σ Equity.</summary>
+    /// <summary>الميزانية العمومية — Sprint 48 (DEC-130). Σ Assets = Σ Liab + Σ Equity.
+    /// Sprint 60 (DEC-191): يدعم فلتر costCenterId + projectId.</summary>
     [HttpGet("balance-sheet")]
     [ProducesResponseType(typeof(BalanceSheetResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> BalanceSheet([FromQuery] DateTime? asOf, CancellationToken ct)
+    public async Task<IActionResult> BalanceSheet(
+        [FromQuery] DateTime? asOf,
+        [FromQuery] Guid? costCenterId,
+        [FromQuery] Guid? projectId,
+        CancellationToken ct)
     {
         var companyId = _companyContext.CompanyId
             ?? throw new InvalidOperationException("No active company in context");
         var asOfDate = (asOf ?? DateTime.UtcNow).Date;
-        var r = await _report.GetBalanceSheetAsync(companyId, asOfDate, ct);
+        var r = await _report.GetBalanceSheetAsync(companyId, asOfDate, costCenterId, projectId, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
-    /// <summary>قائمة الدخل — Sprint 48 (DEC-131). Revenue − Expenses = Net Income.</summary>
+    /// <summary>قائمة الدخل — Sprint 48 (DEC-131). Revenue − Expenses = Net Income.
+    /// Sprint 60 (DEC-191): يدعم فلتر costCenterId + projectId.</summary>
     [HttpGet("income-statement")]
     [ProducesResponseType(typeof(IncomeStatementResponse), StatusCodes.Status200OK)]
-    public async Task<IActionResult> IncomeStatement([FromQuery] DateTime? from, [FromQuery] DateTime? to, CancellationToken ct)
+    public async Task<IActionResult> IncomeStatement(
+        [FromQuery] DateTime? from,
+        [FromQuery] DateTime? to,
+        [FromQuery] Guid? costCenterId,
+        [FromQuery] Guid? projectId,
+        CancellationToken ct)
     {
         var companyId = _companyContext.CompanyId
             ?? throw new InvalidOperationException("No active company in context");
         var toDate = (to ?? DateTime.UtcNow).Date;
         var fromDate = (from ?? new DateTime(toDate.Year, 1, 1)).Date;
-        var r = await _report.GetIncomeStatementAsync(companyId, fromDate, toDate, ct);
+        var r = await _report.GetIncomeStatementAsync(companyId, fromDate, toDate, costCenterId, projectId, ct);
         return r.Succeeded ? Ok(r.Value) : BadRequest(Problem(r));
     }
 
