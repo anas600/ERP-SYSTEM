@@ -13,6 +13,7 @@
 
 ---
 
+<<<<<<< HEAD
 ## Sprint 62 — Progress Billing Refinement (DEC-197) (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
 
 **Goal:** إضافة خصم المنطقة (NDB + CIT + SS) تلقائياً على المستخلصات في مناطق NDB الليبية (DEC-197)، وتصدير PDF للمستخلص (DEC-198 — Wave 2A).
@@ -88,6 +89,41 @@ The deduction is applied on `gross` (not on `net`), matching the Libyan statutor
 #### Out of scope (deferred to Wave 2B / Frontend)
 - Frontend UI for regional premium CRUD + PDF download button on the billing page.
 - Historical rate-change tracking (the `is_active` flag is already in the schema; UI for switching the active row is post-Sprint 62).
+=======
+## Sprint 64 — Subcontractor Module (2026-08-27) 🟡 IN PROGRESS (LOCAL-ONLY)
+
+**Goal:** إضافة وحدة المقاولين الفرعيين — كيانات (مقاول + عقد فرعي) + CRUD API + (Wave 2A) مستخلصات + مدفوعات + (Wave 3A) كشف حساب + FE.
+
+**Branch:** `feature/sprint-64-subcontractor` (off `develop` @ a305077 — Sprint 63 not yet merged)
+**Mode:** LOCAL-ONLY (M1-Local — no push until Anas's "ادفع")
+
+### Wave 1A — Subcontractor + SubContract Foundation ✅ DONE
+
+> **Worker:** Worker 1A. **Hand-off:** `docs/workflow/sprint-64.md`. **DECs:** DEC-221, DEC-222. **Status:** ✅ Built (0 errors), 18/18 Sprint64 tests pass.
+
+#### Added
+- `Sprint64_Subcontractor_20260827_180000.cs` (FluentMigrator, idempotent)
+  - New table `subcontractors` with UNIQUE (company_id, code), `company_id NOT NULL`, `is_active` flag
+  - New table `sub_contracts` with UNIQUE (project_id, contract_number), FK to projects + subcontractors
+- `data-types/subcontractors.json` + `data-types/sub_contracts.json`
+- `Subcontractor` entity + `SubContract` entity (L19: CompanyId not nullable)
+- `ISubcontractorRepository` + `ISubContractRepository` (Dapper)
+- `SubcontractorService` (CRUD + Result<T> envelopes + validation)
+- `SubContractService` (CRUD + retention % validation)
+- `SubcontractorDtos.cs` (Create/Update/Response records × 2 entities)
+- 2 new controllers (8 endpoints total): `SubcontractorsController` + `SubContractsController`
+- 4 new test files (18 tests total): 2 service + 2 controller
+- **Temporary marker**: `Host/Authorization/RequirePermissionAttribute.cs` — minimal no-op attribute so the new controllers compile. Will be overwritten when Sprint 63 (`feature/sprint-63-rbac`) merges to develop. The full Sprint 63 implementation is API-compatible at the call sites, so no controller change required post-merge.
+
+#### L19 / DEC-095
+- `CompanyId` from `ICompanyContext` (never from request DTO)
+- `UserId` from JWT `NameIdentifier` claim (never from request DTO)
+
+#### Sprint 63 RBAC
+- `[RequirePermission("projects.subcontractors.view")]` on `SubcontractorsController` (class-level)
+- `[RequirePermission("projects.sub_contracts.view")]` on `SubContractsController` (class-level)
+- When Sprint 63 merges, the temporary marker will be replaced with the full `IAsyncAuthorizationFilter` from commit `2ee3c0b` — no controller change required.
+>>>>>>> dd5e69d (docs(governance): Sprint 64 Wave 1A - CHANGELOG + AGENTS)
 
 ---
 
