@@ -52,6 +52,92 @@
 
 ---
 
+## [Unreleased] - 2026-08-27 (Jimi Worker — Sprint 61 Wave 1A)
+### Sprint 61 Wave 1A (DEC-192, DEC-193, DEC-194 — foundation only)
+
+**Goal:** Lay the DB foundation (schema + entities + DTOs) for the new **Engineer's Daily Report** module. Per client meeting 22-Aug-2026, the engineer writes a daily on-site report (weather, work done, issues), uploads photos, and the PM/Client approves or rejects it electronically. **Wave 1A is schema + entities only** — no repositories, services, or controllers yet. Wave 2A will write the API layer; Wave 2B will write the FE.
+
+**Branch:** `feature/sprint-61-engineer-report` (off `develop @ 9728d17`)
+**Mode:** LOCAL-ONLY (Mode 1) — no push, no PR yet.
+**Worker:** Jimi (Worker 1A) — schema + entities + DTOs + 15 tests.
+
+#### DEC-192 — `engineer_reports` table + entity
+- **Migration:** `src/backend/Shared/Migrations/Sprint61_EngineerReportSchema_20260827_120000.cs`
+- **Table:** `engineer_reports` — 11 columns (id, company_id, project_id, report_date, engineer_id, status, weather, work_done, issues, created_at, updated_at).
+- **Constraints:** `UNIQUE (project_id, report_date)` (one report per project per day).
+- **Indexes:** `(company_id, project_id)` + `(company_id, status)`.
+- **Entity:** `src/backend/Modules/Projects/Entities/EngineerReport.cs` — `EngineerReportStatus` enum (Draft=1, Submitted=2, Approved=3, Rejected=4).
+- **Default:** `Status = Draft`, `WorkDone = ""` (NOT NULL column → non-null C# default).
+
+#### DEC-193 — `engineer_report_photos` table + entity
+- **Table:** `engineer_report_photos` — 6 columns (id, report_id, company_id, file_path, caption, uploaded_at).
+- **FK:** `report_id REFERENCES engineer_reports(id) ON DELETE CASCADE`.
+- **`company_id` denormalized** (DEC-193 design note) for FK performance.
+- **Entity:** `src/backend/Modules/Projects/Entities/EngineerReportPhoto.cs`.
+- **Index:** `(report_id)`.
+
+#### DEC-194 — `engineer_report_signoffs` table + entity
+- **Table:** `engineer_report_signoffs` — 9 columns (id, report_id, company_id, signer_id, signer_role, signed_at, signature_text, comment, approved).
+- **FK:** `report_id REFERENCES engineer_reports(id) ON DELETE CASCADE`.
+- **`signer_role`:** 'PM' | 'Client' | 'Engineer' (TEXT, not enum int, for future-proofing).
+- **`approved`:** BOOL (NOT NULL) — true = approved, false = rejected.
+- **Entity:** `src/backend/Modules/Projects/Entities/EngineerReportSignoff.cs`.
+- **Index:** `(report_id)`.
+
+#### DTOs — `EngineerReportDtos.cs`
+- **`EngineerReportResponse`** — read DTO (embeds `EngineerReportPhotoResponse[]` + `EngineerReportSignoffResponse[]`).
+- **`CreateEngineerReportRequest`** — POST body. **No `CompanyId`** — service resolves from JWT context (L19 / L29 / L30).
+- **`UpdateEngineerReportRequest`** — PUT body (Draft only).
+- **`SignoffRequest`** — POST signoff body (PM/Client/Engineer + optional signature_text + comment + approved bool).
+- **All records are immutable** (C# `record` syntax).
+
+#### DataTypeMigrator schemas (3 JSON files)
+- `src/backend/Host/data-types/engineer_reports.json` — fields + 3 indexes (incl. `ux_engineer_reports_project_date` UNIQUE).
+- `src/backend/Host/data-types/engineer_report_photos.json` — fields + 1 index.
+- `src/backend/Host/data-types/engineer_report_signoffs.json` — fields + 1 index.
+
+#### Tests (15 new, all green)
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint61EngineerReportSchemaMigrationTests.cs` — 8 tests
+  - Class shape (attribute + Up/Down)
+  - engineer_reports table + all 11 columns
+  - UNIQUE (project_id, report_date) constraint
+  - engineer_report_photos table + CASCADE delete + all 6 columns
+  - engineer_report_signoffs table + CASCADE delete + all 9 columns
+  - Idempotency (IF NOT EXISTS on tables + indexes)
+  - No `tenant_id` (Constitution Article 3)
+  - `company_id UUID NOT NULL` on all 3 tables
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint61EngineerReportEntitiesTests.cs` — 7 tests (10 with Theory expansion)
+  - `EngineerReport.Status` default = Draft
+  - `EngineerReport.WorkDone` default = "" (NOT NULL, not null)
+  - `EngineerReportStatus` has all 4 expected members
+  - `EngineerReportStatus` values are stable (1/2/3/4)
+  - `CompanyId` is non-nullable `Guid` on all 3 entities (L19 / DEC-097)
+  - `EngineerReportSignoff.Approved` is non-nullable `bool`
+  - DTOs expose the expected records + fields
+
+#### Architectural compliance ✅
+- ✅ `company_id` on every entity (Constitution Article 3 + L19)
+- ✅ `CompanyId` is `Guid` (not `Guid?`) per DEC-097
+- ✅ No `tenant_id` anywhere (verified by test)
+- ✅ No EF Core — Dapper-only contract
+- ✅ Idempotent migrations (`CREATE TABLE IF NOT EXISTS`, `CREATE INDEX IF NOT EXISTS`)
+- ✅ Migration version = 14-digit `YYYYMMDD_HHMMSS` (L046)
+- ✅ On DELETE CASCADE on photo + signoff child tables
+
+#### Out of scope (Wave 2A will do)
+- `EngineerReportRepository` / `EngineerReportPhotoRepository` / `EngineerReportSignoffRepository`
+- `EngineerReportService` (CRUD + submit + signoff logic + photo upload)
+- `EngineerReportsController` + `EngineerReportPhotosController` (8 endpoints)
+- `Program.cs` DI registration (Admin will do after merge per Worker contract)
+- Frontend pages (Wave 2B)
+
+#### Validation
+- ✅ `dotnet build Host/ERP-SYSTEM.csproj` → 0 errors, 0 warnings
+- ✅ `dotnet build Tests/ERPSystem.Tests/ERPSystem.Tests.csproj` → 0 errors (24 pre-existing xUnit warnings from Sprint60, unrelated)
+- ✅ `dotnet test --filter "FullyQualifiedName~Sprint61"` → 18/18 pass (15 new + 3 from Theory expansion)
+
+---
+
 ## [Unreleased] - 2026-08-25 (Jimi Worker — Sprint 60 Wave 1)
 ### Sprint 60 Wave 1 (DEC-184, DEC-NEW-14, DEC-NEW-15) — DB Foundation (Schema + Cost Centers + Projects)
 

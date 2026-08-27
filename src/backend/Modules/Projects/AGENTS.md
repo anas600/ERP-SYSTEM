@@ -1,12 +1,14 @@
 # 📊 src/backend/Modules/Projects/AGENTS.md
 
-> Projects Module — ✅ Phase 2.1 + Sprint 57 (Project P&L)
+> Projects Module — ✅ Phase 2.1 + Sprint 57 (Project P&L) + Sprint 61 Wave 1A (Engineer Report schema)
 >
-> محدّث: 2026-08-07 — Sprint 57 / DEC-160..162 (Project P&L foundation)
+> محدّث: 2026-08-27 — Sprint 61 Wave 1A / DEC-192..194 (Engineer Report schema + entities)
 >
 > **Phase 6 (2026-07-27) — Multi-Company update:** Per Constitution Article 3, this module now uses `ICompanyContext` (instead of removed `ITenantContext`). All queries filter by `company_id` (instead of removed `tenant_id`). Users are global, companies are many. JWT carries `default_company_id` + `company_ids[]`. See root [AGENTS.md](../../../../AGENTS.md#-multi-company-convention-per-constitution-article-3) and [docs/PHASE6-RELEASE-NOTES.md](../../../../PHASE6-RELEASE-NOTES.md) for migration guide.
 >
 > **Sprint 57 (2026-08-07) — Project P&L:** أضفنا `project_id` على journal_entries (DEC-160) + ProjectPnLService (DEC-161) + UI tab "الأرباح والخسائر" (DEC-162). الـ P&L يقرأ من sales_invoices (revenue) + journal_lines على Expense accounts (costs).
+>
+> **Sprint 61 Wave 1A (2026-08-27) — Engineer's Daily Report (DEC-192..194 foundation):** أضفنا 3 جداول (engineer_reports + engineer_report_photos + engineer_report_signoffs) + 3 entities + DTOs. Wave 2A will add الـ repositories / services / controllers.
 
 ## شو فيه
 
@@ -17,9 +19,13 @@ Projects/
 │   ├── ProjectTask.cs      # ProjectTask + TaskStatus
 │   ├── Resource.cs         # Resource + ResourceType
 │   ├── ProjectBudget.cs    # SpentAmount/CommittedAmount/AvailableAmount
-│   └── ResourceAssignment.cs # HourlyRate snapshot + computed EstimatedCost
+│   ├── ResourceAssignment.cs # HourlyRate snapshot + computed EstimatedCost
+│   ├── EngineerReport.cs          # Sprint 61 / DEC-192 — EngineerReport + EngineerReportStatus
+│   ├── EngineerReportPhoto.cs     # Sprint 61 / DEC-193 — photo attachment (file_path + caption)
+│   └── EngineerReportSignoff.cs   # Sprint 61 / DEC-194 — electronic signoff (PM/Client/Engineer)
 ├── Application/
 │   ├── ProjectsDtos.cs     # كل الـ DTOs (+ ProjectPnLResponse, ProjectPnLLine من Sprint 57)
+│   ├── EngineerReportDtos.cs      # Sprint 61 — Create/Update/Signoff/Photo/Response
 │   ├── Validators.cs       # FluentValidation
 │   └── Services/
 │       ├── ProjectService.cs           # CRUD + status workflow + auto-bootstrap
@@ -33,6 +39,40 @@ Projects/
     ├── ProjectBudgetRepository.cs      # + RecalculateSpentAsync (SQL agg)
     └── ResourceAssignmentRepository.cs
 ```
+
+## 🆕 Sprint 61 — Engineer's Daily Report (DEC-192..194 foundation)
+
+> **Status:** Wave 1A ✅ DONE (schema + entities + DTOs). Wave 2A: Repositories + Services + Controllers (next worker). Wave 2B: Frontend. Wave 3: Integration + verification.
+
+### Schema (3 tables)
+- **`engineer_reports`** — تقرير المهندس اليومي. One report per project per day (`UNIQUE (project_id, report_date)`). Status: Draft | Submitted | Approved | Rejected.
+- **`engineer_report_photos`** — صور مرفقة. `file_path` على القرص + `caption` اختياري. `ON DELETE CASCADE` من engineer_reports.
+- **`engineer_report_signoffs`** — اعتماد إلكتروني. `signer_role` = 'PM' | 'Client' | 'Engineer' + `approved` bool. `ON DELETE CASCADE`.
+
+### Workflow (DEC-194 state machine)
+```
+Draft → Submitted → Approved
+                ↘ Rejected → (engineer revises) → Draft → Submitted → …
+```
+- **Draft** — engineer is still writing; editable
+- **Submitted** — locked; PM/Client can sign off
+- **Approved** — final; immutable
+- **Rejected** — engineer revises and resubmits
+
+### Files added in Wave 1A
+- `src/backend/Shared/Migrations/Sprint61_EngineerReportSchema_20260827_120000.cs` (3 tables, idempotent)
+- `src/backend/Shared/Migrations/Sprint61_EngineerReportSeed_20260827_130000.cs` (no-op placeholder)
+- `src/backend/Host/data-types/{engineer_reports,engineer_report_photos,engineer_report_signoffs}.json`
+- `src/backend/Modules/Projects/Entities/{EngineerReport,EngineerReportPhoto,EngineerReportSignoff}.cs`
+- `src/backend/Modules/Projects/Application/Dtos/EngineerReportDtos.cs`
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint61EngineerReportSchemaMigrationTests.cs` (8 tests)
+- `src/backend/Tests/ERPSystem.Tests/Projects/Sprint61EngineerReportEntitiesTests.cs` (7 tests)
+
+### Out of scope for Wave 1A (Wave 2A will do)
+- `EngineerReportRepository` / `EngineerReportPhotoRepository` / `EngineerReportSignoffRepository`
+- `EngineerReportService` (CRUD + submit + signoff logic)
+- `EngineerReportsController` + `EngineerReportPhotosController` (8 endpoints)
+- `Program.cs` DI registration (Admin will do after merge per Worker contract)
 
 ## Domain Model
 
