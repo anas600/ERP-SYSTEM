@@ -64,6 +64,31 @@ The deduction is applied on `gross` (not on `net`), matching the Libyan statutor
 - `BillingPdfController` + HTML-to-PDF export (DEC-198)
 - DI registration in `Program.cs` — **Admin will add** `AddScoped<IRegionalPremiumRepository, RegionalPremiumRepository>()` + `AddScoped<IRegionalPremiumService, RegionalPremiumService>()` per the sprint contract. Until that lands, DI resolution for `BillingService` will throw at runtime in environments that exercise the billing flow (build is clean).
 
+### Wave 2A — API Layer (Controllers + PDF + DI) ✅ DONE
+
+> **Worker:** Worker 2A. **DECs:** DEC-197 (API) + DEC-198 (PDF). **Status:** ✅ Built (0 errors, 0 warnings), 8 new tests pass (6 controller + 2 service); all 16 Wave 1A + 22 EngineerReport + 12 Sprint61 entity/migration tests still pass. 2 commits (feat + docs).
+
+#### Added
+- `src/backend/Host/Controllers/RegionalPremiumsController.cs` — 4 endpoints (list/create/update/delete) over `IRegionalPremiumService`. Claim-based `UserId` (L19/L186). `ProblemDetails` errors. Error-code → HTTP status mapping (`AlreadyExists` → 409, `NotFound` → 404, `ValidationError` → 400).
+- `src/backend/Host/Controllers/BillingPdfController.cs` — 1 endpoint (`GET /api/projects/{projectId}/billings/{id}/pdf`) that streams a bilingual (AR + EN) Progress Billing certificate.
+- `src/backend/Modules/Projects/Application/Services/PdfExportService.cs` — QuestPDF 2024.10.0 renderer (pure C#, MIT-style Community license). `BillingPdfModel` flat record; `IPdfExportService.GenerateBillingPdf` returns `byte[]`. License set once per process via `Interlocked.Exchange`.
+- `src/backend/Tests/ERPSystem.Tests/Projects/RegionalPremiumsControllerTests.cs` — 4 controller tests (mocked service): list 200, create 201, create 409 duplicate, delete 204. + 2 bonus tests (update 200, delete 404).
+- `src/backend/Tests/ERPSystem.Tests/Projects/PdfExportServiceTests.cs` — 2 service tests: PDF magic bytes (`%PDF`) + min size; structural marker (`%%EOF`) + size threshold.
+
+#### Changed
+- `src/backend/Host/Program.cs` — added 3 DI registrations: `IRegionalPremiumRepository`, `IRegionalPremiumService`, `IPdfExportService`. (The first two were deferred from Wave 1A per the sprint contract.)
+- `src/backend/Host/ERP-SYSTEM.csproj` — added `QuestPDF 2024.10.0` (only new dependency in Sprint 62).
+- `src/backend/Modules/Projects/AGENTS.md` — added a "Sprint 62 Wave 2A" section under the Wave 1A section.
+
+#### L19 / DEC-095 compliance
+- `UserId` on the regional premium controller is read from `User.FindFirst(ClaimTypes.NameIdentifier)` only — never from a request DTO (L186 / Sprint 61 fix preserved).
+- `IPdfExportService` is a pure renderer; all company-scope happens in the existing `IBillingRepository` / `IProjectRepository` / `IContractRepository` calls inside the controller.
+- No `CompanyId` / `UserId` / `EngineerId` was added to any new DTO.
+
+#### Out of scope (deferred to Wave 2B / Frontend)
+- Frontend UI for regional premium CRUD + PDF download button on the billing page.
+- Historical rate-change tracking (the `is_active` flag is already in the schema; UI for switching the active row is post-Sprint 62).
+
 ---
 
 ## Sprint 58a — CoA 4 Levels + 2026 Scenario + Mephisto integration (2026-08-08) ✅ DONE (LOCAL-ONLY)
