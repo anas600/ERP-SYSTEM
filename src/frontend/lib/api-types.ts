@@ -493,7 +493,8 @@ export type {
   DashboardSummary,
 } from './api';
 
-// ============ Sprint 64 / DEC-225 — Sub-Statement types =====//
+// ============ Sprint 64 / DEC-225 — Sub-Statement types ============
+//
 // Wire-format for the Sub-Statement API. Returned by:
 //   - GET /api/sub-contracts/{subContractId}/statement                  → SubStatement
 //   - GET /api/subcontractors/{subId}/projects/{projectId}/summary     → SubStatementSummary
@@ -538,6 +539,8 @@ export interface SubStatementSummary {
   totalBilled: number;
   totalPaid: number;
   totalOutstanding: number;
+}
+
 // ============ Sprint 65 / Wave 2A: Dashboard Cross-Module (DEC-234 + DEC-236) ============
 //
 // Flat cross-module KPI payload served by GET /api/dashboard/cross-module. All values
