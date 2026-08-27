@@ -9,10 +9,7 @@
     "lint": "next lint",
     "type-check": "tsc --noEmit",
     "test": "jest",
-<<<<<<< HEAD
-=======
     "test:watch": "jest --watch",
->>>>>>> efda62d (feat(fe+be): Sprint 63 Wave 3A - module visibility API + SmartSidebar (DEC-217, DEC-218))
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:headed": "playwright test --headed",
