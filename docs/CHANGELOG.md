@@ -56,7 +56,7 @@
 - Pattern: pure unit tests (no DB) — reflection on the migration class + file-content checks for SQL structure / idempotency / column references. Same approach as `HoldingSmokeTest.cs`.
 
 #### Architectural compliance
-- ✅ Constitution Article 3 — `company_id` only, **ZERO `tenant_id`** in any new file
+- ✅ Constitution Article 3 — `company_id` only, ZERO forbidden identifiers in any new file
 - ✅ Idempotent Migrations — `IF NOT EXISTS` (schema) + `ON CONFLICT DO NOTHING` (data)
 - ✅ FluentMigrator pattern matches Sprint 24/25/27/28
 - ✅ Dapper only, no EF Core
