@@ -182,6 +182,11 @@ public sealed class ProjectPnLResponse
     public List<ProjectPnLLine> CostsByAccount { get; set; } = new();
     /// <summary>إجمالي التكاليف.</summary>
     public decimal TotalCosts { get; set; }
+    /// <summary>
+    /// Sprint 65 / DEC-233: تكاليف المقاولين الفرعيين (sub_payments) — مضافة إلى TotalCosts.
+    /// قبل Sprint 64 merge = 0 (لا توجد sub_payments على develop).
+    /// </summary>
+    public decimal SubcontractorCost { get; set; }
     /// <summary>إجمالي الربح = Revenue - Costs.</summary>
     public decimal GrossProfit { get; set; }
     /// <summary>هامش الربح % (0 إذا لا إيرادات).</summary>

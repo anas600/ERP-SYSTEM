@@ -288,6 +288,102 @@ Forward-only (لا يمكن الرجوع من Completed). Transition invalid →
 
 ---
 
+## Sprint 65 / Wave 2A — Project P&L + Dashboard Cross-Module (2026-08-27)
+
+**DECs:** DEC-233 (Project P&L includes Subcontractor costs), DEC-234 (Dashboard cross-module KPIs endpoint), DEC-236 (FE Dashboard widgets — Outstanding AR + AP)
+
+### Service / Controller
+
+```
+Modules/Projects/Application/
+└── Services/
+    ├── ProjectPnLService.cs            # MODIFIED — adds subcontractor cost to TotalCosts
+    └── ProjectCostService.cs           # NEW — aggregates subcontractor + per-category costs
+
+Host/Controllers/
+└── DashboardCrossModuleController.cs  # NEW — 2 endpoints (cross-module + project-profitability)
+```
+
+### ProjectCostService algorithm
+
+```csharp
+public interface IProjectCostService
+{
+    Task<ProjectCostResult<ProjectCostBreakdown>> GetBreakdownAsync(Guid projectId, CancellationToken ct);
+    Task<ProjectCostResult<decimal>> GetSubcontractorCostAsync(Guid projectId, CancellationToken ct);
+}
+
+public sealed class ProjectCostBreakdown
+{
+    public Guid ProjectId { get; set; }
+    public decimal DirectLaborCost      { get; set; }  // from journal_lines on labor accounts (51xx)
+    public decimal MaterialCost         { get; set; }  // from journal_lines on material accounts (52xx)
+    public decimal SubcontractorCost    { get; set; }  // from sub_payments (Sprint 64)
+    public decimal EquipmentCost        { get; set; }  // from journal_lines on equipment accounts (53xx)
+    public decimal OverheadAllocation   { get; set; }  // from journal_lines on overhead accounts (54xx)
+    public decimal TotalCost => DirectLaborCost + MaterialCost + SubcontractorCost + EquipmentCost + OverheadAllocation;
+}
+```
+
+```
+For each project:
+  subcontractorCost = SUM(sub_payments.amount) for this project
+                       WHERE status != 4 (cancelled)
+                         AND company_id = @companyId  (from ICompanyContext)
+  projectPnL.subcontractorCost = subcontractorCost
+  projectPnL.totalCosts = projectPnL.totalCosts + subcontractorCost
+  projectPnL.grossProfit = projectPnL.totalRevenue - projectPnL.totalCosts
+```
+
+### ISubPaymentRepository — Sprint 64 bridge
+
+The `sub_payments` table is on `feature/sprint-64-subcontractor` (unmerged). Wave 2A
+introduces `ISubPaymentRepository` as a port for the Sprint 64 work to plug into.
+The default implementation is `NoOpSubPaymentRepository` (returns 0) — replaced in
+DI by a Dapper-backed implementation when Sprint 64 merges. Tests can stub the
+repository via Moq.
+
+### DashboardCrossModuleController endpoints
+
+| Method | Path | Auth | Notes |
+|--------|------|------|-------|
+| GET | `/api/dashboard/cross-module` | `[Authorize(Policy = ReadAccess)]` | AR/AP/NetPosition/ProjectCount/TotalContractValue/TotalRevenue/TotalSubcontractorCost/UnprofitableProjects |
+| GET | `/api/dashboard/project-profitability` | `[Authorize(Policy = ReadAccess)]` | Per-project revenue/cost/profit/margin/health status (OK / AT_RISK / OVER_BUDGET) |
+
+Health status logic (per hand-off contract):
+- `OVER_BUDGET` if `totalCosts > totalContractValue`
+- `AT_RISK` if `totalCosts > totalContractValue * 0.8` (80% threshold)
+- `OK` otherwise
+- If no contract exists (`contractValue = 0`) → `OVER_BUDGET` (defensive: any cost without a contract is suspicious)
+
+### Contracts (read before extending)
+
+1. **L19 / DEC-095:** `CompanyId` from `ICompanyContext.CompanyId` (NOT from request DTO).
+   `UserId` is NOT needed for these read-only endpoints.
+2. **Sprint 64 dependency:** The `sub_payments` queries use a defensive try/catch around
+   `Npgsql.PostgresException` so a missing table (Sprint 64 pre-merge) yields 0, not a 500.
+3. **No `tenant_id`:** Constitution Article 3 — all queries scope by `company_id`.
+4. **Empty-state contract:** When the company context is unresolved, the controller returns
+   a zero-filled DTO with 200 OK. The FE renders the empty state.
+
+### Tests (9 new — Wave 2A)
+
+- `Sprint65ProjectCostServiceTests` (5): subcontractor cost aggregation, full breakdown,
+  zero sub-cost when no payments, cancellation exclusion, company scoping
+- `Sprint65DashboardCrossModuleControllerTests` (4): 200 with all fields, list return,
+  zero AR when fully paid, OVER_BUDGET when contract missing
+
+Total Sprint 65 tests on this branch: **17** (8 Wave 1A + 9 Wave 2A).
+
+### Out of Wave 2A scope
+
+- The actual `sub_payments` schema and the Dapper-backed `ISubPaymentRepository`
+  implementation — these land when Sprint 64 merges.
+- Wave 3A (bank reconciliation) — DEC-235 + DEC-237.
+- Multi-currency for cross-module KPIs (Sprint 66+ backlog).
+
+---
+
 ## Sprint 65 / Wave 1A — Finance ↔ Projects Integration (2026-08-27)
 
 **DECs:** DEC-231 (ProgressBilling → AR Invoice), DEC-232 (SubPayment → AP Vendor Bill)

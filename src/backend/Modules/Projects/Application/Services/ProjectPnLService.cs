@@ -31,11 +31,16 @@ public sealed class ProjectPnLService : IProjectPnLService
 {
     private readonly IProjectRepository _projects;
     private readonly IDbConnectionFactory _db;
+    private readonly IProjectCostService _projectCosts; // Sprint 65 / DEC-233
 
-    public ProjectPnLService(IProjectRepository projects, IDbConnectionFactory db)
+    public ProjectPnLService(
+        IProjectRepository projects,
+        IDbConnectionFactory db,
+        IProjectCostService projectCosts)
     {
         _projects = projects;
         _db = db;
+        _projectCosts = projectCosts;
     }
 
     public async Task<ProjectResult<ProjectPnLResponse>> GetPnLAsync(
@@ -86,8 +91,16 @@ public sealed class ProjectPnLService : IProjectPnLService
                 new { ProjectId = projectId, From = from, To = to },
                 cancellationToken: ct))).ToList();
 
+        // 3) Sprint 65 / DEC-233: تكاليف المقاولين الفرعيين من sub_payments (Sprint 64 schema).
+        //    قبل Sprint 64 merge = 0 (NoOpSubPaymentRepository). يُضاف إلى TotalCosts.
+        decimal subcontractorCost = 0m;
+        var subResult = await _projectCosts.GetSubcontractorCostAsync(projectId, ct);
+        if (subResult.Succeeded)
+            subcontractorCost = subResult.Value;
+
         var totalRevenue = revRow.TotalRevenue;
-        var totalCosts = costRows.Sum(r => r.Amount);
+        var journalCosts = costRows.Sum(r => r.Amount);
+        var totalCosts = journalCosts + subcontractorCost;
         var grossProfit = totalRevenue - totalCosts;
         var margin = totalRevenue > 0
             ? Math.Round(grossProfit / totalRevenue * 100, 2)
@@ -110,6 +123,7 @@ public sealed class ProjectPnLService : IProjectPnLService
                 Amount = r.Amount
             }).ToList(),
             TotalCosts = totalCosts,
+            SubcontractorCost = subcontractorCost,
             GrossProfit = grossProfit,
             ProfitMarginPercent = margin,
             CostEntryCount = entryCount,

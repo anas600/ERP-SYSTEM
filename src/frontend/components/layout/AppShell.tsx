@@ -85,6 +85,8 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'لوحة التحكم', href: '/dashboard', icon: LayoutDashboard },
       // Sprint 57 (DEC-152): Executive Dashboard — Holding overview with charts
       { label: 'اللوحة التنفيذية', href: '/dashboard/executive', icon: TrendingUp },
+      // Sprint 65 / Wave 2A (DEC-234 + DEC-236): Cross-Module KPIs (AR / AP / project profitability)
+      { label: 'مؤشرات الموديولات المشتركة', href: '/dashboard/cross-module', icon: ArrowRightLeft },
     ],
   },
   {
